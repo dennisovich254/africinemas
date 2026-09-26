@@ -82,6 +82,14 @@ else fail ".env exists but is NOT git-ignored" "add .env to .gitignore"; fi
 if command -v pre-commit >/dev/null 2>&1; then pass "pre-commit $(pre-commit --version | awk '{print $2}')"
 else fail "pre-commit not installed" "uv tool install pre-commit   (uv: github.com/astral-sh/uv/releases)"; fi
 
+# 6b. gitleaks (secret scanning; the pre-commit hook uses the installed binary)
+if command -v gitleaks >/dev/null 2>&1; then pass "gitleaks $(gitleaks version 2>/dev/null)"
+else fail "gitleaks not installed" "download gitleaks_<ver>_linux_x64.tar.gz from github.com/gitleaks/gitleaks/releases, verify its checksum, copy gitleaks to ~/.local/bin"; fi
+
+# 6c. Git hooks installed in this clone
+if [[ -f .git/hooks/pre-commit && -f .git/hooks/commit-msg && -f .git/hooks/pre-push ]]; then pass "git hooks installed (pre-commit, commit-msg, pre-push)"
+else fail "git hooks not installed" "pre-commit install"; fi
+
 # 7. GitHub CLI, authenticated (needed for PRs and pushing)
 if ! command -v gh >/dev/null 2>&1; then
     fail "gh (GitHub CLI) not installed" "download gh_<ver>_linux_amd64.tar.gz from github.com/cli/cli/releases, verify its checksum, copy bin/gh to ~/.local/bin"

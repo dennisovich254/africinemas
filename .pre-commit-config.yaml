@@ -1,0 +1,68 @@
+# Local quality gates (plan P0.4). Install once with:  pre-commit install
+# Self-test the gates with:                          scripts/hooks_selftest.sh
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+default_stages: [pre-commit]
+# Vendored upstream skill (pinned, see its SOURCE.md) and build caches are not ours to reformat.
+exclude: ^(\.claude/skills/|\.jac/)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: detect-private-key
+      - id: no-commit-to-branch
+        args: [--branch, main]
+
+  # gitleaks-system uses the installed gitleaks binary (checked by scripts/doctor.sh)
+  # instead of compiling it from Go source inside pre-commit.
+  # pass_filenames: false is REQUIRED: upstream's gitleaks-system hook omits it (the golang and
+  # docker variants set it), so pre-commit appends filenames and gitleaks treats the first one as
+  # the repo path, scanning 0 bytes and passing. Caught by scripts/hooks_selftest.sh.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks-system
+        pass_filenames: false
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+
+  - repo: local
+    hooks:
+      - id: jac-fmt
+        name: jac fmt --check
+        entry: jac fmt --check
+        language: system
+        files: \.jac$
+        exclude: ^components/ui/   # shadcn primitives, managed by `jac install --shadcn`
+      - id: jac-lint
+        name: jac check --lint (fails on any finding)
+        entry: scripts/jac_lint.sh
+        language: system
+        files: \.jac$
+        exclude: ^components/ui/
+      - id: jac-check-ratchet
+        name: jac check (0 errors, warnings <= baseline)
+        entry: scripts/check_warnings.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: jac-test
+        name: jac test (strict)
+        entry: scripts/test.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
