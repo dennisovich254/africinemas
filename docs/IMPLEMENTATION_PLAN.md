@@ -127,10 +127,10 @@ Legend: **T** = tests written first (RED), **I** = implementation, **✓** = exi
   - **T:** `scripts/doctor.sh` asserts: `jac --version` == pinned version, `jac mcp` reachable, git configured, `pre-commit`/`gh` present. It exits non-zero on any miss.
   - **I:** Install `uv` and `gh` into `~/.local/bin` from checksum-verified GitHub release tarballs (no sudo), then `uv tool install pre-commit`. Pin the Jac version in **`.jac-version`**, the single source of truth read by the doctor and (later) CI. `jac.toml` doesn't exist until 0.2, which adds `[project] jac-version` from this file.
   - **✓** `scripts/doctor.sh` exits 0.
-- [ ] **0.2 Scaffold with Jac's recommended commands**
+- [x] **0.2 Scaffold with Jac's recommended commands**
   - **I:** `jac create --use jac-shadcn` in the repo root (web-app + shadcn primitives). Then `jac create --app desktop --kind desktop` and `jac create --app mobile --kind mobile`, which turns the project into a workspace. `jac setup mobile` (Expo scaffold). Add `[client.pwa]` if useful.
   - **T:** a smoke test (`core/health.jac` + test) asserts the server exposes `/health`. Also `jac run --faux` lists the smoke endpoint.
-  - **✓** `jac check` passes for all three apps, `jac test` is green, and `jac run --dev web` serves the page. **Spike:** confirm the `desktop` app can import the web app's client root (ADR-0001).
+  - **✓** `jac check` passes for all three apps (0 errors; warnings in generated template code are ratcheted from P0.4), `jac test` is green (`[test] directory = "tests"`), and `jac run --dev web` serves the page. **Spike:** confirm the `desktop` app can import the web app's client root (ADR-0001: shared `web/AppRoot.jac`, `[desktop] backend` = the shared server URL).
 - [ ] **0.3 Test harness & fixtures**
   - **T:** tests for the fixtures themselves: `two_tenant_world()` builds tenants A and B with owner/staff/customer users. Each test gets an isolated `base_path`. `JacTestClient` login helpers work.
   - **I:** `core/testing/fixtures.jac`, `[test]` config, `[environments.test]` profile, a clock-control helper for expiry tests.
@@ -153,7 +153,7 @@ Legend: **T** = tests written first (RED), **I** = implementation, **✓** = exi
   - **✓** The protection rules are active. A direct push to `main` is rejected.
 - [ ] **0.7 Config, profiles & secrets**
   - `jac.toml` profiles: `development` / `test` / `production`. `[byllm.model] default_model = "gemini/gemini-2.0-flash"` (model confirmed at P8), key read from `${GOOGLE_API_KEY}`. Daraja: `${DARAJA_CONSUMER_KEY}`, `${DARAJA_CONSUMER_SECRET}`, `${DARAJA_SHORTCODE}`, `${DARAJA_PASSKEY}`, `${DARAJA_CALLBACK_BASE}`. `JAC_SERVE_AUTH_SECRET`.
-  - **T:** a config test asserts that the production profile has `docs_enabled=false`, `graph_enabled=false`, an auth secret required, and `max_body_bytes` ≤ 5 MB (§138 baseline).
+  - **T:** a config test asserts that the production profile has `docs_enabled=false`, `graph_enabled=false`, an auth secret required, and `max_body_bytes` ≤ 5 MB (§138 baseline). Also that the built-in platform `admin` account can't boot with its **default password** in production (found in P0.2, ADR-0001).
   - **✓** The config tests are green.
 
 - [ ] **0.8 Design system (UI/UX foundation)** — uses the project skill `.claude/skills/ui-ux-pro-max`
