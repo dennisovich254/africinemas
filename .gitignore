@@ -1,0 +1,8 @@
+.mcp.json
+resources/
+.env
+
+# build / tool caches
+.jac/
+__pycache__/
+node_modules/
