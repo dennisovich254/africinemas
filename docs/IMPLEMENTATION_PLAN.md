@@ -131,14 +131,14 @@ Legend: **T** = tests written first (RED), **I** = implementation, **✓** = exi
   - **I:** `jac create --use jac-shadcn` in the repo root (web-app + shadcn primitives). Then `jac create --app desktop --kind desktop` and `jac create --app mobile --kind mobile`, which turns the project into a workspace. `jac setup mobile` (Expo scaffold). Add `[client.pwa]` if useful.
   - **T:** a smoke test (`core/health.jac` + test) asserts the server exposes `/health`. Also `jac run --faux` lists the smoke endpoint.
   - **✓** `jac check` passes for all three apps (0 errors; warnings in generated template code are ratcheted from P0.4), `jac test` is green (`[test] directory = "tests"`), and `jac run --dev web` serves the page. **Spike:** confirm the `desktop` app can import the web app's client root (ADR-0001: shared `web/AppRoot.jac`, `[desktop] backend` = the shared server URL).
-- [ ] **0.3 Test harness & fixtures**
-  - **T:** tests for the fixtures themselves: `two_tenant_world()` builds tenants A and B with owner/staff/customer users. Each test gets an isolated `base_path`. `JacTestClient` login helpers work.
-  - **I:** `core/testing/fixtures.jac`, `[test]` config, `[environments.test]` profile, a clock-control helper for expiry tests.
-  - **✓** Harness tests are green and re-runs are stable (run the suite twice in a row).
+- [x] **0.3 Test harness & fixtures**
+  - **T:** tests for the harness itself (`tests/support/harness_tests.jac`): `two_tenant_world()` registers six distinct actors (`owner_a`, `staff_a`, `customer_a`, `owner_b`, `staff_b`, `customer_b`), `as_actor()` switches identity, `anonymous()` gets 401, and each world has an isolated store. Clock tests (`tests/unit/clock_tests.jac`): freeze, advance and reset, and control is refused unless `AFRICINEMAS_CLOCK_CONTROL=1`.
+  - **I:** `tests/support/harness.jac` (test code stays out of the shipped app, so not `core/testing/`), `core/clock.jac` (domain code must use `clock.now()`, never `datetime.now()`), and **`scripts/test.sh`**, the one way to run tests locally, in pre-push and in CI. It sets `JAC_TEST_STRICT=1` (otherwise `jac test` silently *skips* a file whose local import is missing) and uses 1 worker locally and `auto` on CI. The `[environments.*]` profiles moved to 0.7. Tenants are attached to the actors in 2.2.
+  - **✓** 10/10 green on two consecutive runs, and no temp stores left behind.
 - [ ] **0.4 Pre-commit hooks** (`.pre-commit-config.yaml`)
   - pre-commit stage: `jac fmt --check`, `jac check --lint`, trailing-whitespace, end-of-file-fixer, check-yaml, check-toml, check-json, check-merge-conflict, check-added-large-files, detect-private-key, `gitleaks`, `no-commit-to-branch` (main)
   - commit-msg stage: `conventional-pre-commit`
-  - pre-push stage: `jac check` (full type check) + `jac test` (unit + api)
+  - pre-push stage: `jac check` (full type check) + `scripts/test.sh` (strict mode)
   - **T:** a scripted self-test that feeds a mis-formatted `.jac`, a fake secret and a bad commit message, and asserts each is rejected.
   - **✓** `pre-commit run --all-files` passes on a clean tree.
 - [ ] **0.5 GitHub Actions CI** (`.github/workflows/ci.yml`, on PR + push to main, `concurrency` cancel-in-progress)
