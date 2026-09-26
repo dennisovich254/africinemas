@@ -37,6 +37,28 @@ if command -v jac >/dev/null 2>&1; then
     fi
 fi
 
+# 1b. jac.toml pins the same Jac version as .jac-version
+if [[ -f jac.toml && -n "$pinned" ]]; then
+    toml_pin="$(sed -n 's/^jac-version *= *"==\{0,1\}\([^"]*\)".*/\1/p' jac.toml | head -1)"
+    if [[ "$toml_pin" == "$pinned" ]]; then pass "jac.toml jac-version matches ($toml_pin)"
+    else fail "jac.toml jac-version '$toml_pin' != .jac-version '$pinned'" "set jac-version = \"==$pinned\" under [project] in jac.toml"; fi
+fi
+
+# 2b. The bun that Jac uses for client builds runs on this CPU.
+#     Jac's bundled bun needs AVX2; older CPUs (e.g. Celeron N4020) need bun's "baseline" build via JAC_BUN.
+if [[ -n "${JAC_BUN:-}" ]]; then
+    bun_bin="$JAC_BUN"; bun_src="JAC_BUN"
+else
+    bun_bin="$(ls -t "$HOME"/.cache/jac/rt/*/site/jaclang/client/_bun/bun 2>/dev/null | head -1)"; bun_src="bundled"
+fi
+if [[ -z "$bun_bin" ]]; then
+    fail "no bun found for Jac client builds" "run 'jac install' once so Jac unpacks its bundled bun"
+elif bun_ver="$("$bun_bin" --version 2>/dev/null)"; then
+    pass "bun $bun_ver runs ($bun_src)"
+else
+    fail "bun ($bun_src: $bun_bin) does not run on this CPU" "install bun's baseline build (github.com/oven-sh/bun/releases: bun-linux-x64-baseline.zip) and export JAC_BUN=/path/to/bun"
+fi
+
 # 3. Python 3.10+ (pre-commit hooks and the ui-ux-pro-max skill scripts)
 if python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
     pass "python3 $(python3 -c 'import platform; print(platform.python_version())')"
