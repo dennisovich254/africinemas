@@ -123,7 +123,7 @@ Legend: **T** = tests written first (RED), **I** = implementation, **✓** = exi
 
 ### Phase 0 — Environment, scaffold, quality gates (Week 1, days 1–2)
 
-- [ ] **0.1 Toolchain doctor**
+- [x] **0.1 Toolchain doctor**
   - **T:** `scripts/doctor.sh` asserts: `jac --version` == pinned version, `jac mcp` reachable, git configured, `pre-commit`/`gh` present. It exits non-zero on any miss.
   - **I:** Install `uv` and `gh` into `~/.local/bin` from checksum-verified GitHub release tarballs (no sudo), then `uv tool install pre-commit`. Pin the Jac version in **`.jac-version`**, the single source of truth read by the doctor and (later) CI. `jac.toml` doesn't exist until 0.2, which adds `[project] jac-version` from this file.
   - **✓** `scripts/doctor.sh` exits 0.
