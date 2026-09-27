@@ -109,6 +109,62 @@ test "navigating from the drawer changes page without a reload and closes it" {
     }
 }
 
+test "browser Back undoes a navigation made from the drawer" {
+    with sync_playwright() as pw {
+        browser = pw.chromium.launch();
+        try {
+            page = _open(browser, pw, "mobile");
+            page.click(MENU);
+            page.wait_for_selector(DRAWER, state="visible");
+            page.click(f'{DRAWER} a:has-text("Staff")');
+            page.wait_for_url("**/design-system/staff");
+            page.go_back();
+            page.wait_for_url("**/design-system");
+            assert page.locator(TITLE).inner_text().strip() == "Overview";
+        } finally {
+            browser.close();
+        }
+    }
+}
+
+test "the page declares a mobile viewport, so phones get the phone layout" {
+    with sync_playwright() as pw {
+        browser = pw.chromium.launch();
+        try {
+            page = _open(browser, pw, "mobile");
+            content = page.locator('meta[name="viewport"]').get_attribute("content")
+                or "";
+            assert "width=device-width" in content , f"viewport meta: {content!r}";
+            # With is_mobile emulation a missing tag would lay the page out at 980px.
+            assert page.evaluate("window.innerWidth")
+                == pw.devices["Pixel 7"]["viewport"]["width"];
+        } finally {
+            browser.close();
+        }
+    }
+}
+
+test "reduced motion switches off the drawer animation" {
+    with sync_playwright() as pw {
+        browser = pw.chromium.launch();
+        try {
+            page = browser.new_context(
+                **context_options(pw, "mobile", "light"), reduced_motion="reduce"
+            ).new_page();
+            page.goto(GUIDE);
+            page.wait_for_selector(TITLE);
+            page.click(MENU);
+            page.wait_for_selector(DRAWER, state="visible");
+            seconds = page.locator(DRAWER).evaluate(
+                "e => parseFloat(getComputedStyle(e).animationDuration)"
+            );
+            assert seconds <= 0.001 , f"drawer still animates for {seconds}s";
+        } finally {
+            browser.close();
+        }
+    }
+}
+
 test "the sidebar marks the current page" {
     with sync_playwright() as pw {
         browser = pw.chromium.launch();

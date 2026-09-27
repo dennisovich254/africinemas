@@ -96,3 +96,13 @@ test "keyboard focus is always drawn with the theme's focus-ring colour" {
     assert "outline-offset:" in rule , rule;
     assert SHADCN_MAP["--ring"] == "focus_ring";
 }
+
+test "animations and transitions are switched off when the device asks for reduced motion" {
+    # P0.8c (ui-ux-pro-max: "Reduced Motion", severity High).
+    css = platform_stylesheet();
+    start = css.find("@media (prefers-reduced-motion: reduce)");
+    assert start >= 0 , "no reduced-motion rule";
+    block = css[start:css.find("\n}\n", start)];
+    assert "animation-duration: 0.01ms !important" in block , block;
+    assert "transition-duration: 0.01ms !important" in block , block;
+}
