@@ -2,8 +2,8 @@
 # Self-test the gates with:                          scripts/hooks_selftest.sh
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
 default_stages: [pre-commit]
-# Vendored upstream skill (pinned, see its SOURCE.md) and build caches are not ours to reformat.
-exclude: ^(\.claude/skills/|\.jac/)
+# Build caches are not ours to reformat. (.claude/ is git-ignored, so hooks never see it.)
+exclude: ^\.jac/
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

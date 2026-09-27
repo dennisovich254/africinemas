@@ -6,3 +6,6 @@ resources/
 .jac/
 __pycache__/
 node_modules/
+
+# Claude Code local config and skills: never pushed
+.claude/
