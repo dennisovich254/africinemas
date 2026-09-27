@@ -1,8 +1,9 @@
-"""P0.7: configuration profiles, tested through the server's own settings loader.
+"""P0.7: configuration profiles, checked through the server's own settings loader.
 
-Production hardening lives in two places, because of two Jac-stack issues:
-  - jac.toml [environments.production]: only top-level keys (nested tables crash ServeSettings.load, JI-014)
-  - deploy/production.env: nested settings via JAC_SERVE_* env mirrors
+These are fast unit checks. The authoritative check is
+tests/integration/production_server_tests.jac, which probes a REAL server over HTTP,
+because the running server ignores profile overrides for [serve] (JI-014).
+Production [serve] hardening therefore lives in deploy/production.env (JAC_SERVE_* env vars).
 Secrets come only from the environment, never `${VAR}` placeholders in jac.toml (JI-015).
 """
 
@@ -66,7 +67,7 @@ test "production server settings are hardened" {
 }
 
 test "every profile loads through the server's settings loader" {
-    # JI-014: a profile overriding a nested [serve.*] table crashes ServeSettings.load.
+    # JI-014: a profile overriding a nested [serve.*] table also crashes ServeSettings.load.
     for profile in PROFILES {
         ServeSettings.load(config=_resolve(profile));
     }
@@ -104,4 +105,11 @@ test "development runs without any production secrets" {
     } finally {
         _swap_env(previous);
     }
+}
+
+test "jac.toml has no production [serve] overrides" {
+    # JI-014: the running server ignores them, so they would give false confidence.
+    text = (REPO_ROOT / "jac.toml").read_text();
+    assert re.search(r"^\[environments\.[A-Za-z0-9_-]+\.serve[\].]", text, re.M)
+        is None , "put [serve] settings in deploy/production.env as JAC_SERVE_* env vars";
 }
