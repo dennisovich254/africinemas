@@ -9,3 +9,6 @@ node_modules/
 
 # Claude Code local config and skills: never pushed
 .claude/
+
+# E2E screenshots and server logs
+e2e/artifacts/
