@@ -68,6 +68,8 @@ jobs:
         run: pre-commit run --all-files --show-diff-on-failure
       - name: Type check (0 errors, warnings <= baseline)
         run: scripts/check_warnings.sh
+      - name: Governance files (CONTRIBUTING, SECURITY, templates, .env.example)
+        run: scripts/check_governance.sh
 
   test:
     name: test

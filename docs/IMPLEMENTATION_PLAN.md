@@ -2,7 +2,7 @@
 
 > **Status:** Draft v1 (2026-09-26), awaiting approval
 > **Timebox:** 4-week Jac hackathon
-> **Architecture reference:** `resources/cinema-saas-architecture.md` ("§n" below means a section of that document)
+> **Architecture reference:** `docs/architecture.md` ("§n" below means a section of that document)
 > **Stack:** Jac 0.37.x (pinned), one shared deployment, Postgres (Jac graph store), Gemini via `by llm`, M-Pesa Daraja (sandbox)
 
 ---
@@ -146,11 +146,10 @@ Legend: **T** = tests written first (RED), **I** = implementation, **✓** = exi
   - Jobs added with their first tests: `e2e` (Playwright) in **0.8**, `concurrency` in **4.3**. `nightly.yml` (Daraja sandbox, Android APK) arrives in **5.7/10.6**, and `release.yml` in **11.2**. A Trivy scan was dropped for now, since dependency review + gitleaks + GitHub secret scanning (already on) cover the MVP.
   - Jac is installed by **`scripts/install_jac.sh`**, which downloads `jac-<.jac-version>-linux-x86_64` from the official `jaseci-labs/jaseci` release and **requires** its `.sha256` (the upstream `install.sh` only warns if it's missing). The CI binary is byte-identical to the dev box's (`ead9f12e…`). The shared composite action `.github/actions/setup-jac` caches the binary/runtime and `.jac/venv` + node deps. `scripts/install_gitleaks.sh` and `scripts/install_actionlint.sh` do the same for those tools, and **actionlint** was added as a pre-commit hook.
   - **✓** All 7 checks green on PR #6 (second run). The first run failed 4 checks, which led to JI-012 (the mobile template doesn't build for web), JI-013 (workspace build output path), the missing Dependency graph setting, and a warning count that depends on the environment (CI 74 vs local 76; the baseline stays 76, the local ceiling).
-- [ ] **0.6 Repo governance files**
-  - `CODEOWNERS`, `PULL_REQUEST_TEMPLATE.md` (DoD checklist), issue templates, `CONTRIBUTING.md` (the TDD loop), `SECURITY.md`, `.editorconfig`, `dependabot.yml` (github-actions, npm, pip), `.gitignore` (+ `.jac/`, `.env`, `node_modules/`), `.env.example`.
-  - Copy the architecture doc to tracked `docs/architecture.md` (`resources/` is gitignored today).
-  - **Branch protection for `main` (you apply it in GitHub → Settings → Rules):** require a PR before merging; require the status checks listed in 0.5; require branches to be up to date; require conversation resolution; require linear history (squash merges only); block force pushes and deletions; apply to administrators. Required approvals: **1 if you have teammates, 0 if solo** (GitHub doesn't let you approve your own PR). Optional: require signed commits.
-  - **✓** The protection rules are active. A direct push to `main` is rejected.
+- [x] **0.6 Repo governance files**
+  - `.github/CODEOWNERS`, `.github/PULL_REQUEST_TEMPLATE.md` (the Definition of Done as a checklist), issue forms (bug report, feature request; blank issues off; security reports routed to private advisories), `CONTRIBUTING.md` (setup, the RED→GREEN loop, gates), `SECURITY.md`, `.editorconfig`, `.github/dependabot.yml` (GitHub Actions only; Dependabot can't read `jac.toml`, so Jac/Python/npm deps are bumped by hand), `.env.example` (names only, no values), and **`docs/architecture.md`**, the tracked, canonical copy of the architecture doc. `resources/` stays local and git-ignored.
+  - **T:** `scripts/check_governance.sh` (RED: 28 failures → GREEN) asserts that the files exist, the PR template carries the DoD, CONTRIBUTING covers the workflow, `.env.example` documents every variable *name* used in `.env` and `jac.toml` without values, and `.env`/`.mcp.json`/`.claude/`/`resources/` are ignored. It runs in CI's `quality` job.
+  - **Branch protection (applied by the owner as a ruleset on `main`):** PR required (0 approvals, solo), conversation resolution, linear history, no force-push or deletion, no bypass, and the 7 required checks from 0.5. The repo allows squash merges only. **To do (owner):** enable "Require branches to be up to date" (`strict`), "Automatically delete head branches", and private vulnerability reporting.
 - [ ] **0.7 Config, profiles & secrets**
   - `jac.toml` profiles: `development` / `test` / `production`. `[byllm.model] default_model = "gemini/gemini-2.0-flash"` (model confirmed at P8), key read from `${GOOGLE_API_KEY}`. Daraja: `${DARAJA_CONSUMER_KEY}`, `${DARAJA_CONSUMER_SECRET}`, `${DARAJA_SHORTCODE}`, `${DARAJA_PASSKEY}`, `${DARAJA_CALLBACK_BASE}`. `JAC_SERVE_AUTH_SECRET`.
   - **T:** a config test asserts that the production profile has `docs_enabled=false`, `graph_enabled=false`, an auth secret required, and `max_body_bytes` ≤ 5 MB (§138 baseline). Also that the built-in platform `admin` account can't boot with its **default password** in production (found in P0.2, ADR-0001).
