@@ -24,7 +24,11 @@ fi
 baseline="${WARNING_BASELINE:-$(tr -d '[:space:]' < "$BASELINE_FILE" 2>/dev/null)}"
 baseline="${baseline:-0}"
 if (( count > baseline )); then
-    echo "jac check: $count warnings, baseline is $baseline. New warnings were introduced; run 'jac check' to see them." >&2
+    echo "jac check: $count warnings, baseline is $baseline. New warnings were introduced." >&2
+    echo "Warnings by file and code:" >&2
+    awk '/^⚠/ { match($0, /\[[A-Z][0-9]+\]/); code = substr($0, RSTART + 1, RLENGTH - 2) }
+         /^ *-->/ { sub(/^ *--> */, ""); sub(/:[0-9]+:[0-9]+$/, ""); if (code != "") print code "  " $0; code = "" }' \
+        <<<"$out" | sort | uniq -c | sort -rn >&2
     exit 1
 elif (( count < baseline )); then
     echo "jac check: $count warnings (baseline $baseline). Nice! Lock it in: scripts/check_warnings.sh --update"
