@@ -178,7 +178,7 @@ Legend: **T** = tests written first (RED), **I** = implementation, **✓** = exi
 Each spike is a test file whose assertions are the pass criteria from §138. The result is recorded in an ADR, and a fallback is adopted if a spike fails.
 
 - [x] **1.1 S1** A server flow creates a per-tenant service principal and nodes owned by it. **ADR-0003 (tenant ownership model).**
-- [ ] **1.2 S2** Staff reach tenant nodes via `MemberOf` → `StaffGroup` + `allow_group`. Removing the membership revokes access immediately. Tenant B's staff see nothing.
+- [x] **1.2 S2** Staff reach tenant nodes via `MemberOf` → `StaffGroup` + `allow_group`. Removing the membership revokes access immediately. Tenant B's staff see nothing. **ADR-0004.**
 - [ ] **1.3 S4** An anonymous `def:pub` records a receipt, and a system-identity scheduled job processes it into tenant-owned nodes.
 - [ ] **1.4 S3/S6** `_before_request` can read the host header / reject a request. Staff token TTL can be set below 1 day.
 - **✓** All spike ADRs are merged. Phases 2+ follow the chosen model.
