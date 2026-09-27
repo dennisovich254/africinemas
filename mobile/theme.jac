@@ -10,13 +10,13 @@ StyleSheet: the same objects work on the web (react-native-web) and on native.
 import from "@jac/mobui" { StyleSheet }
 
 obj Palette {
-    has bg: str = "#0E0B24",
-        surface: str = "#1A1640",
-        border: str = "#2E2866",
-        field: str = "#241E55",
-        text: str = "#F5F3FF",
-        muted: str = "#A9A4D0",
-        accent: str = "#E0A526",
+    has bg: str = "#0F0C09",
+        surface: str = "#1C1712",
+        border: str = "#3F342A",
+        field: str = "#27201A",
+        text: str = "#F7F1E8",
+        muted: str = "#BDAE9A",
+        accent: str = "#E7B03A",
         onAccent: str = "#1A1203",
         danger: str = "#F87171";
 }
