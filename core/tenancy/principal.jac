@@ -47,6 +47,13 @@ def new_principal(label: str) -> str {
     return str(root_id);
 }
 
+def system_root_id -> str {
+    # Jac's system root: what static @schedule tasks run as, with WRITE on everything.
+    # Act as it only to append to system-owned inboxes (ADR-0005), never to read on
+    # a caller's behalf.
+    return str(Jac.get_context().system_root.id);
+}
+
 def act_as(root_id: str) -> str {
     # Switch the request's root; nodes created until `restore` are owned by `root_id`.
     # Returns the previous root id for `restore`.
