@@ -20,3 +20,5 @@ workaround, and status. Status values: `open` · `reported` (link) · `answered`
 | [JI-009](JI-009-scaffold-templates-not-lint-clean.md) | Freshly scaffolded templates produce ~130 `jac check` warnings | scaffold | Low (noise; ratcheted) | open |
 | [JI-010](JI-010-lint-findings-exit-zero.md) | `jac check --lint` exits 0 when it reports lint violations | lint/CI | Medium (hooks wouldn't block) | open |
 | [JI-011](JI-011-first-run-prints-extraction-to-stdout.md) | A fresh binary's first `jac --version` prints runtime-extraction lines to stdout | CLI | Low (breaks version parsing) | open |
+| [JI-012](JI-012-mobile-template-list-key-breaks-web-build.md) | The `jac create --kind mobile` template fails `jac build mobile --platform web` (`list:` key → `_jac.types.list`) | mobile/codegen | High (fresh scaffold doesn't build) | open |
+| [JI-013](JI-013-workspace-build-output-path.md) | In a workspace, `jac build web` outputs to `.jac/client/web/dist`, not `.jac/client/dist` | docs/build | Low | open |
