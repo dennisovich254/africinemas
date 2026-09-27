@@ -77,10 +77,10 @@ resizable = true
 
 # ---------------------------------------------------------------------------
 # Profiles (plan P0.7). Selected by --profile, then JAC_PROFILE, then default_profile.
-# Two Jac 0.37.18 caveats shape this section (tests/unit/config_tests.jac guards both):
-#   - JI-014: overriding a *nested* table (e.g. [environments.production.serve.limits])
-#     crashes the server's settings loader. Profiles override top-level keys only;
-#     nested production settings come from JAC_SERVE_* env vars in deploy/production.env.
+# Two Jac 0.37.18 caveats shape this section (tests guard both):
+#   - JI-014: the running server IGNORES profile overrides for [serve] settings (top-level
+#     and nested), so all [serve] hardening lives in deploy/production.env as JAC_SERVE_*
+#     env vars. Profiles do apply to [scale.*] settings (verified over HTTP).
 #   - JI-015: required-variable placeholders keep their literal text when the variable is
 #     unset, so secrets are never referenced here. They come only from the environment
 #     (JAC_SERVE_AUTH_SECRET); if it's unset, Jac mints a random per-project secret.
@@ -94,9 +94,8 @@ default_profile = "development"
 [environments.test]
 inherits = "development"
 
-[environments.production.serve]
-docs_enabled = false    # no /docs or /openapi.json
-graph_enabled = false   # no /graph graph browser
+# No [environments.production.serve] table: it would be silently ignored (JI-014).
+# /docs, /graph, token lifetime and body limits are set in deploy/production.env.
 
 [environments.production.scale.admin]
 # Jac's built-in platform admin would otherwise be created as admin / "changeme" on first
