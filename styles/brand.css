@@ -12,6 +12,11 @@
   letter-spacing: 0.02em;
 }
 
+[data-surface] :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 [data-surface="storefront"] {
   color-scheme: light;
   --font-display: 'Bebas Neue', 'Outfit Variable', sans-serif;

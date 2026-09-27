@@ -44,5 +44,14 @@ def:pub ThemeProvider(surface: str, children: any = None) -> JsxElement {  # jac
         },
         []
     );
+    # Mirror the surface onto <body> so UI that Radix portals outside this div (drawers,
+    # dialogs, menus) still gets the theme variables and the focus-ring rule.
+    useLayoutEffect(
+        lambda {
+            body: any = document.body;  # jac:ignore[W2001,W1037]
+            body.setAttribute("data-surface", surface);
+        },
+        [surface]
+    );
     return <div data-surface={surface} className="min-h-svh">{children}</div>;
 }

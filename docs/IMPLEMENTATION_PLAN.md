@@ -169,7 +169,7 @@ Legend: **T** = tests written first (RED), **I** = implementation, **✓** = exi
   - **T (E2E, `e2e/theme_tests.jac`, Playwright driven from Jac, `scripts/e2e.sh`, CI job `e2e`):** light and dark tokens on a **Pixel 7 + 1440 px desktop** (computed colours from the tokens); the secondary button's *painted* colour stays on-theme and readable; **no flash of the light theme** (measured inside the page on the first painted frame); live switch to dark; fonts actually loaded; no sideways scroll at 375 px and ≥ 44 px tap targets; review screenshots at 375/768/1440 × light/dark (uploaded by CI).
   - Found by reviewing the screenshots: the outline button was captured mid-animation (pale). Root cause: dark mode was applied *after* first paint, which caused a light flash plus a 150 ms transition on every load for dark-device users. Fixed and covered by a deterministic test.
   - Jac issues: **JI-017** (closing JSX tags flagged W2001; the warning counter discounts only that false positive, baseline now 72) and **JI-018** (Python TypedDict keys rejected by `jac check`).
-- [ ] **0.8c Responsive shell components**
+- [x] **0.8c Responsive shell components**
   - **I:** `AppShell` (sidebar on desktop ↔ drawer on mobile), `BottomActionBar` (sticky, safe-area aware), `ResponsiveTable` (table ↔ cards), all using theme tokens only.
   - **T (E2E, mobile + desktop):** sidebar vs drawer, the bottom bar stays visible, the table becomes cards under `md`, tap targets are ≥ 44 px, keyboard focus is visible.
 
@@ -177,7 +177,7 @@ Legend: **T** = tests written first (RED), **I** = implementation, **✓** = exi
 
 Each spike is a test file whose assertions are the pass criteria from §138. The result is recorded in an ADR, and a fallback is adopted if a spike fails.
 
-- [ ] **1.1 S1** A server flow creates a per-tenant service principal and nodes owned by it. **ADR-0002 (tenant ownership model).**
+- [ ] **1.1 S1** A server flow creates a per-tenant service principal and nodes owned by it. **ADR-0003 (tenant ownership model).**
 - [ ] **1.2 S2** Staff reach tenant nodes via `MemberOf` → `StaffGroup` + `allow_group`. Removing the membership revokes access immediately. Tenant B's staff see nothing.
 - [ ] **1.3 S4** An anonymous `def:pub` records a receipt, and a system-identity scheduled job processes it into tenant-owned nodes.
 - [ ] **1.4 S3/S6** `_before_request` can read the host header / reject a request. Staff token TTL can be set below 1 day.
@@ -219,7 +219,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 - [ ] **4.4 Hold expiry sweeper** (`@schedule`) — **T:** idempotent when run twice (it runs on every replica); never releases `PAYMENT_PENDING` holds.
 - [ ] **4.5 Orders/bookings with price snapshot & idempotency** (§26, §27) — **T:** same idempotency key → same booking (including concurrently); the snapshot is unchanged after a price edit.
 - [ ] **4.6 Storefront UI: seat map & checkout shell (mobile-first)** — **T (E2E, mobile + desktop):** pick a screening → select 2 seats (tap on mobile, click/keyboard on desktop) → hold timer shows → proceed to pay. On mobile: the seat map fits the width and can be zoomed, and the sticky bottom bar shows the seats and total. Keyboard-only seat selection works on desktop. Decide on `[client.pwa]` here.
-- [ ] **4.7 Load test (spike S5)** — **T:** 200 concurrent hold attempts on one screening: zero double-holds, p95 latency and 409-rate within the targets recorded in ADR-0006.
+- [ ] **4.7 Load test (spike S5)** — **T:** 200 concurrent hold attempts on one screening: zero double-holds, p95 latency and 409-rate within the targets recorded in ADR-0007.
 
 ### Phase 5 — M-Pesa payments via Daraja (Week 3, days 1–3)
 

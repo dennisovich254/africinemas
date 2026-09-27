@@ -141,6 +141,11 @@ glob BACKOFFICE_THEME: Theme = Theme(
   font-family: var(--font-display);
   letter-spacing: 0.02em;
 }
+
+[data-surface] :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
 """;
 
 def platform_stylesheet -> str {
