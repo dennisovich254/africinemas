@@ -74,11 +74,12 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A healthy run takes a few minutes; fail fast if the embedded Postgres hangs.
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-jac
-      - name: Test suite (strict, one worker per core)
+      - name: Test suite (strict, one worker; see scripts/test.sh)
         run: scripts/test.sh -v
 
   build-web:
