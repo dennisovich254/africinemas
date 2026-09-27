@@ -10,23 +10,27 @@ def:pub Button(
     disabled: bool = False
 ) -> JsxElement {
     base_styles = {
-        paddingVertical: S.md,
-        paddingHorizontal: S.lg,
-        borderRadius: R.md,
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: 0.5 if disabled else 1.0
+        "paddingVertical": S.md,
+        "paddingHorizontal": S.lg,
+        "borderRadius": R.md,
+        "alignItems": "center",
+        "justifyContent": "center",
+        "opacity": 0.5 if disabled else 1.0
     };
 
     variant_styles = {
-        "primary": {backgroundColor: C.accent},
-        "secondary": {backgroundColor: C.surface, borderWidth: 1, borderColor: C.border}
+        "primary": {"backgroundColor": C.accent},
+        "secondary": {
+            "backgroundColor": C.surface,
+            "borderWidth": 1,
+            "borderColor": C.border
+        }
     };
 
     label_styles = {
-        color: C.onAccent if variant == "primary" else C.text,
-        fontSize: F.md,
-        fontWeight: "600"
+        "color": C.onAccent if variant == "primary" else C.text,
+        "fontSize": F.md,
+        "fontWeight": "600"
     };
 
     <Pressable
