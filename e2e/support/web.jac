@@ -6,6 +6,8 @@ The server is started by scripts/e2e.sh, which exports E2E_BASE_URL.
 """
 
 import os;
+import struct;
+import zlib;
 import from pathlib { Path }
 import from playwright.sync_api { sync_playwright }
 
@@ -38,4 +40,37 @@ def computed(page: any, selector: str, prop: str) -> str {  # jac:ignore[W1037]
 def artifact(name: str) -> str {
     ARTIFACTS.mkdir(parents=True, exist_ok=True);
     return str(ARTIFACTS / name);
+}
+
+
+def _png_pixel(png: bytes) -> str {
+    # Decode the first pixel of a small PNG (8-bit RGB/RGBA) with the standard library.
+    pos = 8;
+    idat = b"";
+    channels = 4;
+    while pos < len(png) {
+        length = struct.unpack(">I", png[pos:pos + 4])[0];
+        kind = png[pos + 4:pos + 8];
+        body = png[pos + 8:pos + 8 + length];
+        pos += 12 + length;
+        if kind == b"IHDR" {
+            channels = 4 if body[9] == 6 else 3;
+        } elif kind == b"IDAT" {
+            idat += body;
+        }
+    }
+    raw = zlib.decompress(idat);
+    # Row 0, filter byte then the first pixel; filters only reference earlier bytes,
+    # and the first pixel of the first row has none, so its bytes are literal.
+    return "#" + "".join(f"{b:02X}" for b in raw[1:4]);
+}
+
+def painted_color(page: any, selector: str) -> str {  # jac:ignore[W1037]
+    # The colour actually painted just inside the element's left edge (clear of the text),
+    # after compositing, read from a 1x1 screenshot.
+    point = page.locator(selector).evaluate(
+        "e => { const r = e.getBoundingClientRect(); return [Math.round(r.x + 6), Math.round(r.y + r.height / 2)]; }"
+    );
+    png = page.screenshot(clip={"x": point[0], "y": point[1], "width": 1, "height": 1});
+    return _png_pixel(png);
 }
