@@ -135,12 +135,12 @@ Legend: **T** = tests written first (RED), **I** = implementation, **✓** = exi
   - **T:** tests for the harness itself (`tests/support/harness_tests.jac`): `two_tenant_world()` registers six distinct actors (`owner_a`, `staff_a`, `customer_a`, `owner_b`, `staff_b`, `customer_b`), `as_actor()` switches identity, `anonymous()` gets 401, and each world has an isolated store. Clock tests (`tests/unit/clock_tests.jac`): freeze, advance and reset, and control is refused unless `AFRICINEMAS_CLOCK_CONTROL=1`.
   - **I:** `tests/support/harness.jac` (test code stays out of the shipped app, so not `core/testing/`), `core/clock.jac` (domain code must use `clock.now()`, never `datetime.now()`), and **`scripts/test.sh`**, the one way to run tests locally, in pre-push and in CI. It sets `JAC_TEST_STRICT=1` (otherwise `jac test` silently *skips* a file whose local import is missing) and uses 1 worker locally and `auto` on CI. The `[environments.*]` profiles moved to 0.7. Tenants are attached to the actors in 2.2.
   - **✓** 10/10 green on two consecutive runs, and no temp stores left behind.
-- [ ] **0.4 Pre-commit hooks** (`.pre-commit-config.yaml`)
-  - pre-commit stage: `jac fmt --check`, `jac check --lint`, trailing-whitespace, end-of-file-fixer, check-yaml, check-toml, check-json, check-merge-conflict, check-added-large-files, detect-private-key, `gitleaks`, `no-commit-to-branch` (main)
-  - commit-msg stage: `conventional-pre-commit`
-  - pre-push stage: `jac check` (full type check) + `scripts/test.sh` (strict mode)
-  - **T:** a scripted self-test that feeds a mis-formatted `.jac`, a fake secret and a bad commit message, and asserts each is rejected.
-  - **✓** `pre-commit run --all-files` passes on a clean tree.
+- [x] **0.4 Pre-commit hooks** (`.pre-commit-config.yaml`, installed with `pre-commit install`)
+  - pre-commit stage: trailing-whitespace, end-of-file-fixer, mixed-line-ending, check-yaml/toml/json, check-merge-conflict, check-added-large-files (500 KB), detect-private-key, no-commit-to-branch (`main`), **gitleaks** (`gitleaks-system` with `pass_filenames: false`, because upstream omits it, making gitleaks scan 0 bytes and pass), `jac fmt --check`, and `scripts/jac_lint.sh` (fails on any lint finding, since `jac check --lint` exits 0 on them: JI-010). Vendored `.claude/skills/` and `components/ui/` are excluded from the fixers and formatter.
+  - commit-msg stage: `conventional-pre-commit`.
+  - pre-push stage: `scripts/check_warnings.sh` (0 errors; warnings ≤ `.jac-warnings-baseline` = 76, and the count can only go down, with `--update` to lock in gains) and `scripts/test.sh` (strict).
+  - **T:** `scripts/hooks_selftest.sh` builds a throwaway repo and asserts that each gate rejects bad input and accepts clean input: bad formatting, a lint violation, a private key, a staged GitHub token, `update stuff` as a commit message, a commit on `main`, and warnings over the baseline. 13/13 pass. `scripts/doctor.sh` also checks gitleaks and the installed hooks.
+  - **✓** `pre-commit run --all-files` passes (it fixed a missing newline in `styles/global.css`), and the pre-push stage passes.
 - [ ] **0.5 GitHub Actions CI** (`.github/workflows/ci.yml`, on PR + push to main, `concurrency` cancel-in-progress)
   - Jobs (these become the **required status checks**): `quality` (fmt, lint, typecheck) · `test` (unit/api/isolation/ai) · `concurrency` · `build-web` · `build-desktop` (linux) · `build-mobile-web` · `e2e` (Playwright) · `security` (gitleaks, `actions/dependency-review-action`, Trivy fs scan) · `pr-title` (semantic PR title).
   - Install the pinned Jac binary in CI (method verified in this sub-phase), and cache `~/.cache/jac`, `.jac/venv` and node deps.
