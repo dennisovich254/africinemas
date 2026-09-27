@@ -1,23 +1,24 @@
 """Design tokens and the StyleSheet for mobile.
 
 Tokens are `obj` types instantiated once into typed globals, so `C.accent`,
-`S.lg`, `R.pill` and `F.md` are attribute reads the compiler checks. Re-skin
-the whole app by editing the defaults below. `styles` is a React Native
+`S.lg`, `R.pill` and `F.md` are attribute reads the compiler checks. The palette
+mirrors the storefront dark tokens (core/theming/tokens.jac DEFAULT_THEME.dark);
+tests/unit/mobile_theme_sync_tests.jac keeps them in sync. `styles` is a React Native
 StyleSheet: the same objects work on the web (react-native-web) and on native.
 """
 
 import from "@jac/mobui" { StyleSheet }
 
 obj Palette {
-    has bg: str = "#0b0d12",
-        surface: str = "#141826",
-        border: str = "#232a3d",
-        field: str = "#181d2e",
-        text: str = "#e6e9ef",
-        muted: str = "#8a93a6",
-        accent: str = "#7c5cff",
-        onAccent: str = "#ffffff",
-        danger: str = "#f4544e";
+    has bg: str = "#0F0C09",
+        surface: str = "#1C1712",
+        border: str = "#3F342A",
+        field: str = "#27201A",
+        text: str = "#F7F1E8",
+        muted: str = "#BDAE9A",
+        accent: str = "#E7B03A",
+        onAccent: str = "#1A1203",
+        danger: str = "#F87171";
 }
 
 obj Spacing {

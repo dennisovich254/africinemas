@@ -9,7 +9,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 BASELINE_FILE=.jac-warnings-baseline
 
 out="$(jac check 2>&1)"; rc=$?
-count="$(grep -c '^⚠' <<<"$out")"
+count="$(scripts/count_warnings.sh <<<"$out")"   # discounts the JSX closing-tag false positive (JI-017)
 
 if (( rc != 0 )); then
     grep -E '^✖|error\[' <<<"$out" | head -20

@@ -308,7 +308,8 @@ def repair_theme(theme: Theme) -> Theme {
     );
 }
 
-# The approved platform default (P0.8 preview): a cinematic indigo + spotlight-gold storefront.
+# The approved platform default: a cinematic storefront. Light: warm off-white + spotlight gold
+# (P0.8 preview). Dark: "Espresso Noir" (warm brown-black, sepia, brass gold), chosen 2026-09-27.
 glob DEFAULT_THEME: Theme = Theme(
          name="AfriCinemas",
          light=ThemeTokens(
@@ -334,26 +335,26 @@ glob DEFAULT_THEME: Theme = Theme(
              seat_sold="#D9D7E3"
          ),
          dark=ThemeTokens(
-             background="#0E0B24",
-             surface="#1A1640",
-             raised="#241E55",
-             border="#2E2866",
-             field="#8D86C9",
-             ink="#F5F3FF",
-             muted="#A9A4D0",
-             accent="#E0A526",
+             background="#0F0C09",
+             surface="#1C1712",
+             raised="#27201A",
+             border="#3F342A",
+             field="#9C8E7C",
+             ink="#F7F1E8",
+             muted="#BDAE9A",
+             accent="#E7B03A",
              on_accent="#1A1203",
-             accent_ink="#E0A526",
-             link="#A59EF7",
+             accent_ink="#E7B03A",
+             link="#F2C766",
              danger="#F87171",
              success="#4ADE80",
              warning="#FBBF24",
-             focus_ring="#E0A526",
-             seat_available="#8D86C9",
-             seat_selected="#E0A526",
+             focus_ring="#E7B03A",
+             seat_available="#9C8E7C",
+             seat_selected="#E7B03A",
              on_seat_selected="#1A1203",
-             seat_held="#6E67D6",
-             seat_sold="#3A3560"
+             seat_held="#7A6344",
+             seat_sold="#332A21"
          ),
          display_font="Bebas Neue",
          body_font="Outfit",

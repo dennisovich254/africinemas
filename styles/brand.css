@@ -1,0 +1,193 @@
+/* GENERATED from core/theming (tokens.jac + css.jac) by scripts/gen_brand_css.jac.
+   Do not edit by hand: change the tokens and regenerate. */
+
+[data-surface] {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+[data-surface] .font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+[data-surface="storefront"] {
+  color-scheme: light;
+  --font-display: 'Bebas Neue', 'Outfit Variable', sans-serif;
+  --font-sans: 'Outfit Variable', 'Outfit', sans-serif;
+  --radius: 0.625rem;
+  --background: #FBFAF7;
+  --foreground: #15122E;
+  --card: #FFFFFF;
+  --card-foreground: #15122E;
+  --popover: #F3F1FA;
+  --popover-foreground: #15122E;
+  --primary: #E0A526;
+  --primary-foreground: #1A1203;
+  --secondary: #F3F1FA;
+  --secondary-foreground: #15122E;
+  --muted: #F3F1FA;
+  --muted-foreground: #5E5A78;
+  --accent: #F3F1FA;
+  --accent-foreground: #15122E;
+  --destructive: #B91C1C;
+  --border: #E6E3EF;
+  --input: #7C7896;
+  --ring: #3F35C4;
+  --ac-background: #FBFAF7;
+  --ac-surface: #FFFFFF;
+  --ac-raised: #F3F1FA;
+  --ac-border: #E6E3EF;
+  --ac-field: #7C7896;
+  --ac-ink: #15122E;
+  --ac-muted: #5E5A78;
+  --ac-accent: #E0A526;
+  --ac-on-accent: #1A1203;
+  --ac-accent-ink: #8A5A00;
+  --ac-link: #3F35C4;
+  --ac-danger: #B91C1C;
+  --ac-success: #15803D;
+  --ac-warning: #A16207;
+  --ac-focus-ring: #3F35C4;
+  --ac-seat-available: #6F6A97;
+  --ac-seat-selected: #A16207;
+  --ac-on-seat-selected: #FFFFFF;
+  --ac-seat-held: #7A73C9;
+  --ac-seat-sold: #D9D7E3;
+}
+
+.dark [data-surface="storefront"] {
+  color-scheme: dark;
+  --font-display: 'Bebas Neue', 'Outfit Variable', sans-serif;
+  --font-sans: 'Outfit Variable', 'Outfit', sans-serif;
+  --radius: 0.625rem;
+  --background: #0F0C09;
+  --foreground: #F7F1E8;
+  --card: #1C1712;
+  --card-foreground: #F7F1E8;
+  --popover: #27201A;
+  --popover-foreground: #F7F1E8;
+  --primary: #E7B03A;
+  --primary-foreground: #1A1203;
+  --secondary: #27201A;
+  --secondary-foreground: #F7F1E8;
+  --muted: #27201A;
+  --muted-foreground: #BDAE9A;
+  --accent: #27201A;
+  --accent-foreground: #F7F1E8;
+  --destructive: #F87171;
+  --border: #3F342A;
+  --input: #9C8E7C;
+  --ring: #E7B03A;
+  --ac-background: #0F0C09;
+  --ac-surface: #1C1712;
+  --ac-raised: #27201A;
+  --ac-border: #3F342A;
+  --ac-field: #9C8E7C;
+  --ac-ink: #F7F1E8;
+  --ac-muted: #BDAE9A;
+  --ac-accent: #E7B03A;
+  --ac-on-accent: #1A1203;
+  --ac-accent-ink: #E7B03A;
+  --ac-link: #F2C766;
+  --ac-danger: #F87171;
+  --ac-success: #4ADE80;
+  --ac-warning: #FBBF24;
+  --ac-focus-ring: #E7B03A;
+  --ac-seat-available: #9C8E7C;
+  --ac-seat-selected: #E7B03A;
+  --ac-on-seat-selected: #1A1203;
+  --ac-seat-held: #7A6344;
+  --ac-seat-sold: #332A21;
+}
+
+[data-surface="backoffice"] {
+  color-scheme: light;
+  --font-display: 'Bebas Neue', 'Outfit Variable', sans-serif;
+  --font-sans: 'Outfit Variable', 'Outfit', sans-serif;
+  --radius: 0.625rem;
+  --background: #F6F6FA;
+  --foreground: #16142B;
+  --card: #FFFFFF;
+  --card-foreground: #16142B;
+  --popover: #F1F0F7;
+  --popover-foreground: #16142B;
+  --primary: #3F35C4;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F0F7;
+  --secondary-foreground: #16142B;
+  --muted: #F1F0F7;
+  --muted-foreground: #5B5873;
+  --accent: #F1F0F7;
+  --accent-foreground: #16142B;
+  --destructive: #B91C1C;
+  --border: #E4E3EE;
+  --input: #7C7896;
+  --ring: #3F35C4;
+  --ac-background: #F6F6FA;
+  --ac-surface: #FFFFFF;
+  --ac-raised: #F1F0F7;
+  --ac-border: #E4E3EE;
+  --ac-field: #7C7896;
+  --ac-ink: #16142B;
+  --ac-muted: #5B5873;
+  --ac-accent: #3F35C4;
+  --ac-on-accent: #FFFFFF;
+  --ac-accent-ink: #8A5A00;
+  --ac-link: #3F35C4;
+  --ac-danger: #B91C1C;
+  --ac-success: #15803D;
+  --ac-warning: #A16207;
+  --ac-focus-ring: #3F35C4;
+  --ac-seat-available: #6F6A97;
+  --ac-seat-selected: #A16207;
+  --ac-on-seat-selected: #FFFFFF;
+  --ac-seat-held: #7A73C9;
+  --ac-seat-sold: #D9D7E3;
+}
+
+.dark [data-surface="backoffice"] {
+  color-scheme: dark;
+  --font-display: 'Bebas Neue', 'Outfit Variable', sans-serif;
+  --font-sans: 'Outfit Variable', 'Outfit', sans-serif;
+  --radius: 0.625rem;
+  --background: #14110D;
+  --foreground: #F7F1E8;
+  --card: #1D1813;
+  --card-foreground: #F7F1E8;
+  --popover: #28211B;
+  --popover-foreground: #F7F1E8;
+  --primary: #E7B03A;
+  --primary-foreground: #1A1203;
+  --secondary: #28211B;
+  --secondary-foreground: #F7F1E8;
+  --muted: #28211B;
+  --muted-foreground: #B8AA97;
+  --accent: #28211B;
+  --accent-foreground: #F7F1E8;
+  --destructive: #F87171;
+  --border: #3D3329;
+  --input: #9C8E7C;
+  --ring: #E7B03A;
+  --ac-background: #14110D;
+  --ac-surface: #1D1813;
+  --ac-raised: #28211B;
+  --ac-border: #3D3329;
+  --ac-field: #9C8E7C;
+  --ac-ink: #F7F1E8;
+  --ac-muted: #B8AA97;
+  --ac-accent: #E7B03A;
+  --ac-on-accent: #1A1203;
+  --ac-accent-ink: #E7B03A;
+  --ac-link: #F2C766;
+  --ac-danger: #F87171;
+  --ac-success: #4ADE80;
+  --ac-warning: #FBBF24;
+  --ac-focus-ring: #E7B03A;
+  --ac-seat-available: #9C8E7C;
+  --ac-seat-selected: #E7B03A;
+  --ac-on-seat-selected: #1A1203;
+  --ac-seat-held: #7A6344;
+  --ac-seat-sold: #332A21;
+}

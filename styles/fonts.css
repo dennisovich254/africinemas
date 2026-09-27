@@ -1,0 +1,3 @@
+/* Display font for titles (Bebas Neue). The body font (Outfit) is imported by global.css
+   via jac-shadcn ([jac-shadcn] font = "outfit"). */
+@import "@fontsource/bebas-neue";

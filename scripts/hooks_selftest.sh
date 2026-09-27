@@ -59,7 +59,22 @@ expect fail "no-commit-to-branch blocks commits on main"    run_hook no-commit-t
 git switch -q feat/selftest
 expect pass "no-commit-to-branch allows feature branches"   run_hook no-commit-to-branch clean.jac
 
-# 6. Warning ratchet (runs against the real project)
+# 6. Warning counter: discounts only the JSX closing-tag false positive (JI-017)
+cat > jsx_probe.jac <<'JAC'
+def:pub Closing -> JsxElement {
+    return <div>hello</div>;
+}
+JAC
+cat > undefined_probe.jac <<'JAC'
+def uses_missing -> int {
+    return totally_undefined_name;
+}
+JAC
+count_of() { jac check "$1" 2>&1 | "$ROOT/scripts/count_warnings.sh"; }
+expect pass "counter discounts '</div>' false positive (JI-017)" test "$(count_of jsx_probe.jac)" -eq 0
+expect pass "counter still counts a genuinely undefined name"     test "$(count_of undefined_probe.jac)" -ge 1
+
+# 7. Warning ratchet (runs against the real project)
 cd "$ROOT"
 expect fail "warning ratchet fails when count > baseline"   env WARNING_BASELINE=0 scripts/check_warnings.sh
 expect pass "warning ratchet passes at the committed baseline" scripts/check_warnings.sh
