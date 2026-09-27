@@ -1,0 +1,38 @@
+name: Bug report
+description: Something in AfriCinemas doesn't work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did it happen?
+      options: [Web storefront, Web back-office, Desktop app, Mobile app, API, CI / tooling]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or release
+      placeholder: e.g. 6d88564 or v0.1.0
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove any personal data, tokens or payment details first.

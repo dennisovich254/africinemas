@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest an improvement or a new capability.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Who is affected (customer, cinema owner, staff) and what they're trying to do.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: Where it fits in the plan
+      description: Related phase or sub-phase in docs/IMPLEMENTATION_PLAN.md, if any.
