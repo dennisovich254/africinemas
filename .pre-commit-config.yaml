@@ -2,8 +2,10 @@
 # Self-test the gates with:                          scripts/hooks_selftest.sh
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
 default_stages: [pre-commit]
-# Build caches are not ours to reformat. (.claude/ is git-ignored, so hooks never see it.)
-exclude: ^\.jac/
+# .claude/ is git-ignored (local-only skills) and .jac/ is build cache: never reformat either.
+# .claude/ must stay excluded even though it's ignored: the pre-push stage passes hooks every path
+# changed in the pushed commits, including deleted files still on disk, so fixers would rewrite them.
+exclude: ^(\.claude/|\.jac/)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
