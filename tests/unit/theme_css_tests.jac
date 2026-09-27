@@ -86,3 +86,23 @@ test "styles/brand.css is generated from the tokens (no hand edits)" {
     committed = (REPO_ROOT / "styles" / "brand.css").read_text();
     assert committed == platform_stylesheet() , "styles/brand.css is stale: run `jac run scripts/gen_brand_css.jac`";
 }
+
+test "keyboard focus is always drawn with the theme's focus-ring colour" {
+    # P0.8c: one platform rule so every focusable element (ours and shadcn's) shows a
+    # solid ring in the validated focus_ring colour (3:1 against background and surface).
+    css = platform_stylesheet();
+    rule = _block(css, "[data-surface] :focus-visible");
+    assert "outline:" in rule and "var(--ring)" in rule , rule;
+    assert "outline-offset:" in rule , rule;
+    assert SHADCN_MAP["--ring"] == "focus_ring";
+}
+
+test "animations and transitions are switched off when the device asks for reduced motion" {
+    # P0.8c (ui-ux-pro-max: "Reduced Motion", severity High).
+    css = platform_stylesheet();
+    start = css.find("@media (prefers-reduced-motion: reduce)");
+    assert start >= 0 , "no reduced-motion rule";
+    block = css[start:css.find("\n}\n", start)];
+    assert "animation-duration: 0.01ms !important" in block , block;
+    assert "transition-duration: 0.01ms !important" in block , block;
+}

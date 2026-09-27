@@ -16,6 +16,8 @@ radius = "default"
 menuAccent = "subtle"
 menuColor = "default"
 [dependencies.npm]
+"@hugeicons/core-free-icons" = "^4.2.3"
+"@hugeicons/react" = "^1.1.9"
 "@fontsource-variable/outfit" = "*"
 radix-ui = "*"
 class-variance-authority = "*"
@@ -49,9 +51,11 @@ kind = "mobile"
 entry-point = "mobile.main"
 
 [apps.mobile.dependencies.npm]
-react = "^18.2.0"
-react-dom = "^18.2.0"
-react-native-web = "^0.19.13"
+# The apps share one node_modules, so these pins set React for web and desktop too.
+# React 19 is required for Radix asChild triggers to receive refs (docs/jac-issues/JI-019).
+react = "^19.2.0"
+react-dom = "^19.2.0"
+react-native-web = "^0.21.2"
 react-native-svg = "^15.13.0"
 lucide-react = "^0.469.0"
 lucide-react-native = "^0.469.0"
