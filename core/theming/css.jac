@@ -78,7 +78,8 @@ def theme_css(theme: Theme, surface: str) -> str {
     return f"{scope} {{\n{light}\n}}\n\n.dark {scope} {{\n{dark}\n}}\n";
 }
 
-# The platform back-office look (P0.8 preview): calm neutral surfaces, indigo actions.
+# The platform back-office look. Light (P0.8 preview): calm neutral surfaces, indigo actions.
+# Dark: Espresso Noir to match the storefront (2026-09-27), slightly lifted for long sessions, brass actions.
 # Tenants only change its logo and accent (3.8), never the whole palette.
 glob BACKOFFICE_THEME: Theme = Theme(
          name="AfriCinemas back-office",
@@ -105,26 +106,26 @@ glob BACKOFFICE_THEME: Theme = Theme(
              seat_sold="#D9D7E3"
          ),
          dark=ThemeTokens(
-             background="#121121",
-             surface="#1B1A2E",
-             raised="#24233A",
-             border="#2E2C47",
-             field="#7A7796",
-             ink="#F4F3FA",
-             muted="#A3A1B8",
-             accent="#5B51E6",
-             on_accent="#FFFFFF",
-             accent_ink="#E0A526",
-             link="#A59EF7",
+             background="#14110D",
+             surface="#1D1813",
+             raised="#28211B",
+             border="#3D3329",
+             field="#9C8E7C",
+             ink="#F7F1E8",
+             muted="#B8AA97",
+             accent="#E7B03A",
+             on_accent="#1A1203",
+             accent_ink="#E7B03A",
+             link="#F2C766",
              danger="#F87171",
              success="#4ADE80",
              warning="#FBBF24",
-             focus_ring="#E0A526",
-             seat_available="#8D86C9",
-             seat_selected="#E0A526",
+             focus_ring="#E7B03A",
+             seat_available="#9C8E7C",
+             seat_selected="#E7B03A",
              on_seat_selected="#1A1203",
-             seat_held="#6E67D6",
-             seat_sold="#34305A"
+             seat_held="#7A6344",
+             seat_sold="#332A21"
          ),
          display_font="Bebas Neue",
          body_font="Outfit",
