@@ -1,5 +1,5 @@
 # Required checks for merging to main (plan P0.5). Jobs arrive with their first tests:
-# `e2e` in P0.8 and `concurrency` in P4.3. Nightly/release workflows arrive in P5.7/P10.6/P11.2.
+# `e2e` arrived in P0.8b; `concurrency` arrives in P4.3. Nightly/release workflows arrive in P5.7/P10.6/P11.2.
 name: CI
 
 on:
@@ -134,6 +134,32 @@ jobs:
           path: .jac/client/mobile/dist/
           if-no-files-found: error
           retention-days: 7
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-jac
+        with:
+          dev: "true"
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('jac.toml') }}
+      - name: Install headless Chromium and its system libraries
+        run: .jac/venv/bin/python -m playwright install --with-deps chromium-headless-shell
+      - name: Browser tests (phone + desktop, light + dark)
+        run: scripts/e2e.sh -v
+      - name: Upload screenshots and server log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-artifacts
+          path: e2e/artifacts/
+          retention-days: 14
 
   security:
     name: security

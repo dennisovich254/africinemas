@@ -6,6 +6,9 @@ inputs:
   install-deps:
     description: Run `jac install` (Python + npm project dependencies).
     default: "true"
+  dev:
+    description: Also install [dev-dependencies] (e.g. Playwright for e2e).
+    default: "false"
 runs:
   using: composite
   steps:
@@ -33,9 +36,10 @@ runs:
         path: |
           .jac/venv
           .jac/client/node_modules
-        key: jac-deps-${{ runner.os }}-${{ hashFiles('.jac-version', 'jac.toml') }}
+        key: jac-deps-${{ runner.os }}-${{ inputs.dev }}-${{ hashFiles('.jac-version', 'jac.toml') }}
 
     - name: jac install
       if: inputs.install-deps == 'true'
       shell: bash
-      run: jac install
+      run: |
+        if [ "${{ inputs.dev }}" = "true" ]; then jac install --dev; else jac install; fi
