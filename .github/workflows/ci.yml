@@ -1,0 +1,154 @@
+# Required checks for merging to main (plan P0.5). Jobs arrive with their first tests:
+# `e2e` in P0.8 and `concurrency` in P4.3. Nightly/release workflows arrive in P5.7/P10.6/P11.2.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAC_TEST_STRICT: "1"   # a test file whose import fails is an error, never a silent skip (JI-001)
+
+jobs:
+  pr-title:
+    name: pr-title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            test
+            refactor
+            docs
+            chore
+            ci
+            style
+            perf
+            build
+            revert
+
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-jac
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install pre-commit, gitleaks and actionlint (pinned, checksum-verified)
+        run: |
+          pip install pre-commit==4.6.2
+          scripts/install_gitleaks.sh
+          scripts/install_actionlint.sh
+      - name: Cache pre-commit environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: pre-commit hooks (same gates as local commits)
+        env:
+          SKIP: no-commit-to-branch   # CI runs on main after merge; the rule is for local commits
+        run: pre-commit run --all-files --show-diff-on-failure
+      - name: Type check (0 errors, warnings <= baseline)
+        run: scripts/check_warnings.sh
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-jac
+      - name: Test suite (strict, one worker per core)
+        run: scripts/test.sh -v
+
+  build-web:
+    name: build-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-jac
+      - name: Build web app
+        run: jac build web
+      - name: Show build output
+        run: find .jac/client -maxdepth 3 -name dist -type d -print
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-dist
+          path: .jac/client/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  build-desktop:
+    name: build-desktop
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install desktop system packages (JI-005)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+      - uses: ./.github/actions/setup-jac
+      - name: Build desktop app (linux)
+        run: jac build desktop
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: desktop-linux
+          path: .jac/client/desktop/
+          if-no-files-found: error
+          retention-days: 7
+
+  build-mobile-web:
+    name: build-mobile-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-jac
+      - name: Set up mobile app (Expo scaffold)
+        run: jac setup mobile
+      - name: Build mobile app for the browser (react-native-web)
+        run: jac build mobile --platform web
+      - name: Show build output
+        run: find . -path ./node_modules -prune -o -path ./.jac/venv -prune -o -type d -name dist -print
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write   # dependency-review posts a summary comment on PRs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # scan the full history for secrets
+      - name: Secret scan (full history)
+        run: |
+          scripts/install_gitleaks.sh
+          gitleaks git --redact --no-banner -v .
+      - name: Dependency review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

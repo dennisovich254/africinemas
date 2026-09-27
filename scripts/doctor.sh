@@ -84,7 +84,11 @@ else fail "pre-commit not installed" "uv tool install pre-commit   (uv: github.c
 
 # 6b. gitleaks (secret scanning; the pre-commit hook uses the installed binary)
 if command -v gitleaks >/dev/null 2>&1; then pass "gitleaks $(gitleaks version 2>/dev/null)"
-else fail "gitleaks not installed" "download gitleaks_<ver>_linux_x64.tar.gz from github.com/gitleaks/gitleaks/releases, verify its checksum, copy gitleaks to ~/.local/bin"; fi
+else fail "gitleaks not installed" "scripts/install_gitleaks.sh"; fi
+
+# 6d. actionlint (lints .github/workflows in the pre-commit hook)
+if command -v actionlint >/dev/null 2>&1; then pass "actionlint $(actionlint -version | head -1)"
+else fail "actionlint not installed" "scripts/install_actionlint.sh"; fi
 
 # 6c. Git hooks installed in this clone
 if [[ -f .git/hooks/pre-commit && -f .git/hooks/commit-msg && -f .git/hooks/pre-push ]]; then pass "git hooks installed (pre-commit, commit-msg, pre-push)"
