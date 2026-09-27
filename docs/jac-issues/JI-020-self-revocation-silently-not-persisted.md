@@ -37,7 +37,7 @@ Inside bob's request the grant is gone. After the request it's back, and nothing
 - More generally, any in-request mutation the caller can't write is dropped without an error. That's safe, but a test that only checks in-request values passes while nothing was saved.
 
 ## Workaround (in place)
-Perform the revocation as the node's owner, and flush before switching back (`Jac.commit()`). See ADR-0003 rule 2. Tests assert on persisted state in a follow-up request.
+Perform the revocation as the node's owner, and flush the session while still acting as the owner (`core/tenancy/principal.flush_now()`, i.e. `Jac.get_context().mem.flush()`). See ADR-0003 rule 2. We first used `Jac.commit()`, which also works but commits the request's transaction midway (see ADR-0004). Tests assert on persisted state in a follow-up request.
 
 ## Possible improvements (suggestions)
 - Evaluate the ACL for an access-map change against the permissions held **before** the change, or allow a principal to always remove their own grant.
