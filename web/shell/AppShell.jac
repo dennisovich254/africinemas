@@ -21,7 +21,7 @@ import from ...components.ui.sheet {
     SheetClose
 }
 
-glob LINK_CLASSES: str = "flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground aria-[current=page]:shadow-[inset_3px_0_0_var(--primary)]";
+glob LINK_CLASSES: str = "flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
 
 # `on_navigate: any` is a click handler passed through to each link.
 def NavLinks(
