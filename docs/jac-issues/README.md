@@ -19,3 +19,4 @@ workaround, and status. Status values: `open` · `reported` (link) · `answered`
 | [JI-008](JI-008-testing-guide-serial-flag-mismatch.md) | `jac-testing` guide says no CLI flag forces serial, but `-j 0` exists | docs | Low | open |
 | [JI-009](JI-009-scaffold-templates-not-lint-clean.md) | Freshly scaffolded templates produce ~130 `jac check` warnings | scaffold | Low (noise; ratcheted) | open |
 | [JI-010](JI-010-lint-findings-exit-zero.md) | `jac check --lint` exits 0 when it reports lint violations | lint/CI | Medium (hooks wouldn't block) | open |
+| [JI-011](JI-011-first-run-prints-extraction-to-stdout.md) | A fresh binary's first `jac --version` prints runtime-extraction lines to stdout | CLI | Low (breaks version parsing) | open |
