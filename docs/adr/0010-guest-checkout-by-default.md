@@ -19,9 +19,16 @@ Architecture §11 says a booking "should not require collecting unnecessary pers
 3. **Accounts stay optional.** After a purchase, the customer is offered "save your tickets". An account (P2.6, ADR-0009) keeps their bookings in one place per cinema. A guest booking can be attached to an account later, by proving the booking secret.
 4. **Tickets go by email, not SMS** (product owner decision, 2026-09-28: simpler, no SMS gateway or per-message cost). The email carries the QR tickets and the booking link. Jac's built-in SMTP emailer (`EMAILER_SMTP_*` settings) sends it, in `on_commit` after payment is confirmed, so it goes once (reference/persistence). A mistyped address is recoverable from the confirmation screen, which shows the tickets and lets the guest resend them to a corrected address.
 5. **Holding the booking secret is enough to view and resend tickets,** and nothing more sensitive (§11).
+6. **One AfriCinemas sender for every cinema** (product owner decision, 2026-09-28: signup to selling in minutes, not weeks). Cinemas configure nothing for email:
+   - **From:** the cinema's name as the display name on our address, e.g. `Nova Cinemas <tickets@africinemas.co.ke>`.
+   - **Reply-To:** the cinema's contact email, if the owner adds one in settings. It's optional and needs no verification.
+   - **Content:** the cinema's name, logo and colours (per-cinema branding, P3.8), with a small "Tickets by AfriCinemas" footer.
+   - **Platform setup, once:** a transactional email provider reached over SMTP, with SPF, DKIM and DMARC on our domain. Its credentials are environment secrets.
+   - **Later, optional:** a cinema can verify its own sending domain (for example `tickets@novacinemas.co.ke`). It's never required at signup.
 
 ## Consequences
 
 - Phase 4's checkout and Phase 6's ticket views must work without a login. Their endpoints are storefront endpoints: anonymous, so either `def:pub` or through the inbox, and authorized by the booking secret. They need their own isolation checks, including that a booking reference without its secret reveals nothing.
 - Booking references must be unguessable, and lookups rate-limited (threat model §131: "attacker enumerates booking IDs").
 - Email delivery needs SMTP settings in production (secrets in the environment, never in `jac.toml`, JI-015). Tests use a fake sender that records messages; they never send real email.
+- **To verify when building ticket delivery (Phases 5 and 6):** whether Jac's built-in emailer can set a per-message display name and Reply-To. If it can't, we send through the provider's SMTP with Python's standard library instead.
