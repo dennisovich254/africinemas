@@ -176,3 +176,42 @@ def require(ctx: AuthContext, action: str, resource: Resource) {
         raise Forbidden(action);
     }
 }
+
+def role_key(role: str, venue_id: str) -> str {
+    # How a role is stored on a membership: "usher" or "usher@venue-1". Raises
+    # ValueError for an unknown role or a venue on a tenant-wide role.
+    RoleAssignment(role=role, venue_ids=[venue_id] if venue_id else None);
+    return f"{role}@{venue_id}" if venue_id else role;
+}
+
+def assignments_from_keys(keys: list[str]) -> list[RoleAssignment] {
+    # Stored role keys -> assignments; one per role, merging its venues. A tenant-wide
+    # key for a role wins over venue keys for the same role.
+    venues_by_role: dict[str, list[str] | None] = {};
+    for key in keys {
+        (role, _, venue) = key.partition("@");
+        if not venue {
+            venues_by_role[role] = None;
+        } elif role not in venues_by_role {
+            venues_by_role[role] = [venue];
+        } elif venues_by_role[role] is not None {
+            venues_by_role[role] = sorted(set(venues_by_role[role] + [venue]));
+        }
+    }
+    return [
+        RoleAssignment(role=role, venue_ids=venues)
+        for (role, venues) in sorted(venues_by_role.items())
+    ];
+}
+
+def can_grant(ctx: AuthContext, role: str) -> bool {
+    # No privilege escalation: an actor may grant (or take away) a role only if their
+    # own tenant-wide roles already hold every permission it carries.
+    held: set[str] = set();
+    for a in ctx.assignments {
+        if a.venue_ids is None {
+            held = held | ROLE_PERMISSIONS[a.role];
+        }
+    }
+    return role in ROLE_PERMISSIONS and ROLE_PERMISSIONS[role] <= held;
+}

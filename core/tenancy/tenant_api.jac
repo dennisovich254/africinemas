@@ -9,15 +9,7 @@ Refusals share one shape: {"ok": False, "error": {"code", "message"}}, with code
 import from core.authz.policy { Forbidden }
 import from core.authz.context { NotFound, TenantScope, resolve_context, scoped }
 import from core.tenancy.models { NAME_MAX }
-
-glob NOT_FOUND: dict[str, bool | dict[str, str]] = {
-         "ok": False,
-         "error": {"code": "not_found", "message": "No such cinema."}
-     },
-     FORBIDDEN: dict[str, bool | dict[str, str]] = {
-         "ok": False,
-         "error": {"code": "forbidden", "message": "You can't do that here."}
-     };
+import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, refused }
 
 def:priv my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The caller's roles in `tenant` (any member may ask).
@@ -49,13 +41,9 @@ def:priv rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore
     }
     clean = name.strip();
     if not clean or len(clean) > NAME_MAX {
-        return {
-            "ok": False,
-            "error": {
-                "code": "invalid_name",
-                "message": f"Enter a cinema name of 1 to {NAME_MAX} characters."
-            }
-        };
+        return refused(
+            "invalid_name", f"Enter a cinema name of 1 to {NAME_MAX} characters."
+        );
     }
     scope.tenant.name = clean;
     return {"ok": True, "name": clean};

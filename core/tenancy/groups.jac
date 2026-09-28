@@ -1,52 +1,40 @@
-"""A tenant's staff groups: one access group plus role groups (ADR-0004, ADR-0008).
+"""A tenant's access group, and adding staff to it (ADR-0004, ADR-0008 revised in P2.5).
 
-- The ACCESS group holds the graph grants: tenant nodes grant it WRITE, one entry per
-  node however many staff there are. Every staff member joins it once.
-- ROLE groups (e.g. usher, or usher at venue v-1) hold no node grants; membership in
-  them is what `resolve_context` turns into role assignments.
-Both kinds hang off the tenant's principal root and link to the Tenant (ForTenant), so
-members can traverse root -> group -> tenant.
+Each tenant has one access group: tenant nodes grant it WRITE, one entry per node,
+however many staff there are. Roles are not groups: they live on each member's
+Membership record (core/tenancy/membership.jac), so they can be changed by others.
 """
 
 import from uuid { UUID }
 import from jaclang { JacRuntime as Jac }
-import from core.authz.policy { RoleAssignment }
+import from core.authz.policy { role_key }
 import from core.tenancy.models {
     Tenant,
     StaffGroup,
-    MemberOf,
+    Membership,
     ForTenant,
     ACCESS_GROUP
 }
-import from core.tenancy.membership { join_group }
+import from core.tenancy.membership { link_to_group, new_record, records_of }
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 
-def ensure_group(tenant: Tenant, role: str, venue_id: str) -> StaffGroup {
-    # Finds or creates the tenant's group for `role` at `venue_id` ("" = tenant-wide).
-    # Group creation is an admin action (signup, invitations), not a hot path; a rare
-    # duplicate from a race still grants the same thing (JI-024).
-    if role != ACCESS_GROUP {
-        RoleAssignment(role=role, venue_ids=[venue_id] if venue_id else None);
-    }
+def access_group(tenant: Tenant) -> StaffGroup {
+    # Finds or creates `tenant`'s access group. Created once, at signup.
     caller = node_id(root);
     act_as(tenant.principal_root_id);
     try {
         for g in [root-->[?:StaffGroup]] {
-            if g.tenant_id == node_id(tenant)
-                and g.role == role
-                and g.venue_id == venue_id {
+            if g.tenant_id == node_id(tenant) {
                 return g;
             }
         }
-        group = StaffGroup(tenant_id=node_id(tenant), role=role, venue_id=venue_id);
+        group = StaffGroup(tenant_id=node_id(tenant), role=ACCESS_GROUP);
         root ++> group;
         group +>:ForTenant:+> tenant;
         group_id = UUID(node_id(group));
-        # Members traverse through their groups, so each grants READ on itself.
+        # Members traverse root -> group -> tenant, so the group grants READ on itself.
         Jac.allow_group(group, group_id, AccessLevel.READ);  # jac:ignore[E1053]
-        if role == ACCESS_GROUP {
-            Jac.allow_group(tenant, group_id, AccessLevel.WRITE);  # jac:ignore[E1053]
-        }
+        Jac.allow_group(tenant, group_id, AccessLevel.WRITE);  # jac:ignore[E1053]
         flush_now();
         return group;
     } finally {
@@ -54,21 +42,42 @@ def ensure_group(tenant: Tenant, role: str, venue_id: str) -> StaffGroup {
     }
 }
 
-def _is_member(group: StaffGroup) -> bool {
-    return any(
-        node_id(g) == node_id(group) for g in [root->:MemberOf:->[?:StaffGroup]]
-    );
-}
-
-def add_staff(tenant: Tenant, role: str, venue_id: str) {
-    # Makes the CALLER staff of `tenant` with `role`: joins the access group (once) and
-    # the role group. Call in the joining member's own request (ADR-0004).
-    for group in [
-        ensure_group(tenant, ACCESS_GROUP, ""),
-        ensure_group(tenant, role, venue_id)
-    ] {
-        if not _is_member(group) {
-            join_group(tenant.principal_root_id, group);
-        }
+def add_staff(tenant: Tenant, role: str, venue_id: str) -> Membership {
+    # Makes the CALLER staff of `tenant` with `role` (at `venue_id`, "" = tenant-wide),
+    # adding the role if they are already staff. Call in the member's own request.
+    key = role_key(role, venue_id);
+    me = node_id(root);
+    group = access_group(tenant);
+    act_as(tenant.principal_root_id);
+    try {
+        existing = [
+            m
+            for m in records_of(tenant)
+            if m.staff_root_id == me
+        ];
+    } finally {
+        restore(me);
     }
+    if existing {
+        record = existing[0];
+        act_as(tenant.principal_root_id);
+        try {
+            if key not in record.roles {
+                record.roles = record.roles + [key];
+            }
+            flush_now();
+        } finally {
+            restore(me);
+        }
+        return record;
+    }
+    edge_id = link_to_group(tenant.principal_root_id, group);
+    act_as(tenant.principal_root_id);
+    try {
+        record = new_record(group, me, edge_id, [key]);
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    return record;
 }

@@ -58,3 +58,16 @@ Architecture §14 and §15 ask for RBAC plus tenant scope, resource scope and se
   This keeps grants O(1) per node as roles and venues multiply. Adding a role never touches existing nodes.
 - **`add_staff(tenant, role, venue_id)`** joins the caller to the access group, if they aren't in it yet, and to the role group. It's used by signup (the owner) and, in P2.5, by invitations. **`remove_member`** removes every membership a person holds in a tenant.
 - **The tenant-isolation registry** (`tests/isolation/registry.jac`) lists every served endpoint with its scope (`public`, `caller` or `tenant`). A meta-test compares it with the app's OpenAPI routes, so an unregistered endpoint fails CI. A probe calls every `tenant` endpoint as tenant A's owner with tenant B's slug, and requires the `not_found` answer, with B unchanged.
+
+## Revised in P2.5: roles live on the membership record
+
+P2.4 stored roles as `MemberOf` edges to role groups. A member's edges can only be created in **their own** request (ADR-0004), so an owner or admin could never change someone else's role. P2.5 therefore moves roles to data:
+
+- **A member has one edge**, to the tenant's access group (for the graph grants), and **one `Membership` record**. The record is owned by the tenant's principal and **readable only by that member**, through a per-record `allow_root(..., READ)`. It holds their role keys (`"usher"`, `"usher@venue-1"`) and a status (`active` or `disabled`). Role groups are gone.
+- **`resolve_context`** reads the caller's own record under the access group. Owners and admins change roles, disable or remove members by editing or deleting the record, as the principal, and the member's next call reflects it.
+- **Invitations** (`core/tenancy/staff_api.jac`):
+  - `invite_staff` creates a principal-owned `Invite` and a one-time token from Jac's token store. It expires after `AFRICINEMAS_INVITE_TTL_S`, 72 h by default.
+  - `accept_invite` runs in the invitee's request. It peeks the token, and single use is decided by an **atomic claim** on the invite id (ADR-0007). It joins the invitee, marks the invite used, and consumes the token and makes the claim permanent in `on_commit` (JI-022).
+- **No privilege escalation** (`can_grant`): an actor may grant a role, or manage a member, only if their own tenant-wide roles already hold every permission of that role, or of every role the member holds. So an admin can't create owners or touch an owner's membership.
+- **No self-change:** nobody can change, disable or remove their own membership through these endpoints. That prevents self-promotion and locking yourself out; another owner or admin has to do it.
+- Shift sessions (ADR-0006) arrive with login in P2.7.

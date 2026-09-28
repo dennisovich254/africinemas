@@ -12,7 +12,6 @@ import from core.tenancy.state { TenantState, transition }
 
 glob ROLE_OWNER: str = "owner",
      # The one group per tenant that holds the graph grants on its nodes (ADR-0004).
-     # Every staff member belongs to it; it grants no role (ADR-0008).
      ACCESS_GROUP: str = "staff",
      NAME_MAX: int = 80;
 
@@ -29,19 +28,30 @@ node Tenant {
 }
 
 node StaffGroup {
-    # Either the tenant's access group (role ACCESS_GROUP: holds the node grants) or a
-    # role group (a policy role, optionally at one venue: no node grants).
+    # The tenant's access group: tenant nodes grant it WRITE, one entry per node
+    # (ADR-0004). Every staff member has a MemberOf edge to it; roles are not here.
     has tenant_id: str,
-        role: str,
-        venue_id: str = "";
+        role: str = ACCESS_GROUP;
 }
 
 node Membership {
-    # The tenant's own record of a staff membership (ADR-0004): which root joined, and
-    # the id of their MemberOf edge, so the tenant can find and remove it later.
+    # The tenant's record of one staff member (ADR-0008, P2.5), owned by the tenant's
+    # principal and readable only by that member: their MemberOf edge (so the tenant can
+    # remove it), their role keys ("usher", "usher@venue-1") and their status.
     has staff_root_id: str,
         edge_id: str,
-        role: str;
+        roles: list[str] = [],
+        status: str = "active",
+        joined_at: str = "";
+}
+
+node Invite {
+    # A pending staff invitation, owned by the tenant's principal. Single use is decided
+    # by an atomic claim on its id (ADR-0007); `used_by` records who accepted.
+    has role_key: str,
+        invited_by: str,
+        created_at: str,
+        used_by: str = "";
 }
 
 node CustomerProfile {

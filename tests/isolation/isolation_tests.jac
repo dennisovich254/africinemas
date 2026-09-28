@@ -18,10 +18,10 @@ glob MAIN: str = os.path.join(
          os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
          "main.jac"
      ),
-     NOT_FOUND: dict[str, any] = {
+     NOT_FOUND: dict[str, bool | dict[str, str]] = {
          "ok": False,
          "error": {"code": "not_found", "message": "No such cinema."}
-     };  # jac:ignore[W1037]
+     };
 
 def _served_endpoints(client: JacTestClient) -> set[str] {
     spec = client.get("/openapi.json");
@@ -84,7 +84,9 @@ test "every tenant endpoint refuses another tenant's selector and leaks nothing"
                 answer = _call(client, a.token, name, body);
                 assert answer == NOT_FOUND , f"{name}: A reached B: {answer}";
             } elif spec["scope"] == "caller" and name != "create_cinema" {
-                answer = json.dumps(_call(client, a.token, name, {}));
+                answer = json.dumps(
+                    _call(client, a.token, name, spec.get("probe", {}))
+                );
                 assert made_b["tenant_id"] not in answer
                     and "imax-rift" not in answer , f"{name} leaked B: {answer}";
                 assert made_a["tenant_id"] in answer or name != "my_cinemas";

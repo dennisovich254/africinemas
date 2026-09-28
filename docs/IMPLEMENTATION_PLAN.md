@@ -193,11 +193,11 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
   - **T:** a parametrized role × permission matrix (OWNER, TENANT_ADMIN, BOX_OFFICE_AGENT, USHER, FINANCE_MANAGER, …); deny-by-default for unknown actions; venue-scoped roles are denied other venues.
 - [x] **2.4 TenantContext resolution + isolation harness** (ADR-0008 §P2.4)
   - **T:** context is resolved server-side from membership; a forged tenant selector is rejected; the isolation registry + meta-test is in place (§2.3).
-- [ ] **2.5 Staff invitations & lifecycle** (via `app_tokens`)
+- [x] **2.5 Staff invitations & lifecycle** (via `app_tokens`; ADR-0008 §P2.5: roles on the membership record, no escalation, no self-change; shift sessions (ADR-0006) move to 2.7)
   - **T:** invite → accept assigns the role; a token is single-use under concurrent accepts; expired tokens are rejected; disabling or changing a role takes effect on the next call even with the old JWT.
 - [ ] **2.6 Customer accounts per tenant**
   - **T:** a customer registers on tenant A's storefront → a `CustomerProfile` for A only; the same person on B gets a separate profile; a customer can't call staff endpoints.
-- [ ] **2.7 Web UI: auth, onboarding wizard shell, role-aware navigation** (jac-shadcn, `AuthGuard` layouts; the wizard reserves an optional **"Brand your cinema"** step, filled in by 3.8 and 8.5; skipping it gives the platform default theme)
+- [ ] **2.7 Web UI: auth, onboarding wizard shell, role-aware navigation, staff shift sessions (ADR-0006: server-side, 8 h, ended by logout)** (jac-shadcn, `AuthGuard` layouts; the wizard reserves an optional **"Brand your cinema"** step, filled in by 3.8 and 8.5; skipping it gives the platform default theme)
   - **T (E2E, mobile + desktop):** owner signs up → creates a cinema → lands on the dashboard; an usher sees only the scanner nav; logout works. On mobile, navigation is through the drawer.
 
 ### Phase 3 — Cinema setup (Week 2, days 1–3)

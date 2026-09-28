@@ -39,6 +39,9 @@ Inside bob's request the grant is gone. After the request it's back, and nothing
 ## Workaround (in place)
 Perform the revocation as the node's owner, and flush the session while still acting as the owner (`core/tenancy/principal.flush_now()`, i.e. `Jac.get_context().mem.flush()`). See ADR-0003 rule 2. We first used `Jac.commit()`, which also works but commits the request's transaction midway (see ADR-0004). Tests assert on persisted state in a follow-up request.
 
+## Same mechanism, second symptom (P2.5)
+Changing a **field on an existing node** while acting as its owner, then flushing with `mem.flush()` (partial), doesn't write it. A plain attribute assignment isn't added to the session's dirty set; only a full flush (hash comparison) notices it. The change is then left to the end-of-request flush, which runs as the original caller, who can't write the node, so it's **silently skipped**. `change_staff_roles` returned `ok` while the role never changed. Worked around with `mem.flush(full=True)` in `core/tenancy/principal.flush_now()`.
+
 ## Possible improvements (suggestions)
 - Evaluate the ACL for an access-map change against the permissions held **before** the change, or allow a principal to always remove their own grant.
 - Or raise / log a `PermissionDenied` when a dirty anchor is skipped at flush, instead of dropping it silently.

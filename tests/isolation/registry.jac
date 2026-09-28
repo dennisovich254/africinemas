@@ -1,7 +1,8 @@
 """The tenant-isolation registry (plan §2.3): every endpoint the app serves, and its scope.
 
 - "public": needs no login and returns no tenant data.
-- "caller": works on the caller's own data only (no tenant selector).
+- "caller": works on the caller's own data only (no tenant selector); `probe`, when
+  given, is the request body to call it with.
 - "tenant": takes a tenant selector; `probe` is a request body aimed at tenant B, with
   "{tenant}" standing for B's slug.
 
@@ -17,5 +18,23 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "rename_cinema": {
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "name": "Probe"}
+         },
+         "invite_staff": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "role": "usher", "venue_id": ""}
+         },
+         "accept_invite": {"scope": "caller", "probe": {"token": "not-a-real-token"}},
+         "list_staff": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "change_staff_roles": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "member_id": "x", "roles": ["owner"]}
+         },
+         "set_staff_status": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "member_id": "x", "status": "disabled"}
+         },
+         "remove_staff": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "member_id": "x"}
          }
      };

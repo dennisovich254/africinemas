@@ -43,7 +43,7 @@ test "signup creates the tenant, its principal, the owner group and the owner's 
                     "slug": "nova",
                     "name": "Nova Cinemas",
                     "state": "configuring",
-                    "role": "owner",
+                    "roles": ["owner"],
                     "access": "WRITE"
                 }
             ] , mine;

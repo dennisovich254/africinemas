@@ -23,6 +23,7 @@ import from core.faults { checkpoint }
 import from core.tenancy.models {
     Tenant,
     StaffGroup,
+    Membership,
     MemberOf,
     ForTenant,
     ROLE_OWNER,
@@ -37,7 +38,6 @@ import from core.tenancy.registry {
     release_slug
 }
 import from core.tenancy.groups { add_staff }
-import from core.authz.policy { ROLE_PERMISSIONS }
 import from core.tenancy.principal {
     Principal,
     node_id,
@@ -148,12 +148,18 @@ def:priv create_cinema(name: str, slug: str) -> dict[str, bool | str | dict[str,
     };
 }
 
-def:priv my_cinemas -> list[dict[str, str]] {
-    # The cinemas the caller is staff of, with their role there.
-    found: list[dict[str, str]] = [];
+def:priv my_cinemas -> list[dict[str, str | list[str]]] {
+    # The cinemas the caller is active staff of, with their roles there.
+    me = node_id(root);
+    found: list[dict[str, str | list[str]]] = [];
     for g in [root->:MemberOf:->[?:StaffGroup]] {
-        if g.role not in ROLE_PERMISSIONS {
-            continue;  # the access group grants no role
+        records = [
+            m
+            for m in [g-->[?:Membership]]
+            if m.staff_root_id == me and m.status == "active"
+        ];
+        if not records {
+            continue;
         }
         for t in [g->:ForTenant:->[?:Tenant]] {
             found.append(
@@ -162,7 +168,7 @@ def:priv my_cinemas -> list[dict[str, str]] {
                     "slug": t.slug,
                     "name": t.name,
                     "state": t.state,
-                    "role": g.role,
+                    "roles": records[0].roles,
                     "access": access_level(t)
                 }
             );
