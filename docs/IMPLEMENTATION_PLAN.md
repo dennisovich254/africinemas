@@ -213,7 +213,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 
 ### Phase 4 — Storefront & booking engine (Week 2, days 3–5)
 
-**Decided (ADR-0010):** checkout works **without an account**: a guest pays by M-Pesa with a phone number and gets a booking reference + secret (SMS) to reopen tickets. Accounts (ADR-0009) stay optional and are offered after purchase.
+**Decided (ADR-0010):** checkout works **without an account**: a guest gives an email (for tickets) and an M-Pesa phone number (for payment); tickets, a booking reference and a secret to reopen them are sent **by email, not SMS**. Accounts (ADR-0009) stay optional and are offered after purchase.
 
 - [ ] **4.1 Public storefront reads** (`/c/{slug}`: home, movie, screening; §41) — **T:** anonymous reads see only published data; unpublished is invisible; tenant A's slug never returns B's data.
 - [ ] **4.2 Seat availability** — **T:** a lazily expired hold shows as AVAILABLE; BLOCKED/HOUSE are not sellable; the response carries text states (accessibility, §102).
