@@ -79,7 +79,7 @@ Rules (from the Jac testing guide): never name files `test_*.jac`. Each test bui
 
 ### 2.3 Tenant-isolation registry
 
-`tests/isolation/registry.jac` lists every endpoint with an A→B probe. A **meta-test** compares it against the endpoints the server really exposes (`jac run --faux` output). An endpoint missing from the registry fails CI, so no new endpoint can skip the isolation tests.
+`tests/isolation/registry.jac` lists every endpoint with its scope and an A→B probe. A **meta-test** compares it against the endpoints the app really serves (its `/openapi.json` routes; `jac run --faux` headings are unreliable, JI-004). An endpoint missing from the registry fails CI, so no new endpoint can skip the isolation tests.
 
 ### 2.4 Conventions
 
@@ -191,7 +191,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
   - **T:** signup creates the tenant + principal + group + OWNER membership in one transaction; an injected failure leaves no partial tenant; a duplicate slug returns a typed error.
 - [x] **2.3 Roles, permissions, `authorize(ctx, action, resource)`** (§14, §15, §129; ADR-0008)
   - **T:** a parametrized role × permission matrix (OWNER, TENANT_ADMIN, BOX_OFFICE_AGENT, USHER, FINANCE_MANAGER, …); deny-by-default for unknown actions; venue-scoped roles are denied other venues.
-- [ ] **2.4 TenantContext resolution + isolation harness**
+- [x] **2.4 TenantContext resolution + isolation harness** (ADR-0008 §P2.4)
   - **T:** context is resolved server-side from membership; a forged tenant selector is rejected; the isolation registry + meta-test is in place (§2.3).
 - [ ] **2.5 Staff invitations & lifecycle** (via `app_tokens`)
   - **T:** invite → accept assigns the role; a token is single-use under concurrent accepts; expired tokens are rejected; disabling or changing a role takes effect on the next call even with the old JWT.

@@ -10,7 +10,11 @@ Ownership follows the Phase 1 ADRs:
 
 import from core.tenancy.state { TenantState, transition }
 
-glob ROLE_OWNER: str = "owner";
+glob ROLE_OWNER: str = "owner",
+     # The one group per tenant that holds the graph grants on its nodes (ADR-0004).
+     # Every staff member belongs to it; it grants no role (ADR-0008).
+     ACCESS_GROUP: str = "staff",
+     NAME_MAX: int = 80;
 
 node Tenant {
     has slug: str,
@@ -25,9 +29,11 @@ node Tenant {
 }
 
 node StaffGroup {
-    # One group per role within a tenant (roles: P2.3).
+    # Either the tenant's access group (role ACCESS_GROUP: holds the node grants) or a
+    # role group (a policy role, optionally at one venue: no node grants).
     has tenant_id: str,
-        role: str;
+        role: str,
+        venue_id: str = "";
 }
 
 node Membership {
