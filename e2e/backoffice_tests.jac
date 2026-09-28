@@ -207,11 +207,17 @@ test "the password field can be shown and hidden" {
             page.goto(BASE_URL + "/login");
             field = page.locator("#password");
             toggle = page.locator('button[aria-controls="password"]');
+            # A plain button: inside the form, a missing type would make it submit (JI-030).
+            assert toggle.get_attribute("type") == "button";
+            _type(page, "#email", email_for(unique("toggle")));
+            _type(page, "#password", "not-the-password");
             assert field.get_attribute("type") == "password";
             assert toggle.get_attribute("aria-pressed") == "false";
             toggle.click();
             assert field.get_attribute("type") == "text";
             assert toggle.get_attribute("aria-pressed") == "true";
+            page.wait_for_timeout(1000);
+            assert page.locator(AUTH_ERROR).count() == 0 , "the toggle submitted the form";
         } finally {
             browser.close();
         }

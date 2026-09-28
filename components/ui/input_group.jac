@@ -71,13 +71,14 @@ def:pub InputGroupAddon(props: any) -> JsxElement {
 }
 
 def:pub InputGroupButton(props: any) -> JsxElement {
-    type = props["type"] or "button";
+    # Not `type`: the client compiler reads a local named `type` as the builtin (JI-030).
+    button_type = props["type"] or "button";
     variant = props["variant"] or "ghost";
     size = props["size"] or "xs";
     btnFn = _inputGroupButtonVariants;
     <Button
         {**props}
-        type={type}
+        type={button_type}
         data-size={size}
         variant={variant}
         className={cn(btnFn.call(None, {"size": size}), props["className"])}
