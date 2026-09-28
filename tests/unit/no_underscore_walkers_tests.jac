@@ -16,7 +16,13 @@ test "no app module defines an underscore walker" {
     offenders: list[str] = [];
     for source in APP_SOURCES {
         target = REPO_ROOT / source;
-        files = [target] if target.is_file() else sorted(target.rglob("*.jac"));
+        files = [target]
+            if target.is_file()
+            else sorted(
+                p
+                for p in target.rglob("*.jac")
+                if p.is_file() and ".jac" not in p.parts
+            );
         for f in files {
             for (n, line) in enumerate(f.read_text().splitlines(), start=1) {
                 if re.match(UNDERSCORE_WALKER, line) {

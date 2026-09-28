@@ -185,7 +185,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 
 ### Phase 2 — Identity, tenancy, authorization (Week 1, days 3–5)
 
-- [ ] **2.1 Tenant & control-plane archetypes** (`Tenant`, `TenantSlug` index, `StaffGroup`, `MemberOf`, `CustomerProfile`)
+- [x] **2.1 Tenant & control-plane archetypes** (`Tenant`, slug index as atomic claims (ADR-0007), `StaffGroup`, `MemberOf`, `CustomerProfile`)
   - **T:** slug validation (charset, length, reserved words); unique slug under concurrent create (converges to one); tenant state enum transitions.
 - [ ] **2.2 Owner signup → atomic tenant provisioning** (§92)
   - **T:** signup creates the tenant + principal + group + OWNER membership in one transaction; an injected failure leaves no partial tenant; a duplicate slug returns a typed error.
@@ -215,11 +215,11 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 
 - [ ] **4.1 Public storefront reads** (`/c/{slug}`: home, movie, screening; §41) — **T:** anonymous reads see only published data; unpublished is invisible; tenant A's slug never returns B's data.
 - [ ] **4.2 Seat availability** — **T:** a lazily expired hold shows as AVAILABLE; BLOCKED/HOUSE are not sellable; the response carries text states (accessibility, §102).
-- [ ] **4.3 Seat holds** (§24, §25) — **T:** hold/release/extend; per-customer cap; **concurrency: 50 parallel holds on one seat → exactly 1 succeeds**; overlapping multi-seat holds → no partial holds.
+- [ ] **4.3 Seat holds** (§24, §25; one hold per seat is an atomic claim with the hold time as its TTL, ADR-0007) — **T:** hold/release/extend; per-customer cap; **concurrency: 50 parallel holds on one seat → exactly 1 succeeds**; overlapping multi-seat holds → no partial holds.
 - [ ] **4.4 Hold expiry sweeper** (`@schedule`) — **T:** idempotent when run twice (it runs on every replica); never releases `PAYMENT_PENDING` holds.
 - [ ] **4.5 Orders/bookings with price snapshot & idempotency** (§26, §27) — **T:** same idempotency key → same booking (including concurrently); the snapshot is unchanged after a price edit.
 - [ ] **4.6 Storefront UI: seat map & checkout shell (mobile-first)** — **T (E2E, mobile + desktop):** pick a screening → select 2 seats (tap on mobile, click/keyboard on desktop) → hold timer shows → proceed to pay. On mobile: the seat map fits the width and can be zoomed, and the sticky bottom bar shows the seats and total. Keyboard-only seat selection works on desktop. Decide on `[client.pwa]` here.
-- [ ] **4.7 Load test (spike S5)** — **T:** 200 concurrent hold attempts on one screening: zero double-holds, p95 latency and 409-rate within the targets recorded in ADR-0007.
+- [ ] **4.7 Load test (spike S5)** — **T:** 200 concurrent hold attempts on one screening: zero double-holds, p95 latency and 409-rate within the targets recorded in the S5 ADR.
 
 ### Phase 5 — M-Pesa payments via Daraja (Week 3, days 1–3)
 
