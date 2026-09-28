@@ -133,5 +133,8 @@ def restore(previous_root_id: str) {
 def flush_now {
     # Write pending changes into the request's open transaction, with the ACL check made
     # under the current identity (JI-020). No COMMIT: the request stays atomic.
-    Jac.get_context().mem.flush();
+    # full=True: a field assigned on an EXISTING node isn't in the session's dirty set;
+    # only a full flush (hash comparison) sees it. A partial flush would leave it to the
+    # end-of-request flush, which runs as the caller and may silently skip it (P2.5).
+    Jac.get_context().mem.flush(full=True);
 }

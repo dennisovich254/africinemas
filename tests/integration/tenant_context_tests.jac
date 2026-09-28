@@ -6,6 +6,7 @@ changed role takes effect on the next call with the same token.
 """
 
 import from os { path }
+import from operator { itemgetter }
 import from tests.support.served { Served, served }
 
 glob APP: str = path.join(
@@ -128,10 +129,7 @@ test "venue-scoped groups become venue-scoped assignments" {
         _join(app, "staff", a["tenant_id"], "usher", "venue-2");
         _join(app, "staff", a["tenant_id"], "auditor");
         access = app.call("staff", "my_access", {"tenant": "nova"});
-        assert sorted(
-            access["assignments"],
-            key=lambda (x: dict[str, any]) -> str { return x["role"]; }
-        )
+        assert sorted(access["assignments"], key=itemgetter("role"))
             == [
                 {"role": "auditor", "venue_ids": None},
                 {"role": "usher", "venue_ids": ["venue-1", "venue-2"]}
