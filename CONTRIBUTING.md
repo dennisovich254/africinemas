@@ -33,6 +33,12 @@ If `jac install` fails with "bun install failed" on an older CPU, see `docs/jac-
 Run tests with `scripts/test.sh` (not bare `jac test`): it turns on strict mode, so a broken import
 fails instead of being silently skipped (`docs/jac-issues/JI-001`).
 
+It also cleans up afterwards: every in-process test app gets its own embedded-Postgres
+database, and the script drops the ones whose temp folder is gone (`jac db prune -y`),
+pass or fail. Without this, test databases pile up on disk (~8 MB each). Set
+`JAC_KEEP_TEST_DBS=1` to keep them when debugging a test's data. Tests that create a
+temp app folder must delete it when they finish.
+
 ## Commits and PR titles
 
 [Conventional Commits](https://www.conventionalcommits.org/) are enforced by a commit-msg hook and
