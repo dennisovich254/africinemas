@@ -30,7 +30,7 @@ import from core.tenancy.models {
     NAME_MAX
 }
 import from core.tenancy.state { TenantState }
-import from core.tenancy.slugs { InvalidSlug, validate_slug }
+import from core.tenancy.slugs { InvalidSlug, normalize_slug, validate_slug }
 import from core.tenancy.registry {
     claim_slug,
     lookup_slug,
@@ -175,4 +175,37 @@ def:priv my_cinemas -> list[dict[str, str | list[str]]] {
         }
     }
     return found;
+}
+
+def:priv check_slug(slug: str) -> dict[str, str | bool] {
+    # For the onboarding wizard, as the owner types: is this cinema address valid and
+    # free? Slugs are public (they are subdomains), so this reveals nothing private.
+    wanted = normalize_slug(slug);
+    try {
+        validate_slug(slug);
+    } except InvalidSlug as e {
+        return {
+            "slug": wanted,
+            "valid": False,
+            "available": False,
+            "reason": e.reason,
+            "message": str(e)
+        };
+    }
+    if lookup_slug(wanted) is not None {
+        return {
+            "slug": wanted,
+            "valid": True,
+            "available": False,
+            "reason": "taken",
+            "message": f"'{wanted}' is already taken."
+        };
+    }
+    return {
+        "slug": wanted,
+        "valid": True,
+        "available": True,
+        "reason": "",
+        "message": ""
+    };
 }

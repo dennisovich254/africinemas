@@ -1,0 +1,261 @@
+"""`/app/:slug[/:section]`: a cinema's back-office (P2.7b).
+
+The navigation lists only the sections the member's roles allow (nav.jac), from
+`my_access`, which the server rebuilds from the graph on every call (ADR-0008). Staff
+actions need an open shift (ADR-0006), so until one is open every section shows a
+"Start shift" banner. Signing out ends the shift.
+
+The sections themselves arrive with their phases; for now each shows what it will hold.
+"""
+
+import from react { useState, useEffect }
+import from "@jac/runtime" { Link, useParams }
+import from "@hugeicons/react" { HugeiconsIcon }
+import from "@hugeicons/core-free-icons" { Clock01Icon }
+import from ...components.ui.alert { Alert, AlertTitle, AlertDescription, AlertAction }
+import from ...components.ui.badge { Badge }
+import from ...components.ui.button { Button }
+import from ...components.ui.empty {
+    Empty,
+    EmptyHeader,
+    EmptyTitle,
+    EmptyDescription,
+    EmptyContent
+}
+import from ...components.ui.spinner { Spinner }
+import from ..theme.ThemeProvider { ThemeProvider }
+import from ..shell.AppShell { AppShell }
+import from core.tenancy.tenant_api { my_access, start_shift }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from .nav { web_address, nav_for, section_label, section_path, role_label }
+import from .PlainLayout { PlainLayout, AccountActions }
+
+glob SECTION_PREVIEW: dict[str, str] = {
+         "screenings": "Set up your screens, seat layouts, movies and showtimes here.",
+         "box-office": "Sell tickets at the counter and look up bookings here.",
+         "scanner": "Scan customers' QR tickets at the door here.",
+         "staff": "Invite your team and choose what each person can do here.",
+         "settings": "Your cinema's name, branding and payment details live here."
+     };
+
+def ShiftBanner(busy: bool, failed: bool, on_start: any) -> JsxElement {  # jac:ignore[W1037]
+    return
+        <Alert data-testid="shift-banner" className="pr-4">
+            <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} aria-hidden="true"/>
+            <AlertTitle>Your shift hasn't started</AlertTitle>
+            <AlertDescription>
+                {"We couldn't start your shift. Try again."
+                    if failed
+                    else "Start your shift to sell tickets, check people in and change settings. It ends when you sign out."}
+            </AlertDescription>
+            <div className="col-start-2 mt-3">
+                <Button className="min-h-11 px-5" disabled={busy} onClick={on_start}>
+                    {busy and <Spinner aria-hidden="true"/>}{"Starting…"
+                        if busy
+                        else "Start shift"}
+                </Button>
+            </div>
+        </Alert>;
+}
+
+def role_keys(assignments: list[dict[str, any]]) -> list[str] {  # jac:ignore[W1037]
+    # [{"role": "usher", "venue_ids": ["venue-1"]}] -> ["usher@venue-1"]
+    keys: list[str] = [];
+    for a in assignments {
+        if a["venue_ids"] {
+            for v in a["venue_ids"] {
+                keys.append(f"{a['role']}@{v}");
+            }
+        } else {
+            keys.append(a["role"]);
+        }
+    }
+    return keys;
+}
+
+def Overview(access: dict[str, any], shift_open: bool) -> JsxElement {  # jac:ignore[W1037]
+    return
+        <div className="flex flex-col gap-6">
+            {shift_open
+                and <p
+                    data-testid="shift-status"
+                    className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+                >
+                    <Badge>On shift</Badge>
+                    Your shift ends when you sign out.
+                </p>}
+            <section aria-labelledby="roles-heading" className="flex flex-col gap-2">
+                <h2 id="roles-heading" className="text-lg font-semibold">Your roles</h2>
+                <ul className="flex flex-wrap gap-2">
+                    {[
+                        <li key={key}>
+                            <Badge variant="secondary">{role_label(key)}</Badge>
+                        </li> for key in role_keys(access["assignments"])
+                    ]}
+                </ul>
+            </section>
+        </div>;
+}
+
+def SectionPreview(section: str, slug: str) -> JsxElement {
+    return
+        <Empty className="border">
+            <EmptyHeader>
+                <EmptyTitle>
+                    <h2 className="text-base font-semibold">Coming soon</h2>
+                </EmptyTitle>
+                <EmptyDescription>{SECTION_PREVIEW[section]}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+                <Button asChild={True} variant="outline" className="min-h-11">
+                    <Link to={section_path(slug, "")}>Back to overview</Link>
+                </Button>
+            </EmptyContent>
+        </Empty>;
+}
+
+def NoAccess(slug: str) -> JsxElement {
+    return
+        <Empty className="border" data-testid="no-access">
+            <EmptyHeader>
+                <EmptyTitle>
+                    <h2 className="text-base font-semibold">
+                        This section isn't part of your role
+                    </h2>
+                </EmptyTitle>
+                <EmptyDescription>
+                    Ask your cinema's owner or an admin if you need access.
+                </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+                <Button asChild={True} variant="outline" className="min-h-11">
+                    <Link to={section_path(slug, "")}>Back to overview</Link>
+                </Button>
+            </EmptyContent>
+        </Empty>;
+}
+
+def:pub BackOffice -> JsxElement {
+    params = useParams();
+    slug: str = params["slug"] or "";
+    section: str = params["section"] or "";
+    [access, set_access] = useState(None);
+    [missing, set_missing] = useState(False);
+    [failed, set_failed] = useState(False);
+    [shift_open, set_shift_open] = useState(False);
+    [starting, set_starting] = useState(False);
+    [start_failed, set_start_failed] = useState(False);
+
+    async def load {
+        answer: any = None;  # jac:ignore[W1037]
+        try {
+            answer = await my_access(slug);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("my_access failed", e);
+            set_failed(True);
+            return;
+        }
+        if not answer["ok"] {
+            set_missing(True);
+            return;
+        }
+        set_access(answer);
+        set_shift_open(answer["shift_open"]);
+    }
+
+    async def begin_shift {
+        answer: any = None;  # jac:ignore[W1037]
+        set_starting(True);
+        set_start_failed(False);
+        try {
+            answer = await start_shift(slug);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("start_shift failed", e);
+        }
+        set_starting(False);
+        if answer and answer["ok"] {
+            set_shift_open(True);
+        } else {
+            set_start_failed(True);
+        }
+    }
+
+    useEffect(
+        lambda {
+            set_access(None);
+            set_missing(False);
+            set_failed(False);
+            load();
+        },
+        [slug]
+    );
+
+    if missing or failed {
+        return
+            <PlainLayout
+                title={"Cinema not found" if missing else "Something went wrong"}
+                account={<AccountActions slugs={[]}/>}
+            >
+                <p className="text-muted-foreground" data-testid="cinema-not-found">
+                    {"This cinema doesn't exist, or you're not on its staff."
+                        if missing
+                        else "We couldn't load this cinema. Refresh the page to try again."}
+                </p>
+                <Button
+                    asChild={True}
+                    variant="outline"
+                    className="min-h-11 self-start"
+                >
+                    <Link to="/app">Your cinemas</Link>
+                </Button>
+            </PlainLayout>;
+    }
+    if access is None {
+        return
+            <ThemeProvider surface="backoffice">
+                <main className="flex min-h-svh items-center justify-center">
+                    <p
+                        role="status"
+                        className="flex items-center gap-2 text-muted-foreground"
+                    >
+                        <Spinner aria-hidden="true"/>
+                        Loading…
+                    </p>
+                </main>
+            </ThemeProvider>;
+    }
+    me: dict[str, any] = access;  # jac:ignore[W1037]
+    permissions: list[str] = me["permissions"];
+    nav = nav_for(slug, permissions);
+    allowed = section in [item["key"] for item in nav];
+    title = section_label(section) or "Overview";
+    content: any = None;  # jac:ignore[W1037]
+    if not allowed {
+        content = <NoAccess slug={slug}/>;
+    } elif section == "" {
+        content = <Overview access={me} shift_open={shift_open}/>;
+    } else {
+        content = <SectionPreview section={section} slug={slug}/>;
+    }
+    return
+        <ThemeProvider surface="backoffice">
+            <AppShell
+                title={title}
+                nav={nav}
+                brand={me["name"]}
+                home={section_path(slug, "")}
+                account={<AccountActions slugs={[slug]} switch_to="/app"/>}
+            >
+                <p className="-mt-3 text-sm text-muted-foreground">
+                    {web_address(slug)}
+                </p>
+                {not shift_open
+                    and allowed
+                    and <ShiftBanner
+                        busy={starting}
+                        failed={start_failed}
+                        on_start={begin_shift}
+                    />}
+                {content}
+            </AppShell>
+        </ThemeProvider>;
+}

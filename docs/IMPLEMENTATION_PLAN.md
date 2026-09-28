@@ -198,7 +198,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 - [x] **2.6 Customer accounts per tenant** (ADR-0009)
   - **T:** a customer registers on tenant A's storefront → a `CustomerProfile` for A only; the same person on B gets a separate profile; a customer can't call staff endpoints.
 - [x] **2.7a Staff shift sessions** (ADR-0006 §P2.7a: an expiring claim per (cinema, member), 8 h; `start_shift`/`end_shift`; every staff action requires an open shift)
-- [ ] **2.7b Web UI: auth, onboarding wizard shell, role-aware navigation; logout ends the shift** (jac-shadcn, `AuthGuard` layouts; the wizard reserves an optional **"Brand your cinema"** step, filled in by 3.8 and 8.5; skipping it gives the platform default theme)
+- [x] **2.7b Web UI: auth, onboarding wizard shell, role-aware navigation; logout ends the shift** (jac-shadcn, `AuthGuard` layouts; the wizard reserves an optional **"Brand your cinema"** step, filled in by 3.8 and 8.5; skipping it gives the platform default theme)
   - **T (E2E, mobile + desktop):** owner signs up → creates a cinema → lands on the dashboard; an usher sees only the scanner nav; logout works. On mobile, navigation is through the drawer.
 
 ### Phase 3 — Cinema setup (Week 2, days 1–3)

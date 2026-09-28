@@ -3,7 +3,8 @@
 At `lg` and wider the navigation is a sticky sidebar. Below `lg` it moves into a
 left-hand drawer (a Radix dialog: focus is trapped while open and returns to the menu
 button on close). Colours come only from theme tokens, via the shadcn variables.
-`actions` (typically a BottomActionBar) is pinned under the page content.
+`actions` (typically a BottomActionBar) is pinned under the page content. `account`
+(switch cinema, sign out) sits at the foot of the sidebar and of the drawer.
 """
 
 import from react { useState }
@@ -48,10 +49,10 @@ def NavLinks(
         </nav>;
 }
 
-def Brand(name: str) -> JsxElement {
+def Brand(name: str, home: str) -> JsxElement {
     return
         <Link
-            to="/"
+            to={home}
             className="font-display inline-flex min-h-11 items-center text-2xl leading-none"
         >
             {name}
@@ -63,8 +64,10 @@ def:pub AppShell(
     title: str,
     nav: list[dict[str, str]],
     brand: str = "AfriCinemas",
+    home: str = "/",
     children: any = None,  # jac:ignore[W1037]
-    actions: any = None  # jac:ignore[W1037]
+    actions: any = None,  # jac:ignore[W1037]
+    account: any = None  # jac:ignore[W1037]
 ) -> JsxElement {
     location = useLocation();
     [open, set_open] = useState(False);
@@ -81,8 +84,9 @@ def:pub AppShell(
                 data-testid="shell-sidebar"
                 className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col gap-6 overflow-y-auto border-r bg-card p-4 lg:flex"
             >
-                <Brand name={brand}/>
+                <Brand name={brand} home={home}/>
                 <NavLinks items={nav} current={location.pathname}/>
+                {account and <div className="mt-auto border-t pt-4">{account}</div>}
             </aside>
             <div className="flex min-w-0 flex-1 flex-col">
                 <header
@@ -138,9 +142,13 @@ def:pub AppShell(
                                     on_navigate={close_drawer}
                                 />
                             </div>
+                            {account
+                                and <div className="mt-auto border-t p-2">
+                                    {account}
+                                </div>}
                         </SheetContent>
                     </Sheet>
-                    <Brand name={brand}/>
+                    <Brand name={brand} home={home}/>
                 </header>
                 <main
                     id="content"
