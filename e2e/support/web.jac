@@ -3,9 +3,16 @@
 Two projects, as the plan requires for every UI test: a phone (Pixel 7: touch, mobile
 viewport, device pixel ratio) and a 1440x900 desktop. Each opens in a chosen colour scheme.
 The server is started by scripts/e2e.sh, which exports E2E_BASE_URL.
+
+One Playwright driver and one Chromium serve the whole test run (`shared_browser`):
+starting them costs seconds each time, while a browser context (its own cookies and
+storage, so its own login) costs little. Every test works in fresh contexts and closes
+them at the end (`close_contexts`), so tests stay independent.
 """
 
+import atexit;
 import os;
+import sys;
 import struct;
 import zlib;
 import from pathlib { Path }
@@ -13,7 +20,53 @@ import from playwright.sync_api { sync_playwright }
 
 glob BASE_URL: str = os.environ.get("E2E_BASE_URL", "http://127.0.0.1:8870"),
      ARTIFACTS: Path = Path(__file__).resolve().parent.parent / "artifacts",
-     PROJECTS: list[str] = ["mobile", "desktop"];
+     PROJECTS: list[str] = ["mobile", "desktop"],
+     _SESSION_ATTR: str = "_africinemas_e2e_session";
+
+def _session -> dict[str, any] {  # jac:ignore[W1037]
+    # The run's Playwright driver ("pw") and browser ("browser"). Kept on `sys`, not in
+    # a module global: `jac test` loads this module afresh for each test file, and a
+    # second sync Playwright can't start while the first is running.
+    if not hasattr(sys, _SESSION_ATTR) {
+        setattr(sys, _SESSION_ATTR, {});
+    }
+    return getattr(sys, _SESSION_ATTR);
+}
+
+def _shutdown {
+    session = _session();
+    try {
+        if "browser" in session {
+            session["browser"].close();
+        }
+        if "pw" in session {
+            session["pw"].stop();
+        }
+    } except Exception as e {
+        # The process is exiting; report and move on.
+        print(f"e2e: browser shutdown failed: {e}");
+    }
+}
+
+def shared_browser -> tuple[any, any] {  # jac:ignore[W1037]
+    # (playwright, browser) for this test run; relaunched if the browser has died.
+    session = _session();
+    if "pw" not in session {
+        session["pw"] = sync_playwright().start();
+        atexit.register(_shutdown);
+    }
+    if "browser" not in session or not session["browser"].is_connected() {
+        session["browser"] = session["pw"].chromium.launch();
+    }
+    return (session["pw"], session["browser"]);
+}
+
+def close_contexts(browser: any) {  # jac:ignore[W1037]
+    # Ends a test: closes every context (and its pages) it opened.
+    for context in list(browser.contexts) {
+        context.close();
+    }
+}
 
 def context_options(pw: any, project: str, scheme: str) -> dict[str, any] {  # jac:ignore[W1037]
     if project == "mobile" {
