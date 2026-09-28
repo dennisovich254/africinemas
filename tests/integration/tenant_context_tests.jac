@@ -19,13 +19,17 @@ def _two_cinemas -> tuple[Served, dict[str, any], dict[str, any]] {  # jac:ignor
     b = app.call(
         "owner_b", "create_cinema", {"name": "Imax Rift", "slug": "imax-rift"}
     );
+    app.call("owner_a", "start_shift", {"tenant": "nova"});
+    app.call("owner_b", "start_shift", {"tenant": "imax-rift"});
     return (app, a, b);
 }
 
 def _join(app: Served, who: str, tenant_id: str, role: str, venue_id: str = "") -> str {
-    return app.call(
+    member = app.call(
         who, "t_join_as", {"tenant_id": tenant_id, "role": role, "venue_id": venue_id}
     );
+    app.call(who, "start_shift", {"tenant": "nova"});
+    return member;
 }
 
 test "the owner's context comes from their membership" {

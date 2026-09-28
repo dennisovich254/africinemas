@@ -27,6 +27,8 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          },
          "accept_invite": {"scope": "caller", "probe": {"token": "not-a-real-token"}},
          "list_staff": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "start_shift": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "end_shift": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
          "change_staff_roles": {
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "member_id": "x", "roles": ["owner"]}

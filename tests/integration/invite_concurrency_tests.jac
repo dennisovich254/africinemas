@@ -27,7 +27,7 @@ default = "server"
 """,
      # The production endpoints without the web client (main.jac also builds the UI).
      APP_MAIN: str = """import from core.tenancy.signup { create_cinema, my_cinemas }  # jac:ignore[W2037]
-import from core.tenancy.tenant_api { my_access, rename_cinema }  # jac:ignore[W2037]
+import from core.tenancy.tenant_api { my_access, rename_cinema, start_shift, end_shift }  # jac:ignore[W2037]
 import from core.tenancy.staff_api {
     invite_staff,
     accept_invite,
@@ -55,6 +55,7 @@ test "concurrent accepts of one invite: exactly one joins" {
         server.start();
         owner = server.register("owner");
         server.call("create_cinema", {"name": "Nova Cinemas", "slug": "nova"}, owner);
+        server.call("start_shift", {"tenant": "nova"}, owner);
         token = server.call(
             "invite_staff", {"tenant": "nova", "role": "usher", "venue_id": ""}, owner
         )["token"];

@@ -11,6 +11,10 @@ glob NOT_FOUND: dict[str, bool | dict[str, str]] = {
      FORBIDDEN: dict[str, bool | dict[str, str]] = {
          "ok": False,
          "error": {"code": "forbidden", "message": "You can't do that here."}
+     },
+     NO_SHIFT: dict[str, bool | dict[str, str]] = {
+         "ok": False,
+         "error": {"code": "no_shift", "message": "Start your shift to continue."}
      };
 
 def refused(code: str, message: str) -> dict[str, bool | dict[str, str]] {

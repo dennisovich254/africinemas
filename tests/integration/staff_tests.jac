@@ -19,6 +19,7 @@ glob MAIN: str = path.join(
 def _cinema(names: list[str]) -> Served {
     app = served(MAIN, ["owner"] + names);
     app.call("owner", "create_cinema", {"name": "Nova Cinemas", "slug": "nova"});
+    app.call("owner", "start_shift", {"tenant": "nova"});
     return app;
 }
 
@@ -33,6 +34,7 @@ def _hire(app: Served, who: str, role: str, venue: str = "") -> str {
     token = _invite(app, "owner", role, venue)["token"];
     accepted = app.call(who, "accept_invite", {"token": token});
     assert accepted["ok"] , accepted;
+    app.call(who, "start_shift", {"tenant": "nova"});
     return accepted["member_id"];
 }
 
