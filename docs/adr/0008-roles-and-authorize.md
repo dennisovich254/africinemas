@@ -46,3 +46,15 @@ Architecture §14 and §15 ask for RBAC plus tenant scope, resource scope and se
 - The context (member, roles, venue scopes) is built server-side from the graph on every call in P2.4, so revoking a role takes effect immediately, despite long-lived JWTs (ADR-0006).
 - Step-up authentication for sensitive operations (§16) layers on top later. `authorize` only answers "may this role do this here".
 - Changing who can do what is a one-line table change, plus the matching matrix cell in the tests, and the tests fail until both agree.
+
+## Applied in P2.4: context on every call, access group + role groups
+
+- **`resolve_context(slug)`** (`core/authz/context.jac`) builds the `AuthContext` on the server, on **every call**. It looks the slug up, then reads the caller's `MemberOf` edges to that tenant's **role groups** in the graph. Nothing comes from the token except who the caller is, so a role granted, changed or removed applies to the next call with the same token. `scoped(slug, action, venue_id)` also runs `require()`.
+- **Refusals don't reveal which cinemas exist.** An unknown slug, a malformed one and a cinema the caller isn't a member of all get the same `not_found` ("No such cinema."). A member who lacks the permission gets `forbidden`.
+- **Two kinds of staff group per tenant** (`core/tenancy/groups.jac`):
+  - one **access group** (`role = "staff"`). It holds the graph grants: tenant nodes grant it WRITE, one entry per node whatever the number of staff (ADR-0004). Every staff member joins it once.
+  - **role groups**, one per role, or per role and venue (`venue_id`). They carry **no node grants** and only express roles. A member of several venue groups for one role gets one venue-scoped assignment covering all of those venues.
+
+  This keeps grants O(1) per node as roles and venues multiply. Adding a role never touches existing nodes.
+- **`add_staff(tenant, role, venue_id)`** joins the caller to the access group, if they aren't in it yet, and to the role group. It's used by signup (the owner) and, in P2.5, by invitations. **`remove_member`** removes every membership a person holds in a tenant.
+- **The tenant-isolation registry** (`tests/isolation/registry.jac`) lists every served endpoint with its scope (`public`, `caller` or `tenant`). A meta-test compares it with the app's OpenAPI routes, so an unregistered endpoint fails CI. A probe calls every `tenant` endpoint as tenant A's owner with tenant B's slug, and requires the `not_found` answer, with B unchanged.

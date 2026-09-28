@@ -3,6 +3,7 @@ import from core.health { AppInfo, app_info }
 # W2037 ("private to module") is a false alarm for this documented pattern: :priv
 # endpoints are served, and require a login (tests/api/smoke_tests.jac).
 import from core.tenancy.signup { create_cinema, my_cinemas }  # jac:ignore[W2037]
+import from core.tenancy.tenant_api { my_access, rename_cinema }  # jac:ignore[W2037]
 
 import ".styles.global.css";
 import ".styles.fonts.css";

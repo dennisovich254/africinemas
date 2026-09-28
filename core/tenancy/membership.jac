@@ -11,7 +11,13 @@ the request's one transaction.
 
 import from uuid { UUID }
 import from jaclang { JacRuntime as Jac }
-import from core.tenancy.models { StaffGroup, Membership, MemberOf }
+import from core.tenancy.models {
+    Tenant,
+    StaffGroup,
+    Membership,
+    MemberOf,
+    ACCESS_GROUP
+}
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 
 def join_group(principal_root_id: str, group: StaffGroup) -> Membership {
@@ -41,4 +47,37 @@ def join_group(principal_root_id: str, group: StaffGroup) -> Membership {
         restore(me);
     }
     return membership;
+}
+
+def remove_member(tenant: Tenant, staff_root_id: str) -> int {
+    # Removes every membership `staff_root_id` holds in `tenant` (the access group and
+    # all role groups), acting as the tenant's principal. Returns how many ROLE
+    # memberships were removed. The member's next call finds no roles (P2.4).
+    target = str(UUID(staff_root_id));
+    caller = node_id(root);
+    roles_removed = 0;
+    act_as(tenant.principal_root_id);
+    try {
+        for g in [root-->[?:StaffGroup]] {
+            if g.tenant_id != node_id(tenant) {
+                continue;
+            }
+            for m in [g-->[?:Membership]] {
+                if m.staff_root_id == target {
+                    member_edge: any = jobj(m.edge_id);  # jac:ignore[W1037]
+                    if member_edge is not None {
+                        Jac.destroy([member_edge]);
+                    }
+                    Jac.destroy([m]);
+                    if g.role != ACCESS_GROUP {
+                        roles_removed += 1;
+                    }
+                }
+            }
+        }
+        flush_now();
+    } finally {
+        restore(caller);
+    }
+    return roles_removed;
 }

@@ -20,7 +20,14 @@ import from uuid { UUID }
 import from jaclang { JacRuntime as Jac }
 import from core.clock { now }
 import from core.faults { checkpoint }
-import from core.tenancy.models { Tenant, StaffGroup, MemberOf, ForTenant, ROLE_OWNER }
+import from core.tenancy.models {
+    Tenant,
+    StaffGroup,
+    MemberOf,
+    ForTenant,
+    ROLE_OWNER,
+    NAME_MAX
+}
 import from core.tenancy.state { TenantState }
 import from core.tenancy.slugs { InvalidSlug, validate_slug }
 import from core.tenancy.registry {
@@ -29,7 +36,8 @@ import from core.tenancy.registry {
     make_slug_permanent,
     release_slug
 }
-import from core.tenancy.membership { join_group }
+import from core.tenancy.groups { add_staff }
+import from core.authz.policy { ROLE_PERMISSIONS }
 import from core.tenancy.principal {
     Principal,
     node_id,
@@ -43,8 +51,7 @@ import from core.tenancy.principal {
     flush_now
 }
 
-glob NAME_MAX: int = 80,
-     SLUG_HOLD_ENV: str = "AFRICINEMAS_SIGNUP_SLUG_HOLD_S",
+glob SLUG_HOLD_ENV: str = "AFRICINEMAS_SIGNUP_SLUG_HOLD_S",
      SLUG_HOLD_DEFAULT_S: int = 900;
 
 def _refused(
@@ -73,20 +80,14 @@ def _provision(
         );
         assign_id(tenant, tenant_id);
         root ++> tenant;
-        checkpoint("after_tenant");
-        group = StaffGroup(tenant_id=tenant_id, role=ROLE_OWNER);
-        root ++> group;
-        group +>:ForTenant:+> tenant;
-        group_id = UUID(node_id(group));
-        # Members traverse through the group, so it grants READ on itself (ADR-0004).
-        Jac.allow_group(group, group_id, AccessLevel.READ);  # jac:ignore[E1053]
-        Jac.allow_group(tenant, group_id, AccessLevel.WRITE);  # jac:ignore[E1053]
         flush_now();
-        checkpoint("after_group");
+        checkpoint("after_tenant");
     } finally {
         restore(owner);
     }
-    join_group(principal.root_id, group);
+    # The owner joins the tenant's access group and the owner role group (ADR-0004).
+    add_staff(tenant, ROLE_OWNER, "");
+    checkpoint("after_group");
     checkpoint("after_membership");
     act_as(principal.root_id);
     try {
@@ -151,6 +152,9 @@ def:priv my_cinemas -> list[dict[str, str]] {
     # The cinemas the caller is staff of, with their role there.
     found: list[dict[str, str]] = [];
     for g in [root->:MemberOf:->[?:StaffGroup]] {
+        if g.role not in ROLE_PERMISSIONS {
+            continue;  # the access group grants no role
+        }
         for t in [g->:ForTenant:->[?:Tenant]] {
             found.append(
                 {
