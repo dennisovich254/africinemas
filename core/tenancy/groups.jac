@@ -81,3 +81,10 @@ def add_staff(tenant: Tenant, role: str, venue_id: str) -> Membership {
     }
     return record;
 }
+
+def attach_to_tenant(node_obj: any, tenant: Tenant) {  # jac:ignore[W1037]
+    # The one place a new tenant node gets its graph grant: the tenant's access group
+    # (ADR-0004 rule 2; grants are per node, not per subtree). Call as the principal.
+    group = access_group(tenant);
+    Jac.allow_group(node_obj, UUID(node_id(group)), AccessLevel.WRITE);  # jac:ignore[E1053]
+}
