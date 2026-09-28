@@ -48,3 +48,11 @@ Architecture §138 asked two questions.
 
 - Every staff endpoint runs the same `authorize()` (P2): token → root → membership → live shift session → permission. That is one extra read per call.
 - The tests pin the observed behaviour. If a Jac upgrade makes the hook run, or accepts shorter lifetimes, they fail, and this ADR should be revisited.
+
+## Implemented in P2.7a: shifts as expiring claims
+
+- A **shift** is an atomic claim (ADR-0007) keyed by `(cinema, member)`, with a time-to-live: `AFRICINEMAS_SHIFT_TTL_S`, **8 h** by default (`core/tenancy/shifts.jac`). It lives on the server and expires on its own. Checking it is one database lookup, and nothing in the graph needs cleaning up.
+- `start_shift(tenant)` opens it; calling it again restarts the 8 hours. `end_shift(tenant)` closes it at once, and the UI calls it on logout (P2.7b). Only members can open one.
+- **`scoped()` requires an open shift for every staff action.** Refusals are checked in order: `not_found` (not a member, or removed or disabled), then `no_shift` ("Start your shift to continue."), then `forbidden`. So removal or disabling always wins over an open shift. `my_access` works without a shift, so the UI can show a member their cinemas and roles before they start.
+- A shift covers one cinema: staff of two cinemas open a shift at each.
+- The owner is staff too, and needs a shift for staff actions.

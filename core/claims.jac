@@ -97,3 +97,22 @@ def release(namespace: str, key: str, owner: str) -> bool {
         )
     );
 }
+
+def renew(namespace: str, key: str, owner: str, ttl_seconds: int) -> bool {
+    # Extends `owner`'s live claim to `ttl_seconds` from now (0: permanent). False when
+    # `owner` doesn't hold a live claim.
+    if ttl_seconds > 0 {
+        sql = """
+            UPDATE kv_state
+            SET expires_at = now() + make_interval(secs => CAST(:ttl AS float8)), updated_at = now()
+            WHERE key = :k AND value = :v AND (expires_at IS NULL OR expires_at > now())
+            RETURNING key
+            """;
+        return bool(
+            _store().rows(
+                sql, {"k": _key(namespace, key), "v": owner, "ttl": ttl_seconds}
+            )
+        );
+    }
+    return make_permanent(namespace, key, owner);
+}

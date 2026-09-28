@@ -14,11 +14,20 @@ import from core.authz.policy { AuthContext, Resource, require, assignments_from
 import from core.tenancy.models { Tenant, StaffGroup, Membership, MemberOf, ForTenant }
 import from core.tenancy.registry { lookup_slug }
 import from core.tenancy.principal { node_id }
+import from core.tenancy.shifts { shift_is_open }
 
 class NotFound(LookupError) {
     def init(self: NotFound) {
         super.init("No such cinema.");
         self.code = "not_found";
+    }
+}
+
+class NoShift(PermissionError) {
+    # A member acting without an open shift (ADR-0006).
+    def init(self: NoShift) {
+        super.init("Start your shift to continue.");
+        self.code = "no_shift";
     }
 }
 
@@ -61,9 +70,12 @@ def resolve_context(selector: str) -> TenantScope {
 }
 
 def scoped(selector: str, action: str, venue_id: str | None = None) -> TenantScope {
-    # Resolve the caller's context in `selector` and require `action` on it
-    # (raises NotFound or Forbidden).
+    # Resolve the caller's context in `selector`, require an open shift (ADR-0006) and
+    # `action` on it. Raises NotFound, NoShift or Forbidden, in that order.
     scope = resolve_context(selector);
+    if not shift_is_open(scope.ctx.tenant_id, scope.ctx.member_root_id) {
+        raise NoShift();
+    }
     require(
         scope.ctx, action, Resource(tenant_id=scope.ctx.tenant_id, venue_id=venue_id)
     );

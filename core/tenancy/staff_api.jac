@@ -26,11 +26,11 @@ import from jaclang.server.identity.app_tokens {
 import from core.clock { now }
 import from core.claims { claim, make_permanent, release }
 import from core.authz.policy { Forbidden, role_key, can_grant }
-import from core.authz.context { NotFound, TenantScope, scoped }
+import from core.authz.context { NoShift, NotFound, TenantScope, scoped }
 import from core.tenancy.models { Tenant, Invite, Membership }
 import from core.tenancy.groups { add_staff }
 import from core.tenancy.membership { records_of, remove_member }
-import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, refused }
+import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
 import from core.tenancy.principal {
     node_id,
     act_as,
@@ -89,6 +89,8 @@ def:priv invite_staff(tenant: str, role: str, venue_id: str) -> dict[str, any] {
         scope = scoped(tenant, "employees.invite");
     } except NotFound {
         return NOT_FOUND;
+    } except NoShift {
+        return NO_SHIFT;
     } except Forbidden {
         return FORBIDDEN;
     }
@@ -182,6 +184,8 @@ def:priv list_staff(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         scope = scoped(tenant, "employees.read");
     } except NotFound {
         return NOT_FOUND;
+    } except NoShift {
+        return NO_SHIFT;
     } except Forbidden {
         return FORBIDDEN;
     }
@@ -214,6 +218,8 @@ def _manage(
         scope = scoped(tenant, action);
     } except NotFound {
         return NOT_FOUND;
+    } except NoShift {
+        return NO_SHIFT;
     } except Forbidden {
         return FORBIDDEN;
     }

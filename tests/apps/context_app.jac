@@ -4,7 +4,7 @@ Never imported by main.jac.
 """
 
 import from core.tenancy.signup { create_cinema, my_cinemas }  # jac:ignore[W2037] served here
-import from core.tenancy.tenant_api { my_access, rename_cinema }  # jac:ignore[W2037] served here
+import from core.tenancy.tenant_api { my_access, rename_cinema, start_shift, end_shift }  # jac:ignore[W2037] served here
 import from core.tenancy.groups { add_staff }
 import from core.tenancy.membership { remove_member }
 import from core.tenancy.models { Tenant }

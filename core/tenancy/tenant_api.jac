@@ -7,9 +7,18 @@ Refusals share one shape: {"ok": False, "error": {"code", "message"}}, with code
 """
 
 import from core.authz.policy { Forbidden }
-import from core.authz.context { NotFound, TenantScope, resolve_context, scoped }
+import from core.authz.context {
+    NoShift,
+    NotFound,
+    TenantScope,
+    resolve_context,
+    scoped
+}
 import from core.tenancy.models { NAME_MAX }
-import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, refused }
+import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
+import from datetime { timedelta }
+import from core.clock { now }
+import from core.tenancy.shifts { open_shift, close_shift }
 
 def:priv my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The caller's roles in `tenant` (any member may ask).
@@ -36,6 +45,8 @@ def:priv rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore
         scope = scoped(tenant, "tenant.settings.update");
     } except NotFound {
         return NOT_FOUND;
+    } except NoShift {
+        return NO_SHIFT;
     } except Forbidden {
         return FORBIDDEN;
     }
@@ -47,4 +58,26 @@ def:priv rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore
     }
     scope.tenant.name = clean;
     return {"ok": True, "name": clean};
+}
+
+def:priv start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # Opens (or restarts) the caller's shift at `tenant` (ADR-0006). Any member may.
+    try {
+        scope = resolve_context(tenant);
+    } except NotFound {
+        return NOT_FOUND;
+    }
+    ttl = open_shift(scope.ctx.tenant_id, scope.ctx.member_root_id);
+    return {"ok": True, "expires_at": (now() + timedelta(seconds=ttl)).isoformat()};
+}
+
+def:priv end_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # Ends the caller's shift at `tenant` at once; the UI calls it on logout.
+    try {
+        scope = resolve_context(tenant);
+    } except NotFound {
+        return NOT_FOUND;
+    }
+    close_shift(scope.ctx.tenant_id, scope.ctx.member_root_id);
+    return {"ok": True};
 }
