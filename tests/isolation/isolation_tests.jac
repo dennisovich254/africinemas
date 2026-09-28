@@ -10,6 +10,7 @@ import json;
 import os;
 import shutil;
 import tempfile;
+import from uuid { UUID }
 import from jaclang.testing.testing { JacTestClient }
 import from tests.support.harness { register_actor }
 import from tests.isolation.registry { REGISTRY }
@@ -39,6 +40,10 @@ def _served_endpoints(client: JacTestClient) -> set[str] {
         }
     }
     return names;
+}
+
+def _norm(root_id: str) -> str {
+    return str(UUID(root_id));
 }
 
 def _call(client: JacTestClient, token: str, name: str, body: dict[str, any]) -> any {  # jac:ignore[W1037]
@@ -83,6 +88,12 @@ test "every tenant endpoint refuses another tenant's selector and leaks nothing"
                 );
                 answer = _call(client, a.token, name, body);
                 assert answer == NOT_FOUND , f"{name}: A reached B: {answer}";
+            } elif spec["scope"] == "customer" {
+                body = json.loads(
+                    json.dumps(spec["probe"]).replace("{tenant}", "imax-rift")
+                );
+                answer = json.dumps(_call(client, a.token, name, body));
+                assert b.root_id not in answer and _norm(b.root_id) not in answer , f"{name} leaked B's owner: {answer}";
             } elif spec["scope"] == "caller" and name != "create_cinema" {
                 answer = json.dumps(
                     _call(client, a.token, name, spec.get("probe", {}))

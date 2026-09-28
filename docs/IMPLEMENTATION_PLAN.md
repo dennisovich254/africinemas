@@ -195,7 +195,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
   - **T:** context is resolved server-side from membership; a forged tenant selector is rejected; the isolation registry + meta-test is in place (§2.3).
 - [x] **2.5 Staff invitations & lifecycle** (via `app_tokens`; ADR-0008 §P2.5: roles on the membership record, no escalation, no self-change; shift sessions (ADR-0006) move to 2.7)
   - **T:** invite → accept assigns the role; a token is single-use under concurrent accepts; expired tokens are rejected; disabling or changing a role takes effect on the next call even with the old JWT.
-- [ ] **2.6 Customer accounts per tenant**
+- [x] **2.6 Customer accounts per tenant** (ADR-0009)
   - **T:** a customer registers on tenant A's storefront → a `CustomerProfile` for A only; the same person on B gets a separate profile; a customer can't call staff endpoints.
 - [ ] **2.7 Web UI: auth, onboarding wizard shell, role-aware navigation, staff shift sessions (ADR-0006: server-side, 8 h, ended by logout)** (jac-shadcn, `AuthGuard` layouts; the wizard reserves an optional **"Brand your cinema"** step, filled in by 3.8 and 8.5; skipping it gives the platform default theme)
   - **T (E2E, mobile + desktop):** owner signs up → creates a cinema → lands on the dashboard; an usher sees only the scanner nav; logout works. On mobile, navigation is through the drawer.
@@ -212,6 +212,8 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 - [ ] **3.7 Back-office UI for 3.1/3.4–3.6** — **T (E2E):** create venue → screen → movie → screening → publish; it appears on the storefront.
 
 ### Phase 4 — Storefront & booking engine (Week 2, days 3–5)
+
+**Decided (ADR-0010):** checkout works **without an account**: a guest pays by M-Pesa with a phone number and gets a booking reference + secret (SMS) to reopen tickets. Accounts (ADR-0009) stay optional and are offered after purchase.
 
 - [ ] **4.1 Public storefront reads** (`/c/{slug}`: home, movie, screening; §41) — **T:** anonymous reads see only published data; unpublished is invisible; tenant A's slug never returns B's data.
 - [ ] **4.2 Seat availability** — **T:** a lazily expired hold shows as AVAILABLE; BLOCKED/HOUSE are not sellable; the response carries text states (accessibility, §102).

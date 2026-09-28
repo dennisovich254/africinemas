@@ -12,6 +12,10 @@ import from core.tenancy.staff_api {
     set_staff_status,  # jac:ignore[W2037]
     remove_staff  # jac:ignore[W2037]
 }
+import from core.tenancy.customer_api {
+    join_as_customer,  # jac:ignore[W2037]
+    my_customer_profile  # jac:ignore[W2037]
+}
 
 import ".styles.global.css";
 import ".styles.fonts.css";

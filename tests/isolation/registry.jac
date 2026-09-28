@@ -5,6 +5,8 @@
   given, is the request body to call it with.
 - "tenant": takes a tenant selector; `probe` is a request body aimed at tenant B, with
   "{tenant}" standing for B's slug.
+- "customer": a storefront endpoint; anyone may use it at any cinema, but it only ever
+  returns the caller's own customer data (never staff or other customers' data).
 
 isolation_tests.jac fails when the app serves an endpoint that isn't listed here, so no
 new endpoint can skip the cross-tenant checks.
@@ -36,5 +38,10 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "remove_staff": {
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "member_id": "x"}
-         }
+         },
+         "join_as_customer": {
+             "scope": "customer",
+             "probe": {"tenant": "{tenant}", "display_name": "Probe"}
+         },
+         "my_customer_profile": {"scope": "customer", "probe": {"tenant": "{tenant}"}}
      };

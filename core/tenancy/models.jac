@@ -55,10 +55,13 @@ node Invite {
 }
 
 node CustomerProfile {
-    # A person's customer record at one tenant; the same person at another tenant
-    # gets a separate profile (P2.6).
+    # A person's customer record at ONE cinema (P2.6): owned by the cinema's principal,
+    # readable by that customer only; the same person at another cinema has another one.
+    # One per (cinema, person) is guaranteed by an atomic claim (ADR-0007).
     has tenant_id: str,
-        display_name: str = "";
+        customer_root_id: str,
+        display_name: str,
+        created_at: str;
 }
 
 edge MemberOf {}
