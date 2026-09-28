@@ -113,3 +113,11 @@ test "jac.toml has no production [serve] overrides" {
     assert re.search(r"^\[environments\.[A-Za-z0-9_-]+\.serve[\].]", text, re.M)
         is None , "put [serve] settings in deploy/production.env as JAC_SERVE_* env vars";
 }
+
+test "production never enables test-only switches" {
+    # Fault injection (core/faults.jac) and clock control (core/clock.jac) are for tests.
+    prod = _read_env_file(PROD_ENV_FILE);
+    for name in ["AFRICINEMAS_FAULTS", "AFRICINEMAS_CLOCK_CONTROL"] {
+        assert name not in prod , f"{name} must never be set in production";
+    }
+}

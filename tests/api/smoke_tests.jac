@@ -36,3 +36,17 @@ test "built-in health probe answers" {
         client.close();
     }
 }
+
+test "the production app serves cinema signup, and only to signed-in users" {
+    client = _client();
+    try {
+        for name in ["create_cinema", "my_cinemas"] {
+            resp = client.post(
+                f"/function/{name}", json={"name": "Nova", "slug": "nova"}
+            );
+            assert resp.status_code == 401 , f"{name}: {resp.status_code} {resp.text[:200]}";
+        }
+    } finally {
+        client.close();
+    }
+}

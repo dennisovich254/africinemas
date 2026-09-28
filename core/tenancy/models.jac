@@ -10,6 +10,8 @@ Ownership follows the Phase 1 ADRs:
 
 import from core.tenancy.state { TenantState, transition }
 
+glob ROLE_OWNER: str = "owner";
+
 node Tenant {
     has slug: str,
         name: str,
@@ -25,6 +27,14 @@ node Tenant {
 node StaffGroup {
     # One group per role within a tenant (roles: P2.3).
     has tenant_id: str,
+        role: str;
+}
+
+node Membership {
+    # The tenant's own record of a staff membership (ADR-0004): which root joined, and
+    # the id of their MemberOf edge, so the tenant can find and remove it later.
+    has staff_root_id: str,
+        edge_id: str,
         role: str;
 }
 

@@ -15,7 +15,15 @@ Rules (ADR-0003):
 """
 
 import secrets;
+import from uuid { UUID, uuid4 }
 import from jaclang { JacRuntime as Jac }
+
+glob PRINCIPAL_PREFIX: str = "svc-tenant-";
+
+obj Principal {
+    has user_id: str,
+        root_id: str;
+}
 
 def node_id(node_obj: any) -> str {  # jac:ignore[W1037]
     return str(node_obj.__jac__.id);
@@ -29,22 +37,77 @@ def access_level(target: any) -> str {  # jac:ignore[W1037]
     return str(Jac.check_access_level(target.__jac__).name);
 }
 
-def new_principal(label: str) -> str {
+def _users -> any {  # jac:ignore[W1037]
+    return Jac.get_user_manager(Jac.get_context().base_path_dir or "");
+}
+
+def create_principal(label: str) -> Principal {
     # An internal user whose random password is never stored or returned, so nobody
-    # can log in as it. Returns the principal's root id.
-    ctx = Jac.get_context();
-    users = Jac.get_user_manager(ctx.base_path_dir or "");
+    # can log in as it (ADR-0003).
+    users = _users();
     created = users.create_internal_user(
-        f"svc-tenant-{secrets.token_hex(8)}", secrets.token_urlsafe(32)
+        f"{PRINCIPAL_PREFIX}{secrets.token_hex(8)}", secrets.token_urlsafe(32)
     );
     if "error" in created {
         raise RuntimeError(f"could not create the principal for {label}: {created}");
     }
-    root_id = users.ensure_user_root(str(created["user_id"]));
+    user_id = str(created["user_id"]);
+    root_id = users.ensure_user_root(user_id);
     if not root_id {
+        users.delete_user(user_id);
         raise RuntimeError(f"the principal for {label} has no root");
     }
-    return str(root_id);
+    return Principal(user_id=user_id, root_id=str(root_id));
+}
+
+def new_principal(label: str) -> str {
+    # Returns the principal's root id (the Phase 1 spikes use this form).
+    return create_principal(label).root_id;
+}
+
+def delete_principal(user_id: str) {
+    # Compensation for a failed signup: the identity store is outside the graph
+    # transaction, so a rolled-back signup must remove its principal explicitly.
+    _users().delete_user(user_id);
+}
+
+def _is_principal(user: dict[str, any]) -> bool {  # jac:ignore[W1037] a raw identity-store document
+    # Identities are {"type", "value_raw", "value_normalized", ...}; principals have a
+    # username identity with the svc-tenant- prefix.
+    return any(
+        str(i.get("value_normalized", "")).startswith(PRINCIPAL_PREFIX)
+        for i in user.get("identities", [])
+    );
+}
+
+def count_principals -> int {
+    users = _users();
+    total = 0;
+    offset = 0;
+    while True {
+        page = users.list_all_users(500, offset);
+        total += len(
+            [
+                u
+                for u in page
+                if _is_principal(u)
+            ]
+        );
+        if len(page) < 500 {
+            return total;
+        }
+        offset += 500;
+    }
+}
+
+def fresh_node_id -> str {
+    return str(uuid4());
+}
+
+def assign_id(node_obj: any, node_id_str: str) {  # jac:ignore[W1037]
+    # Give a node its id before it is first persisted, so a claim can be made for it
+    # before the node exists (ADR-0007: claim first, then create).
+    node_obj.__jac__.id = UUID(node_id_str);
 }
 
 def system_root_id -> str {
