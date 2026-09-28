@@ -187,7 +187,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 
 - [x] **2.1 Tenant & control-plane archetypes** (`Tenant`, slug index as atomic claims (ADR-0007), `StaffGroup`, `MemberOf`, `CustomerProfile`)
   - **T:** slug validation (charset, length, reserved words); unique slug under concurrent create (converges to one); tenant state enum transitions.
-- [ ] **2.2 Owner signup → atomic tenant provisioning** (§92)
+- [x] **2.2 Owner signup → atomic tenant provisioning** (§92; claim-first + compensation, ADR-0007; lifecycle aligned to §92-§94)
   - **T:** signup creates the tenant + principal + group + OWNER membership in one transaction; an injected failure leaves no partial tenant; a duplicate slug returns a typed error.
 - [ ] **2.3 Roles, permissions, `authorize(ctx, action, resource)`** (§14, §15, §129)
   - **T:** a parametrized role × permission matrix (OWNER, TENANT_ADMIN, BOX_OFFICE_AGENT, USHER, FINANCE_MANAGER, …); deny-by-default for unknown actions; venue-scoped roles are denied other venues.
@@ -273,6 +273,7 @@ Scope: **customer** (browse, book, pay, my tickets), **usher scanner** (camera),
 ### Phase 11 — Hardening, deploy, demo (Week 4, days 4–5)
 
 - [ ] **11.1 Security pass** — **T:** the full isolation suite is green; production-config assertions; CSP/security headers at the edge; rate limits on hold/pay/scan; the threat-model items from §131 relevant to the MVP each have a test.
+- [ ] **11.1b Claim reconciliation job** (`@schedule`, ADR-0007) — **T:** a committed tenant whose slug claim lapsed (server died before `on_commit`) gets it re-claimed; a claim held by no committed tenant is released; running it twice changes nothing.
 - [ ] **11.2 Deployment** — **I:** a single VM running the Jac server with external Postgres (`JAC_DB_URL`) behind a Cloudflare Tunnel (public HTTPS for the web app, the desktop backend URL and Daraja callbacks). Release workflow deploys on tag. **✓** Health checks green in production.
 - [ ] **11.3 Demo data & script** — `scripts/seed_demo.jac` (2 cinemas, movies, screenings, staff); a 5-minute demo script covering web, desktop and mobile.
 - [ ] **11.4 Docs** — README (setup, run, test), architecture summary, ADR index.

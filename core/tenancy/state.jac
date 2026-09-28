@@ -1,22 +1,36 @@
-"""Tenant lifecycle.
+"""Tenant lifecycle (architecture §92-§94).
 
-PROVISIONING -> ACTIVE (signup finished) or CLOSED (signup abandoned).
-ACTIVE <-> SUSPENDED (billing or abuse). ACTIVE or SUSPENDED -> CLOSED, which is final.
+PROVISIONING   exists only inside the signup transaction (P2.2): it commits as CONFIGURING.
+CONFIGURING    onboarding checklist in progress (§134).
+READY_FOR_GO_LIVE  checklist complete; the go-live gate (§135) moves it to ACTIVE.
+ACTIVE <-> SUSPENDED (billing, abuse; §93).
+CLOSING        cooling-off before deletion (§94); cancellable back to ACTIVE/CONFIGURING.
+DELETED        final.
 Values are stored as strings on the Tenant node.
 """
 
 enum TenantState {
     PROVISIONING = "provisioning",
+    CONFIGURING = "configuring",
+    READY_FOR_GO_LIVE = "ready_for_go_live",
     ACTIVE = "active",
     SUSPENDED = "suspended",
-    CLOSED = "closed"
+    CLOSING = "closing",
+    DELETED = "deleted"
 }
 
 glob ALLOWED: dict[TenantState, set[TenantState]] = {
-         TenantState.PROVISIONING: {TenantState.ACTIVE, TenantState.CLOSED},
-         TenantState.ACTIVE: {TenantState.SUSPENDED, TenantState.CLOSED},
-         TenantState.SUSPENDED: {TenantState.ACTIVE, TenantState.CLOSED},
-         TenantState.CLOSED: set()
+         TenantState.PROVISIONING: {TenantState.CONFIGURING},
+         TenantState.CONFIGURING: {TenantState.READY_FOR_GO_LIVE, TenantState.CLOSING},
+         TenantState.READY_FOR_GO_LIVE: {TenantState.ACTIVE, TenantState.CONFIGURING},
+         TenantState.ACTIVE: {TenantState.SUSPENDED, TenantState.CLOSING},
+         TenantState.SUSPENDED: {TenantState.ACTIVE, TenantState.CLOSING},
+         TenantState.CLOSING: {
+             TenantState.DELETED,
+             TenantState.ACTIVE,
+             TenantState.CONFIGURING
+         },
+         TenantState.DELETED: set()
      };
 
 class InvalidTransition(ValueError) {}

@@ -50,3 +50,4 @@ RETURNING value
 - One extra round trip per claim. Slugs are claimed rarely; seat holds are measured by the S5 load test (P4.7).
 - Claims live outside the graph. Graph exports or backups don't include them, so the owning graph records (the Tenant's `slug`, a Hold node) remain the business record, and a repair job can rebuild claims from them if needed.
 - If JI-024 is fixed upstream, graph convergence can take over again. The concurrency test will tell.
+- **Applied in P2.2 (signup):** the tenant's id is picked first (`principal.fresh_node_id` + `assign_id`), the slug is claimed for it before anything else is created, a failure releases the claim and deletes the principal, and `on_commit` makes the claim permanent. **Residual risk:** if the server dies between the graph commit and `on_commit`, the provisional hold (15 min) can lapse while the tenant exists. A reconciliation job re-claims slugs of committed tenants (plan 11.1b).
