@@ -189,7 +189,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
   - **T:** slug validation (charset, length, reserved words); unique slug under concurrent create (converges to one); tenant state enum transitions.
 - [x] **2.2 Owner signup → atomic tenant provisioning** (§92; claim-first + compensation, ADR-0007; lifecycle aligned to §92-§94)
   - **T:** signup creates the tenant + principal + group + OWNER membership in one transaction; an injected failure leaves no partial tenant; a duplicate slug returns a typed error.
-- [ ] **2.3 Roles, permissions, `authorize(ctx, action, resource)`** (§14, §15, §129)
+- [x] **2.3 Roles, permissions, `authorize(ctx, action, resource)`** (§14, §15, §129; ADR-0008)
   - **T:** a parametrized role × permission matrix (OWNER, TENANT_ADMIN, BOX_OFFICE_AGENT, USHER, FINANCE_MANAGER, …); deny-by-default for unknown actions; venue-scoped roles are denied other venues.
 - [ ] **2.4 TenantContext resolution + isolation harness**
   - **T:** context is resolved server-side from membership; a forged tenant selector is rejected; the isolation registry + meta-test is in place (§2.3).
