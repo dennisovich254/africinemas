@@ -13,4 +13,14 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export JAC_TEST_STRICT=1
 export JAC_TEST_JOBS="${JAC_TEST_JOBS:-1}"
 
-exec jac test "$@"
+status=0
+jac test "$@" || status=$?
+
+# Every in-process test app gets its own embedded-Postgres database, keyed by a temp
+# folder that the test deletes afterwards. Drop those orphaned databases, pass or fail,
+# or they pile up on disk (~8 MB each; 800 of them had reached 6 GB). `prune` only
+# drops databases whose folder is gone. JAC_KEEP_TEST_DBS=1 keeps them for debugging.
+if [[ "${JAC_KEEP_TEST_DBS:-}" != "1" ]]; then
+    jac db prune -y > /dev/null 2>&1 || echo "note: jac db prune failed" >&2
+fi
+exit "$status"

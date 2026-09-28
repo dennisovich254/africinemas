@@ -14,6 +14,10 @@ cleanup() {
         kill "$server_pid" 2>/dev/null || true
         wait "$server_pid" 2>/dev/null || true
     fi
+    # Drop test databases whose folder is gone (see scripts/test.sh).
+    if [[ "${JAC_KEEP_TEST_DBS:-}" != "1" ]]; then
+        jac db prune -y > /dev/null 2>&1 || true
+    fi
 }
 trap cleanup EXIT
 
