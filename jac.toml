@@ -92,6 +92,12 @@ resizable = true
 #   - JI-015: required-variable placeholders keep their literal text when the variable is
 #     unset, so secrets are never referenced here. They come only from the environment
 #     (JAC_SERVE_AUTH_SECRET); if it's unset, Jac mints a random per-project secret.
+[placement]
+# Compile modules for the Python server, never native. Jac's default ("native") compiles
+# import-free modules natively, and there an enum return came back as a bare int and a
+# custom exception lost its type (docs/jac-issues/JI-026). We don't need native code.
+default = "server"
+
 [scale.scheduler]
 # Background jobs (@schedule): payment/receipt processing, hold expiry (ADR-0005).
 # Static tasks run as Jac's system identity, once per server replica per tick.
