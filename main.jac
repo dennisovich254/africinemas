@@ -51,7 +51,11 @@ import from core.catalog.screening_api {
     get_screening,  # jac:ignore[W2037]
     reschedule_screening,  # jac:ignore[W2037]
     schedule_screening,  # jac:ignore[W2037]
-    cancel_screening  # jac:ignore[W2037]
+    cancel_screening,  # jac:ignore[W2037]
+    publish_screening,  # jac:ignore[W2037]
+    unpublish_screening,  # jac:ignore[W2037]
+    list_seat_slots,  # jac:ignore[W2037]
+    public_screenings
 }
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]

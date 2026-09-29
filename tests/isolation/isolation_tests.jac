@@ -94,6 +94,14 @@ test "every tenant endpoint refuses another tenant's selector and leaks nothing"
                 );
                 answer = json.dumps(_call(client, a.token, name, body));
                 assert b.root_id not in answer and _norm(b.root_id) not in answer , f"{name} leaked B's owner: {answer}";
+            } elif spec["scope"] == "storefront" {
+                body = json.loads(
+                    json.dumps(spec["probe"]).replace("{tenant}", "imax-rift")
+                );
+                answer = json.dumps(_call(client, "", name, body));
+                for secret in [b.root_id, _norm(b.root_id), made_b["tenant_id"]] {
+                    assert secret not in answer , f"{name} leaked B's internals: {answer}";
+                }
             } elif spec["scope"] == "caller" and name != "create_cinema" {
                 answer = json.dumps(
                     _call(client, a.token, name, spec.get("probe", {}))

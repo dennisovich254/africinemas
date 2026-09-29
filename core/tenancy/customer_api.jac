@@ -14,7 +14,7 @@ import from jaclang { JacRuntime as Jac }
 import from core.clock { now }
 import from core.claims { claim, holder, make_permanent, release }
 import from core.tenancy.models { Tenant, CustomerProfile, NAME_MAX }
-import from core.tenancy.registry { lookup_slug }
+import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.responses { NOT_FOUND, refused }
 import from core.tenancy.principal {
@@ -23,33 +23,14 @@ import from core.tenancy.principal {
     restore,
     flush_now,
     fresh_node_id,
-    assign_id,
-    system_root_id
+    assign_id
 }
 
 glob PROFILE_CLAIMS: str = "customer-profile",
-     CLAIM_HOLD_S: int = 300,
-     # A storefront takes customers from signup until the cinema starts closing.
-     OPEN_STATES: list[str] = ["configuring", "ready_for_go_live", "active"];
+     CLAIM_HOLD_S: int = 300;
 
 def _storefront(selector: str) -> Tenant | None {
-    # The cinema behind a storefront slug, read as the system root (a customer isn't
-    # staff, so can't read the Tenant node itself). None if unknown or not open.
-    tenant_id = lookup_slug(selector) if selector else None;
-    if tenant_id is None {
-        return None;
-    }
-    me = node_id(root);
-    act_as(system_root_id());
-    try {
-        found: any = jobj(tenant_id);  # jac:ignore[W1037]
-    } finally {
-        restore(me);
-    }
-    if found is None or (found as Tenant).state not in OPEN_STATES {
-        return None;
-    }
-    return found as Tenant;
+    return open_cinema(selector);
 }
 
 def _profile_key(tenant: Tenant) -> str {
