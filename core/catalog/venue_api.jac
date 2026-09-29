@@ -43,6 +43,7 @@ import from core.catalog.venues {
     find_venue,
     find_auditorium,
     layouts_of,
+    screenings_of,
     version_key,
     staff_at
 }
@@ -342,8 +343,15 @@ def _rename_auditorium(tenant: str, auditorium_id: str, name: str) -> dict[str, 
 
 def _delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     (scope, screen) = _auditorium_scope(tenant, auditorium_id);
+    # Screenings, even cancelled ones, are history that tickets and reports point at.
+    if screenings_of(scope.tenant, screen) {
+        raise Refused(
+            "screen_has_screenings",
+            "This screen has screenings, so it can't be deleted."
+        );
+    }
     key = _key(screen.venue_id, screen.name);
-    # Its seat layouts go with it (P3.2); screenings will refuse this in 3.5.
+    # Its seat layouts go with it (P3.2).
     layouts = layouts_of(scope.tenant, screen);
     # Each version's claim is held by that layout's id.
     versions = [(l.version, node_id(l)) for l in layouts];

@@ -142,6 +142,39 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
+         "create_screening": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "auditorium_id": "x",
+                 "movie_id": "x",
+                 "starts_at": "2030-01-01T18:00:00+00:00"
+             }
+         },
+         "list_screenings": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "auditorium_id": "x"}
+         },
+         "get_screening": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
+         "reschedule_screening": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "screening_id": "x",
+                 "starts_at": "2030-01-01T18:00:00+00:00"
+             }
+         },
+         "schedule_screening": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
+         "cancel_screening": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
          "join_as_customer": {
              "scope": "customer",
              "probe": {"tenant": "{tenant}", "display_name": "Probe"}

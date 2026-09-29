@@ -45,6 +45,14 @@ import from core.catalog.movie_api {
     upload_poster,  # jac:ignore[W2037]
     get_poster  # jac:ignore[W2037]
 }
+import from core.catalog.screening_api {
+    create_screening,  # jac:ignore[W2037]
+    list_screenings,  # jac:ignore[W2037]
+    get_screening,  # jac:ignore[W2037]
+    reschedule_screening,  # jac:ignore[W2037]
+    schedule_screening,  # jac:ignore[W2037]
+    cancel_screening  # jac:ignore[W2037]
+}
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]
     my_customer_profile  # jac:ignore[W2037]
