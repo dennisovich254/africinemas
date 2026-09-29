@@ -321,3 +321,42 @@ test "layout changes need an open shift" {
         app.close();
     }
 }
+
+test "each screen has its own layouts, and list_venues shows each one's status" {
+    app = _cinema([]);
+    try {
+        venue = _venue(app, "Westgate");
+        first = _screen(app, venue, "Screen 1");
+        second = _screen(app, venue, "Screen 2");
+        third = _screen(app, venue, "Screen 3");
+        _save(app, first, _seats(["A1", "A2", "A3"]));
+        v1 = _publish(app, first)["layout"];
+        draft = _save(app, second, _seats(["X1"]), rows=1, cols=1)["layout"];
+        assert (draft["version"], draft["status"]) == (1, "draft") , "each screen counts its own versions";
+        assert draft["layout_id"] != v1["layout_id"];
+        assert _get(app, v1["layout_id"])["layout"] == v1 , "saving another screen doesn't touch this one";
+        assert [l["version"] for l in _list(app, first)["layouts"]] == [1];
+        assert [l["version"] for l in _list(app, second)["layouts"]] == [1];
+        assert _list(app, third)["layouts"] == [];
+        screens = app.call("owner", "list_venues", {"tenant": NOVA})["venues"][0][
+            "auditoriums"
+        ];
+        assert [(s["name"], s["layout"]) for s in screens]
+            == [
+                (
+                    "Screen 1",
+                    {"published_version": 1, "draft_version": None, "seat_count": 3}
+                ),
+                (
+                    "Screen 2",
+                    {"published_version": None, "draft_version": 1, "seat_count": 1}
+                ),
+                (
+                    "Screen 3",
+                    {"published_version": None, "draft_version": None, "seat_count": 0}
+                )
+            ] , screens;
+    } finally {
+        app.close();
+    }
+}

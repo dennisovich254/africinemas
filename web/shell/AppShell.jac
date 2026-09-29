@@ -25,11 +25,26 @@ import from ...components.ui.sheet {
 glob LINK_CLASSES: str = "flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
 
 # `on_navigate: any` is a click handler passed through to each link.
+def active_link(items: list[dict[str, str]], current: str) -> str {
+    # The item the current page belongs to: the longest link that is the page or a page
+    # under it. So /app/nova/screens/42 marks Screens, while Overview (/app/nova) is
+    # marked on its own page only.
+    best = "";
+    for item in items {
+        to = item["to"];
+        if (current == to or current.startswith(to + "/")) and len(to) > len(best) {
+            best = to;
+        }
+    }
+    return best;
+}
+
 def NavLinks(
     items: list[dict[str, str]],
     current: str,
     on_navigate: any = None  # jac:ignore[W1037]
 ) -> JsxElement {
+    active = active_link(items, current);
     return
         <nav aria-label="Main">
             <ul className="flex flex-col gap-1">
@@ -37,7 +52,7 @@ def NavLinks(
                     <li key={item["to"]}>
                         <Link
                             to={item["to"]}
-                            aria-current={"page" if item["to"] == current else None}
+                            aria-current={"page" if item["to"] == active else None}
                             className={LINK_CLASSES}
                             onClick={on_navigate}
                         >
