@@ -23,11 +23,11 @@ import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 import from core.catalog.layout_api {
-    list_layouts,
-    get_layout,
-    save_layout,
-    publish_layout
-}  # jac:ignore[W2037] def:priv endpoints over the server pin (JI-027)
+    list_layouts,  # jac:ignore[W2037]
+    get_layout,  # jac:ignore[W2037]
+    save_layout,  # jac:ignore[W2037]
+    publish_layout  # jac:ignore[W2037]
+}  # def:priv endpoints over the server pin (JI-027)
 import from .seat_grid {
     MAX_ROWS,
     MAX_COLS,
@@ -262,7 +262,7 @@ def:pub SeatDesigner(
 
     def warn_before_leaving -> any {  # jac:ignore[W1037]
         win: any = window;  # jac:ignore[W1037,W2001]
-        guard = lambda (e: any) { if unsaved {
+        guard = lambda (e: any) { if unsaved {  # jac:ignore[W1037]
             e.preventDefault();
             e.returnValue = "";
         }};  # jac:ignore[W1037]
@@ -331,7 +331,7 @@ def:pub SeatDesigner(
         nc = clamp(target[1], 0, cols - 1);
         next_key = cell_key(nr, nc);
         set_focus_key(next_key);
-        el: any = document.querySelector(
+        el: any = document.querySelector(  # jac:ignore[W1037]
             f'[data-testid="seat-grid"] [data-cell="{next_key}"]'
         );  # jac:ignore[W1037,W2001]
         if el {
@@ -608,7 +608,7 @@ def:pub SeatDesigner(
                                         cell_key(r, c)
                                     ); }}
                                     onFocus={lambda { set_focus_key(cell_key(r, c)); }}
-                                    onKeyDown={lambda (e: any) { move_focus(
+                                    onKeyDown={lambda (e: any) { move_focus(  # jac:ignore[W1037]
                                         cell_key(r, c), e
                                     ); }}  # jac:ignore[W1037]
                                     onClick={lambda (e: any) {  # jac:ignore[W1037]

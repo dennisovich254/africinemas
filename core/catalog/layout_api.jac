@@ -136,7 +136,11 @@ def _draft_of(layouts: list[SeatLayout]) -> SeatLayout | None {
 }
 
 def _save_layout(
-    tenant: str, auditorium_id: str, rows: int, cols: int, seats: list[any]
+    tenant: str,
+    auditorium_id: str,
+    rows: int,
+    cols: int,
+    seats: list[any]  # jac:ignore[W1037]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     scope = on_shift(tenant);
     screen = _screen(scope, auditorium_id, CONFIGURE);
