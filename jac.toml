@@ -92,6 +92,11 @@ resizable = true
 #   - JI-015: required-variable placeholders keep their literal text when the variable is
 #     unset, so secrets are never referenced here. They come only from the environment
 #     (JAC_SERVE_AUTH_SECRET); if it's unset, Jac mints a random per-project secret.
+[serve]
+# A request that loses a write race is re-run (Jac's default, up to 5 attempts); wait
+# 20 ms x attempt between tries so racing requests don't collide again at once (P3.2).
+conflict_backoff_ms = 20
+
 [placement]
 # Compile modules for the Python server, never native. Jac's default ("native") compiles
 # import-free modules natively, and there an enum return came back as a bare int and a

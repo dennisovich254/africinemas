@@ -1,29 +1,72 @@
-"""Looking up a cinema's venues, for any module that takes a venue id (P3.1).
+"""Looking up a cinema's venues, auditoriums and seat layouts by id (P3.1, P3.2).
 
-Venue ids arrive from clients (venue endpoints, staff invitations and role changes), so
-every use checks the venue exists and belongs to the cinema before relying on it.
+Ids arrive from clients (the setup endpoints, staff invitations and role changes), so
+every use checks the node exists and belongs to the cinema before relying on it: each
+lookup answers None for another cinema's node, a node of another kind, or a bad id.
 """
 
 import from core.tenancy.models { Tenant, Membership }
 import from core.tenancy.membership { records_of }
 import from core.tenancy.principal { node_id, act_as, restore }
-import from core.catalog.models { Venue }
+import from core.catalog.models { Venue, Auditorium, SeatLayout }
 
-def find_venue(tenant: Tenant, venue_id: str) -> Venue | None {
-    # `tenant`'s venue with id `venue_id`, or None if there's no such venue at this
-    # cinema (including another cinema's venue and ids that aren't valid).
-    if not venue_id {
+def _read(tenant: Tenant, node_ref: str) -> any {  # jac:ignore[W1037]
+    # The node with id `node_ref`, read as `tenant`'s principal; None if there's none or
+    # the id isn't valid.
+    if not node_ref {
         return None;
     }
     me = node_id(root);
     act_as(tenant.principal_root_id);
     try {
-        found: any = jobj(venue_id);  # jac:ignore[W1037]
+        found: any = jobj(node_ref);  # jac:ignore[W1037]
     } except Exception {
         found = None;
     } finally {
         restore(me);
     }
+    return found;
+}
+
+def find_auditorium(tenant: Tenant, auditorium_id: str) -> Auditorium | None {
+    # `tenant`'s auditorium with this id, or None (as find_venue).
+    found = _read(tenant, auditorium_id);
+    if not isinstance(found, Auditorium) or found.tenant_id != node_id(tenant) {
+        return None;
+    }
+    return found as Auditorium;
+}
+
+def find_layout(tenant: Tenant, layout_id: str) -> SeatLayout | None {
+    # `tenant`'s seat layout version with this id, or None (as find_venue).
+    found = _read(tenant, layout_id);
+    if not isinstance(found, SeatLayout) or found.tenant_id != node_id(tenant) {
+        return None;
+    }
+    return found as SeatLayout;
+}
+
+def version_key(auditorium_id: str, version: int) -> str {
+    # The LAYOUT_VERSIONS claim key for one version of a screen's layout.
+    return f"{auditorium_id}:{version}";
+}
+
+def layouts_of(tenant: Tenant, auditorium: Auditorium) -> list[SeatLayout] {
+    # Every layout version of `auditorium`, oldest first.
+    me = node_id(root);
+    act_as(tenant.principal_root_id);
+    try {
+        found = [auditorium-->[?:SeatLayout]];
+    } finally {
+        restore(me);
+    }
+    return sorted(found, key=lambda (l: SeatLayout) -> int { return l.version; });  # jac:ignore[W1037]
+}
+
+def find_venue(tenant: Tenant, venue_id: str) -> Venue | None {
+    # `tenant`'s venue with id `venue_id`, or None if there's no such venue at this
+    # cinema (including another cinema's venue and ids that aren't valid).
+    found = _read(tenant, venue_id);
     if not isinstance(found, Venue) or found.tenant_id != node_id(tenant) {
         return None;
     }

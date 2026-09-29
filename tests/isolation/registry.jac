@@ -73,6 +73,28 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "auditorium_id": "x"}
          },
+         "save_layout": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "auditorium_id": "x",
+                 "rows": 1,
+                 "cols": 1,
+                 "seats": []
+             }
+         },
+         "publish_layout": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "auditorium_id": "x"}
+         },
+         "list_layouts": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "auditorium_id": "x"}
+         },
+         "get_layout": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "layout_id": "x"}
+         },
          "join_as_customer": {
              "scope": "customer",
              "probe": {"tenant": "{tenant}", "display_name": "Probe"}

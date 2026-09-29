@@ -14,8 +14,9 @@ for f in .github/CODEOWNERS .github/PULL_REQUEST_TEMPLATE.md .github/dependabot.
          .github/ISSUE_TEMPLATE/config.yml CONTRIBUTING.md SECURITY.md .editorconfig \
          .env.example docs/architecture.md; do has "$f"; done
 
-# PR template carries the Definition of Done from the plan
-for item in "Tests written first" "scripts/test.sh" "jac fmt" "isolation" "on_commit" "375 / 768 / 1440" "docs/jac-issues"; do
+# PR template: a summary and, for UI changes, screenshots. The Definition of Done lives in
+# the plan (docs/IMPLEMENTATION_PLAN.md), not in PR descriptions (owner's decision).
+for item in "## Summary" "375 px · 768 px · 1440 px"; do
     contains .github/PULL_REQUEST_TEMPLATE.md "$item"
 done
 
