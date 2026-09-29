@@ -203,7 +203,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 
 ### Phase 3 — Cinema setup (Week 2, days 1–3)
 
-- [ ] **3.1 Venues & auditoriums CRUD** — **T:** CRUD + authz + isolation; auditorium names unique per venue.
+- [x] **3.1 Venues & auditoriums CRUD** — **T:** CRUD + authz + isolation; auditorium names unique per venue.
 - [ ] **3.2 Seat layouts with versioning** (§21, §22) — **T:** layout validation (unique seat labels, grid bounds, seat types enum); publishing freezes a version; editing a published layout creates v2; screenings keep their version.
 - [ ] **3.3 Seat layout designer UI** — **T (E2E, desktop):** build a 5×8 grid with an aisle and wheelchair seats, save, publish, reload, and it's identical. **(mobile):** shows a read-only preview + "use a larger screen" notice.
 - [ ] **3.4 Movies + poster upload** (§56) — **T:** CRUD; upload rejects wrong MIME / oversize; storage key is `tenant/{id}/media/{uuid}`; a cross-tenant media URL is denied.
@@ -278,7 +278,7 @@ Scope: **customer** (browse, book, pay, my tickets), **usher scanner** (camera),
 ### Phase 11 — Hardening, deploy, demo (Week 4, days 4–5)
 
 - [ ] **11.1 Security pass** — **T:** the full isolation suite is green; production-config assertions; CSP/security headers at the edge; rate limits on sign-in and hold/pay/scan (Jac 0.37.18 limits `/user/register` only, not `/user/login`, so password guessing is unthrottled until then); the threat-model items from §131 relevant to the MVP each have a test.
-- [ ] **11.1b Claim reconciliation job** (`@schedule`, ADR-0007) — **T:** a committed tenant whose slug claim lapsed (server died before `on_commit`) gets it re-claimed; a claim held by no committed tenant is released; running it twice changes nothing.
+- [ ] **11.1b Claim reconciliation job** (`@schedule`, ADR-0007) — **T:** a committed tenant whose slug claim lapsed (server died before `on_commit`) gets it re-claimed; a claim held by no committed tenant is released; the same for venue and auditorium name claims (P3.1): a committed node's name is re-claimed, a name whose node was deleted or renamed is released; running it twice changes nothing.
 - [ ] **11.2 Deployment** — **I:** a single VM running the Jac server with external Postgres (`JAC_DB_URL`) behind a Cloudflare Tunnel (public HTTPS for the web app, the desktop backend URL and Daraja callbacks). Release workflow deploys on tag. **✓** Health checks green in production.
 - [ ] **11.3 Demo data & script** — `scripts/seed_demo.jac` (2 cinemas, movies, screenings, staff); a 5-minute demo script covering web, desktop and mobile.
 - [ ] **11.4 Docs** — README (setup, run, test), architecture summary, ADR index.

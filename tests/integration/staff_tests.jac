@@ -67,10 +67,15 @@ test "accepting an invite assigns exactly the invited role" {
 test "a venue invite gives a venue-scoped role" {
     app = _cinema(["ann"]);
     try {
-        _hire(app, "ann", "usher", "venue-1");
+        venue = app.call(
+            "owner",
+            "create_venue",
+            {"tenant": "nova", "name": "Westgate", "city": "", "address": ""}
+        )["venue"]["venue_id"];
+        _hire(app, "ann", "usher", venue);
         access = app.call("ann", "my_access", {"tenant": "nova"});
         assert access["assignments"]
-            == [{"role": "usher", "venue_ids": ["venue-1"]}] , access;
+            == [{"role": "usher", "venue_ids": [venue]}] , access;
     } finally {
         app.close();
     }

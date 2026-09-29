@@ -28,10 +28,15 @@ test "my_access lists the member's permissions and shift status" {
         assert before["shift_open"] == False;
         app.call("owner", "start_shift", {"tenant": "nova"});
         assert app.call("owner", "my_access", {"tenant": "nova"})["shift_open"] == True;
+        venue = app.call(
+            "owner",
+            "create_venue",
+            {"tenant": "nova", "name": "Westgate", "city": "", "address": ""}
+        )["venue"]["venue_id"];
         token = app.call(
             "owner",
             "invite_staff",
-            {"tenant": "nova", "role": "usher", "venue_id": "venue-1"}
+            {"tenant": "nova", "role": "usher", "venue_id": venue}
         )["token"];
         app.call("ann", "accept_invite", {"token": token});
         usher = app.call("ann", "my_access", {"tenant": "nova"});

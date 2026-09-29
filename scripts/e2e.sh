@@ -26,7 +26,8 @@ if [[ -z "${E2E_BASE_URL:-}" ]]; then
     echo "Building and serving the app on :$port (production bundle, no dev server)..."
     jac run --no-dev --port "$port" < /dev/null > e2e/artifacts/server.log 2>&1 &
     server_pid=$!
-    for _ in $(seq 1 180); do
+    # Up to 10 minutes: the first build of the client bundle takes about 6 on a small machine.
+    for _ in $(seq 1 300); do
         if curl -sf -o /dev/null "http://127.0.0.1:$port/healthz"; then break; fi
         if ! kill -0 "$server_pid" 2>/dev/null; then
             echo "server exited early; log:" >&2; tail -40 e2e/artifacts/server.log >&2; exit 1

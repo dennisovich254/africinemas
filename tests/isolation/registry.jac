@@ -42,6 +42,37 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "member_id": "x"}
          },
+         "create_venue": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "name": "Probe", "city": "", "address": ""}
+         },
+         "list_venues": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "update_venue": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "venue_id": "x",
+                 "name": "Probe",
+                 "city": "",
+                 "address": ""
+             }
+         },
+         "delete_venue": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "venue_id": "x"}
+         },
+         "create_auditorium": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "venue_id": "x", "name": "Probe"}
+         },
+         "rename_auditorium": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "auditorium_id": "x", "name": "Probe"}
+         },
+         "delete_auditorium": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "auditorium_id": "x"}
+         },
          "join_as_customer": {
              "scope": "customer",
              "probe": {"tenant": "{tenant}", "display_name": "Probe"}

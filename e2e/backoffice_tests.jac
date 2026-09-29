@@ -20,6 +20,7 @@ import from e2e.support.api {
     register,
     call,
     owner_with_cinema,
+    add_venue,
     add_staff
 }
 
@@ -291,7 +292,7 @@ test "signed-out visitors are sent to sign in" {
 
 test "an usher sees only the overview and the scanner" {
     owner = owner_with_cinema();
-    usher = add_staff(owner, "usher", "venue-1");
+    usher = add_staff(owner, "usher", add_venue(owner));
     (pw, browser) = shared_browser();
     try {
         for project in PROJECTS {

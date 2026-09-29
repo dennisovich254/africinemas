@@ -21,7 +21,8 @@ import from playwright.sync_api { sync_playwright }
 glob BASE_URL: str = os.environ.get("E2E_BASE_URL", "http://127.0.0.1:8870"),
      ARTIFACTS: Path = Path(__file__).resolve().parent.parent / "artifacts",
      PROJECTS: list[str] = ["mobile", "desktop"],
-     _SESSION_ATTR: str = "_africinemas_e2e_session";
+     _SESSION_ATTR: str = "_africinemas_e2e_session",
+     WARM_UP_TIMEOUT_MS: int = 180000;
 
 def _session -> dict[str, any] {  # jac:ignore[W1037]
     # The run's Playwright driver ("pw") and browser ("browser"). Kept on `sys`, not in
@@ -48,6 +49,18 @@ def _shutdown {
     }
 }
 
+def _warm_up(browser: any) {  # jac:ignore[W1037]
+    # The first page a new Chromium renders can take over 30 s on a cold machine (just
+    # after the app's build), which would time out whichever test runs first. Load the
+    # app once here, with room to spare, so every test starts with a warm browser.
+    context = browser.new_context();
+    try {
+        context.new_page().goto(BASE_URL + "/", timeout=WARM_UP_TIMEOUT_MS);
+    } finally {
+        context.close();
+    }
+}
+
 def shared_browser -> tuple[any, any] {  # jac:ignore[W1037]
     # (playwright, browser) for this test run; relaunched if the browser has died.
     session = _session();
@@ -57,6 +70,7 @@ def shared_browser -> tuple[any, any] {  # jac:ignore[W1037]
     }
     if "browser" not in session or not session["browser"].is_connected() {
         session["browser"] = session["pw"].chromium.launch();
+        _warm_up(session["browser"]);
     }
     return (session["pw"], session["browser"]);
 }

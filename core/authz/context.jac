@@ -69,13 +69,21 @@ def resolve_context(selector: str) -> TenantScope {
     );
 }
 
-def scoped(selector: str, action: str, venue_id: str | None = None) -> TenantScope {
-    # Resolve the caller's context in `selector`, require an open shift (ADR-0006) and
-    # `action` on it. Raises NotFound, NoShift or Forbidden, in that order.
+def on_shift(selector: str) -> TenantScope {
+    # Resolve the caller's context in `selector` and require an open shift (ADR-0006),
+    # without checking an action: for endpoints that filter what they return per venue.
+    # Raises NotFound or NoShift.
     scope = resolve_context(selector);
     if not shift_is_open(scope.ctx.tenant_id, scope.ctx.member_root_id) {
         raise NoShift();
     }
+    return scope;
+}
+
+def scoped(selector: str, action: str, venue_id: str | None = None) -> TenantScope {
+    # Resolve the caller's context in `selector`, require an open shift (ADR-0006) and
+    # `action` on it. Raises NotFound, NoShift or Forbidden, in that order.
+    scope = on_shift(selector);
     require(
         scope.ctx, action, Resource(tenant_id=scope.ctx.tenant_id, venue_id=venue_id)
     );
