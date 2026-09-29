@@ -21,6 +21,15 @@ import from core.tenancy.staff_api {
     set_staff_status,  # jac:ignore[W2037]
     remove_staff  # jac:ignore[W2037]
 }
+import from core.catalog.venue_api {
+    create_venue,  # jac:ignore[W2037]
+    list_venues,  # jac:ignore[W2037]
+    update_venue,  # jac:ignore[W2037]
+    delete_venue,  # jac:ignore[W2037]
+    create_auditorium,  # jac:ignore[W2037]
+    rename_auditorium,  # jac:ignore[W2037]
+    delete_auditorium  # jac:ignore[W2037]
+}
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]
     my_customer_profile  # jac:ignore[W2037]
