@@ -12,16 +12,23 @@ def:pub email_identity(email: str) -> dict[str, str] {
     return {"type": "email", "value": email.strip().lower()};
 }
 
-async def:pub sign_in(email: str, password: str) -> bool {
+# "ok", "rejected" (wrong email or password) or "offline" (the server couldn't be
+# reached). jacLogin returns False for any refusal and throws when the request fails.
+async def:pub sign_in(email: str, password: str) -> str {
     ok: bool = False;
-    ok = await jacLogin(email_identity(email), password);
-    return ok;
+    try {
+        ok = await jacLogin(email_identity(email), password);
+    } except Exception as e {
+        console.warn("sign-in request failed", e);
+        return "offline";
+    }
+    return "ok" if ok else "rejected";
 }
 
 # Returns "" on success, otherwise a message to show next to the form.
 async def:pub sign_up(email: str, password: str) -> str {
     result: SignupResult | None = None;
-    ok: bool = False;
+    signed_in: str = "";
     result = await jacSignup([email_identity(email)], password);
     if not result.success {
         if "already registered" in (result.error or "") {
@@ -29,8 +36,8 @@ async def:pub sign_up(email: str, password: str) -> str {
         }
         return result.error or "We couldn't create your account. Try again.";
     }
-    ok = await sign_in(email, password);
-    if not ok {
+    signed_in = await sign_in(email, password);
+    if signed_in != "ok" {
         return "Your account was created, but signing in failed. Sign in to continue.";
     }
     return "";

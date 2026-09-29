@@ -230,24 +230,47 @@ test "a wrong password shows an error and keeps the user on the sign-in page" {
     }
 }
 
-test "the password field can be shown and hidden" {
+test "the password field can be shown and hidden without submitting the form" {
+    (pw, browser) = shared_browser();
+    try {
+        page = _page(browser, pw, "mobile");
+        # Both forms use the same field. On sign-up, a submit would create the account
+        # with a half-typed password, so neither page may submit on the toggle.
+        for path in ["/login", "/signup"] {
+            page.goto(BASE_URL + path);
+            field = page.locator("#password");
+            toggle = page.locator('button[aria-controls="password"]');
+            # A plain button: inside the form, a missing type would make it submit (JI-030).
+            assert toggle.get_attribute("type") == "button" , path;
+            _type(page, "#email", email_for(unique("toggle")));
+            _type(page, "#password", "half-typed-pass");
+            assert field.get_attribute("type") == "password";
+            assert toggle.get_attribute("aria-pressed") == "false";
+            toggle.click();
+            assert field.get_attribute("type") == "text";
+            assert toggle.get_attribute("aria-pressed") == "true";
+            page.wait_for_timeout(1000);
+            assert page.url.endswith(path) , f"{path}: the toggle submitted the form ({page.url})";
+            assert page.locator(AUTH_ERROR).count() == 0 , f"{path}: the toggle submitted the form";
+        }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "sign-in says when the server can't be reached, not that the password is wrong" {
     (pw, browser) = shared_browser();
     try {
         page = _page(browser, pw, "mobile");
         page.goto(BASE_URL + "/login");
-        field = page.locator("#password");
-        toggle = page.locator('button[aria-controls="password"]');
-        # A plain button: inside the form, a missing type would make it submit (JI-030).
-        assert toggle.get_attribute("type") == "button";
-        _type(page, "#email", email_for(unique("toggle")));
-        _type(page, "#password", "not-the-password");
-        assert field.get_attribute("type") == "password";
-        assert toggle.get_attribute("aria-pressed") == "false";
-        toggle.click();
-        assert field.get_attribute("type") == "text";
-        assert toggle.get_attribute("aria-pressed") == "true";
-        page.wait_for_timeout(1000);
-        assert page.locator(AUTH_ERROR).count() == 0 , "the toggle submitted the form";
+        page.route("**/user/login", lambda (route: any) { route.abort(); });
+        _type(page, "#email", email_for(unique("offline")));
+        _type(page, "#password", PASSWORD);
+        page.click('button[type="submit"]');
+        page.wait_for_selector(AUTH_ERROR);
+        message = page.locator(AUTH_ERROR).inner_text();
+        assert "couldn't reach" in message , message;
+        assert "incorrect" not in message.lower() , message;
     } finally {
         close_contexts(browser);
     }
