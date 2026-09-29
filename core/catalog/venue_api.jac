@@ -19,10 +19,9 @@ import from jaclang { JacRuntime as Jac }
 import from core.clock { now }
 import from core.claims { claim, make_permanent, release }
 import from core.authz.policy { Forbidden, ROLE_PERMISSIONS, Resource, authorize }
-import from core.authz.context { NoShift, NotFound, TenantScope, on_shift, scoped }
+import from core.authz.context { NotFound, TenantScope, on_shift, scoped }
 import from core.tenancy.models { NAME_MAX }
 import from core.tenancy.groups { attach_to_tenant }
-import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
 import from core.tenancy.principal {
     node_id,
     act_as,
@@ -31,8 +30,15 @@ import from core.tenancy.principal {
     fresh_node_id,
     assign_id
 }
-import from core.catalog.models { Venue, Auditorium, ADDRESS_MAX }
-import from core.catalog.venues { find_venue, staff_at }
+import from core.catalog.models { Venue, Auditorium, ADDRESS_MAX, LAYOUT_VERSIONS }
+import from core.catalog.answers { Refused, answer }
+import from core.catalog.venues {
+    find_venue,
+    find_auditorium,
+    layouts_of,
+    version_key,
+    staff_at
+}
 
 glob VENUE_NAMES: str = "venue-name",
      AUDITORIUM_NAMES: str = "auditorium-name",
@@ -40,29 +46,6 @@ glob VENUE_NAMES: str = "venue-name",
      READ: str = "venues.read",
      CONFIGURE: str = "venues.configure";
 
-class Refused(ValueError) {
-    # A request refused with a code and message the UI can show.
-    def init(self: Refused, code: str, message: str) {
-        super.init(message);
-        self.code = code;
-        self.message = message;
-    }
-}
-
-def _answer(work: any) -> dict[str, any] {  # jac:ignore[W1037]
-    # Runs an endpoint's work, turning its refusals into the shared response shapes.
-    try {
-        return work();
-    } except NotFound {
-        return NOT_FOUND;
-    } except NoShift {
-        return NO_SHIFT;
-    } except Forbidden {
-        return FORBIDDEN;
-    } except Refused as e {
-        return refused(e.code, e.message);
-    }
-}
 
 def _clean(text: str) -> str {
     # Trimmed, with runs of spaces collapsed: "  Screen   1 " -> "Screen 1".
@@ -89,19 +72,6 @@ def _principal(scope: TenantScope) -> str {
     return me;
 }
 
-def _find(scope: TenantScope, node_ref: str) -> any {  # jac:ignore[W1037]
-    # The node with id `node_ref`, read as the cinema's principal; None if it doesn't
-    # exist or isn't valid.
-    me = _principal(scope);
-    try {
-        found: any = jobj(node_ref);  # jac:ignore[W1037]
-    } except Exception {
-        found = None;
-    } finally {
-        restore(me);
-    }
-    return found;
-}
 
 def _venue(scope: TenantScope, venue_id: str) -> Venue {
     found = find_venue(scope.tenant, venue_id);
@@ -112,11 +82,11 @@ def _venue(scope: TenantScope, venue_id: str) -> Venue {
 }
 
 def _auditorium(scope: TenantScope, auditorium_id: str) -> Auditorium {
-    found = _find(scope, auditorium_id) if auditorium_id else None;
-    if not isinstance(found, Auditorium) or found.tenant_id != scope.ctx.tenant_id {
+    found = find_auditorium(scope.tenant, auditorium_id);
+    if found is None {
         raise NotFound();
     }
-    return found as Auditorium;
+    return found;
 }
 
 def _screens(scope: TenantScope, venue: Venue) -> list[Auditorium] {
@@ -340,43 +310,52 @@ def _rename_auditorium(tenant: str, auditorium_id: str, name: str) -> dict[str, 
 def _delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     (scope, screen) = _auditorium_scope(tenant, auditorium_id);
     key = _key(screen.venue_id, screen.name);
+    # Its seat layouts go with it (P3.2); screenings will refuse this in 3.5.
+    layouts = layouts_of(scope.tenant, screen);
+    # Each version's claim is held by that layout's id.
+    versions = [(l.version, node_id(l)) for l in layouts];
     me = _principal(scope);
     try {
-        Jac.destroy([screen]);
+        Jac.destroy(layouts + [screen]);
         flush_now();
     } finally {
         restore(me);
     }
-    on_commit(lambda { release(AUDITORIUM_NAMES, key, auditorium_id); });
+    on_commit(
+        lambda {
+            release(AUDITORIUM_NAMES, key, auditorium_id);
+            for (v, layout_id) in versions {
+                release(LAYOUT_VERSIONS, version_key(auditorium_id, v), layout_id);
+            }
+        }
+    );
     return {"ok": True};
 }
 
 def:priv create_venue(
     tenant: str, name: str, city: str, address: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    return _answer(
-        lambda -> any { return _create_venue(tenant, name, city, address); }
-    );  # jac:ignore[W1037]
+    return answer(lambda -> any { return _create_venue(tenant, name, city, address); });  # jac:ignore[W1037]
 }
 
 def:priv list_venues(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return _answer(lambda -> any { return _list_venues(tenant); });  # jac:ignore[W1037]
+    return answer(lambda -> any { return _list_venues(tenant); });  # jac:ignore[W1037]
 }
 
 def:priv update_venue(
     tenant: str, venue_id: str, name: str, city: str, address: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    return _answer(
+    return answer(
         lambda -> any { return _update_venue(tenant, venue_id, name, city, address); }  # jac:ignore[W1037]
     );
 }
 
 def:priv delete_venue(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return _answer(lambda -> any { return _delete_venue(tenant, venue_id); });  # jac:ignore[W1037]
+    return answer(lambda -> any { return _delete_venue(tenant, venue_id); });  # jac:ignore[W1037]
 }
 
 def:priv create_auditorium(tenant: str, venue_id: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return _answer(
+    return answer(
         lambda -> any { return _create_auditorium(tenant, venue_id, name); }  # jac:ignore[W1037]
     );
 }
@@ -384,13 +363,13 @@ def:priv create_auditorium(tenant: str, venue_id: str, name: str) -> dict[str, a
 def:priv rename_auditorium(
     tenant: str, auditorium_id: str, name: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    return _answer(
+    return answer(
         lambda -> any { return _rename_auditorium(tenant, auditorium_id, name); }  # jac:ignore[W1037]
     );
 }
 
 def:priv delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return _answer(
+    return answer(
         lambda -> any { return _delete_auditorium(tenant, auditorium_id); }  # jac:ignore[W1037]
     );
 }

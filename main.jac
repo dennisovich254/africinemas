@@ -30,6 +30,12 @@ import from core.catalog.venue_api {
     rename_auditorium,  # jac:ignore[W2037]
     delete_auditorium  # jac:ignore[W2037]
 }
+import from core.catalog.layout_api {
+    save_layout,  # jac:ignore[W2037]
+    publish_layout,  # jac:ignore[W2037]
+    list_layouts,  # jac:ignore[W2037]
+    get_layout  # jac:ignore[W2037]
+}
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]
     my_customer_profile  # jac:ignore[W2037]

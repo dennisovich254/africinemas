@@ -17,6 +17,7 @@ Rules (ADR-0003):
 import secrets;
 import from uuid { UUID, uuid4 }
 import from jaclang { JacRuntime as Jac }
+import from jaclang.runtime.exceptions { WriteConflict }
 
 glob PRINCIPAL_PREFIX: str = "svc-tenant-";
 
@@ -130,11 +131,40 @@ def restore(previous_root_id: str) {
     Jac.get_context().set_user_root(previous_root_id);
 }
 
+def _serialization_failure(error: Exception) -> bool {
+    # PostgreSQL refused the write because a concurrent transaction changed the same row
+    # (40001) or deadlocked with it (40P01). The error carries the server's fields as a
+    # dict whose "C" is the SQLSTATE code; look along the cause chain, as Jac does.
+    seen = 0;
+    current: any = error;  # jac:ignore[W1037]
+    while current is not None and seen < 8 {
+        for arg in getattr(current, "args", ()) {
+            if isinstance(arg, dict) and arg.get("C") in ("40001", "40P01") {
+                return True;
+            }
+        }
+        current = current.__cause__ or current.__context__;
+        seen += 1;
+    }
+    return False;
+}
+
 def flush_now {
     # Write pending changes into the request's open transaction, with the ACL check made
     # under the current identity (JI-020). No COMMIT: the request stays atomic.
     # full=True: a field assigned on an EXISTING node isn't in the session's dirty set;
     # only a full flush (hash comparison) sees it. A partial flush would leave it to the
     # end-of-request flush, which runs as the caller and may silently skip it (P2.5).
-    Jac.get_context().mem.flush(full=True);
+    # A serialization failure here becomes Jac's WriteConflict, which re-runs the whole
+    # request in a fresh transaction; Jac retries only that, and would answer this one
+    # with a 500 (JI-031). Our endpoints are safe to re-run: side effects happen in
+    # on_commit and claims are released on failure.
+    try {
+        Jac.get_context().mem.flush(full=True);
+    } except Exception as e {
+        if not _serialization_failure(e) {
+            raise e;
+        }
+        raise WriteConflict(anchor_id=UUID(node_id(root))) from e;
+    }
 }
