@@ -239,7 +239,9 @@ def:pub BackOffice -> JsxElement {
     } elif section == "" {
         content = <Overview access={me} shift_open={shift_open}/>;
     } elif auditorium_id {
+        # key: a different screen gets a fresh designer, never the last one's grid.
         content = <SeatDesigner
+            key={auditorium_id}
             slug={slug}
             auditorium_id={auditorium_id}
             permissions={permissions}

@@ -30,7 +30,14 @@ import from core.tenancy.principal {
     fresh_node_id,
     assign_id
 }
-import from core.catalog.models { Venue, Auditorium, ADDRESS_MAX, LAYOUT_VERSIONS }
+import from core.catalog.models {
+    Venue,
+    Auditorium,
+    ADDRESS_MAX,
+    LAYOUT_VERSIONS,
+    DRAFT,
+    PUBLISHED
+}
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.venues {
     find_venue,
@@ -101,8 +108,34 @@ def _screens(scope: TenantScope, venue: Venue) -> list[Auditorium] {
     );  # jac:ignore[W1037]
 }
 
-def _screen_view(a: Auditorium) -> dict[str, str] {
-    return {"auditorium_id": node_id(a), "venue_id": a.venue_id, "name": a.name};
+def _layout_status(scope: TenantScope, a: Auditorium) -> dict[str, int | None] {
+    # This screen's own seat layout versions (P3.2): its latest published and draft
+    # version numbers, and how many seats its latest version has.
+    layouts = layouts_of(scope.tenant, a);
+    published = [
+        l.version
+        for l in layouts
+        if l.status == PUBLISHED
+    ];
+    drafts = [
+        l.version
+        for l in layouts
+        if l.status == DRAFT
+    ];
+    return {
+        "published_version": published[-1] if published else None,
+        "draft_version": drafts[-1] if drafts else None,
+        "seat_count": len(layouts[-1].seats) if layouts else 0
+    };
+}
+
+def _screen_view(scope: TenantScope, a: Auditorium) -> dict[str, any] {  # jac:ignore[W1037]
+    return {
+        "auditorium_id": node_id(a),
+        "venue_id": a.venue_id,
+        "name": a.name,
+        "layout": _layout_status(scope, a)
+    };
 }
 
 def _venue_view(scope: TenantScope, v: Venue) -> dict[str, any] {  # jac:ignore[W1037]
@@ -111,7 +144,7 @@ def _venue_view(scope: TenantScope, v: Venue) -> dict[str, any] {  # jac:ignore[
         "name": v.name,
         "city": v.city,
         "address": v.address,
-        "auditoriums": [_screen_view(a) for a in _screens(scope, v)]
+        "auditoriums": [_screen_view(scope, a) for a in _screens(scope, v)]
     };
 }
 
@@ -271,7 +304,7 @@ def _create_auditorium(tenant: str, venue_id: str, name: str) -> dict[str, any] 
     } finally {
         restore(me);
     }
-    return {"ok": True, "auditorium": _screen_view(screen)};
+    return {"ok": True, "auditorium": _screen_view(scope, screen)};
 }
 
 def _auditorium_scope(
@@ -304,7 +337,7 @@ def _rename_auditorium(tenant: str, auditorium_id: str, name: str) -> dict[str, 
     } finally {
         restore(me);
     }
-    return {"ok": True, "auditorium": _screen_view(screen)};
+    return {"ok": True, "auditorium": _screen_view(scope, screen)};
 }
 
 def _delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]

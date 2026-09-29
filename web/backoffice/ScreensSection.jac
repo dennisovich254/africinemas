@@ -21,6 +21,24 @@ def screens_of(venue: dict[str, any]) -> list[dict[str, any]] {  # jac:ignore[W1
     return venue["auditoriums"];
 }
 
+def layout_status(screen: dict[str, any]) -> str {  # jac:ignore[W1037]
+    # This screen's own seat layout, e.g. "Published · version 1 · 62 seats".
+    info: dict[str, any] = screen["layout"];  # jac:ignore[W1037]
+    count = info["seat_count"];
+    seats = "1 seat" if count == 1 else f"{count} seats";
+    if info["draft_version"] {
+        text = f"Draft · version {info['draft_version']} · {seats}";
+        if info["published_version"] {
+            text += f" · version {info['published_version']} published";
+        }
+        return text;
+    }
+    if info["published_version"] {
+        return f"Published · version {info['published_version']} · {seats}";
+    }
+    return "No layout yet";
+}
+
 def ScreenLink(slug: str, screen: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     return
         <Link
@@ -31,7 +49,12 @@ def ScreenLink(slug: str, screen: dict[str, any]) -> JsxElement {  # jac:ignore[
                 <span className="truncate font-medium" data-testid="screen-name">
                     {screen["name"]}
                 </span>
-                <span className="text-sm text-muted-foreground">Seat layout</span>
+                <span
+                    className="text-sm text-muted-foreground"
+                    data-testid="screen-status"
+                >
+                    {layout_status(screen)}
+                </span>
             </span>
             <HugeiconsIcon
                 icon={ArrowRight01Icon}

@@ -52,11 +52,11 @@ def _setup(role: str = "") -> dict[str, str] {
 }
 
 def _open_designer(
-    browser: any,
-    pw: any,
+    browser: any,  # jac:ignore[W1037]
+    pw: any,  # jac:ignore[W1037]
     project: str,
     owner: dict[str, str],
-    scheme: str = "light"  # jac:ignore[W1037]
+    scheme: str = "light"
 ) -> any {  # jac:ignore[W1037]
     page = browser.new_context(**context_options(pw, project, scheme)).new_page();
     errors: list[str] = [];
@@ -265,6 +265,58 @@ test "publishing asks for confirmation and can be cancelled" {
             {"tenant": owner["slug"], "auditorium_id": owner["screen"]}
         );
         assert listed["published_version"] is None , listed;
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "each screen is designed separately, and the Screens list shows each one's status" {
+    (pw, browser) = shared_browser();
+    try {
+        owner = _setup();
+        other = add_screen(owner, owner["venue"], "Screen 2");
+        page = _open_designer(browser, pw, "desktop", owner);
+        _size(page, 1, 3);
+        for c in range(3) {
+            page.click(_cell(0, c));
+        }
+        page.click('button:has-text("Save draft")');
+        page.wait_for_selector(f'{MESSAGE}:has-text("Draft saved")');
+        page.click('button:has-text("Publish")');
+        page.click('button:has-text("Publish version 1")');
+        page.wait_for_selector(f'{STATUS}:has-text("Published")');
+        first_cells = _cells(page);
+        # Straight from Screen 1's designer to Screen 2's (no list in between): the
+        # designer must show Screen 2's own (empty) layout, not keep Screen 1's grid.
+        page.evaluate(
+            "p => { history.pushState({}, '', p); dispatchEvent(new PopStateEvent('popstate')); }",
+            f"/app/{owner['slug']}/screens/{other}"
+        );
+        page.wait_for_selector(f'{STATUS}:has-text("Not saved yet")');
+        assert "Screen 2" in page.locator(DESIGNER).inner_text();
+        assert [
+            k
+            for (k, v) in _cells(page).items()
+            if v
+        ]
+            == [] , "Screen 2 starts empty";
+        _size(page, 1, 1);
+        page.click(_cell(0, 0));
+        page.click('button:has-text("Save draft")');
+        page.wait_for_selector(f'{MESSAGE}:has-text("Draft saved")');
+        page.go_back();
+        page.wait_for_selector(f'{STATUS}:has-text("Published")');
+        assert _cells(page) == first_cells , "Screen 1 kept its own layout";
+        page.goto(f"{BASE_URL}/app/{owner['slug']}/screens");
+        page.wait_for_selector('[data-testid="screens-list"]');
+        statuses = page.locator(
+            '[data-testid="screens-list"] [data-testid="screen-status"]'
+        ).all_inner_texts();
+        assert [t.strip() for t in statuses]
+            == [
+                "Published · version 1 · 3 seats",
+                "Draft · version 1 · 1 seat"
+            ] , statuses;
     } finally {
         close_contexts(browser);
     }
