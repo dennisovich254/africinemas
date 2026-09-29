@@ -1,7 +1,7 @@
 """Cinema setup: a cinema's venues (its locations) and their auditoriums (screens) (P3.1),
-and each screen's seat layout versions (P3.2).
+each screen's seat layout versions (P3.2), and the cinema's movies (P3.4).
 
-Tenant -> Venue -> Auditorium -> SeatLayout. The nodes are owned by the cinema's principal
+Tenant -> Venue -> Auditorium -> SeatLayout, and Tenant -> Movie. The nodes are owned by the cinema's principal
 (ADR-0003) and granted to its access group (ADR-0004), like every tenant node. Each keeps
 its tenant (and venue) id so a lookup by id can check it belongs to the caller's cinema.
 """
@@ -44,4 +44,19 @@ node SeatLayout {
         seats: list[Seat] = [],
         updated_at: str = "",
         published_at: str = "";
+}
+
+node Movie {
+    # A film the cinema shows (P3.4). Belongs to the cinema, not to a venue. The poster
+    # is a storage key, "tenant/{tenant_id}/media/{uuid}.webp", or "" for none.
+    has tenant_id: str,
+        title: str,
+        synopsis: str = "",
+        runtime_minutes: int = 0,
+        age_rating: str = "",
+        genres: list[str] = [],
+        language: str = "",
+        poster_key: str = "",
+        created_at: str = "",
+        updated_at: str = "";
 }

@@ -22,7 +22,14 @@ import urllib.request;
 import from pathlib { Path }
 
 glob REPO_ROOT: Path = Path(__file__).resolve().parent.parent.parent,
-     COPY_SKIP: list[str] = [".git", ".jac", "node_modules", "resources", ".claude"],
+     COPY_SKIP: list[str] = [
+         ".git",
+         ".jac",
+         "node_modules",
+         "resources",
+         ".claude",
+         "storage"
+     ],
      FAKE_SECRET: str = "test-only-signing-secret-0123456789abcdef",
      BOOT_TIMEOUT_S: int = 240;
 
@@ -101,6 +108,10 @@ test "production server is hardened over HTTP" {
         dirs_exist_ok=True,
         ignore=shutil.ignore_patterns(*COPY_SKIP)
     );
+    # The project's Python environment (its [dependencies], such as Pillow), shared
+    # rather than copied, as the other real-server tests do.
+    os.mkdir(os.path.join(workdir, ".jac"));
+    os.symlink(REPO_ROOT / ".jac" / "venv", os.path.join(workdir, ".jac", "venv"));
     port = _free_port();
     env = {
         ** os.environ,

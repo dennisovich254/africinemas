@@ -95,6 +95,53 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "layout_id": "x"}
          },
+         "create_movie": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "title": "Probe",
+                 "synopsis": "",
+                 "runtime_minutes": 90,
+                 "age_rating": "PG",
+                 "genres": [],
+                 "language": ""
+             }
+         },
+         "list_movies": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "get_movie": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "movie_id": "x"}
+         },
+         "update_movie": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "movie_id": "x",
+                 "title": "Probe",
+                 "synopsis": "",
+                 "runtime_minutes": 90,
+                 "age_rating": "PG",
+                 "genres": [],
+                 "language": ""
+             }
+         },
+         "delete_movie": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "movie_id": "x"}
+         },
+         "upload_poster": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "movie_id": "x",
+                 "content_type": "image/png",
+                 "data_base64": ""
+             }
+         },
+         "get_poster": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "movie_id": "x"}
+         },
          "join_as_customer": {
              "scope": "customer",
              "probe": {"tenant": "{tenant}", "display_name": "Probe"}

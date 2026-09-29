@@ -36,6 +36,15 @@ import from core.catalog.layout_api {
     list_layouts,  # jac:ignore[W2037]
     get_layout  # jac:ignore[W2037]
 }
+import from core.catalog.movie_api {
+    create_movie,  # jac:ignore[W2037]
+    list_movies,  # jac:ignore[W2037]
+    get_movie,  # jac:ignore[W2037]
+    update_movie,  # jac:ignore[W2037]
+    delete_movie,  # jac:ignore[W2037]
+    upload_poster,  # jac:ignore[W2037]
+    get_poster  # jac:ignore[W2037]
+}
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]
     my_customer_profile  # jac:ignore[W2037]
