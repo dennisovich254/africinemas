@@ -116,3 +116,12 @@ node StorefrontScreening {
         screen: dict[str, str] = {},
         seat_map: dict[str, any] = {};  # jac:ignore[W1037]
 }
+
+node PriceList {
+    # A cinema's prices (P3.6): the validated list in parse_price_list's shape, and a
+    # version that goes up on every save, so quotes and orders can say which they used.
+    has tenant_id: str,
+        version: int = 0,
+        data: dict[str, any] = {},  # jac:ignore[W1037]
+        updated_at: str = "";
+}

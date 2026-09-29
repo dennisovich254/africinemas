@@ -23,7 +23,10 @@ node Tenant {
         created_at: str = "",
         # The cinema's public Storefront on root.shared (P3.5b), made on first publish.
         # The only trusted way to reach it: anyone may attach nodes to root.shared.
-        storefront_id: str = "";
+        storefront_id: str = "",
+        # The cinema's PriceList (P3.6), made on its first save. Setting it makes two
+        # concurrent first saves write the same record, so only one list is created.
+        price_list_id: str = "";
 
     def move_to(target: TenantState) {
         self.state = transition(TenantState(self.state), target).value;

@@ -57,6 +57,11 @@ import from core.catalog.screening_api {
     list_seat_slots,  # jac:ignore[W2037]
     public_screenings
 }
+import from core.catalog.pricing_api {
+    get_price_list,  # jac:ignore[W2037]
+    save_price_list,  # jac:ignore[W2037]
+    quote_tickets  # jac:ignore[W2037]
+}
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]
     my_customer_profile  # jac:ignore[W2037]
