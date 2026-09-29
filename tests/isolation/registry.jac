@@ -190,6 +190,26 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"tenant": "{tenant}", "screening_id": "x"}
          },
          "public_screenings": {"scope": "storefront", "probe": {"slug": "{tenant}"}},
+         "get_price_list": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "save_price_list": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "timezone": "Africa/Nairobi",
+                 "ticket_types": [{"code": "ADULT", "name": "Adult"}],
+                 "prices": [],
+                 "surcharges": [],
+                 "service_fee_cents": 0
+             }
+         },
+         "quote_tickets": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "screening_id": "x",
+                 "items": [{"seat_label": "A1", "ticket_type": "ADULT"}]
+             }
+         },
          "join_as_customer": {
              "scope": "customer",
              "probe": {"tenant": "{tenant}", "display_name": "Probe"}
