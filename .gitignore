@@ -12,3 +12,6 @@ node_modules/
 
 # E2E screenshots and server logs
 e2e/artifacts/
+
+# Uploaded media in local development (AFRICINEMAS_MEDIA_DIR; object storage in production)
+storage/
