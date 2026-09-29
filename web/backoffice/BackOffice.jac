@@ -5,7 +5,8 @@ The navigation lists only the sections the member's roles allow (nav.jac), from
 actions need an open shift (ADR-0006), so until one is open every section shows a
 "Start shift" banner. Signing out ends the shift.
 
-The sections themselves arrive with their phases; for now each shows what it will hold.
+Screens (P3.3) lists each venue's screens and opens their seat layout designer; the other
+sections arrive with their phases, and for now each shows what it will hold.
 """
 
 import from react { useState, useEffect }
@@ -28,6 +29,8 @@ import from ..shell.AppShell { AppShell }
 import from core.tenancy.tenant_api { my_access, start_shift }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 import from .nav { web_address, nav_for, section_label, section_path, role_label }
 import from .PlainLayout { PlainLayout, AccountActions }
+import from .ScreensSection { ScreensSection }
+import from .SeatDesigner { SeatDesigner }
 
 glob SECTION_PREVIEW: dict[str, str] = {
          "screenings": "Set up your screens, seat layouts, movies and showtimes here.",
@@ -137,7 +140,9 @@ def NoAccess(slug: str) -> JsxElement {
 def:pub BackOffice -> JsxElement {
     params = useParams();
     slug: str = params["slug"] or "";
-    section: str = params["section"] or "";
+    # A screen's seat layout (/app/:slug/screens/:auditorium_id) is part of Screens.
+    auditorium_id: str = params["auditorium_id"] or "";
+    section: str = "screens" if auditorium_id else (params["section"] or "");
     [access, set_access] = useState(None);
     [missing, set_missing] = useState(False);
     [failed, set_failed] = useState(False);
@@ -227,12 +232,20 @@ def:pub BackOffice -> JsxElement {
     permissions: list[str] = me["permissions"];
     nav = nav_for(slug, permissions);
     allowed = section in [item["key"] for item in nav];
-    title = section_label(section) or "Overview";
+    title = "Seat layout" if auditorium_id else (section_label(section) or "Overview");
     content: any = None;  # jac:ignore[W1037]
     if not allowed {
         content = <NoAccess slug={slug}/>;
     } elif section == "" {
         content = <Overview access={me} shift_open={shift_open}/>;
+    } elif auditorium_id {
+        content = <SeatDesigner
+            slug={slug}
+            auditorium_id={auditorium_id}
+            permissions={permissions}
+        />;
+    } elif section == "screens" {
+        content = <ScreensSection slug={slug}/>;
     } else {
         content = <SectionPreview section={section} slug={slug}/>;
     }

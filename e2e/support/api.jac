@@ -70,6 +70,17 @@ def add_venue(owner: dict[str, str], name: str = "Westgate") -> str {
     return answer["venue"]["venue_id"];
 }
 
+def add_screen(owner: dict[str, str], venue_id: str, name: str = "Screen 1") -> str {
+    # A screen (auditorium) at the venue; returns its id.
+    answer = call(
+        owner["token"],
+        "create_auditorium",
+        {"tenant": owner["slug"], "venue_id": venue_id, "name": name}
+    );
+    assert answer["ok"] , answer;
+    return answer["auditorium"]["auditorium_id"];
+}
+
 def add_staff(owner: dict[str, str], role: str, venue_id: str = "") -> dict[str, str] {
     # Invites a new person with `role` and has them accept; returns their credentials.
     invite = call(
