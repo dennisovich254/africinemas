@@ -98,6 +98,16 @@ resizable = true
 # custom exception lost its type (docs/jac-issues/JI-026). We don't need native code.
 default = "server"
 
+[placement.pins]
+# The web UI imports these login-required (def:priv) endpoints. A module-level "server"
+# pin makes those imports service-boundary calls, sent with the session token; without
+# it the compiler refuses them in a workspace (E5082, docs/jac-issues/JI-027).
+"core.tenancy.signup" = "server"
+"core.tenancy.tenant_api" = "server"
+# Every web module is browser code, including pure helpers such as web.backoffice.nav
+# (under default = "server" a pure def:pub would otherwise become a server endpoint).
+"web.*" = "client"
+
 [scale.scheduler]
 # Background jobs (@schedule): payment/receipt processing, hold expiry (ADR-0005).
 # Static tasks run as Jac's system identity, once per server replica per tick.

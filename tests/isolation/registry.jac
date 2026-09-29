@@ -16,6 +16,7 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "app_info": {"scope": "public"},
          "create_cinema": {"scope": "caller"},
          "my_cinemas": {"scope": "caller"},
+         "check_slug": {"scope": "caller", "probe": {"slug": "free-name"}},
          "my_access": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
          "rename_cinema": {
              "scope": "tenant",

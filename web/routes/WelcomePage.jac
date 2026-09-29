@@ -1,5 +1,6 @@
 """`/`: the storefront welcome card (P0.8b). The storefront screens replace it in P4."""
 
+import from "@jac/runtime" { Link }
 import from ...components.ui.button { Button }
 import from ...components.ui.card {
     Card,
@@ -31,11 +32,12 @@ def:pub WelcomePage -> JsxElement {
                             Browse movies
                         </Button>
                         <Button
+                            asChild={True}
                             variant="outline"
                             className="min-h-11"
                             data-testid="secondary-cta"
                         >
-                            Cinema owners
+                            <Link to="/login">Cinema owners</Link>
                         </Button>
                     </CardContent>
                 </Card>
