@@ -26,8 +26,11 @@ If `jac install` fails with "bun install failed" on an older CPU, see `docs/jac-
    they fail for the right reason. Commit them, e.g. `test(p4.3): seat hold concurrency`.
 3. **GREEN:** implement the minimum to make them pass, with no regressions.
 4. **Refactor** with the tests green.
-5. **Push and open a PR.** The pre-push hook runs the type-check ratchet and the full test suite;
-   CI must pass all required checks.
+5. **Push and open a PR.** The pre-push hook runs the type-check ratchet and the quick test tier
+   (`scripts/test.sh --quick`: unit, isolation and API smoke tests, about a minute once compiled).
+   CI runs the full suite, including the integration and real-server tests, and must pass all
+   required checks before a PR can merge. Run `scripts/test.sh` locally when you want the full
+   suite before pushing.
 6. **Squash-merge** into `main`, delete the branch, tick the plan checkbox. Then start the next sub-phase.
 
 Run tests with `scripts/test.sh` (not bare `jac test`): it turns on strict mode, so a broken import

@@ -23,6 +23,7 @@ import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 import from core.catalog.models { Movie }
 import from core.catalog.answers { Refused, answer }
+import from core.catalog.venues { screenings_of_movie }
 import from core.catalog.poster {
     PosterRejected,
     decode_upload,
@@ -228,9 +229,14 @@ def _update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its six
 }
 
 def _delete_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
-    # Screenings will refuse this for a movie that's scheduled (plan 3.5).
     scope = scoped(tenant, UPDATE);
     movie = _find(scope, movie_id);
+    # Screenings, even cancelled ones, are history that tickets and reports point at.
+    if screenings_of_movie(scope.tenant, movie_id) {
+        raise Refused(
+            "movie_has_screenings", "This movie has screenings, so it can't be deleted."
+        );
+    }
     old_key = movie.poster_key;
     me = node_id(root);
     act_as(scope.tenant.principal_root_id);

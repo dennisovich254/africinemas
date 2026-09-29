@@ -69,8 +69,9 @@ repos:
         pass_filenames: false
         stages: [pre-push]
       - id: jac-test
-        name: jac test (strict)
-        entry: scripts/test.sh
+        # The fast tier; CI runs the full suite (integration, real-server) on every PR.
+        name: jac test (strict, quick tier)
+        entry: scripts/test.sh --quick
         language: system
         pass_filenames: false
         stages: [pre-push]
