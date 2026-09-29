@@ -4,6 +4,9 @@
 - invite_staff: needs employees.invite, and the inviter must already hold every
   permission of the role (no escalation). Returns a one-time token (Jac's token store)
   that expires after AFRICINEMAS_INVITE_TTL_S (default 72 h).
+- A role limited to a venue must name one of this cinema's venues (P3.1): invite_staff
+  and change_staff_roles refuse any other id with unknown_venue, and an invitation whose
+  venue was deleted since it was sent can't be accepted.
 - accept_invite: the invitee's own request (their membership edge must come from their
   root, ADR-0004). Single use is decided by an atomic claim on the invite (ADR-0007);
   the token is only peeked in the body and consumed in on_commit (JI-022).
@@ -31,6 +34,7 @@ import from core.tenancy.models { Tenant, Invite, Membership }
 import from core.tenancy.groups { add_staff }
 import from core.tenancy.membership { records_of, remove_member }
 import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
+import from core.catalog.venues { find_venue }
 import from core.tenancy.principal {
     node_id,
     act_as,
@@ -50,6 +54,13 @@ glob INVITE_PURPOSE: str = "staff-invite",
          "error": {
              "code": "invalid_invite",
              "message": "This invitation is no longer valid. Ask for a new one."
+         }
+     },
+     UNKNOWN_VENUE: dict[str, bool | dict[str, str]] = {
+         "ok": False,
+         "error": {
+             "code": "unknown_venue",
+             "message": "That venue isn't one of this cinema's venues."
          }
      },
      SELF_CHANGE: dict[str, bool | dict[str, str]] = {
@@ -102,6 +113,9 @@ def:priv invite_staff(tenant: str, role: str, venue_id: str) -> dict[str, any] {
     if not can_grant(scope.ctx, role) {
         return FORBIDDEN;
     }
+    if venue_id and find_venue(scope.tenant, venue_id) is None {
+        return UNKNOWN_VENUE;
+    }
     me = node_id(root);
     created = now();
     act_as(scope.tenant.principal_root_id);
@@ -151,6 +165,11 @@ def:priv accept_invite(token: str) -> dict[str, any] {  # jac:ignore[W1037]
     }
     tenant = found_tenant as Tenant;
     invite = found_invite as Invite;
+    # A venue named by the invitation may have been deleted since it was sent.
+    invited_venue = invite.role_key.partition("@")[2];
+    if invited_venue and find_venue(tenant, invited_venue) is None {
+        return INVALID_INVITE;
+    }
     # Exactly one accept wins, even when several arrive at once (ADR-0007).
     if claim(INVITE_CLAIMS, invite_id, me, CLAIM_HOLD_S) != me {
         return INVALID_INVITE;
@@ -266,6 +285,9 @@ def:priv change_staff_roles(
             }
             if not can_grant(scope.ctx, role) {
                 return FORBIDDEN;
+            }
+            if venue and find_venue(scope.tenant, venue) is None {
+                return UNKNOWN_VENUE;
             }
         }
         if not keys {

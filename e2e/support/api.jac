@@ -59,6 +59,17 @@ def owner_with_cinema(name: str = "Nova Cinemas") -> dict[str, str] {
     return {"email": email, "token": token, "slug": slug, "name": name};
 }
 
+def add_venue(owner: dict[str, str], name: str = "Westgate") -> str {
+    # A venue of the owner's cinema; returns its id.
+    answer = call(
+        owner["token"],
+        "create_venue",
+        {"tenant": owner["slug"], "name": name, "city": "Nairobi", "address": ""}
+    );
+    assert answer["ok"] , answer;
+    return answer["venue"]["venue_id"];
+}
+
 def add_staff(owner: dict[str, str], role: str, venue_id: str = "") -> dict[str, str] {
     # Invites a new person with `role` and has them accept; returns their credentials.
     invite = call(

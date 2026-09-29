@@ -11,7 +11,8 @@ tests/isolation/registry.jac.
   graph check-then-create would let concurrent requests all pass (JI-024). Claims are
   provisional until the request commits; renamed-away and deleted names are released
   on commit.
-- A venue that still has auditoriums can't be deleted.
+- A venue that still has auditoriums, or staff with a role limited to it (active or
+  disabled), can't be deleted.
 """
 
 import from jaclang { JacRuntime as Jac }
@@ -31,6 +32,7 @@ import from core.tenancy.principal {
     assign_id
 }
 import from core.catalog.models { Venue, Auditorium, ADDRESS_MAX }
+import from core.catalog.venues { find_venue, staff_at }
 
 glob VENUE_NAMES: str = "venue-name",
      AUDITORIUM_NAMES: str = "auditorium-name",
@@ -102,11 +104,11 @@ def _find(scope: TenantScope, node_ref: str) -> any {  # jac:ignore[W1037]
 }
 
 def _venue(scope: TenantScope, venue_id: str) -> Venue {
-    found = _find(scope, venue_id) if venue_id else None;
-    if not isinstance(found, Venue) or found.tenant_id != scope.ctx.tenant_id {
+    found = find_venue(scope.tenant, venue_id);
+    if found is None {
         raise NotFound();
     }
-    return found as Venue;
+    return found;
 }
 
 def _auditorium(scope: TenantScope, auditorium_id: str) -> Auditorium {
@@ -251,6 +253,13 @@ def _delete_venue(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ignore[
     if _screens(scope, venue) {
         raise Refused(
             "venue_not_empty", "Delete this venue's screens before deleting the venue."
+        );
+    }
+    # A stored role limited to this venue would otherwise point at nothing.
+    if staff_at(scope.tenant, venue_id) {
+        raise Refused(
+            "venue_has_staff",
+            "Move or remove the staff who work at this venue before deleting it."
         );
     }
     key = _key(scope.ctx.tenant_id, venue.name);
