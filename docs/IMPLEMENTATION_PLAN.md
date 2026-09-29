@@ -277,7 +277,7 @@ Scope: **customer** (browse, book, pay, my tickets), **usher scanner** (camera),
 
 ### Phase 11 — Hardening, deploy, demo (Week 4, days 4–5)
 
-- [ ] **11.1 Security pass** — **T:** the full isolation suite is green; production-config assertions; CSP/security headers at the edge; rate limits on hold/pay/scan; the threat-model items from §131 relevant to the MVP each have a test.
+- [ ] **11.1 Security pass** — **T:** the full isolation suite is green; production-config assertions; CSP/security headers at the edge; rate limits on sign-in and hold/pay/scan (Jac 0.37.18 limits `/user/register` only, not `/user/login`, so password guessing is unthrottled until then); the threat-model items from §131 relevant to the MVP each have a test.
 - [ ] **11.1b Claim reconciliation job** (`@schedule`, ADR-0007) — **T:** a committed tenant whose slug claim lapsed (server died before `on_commit`) gets it re-claimed; a claim held by no committed tenant is released; running it twice changes nothing.
 - [ ] **11.2 Deployment** — **I:** a single VM running the Jac server with external Postgres (`JAC_DB_URL`) behind a Cloudflare Tunnel (public HTTPS for the web app, the desktop backend URL and Daraja callbacks). Release workflow deploys on tag. **✓** Health checks green in production.
 - [ ] **11.3 Demo data & script** — `scripts/seed_demo.jac` (2 cinemas, movies, screenings, staff); a 5-minute demo script covering web, desktop and mobile.

@@ -26,16 +26,15 @@ def:pub LoginPage -> JsxElement {
         }
         set_busy(True);
         set_error("");
-        ok: bool = False;
-        try {
-            ok = await sign_in(email, password);
-        } except Exception as err {
-            console.warn("sign-in failed", err);
-            ok = False;
-        }
+        outcome: str = "";
+        outcome = await sign_in(email, password);
         set_busy(False);
-        if ok {
+        if outcome == "ok" {
             nav("/app");
+        } elif outcome == "offline" {
+            set_error(
+                "We couldn't reach AfriCinemas. Check your connection and try again."
+            );
         } else {
             set_error("Email or password is incorrect.");
         }
