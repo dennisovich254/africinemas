@@ -81,3 +81,38 @@ node Screening {
         created_at: str = "",
         updated_at: str = "";
 }
+
+node SeatSlot {
+    # One seat of one screening: the unit of seat inventory (§25), created when the
+    # screening is published (P3.5b), one per seat of its pinned layout. state is
+    # "available" or "not_for_sale" (BLOCKED and HOUSE seats); holds and sales come in P4.
+    has tenant_id: str,
+        screening_id: str,
+        label: str,
+        row: int,
+        col: int,
+        seat_type: str,
+        zone: str = "",
+        state: str = "available";
+}
+
+node Storefront {
+    # A cinema's public projection on the shared guest graph (§4; spike S7), owned by
+    # its principal and granted READ to everyone. Anyone who has a node's id can read
+    # all of it, so it holds public fields only: never tenant, staff or internal ids.
+    # Reached through Tenant.storefront_id, never by searching root.shared.
+    has slug: str,
+        name: str;
+}
+
+node StorefrontScreening {
+    # One published screening as the storefront shows it (P3.5b). Public fields only.
+    has screening_id: str,
+        starts_at: str,
+        ends_at: str,
+        state: str,
+        movie: dict[str, any] = {},  # jac:ignore[W1037]
+        venue: dict[str, str] = {},
+        screen: dict[str, str] = {},
+        seat_map: dict[str, any] = {};  # jac:ignore[W1037]
+}

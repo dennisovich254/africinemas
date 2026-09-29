@@ -20,7 +20,10 @@ node Tenant {
         name: str,
         state: str = TenantState.PROVISIONING.value,
         principal_root_id: str = "",
-        created_at: str = "";
+        created_at: str = "",
+        # The cinema's public Storefront on root.shared (P3.5b), made on first publish.
+        # The only trusted way to reach it: anyone may attach nodes to root.shared.
+        storefront_id: str = "";
 
     def move_to(target: TenantState) {
         self.state = transition(TenantState(self.state), target).value;

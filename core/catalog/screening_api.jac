@@ -13,8 +13,12 @@ tests/isolation/registry.jac.
   before that commit. So each also bumps the screen's schedule_rev, making concurrent
   schedulings write the same record; the database re-runs the later one, which then
   sees the earlier screening (flush_now, JI-031).
-- The lifecycle is screening_rules.jac; publishing (seat inventory and the storefront)
-  is plan 3.5b.
+- The lifecycle is screening_rules.jac. Publishing (P3.5b) creates the seat inventory,
+  one SeatSlot per seat of the pinned layout, once, and puts the screening on the
+  cinema's public storefront (storefront.jac); unpublishing or cancelling takes it off.
+  Concurrent publishes all change the screening's state, so the database lets one
+  through and re-runs the others (flush_now, JI-031), which then find it published.
+- public_screenings(slug) is public (no login): the storefront programme only.
 - showtimes.read / .create / .update / .cancel apply at the screen's venue. Another
   cinema's ids answer not_found.
 """
@@ -32,12 +36,23 @@ import from core.tenancy.principal {
     flush_now,
     fresh_node_id
 }
-import from core.catalog.models { Auditorium, Screening, SeatLayout, PUBLISHED }
+import from core.catalog.models {
+    Auditorium,
+    Screening,
+    SeatLayout,
+    SeatSlot,
+    PUBLISHED
+}
 import from core.catalog.answers { Refused, answer }
+import from core.catalog.storefront { project, unproject, public_programme }
+import from core.catalog.layout { UNSELLABLE }
+import from core.tenancy.open_cinema { open_cinema }
+import from core.tenancy.responses { NOT_FOUND }
 import from core.catalog.venues {
     find_auditorium,
     find_movie,
     find_screening,
+    find_layout,
     layouts_of,
     screenings_of
 }
@@ -331,10 +346,133 @@ def:priv schedule_screening(tenant: str, screening_id: str) -> dict[str, any] { 
     );
 }
 
+def _cancel(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    done = _move_to(tenant, screening_id, CANCEL, ScreeningState.CANCELLED);
+    unproject(on_shift(tenant).tenant, screening_id);
+    return done;
+}
+
 def:priv cancel_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return answer(
-        lambda -> any { return _move_to(  # jac:ignore[W1037]
-            tenant, screening_id, CANCEL, ScreeningState.CANCELLED
-        ); }
-    );
+    return answer(lambda -> any { return _cancel(tenant, screening_id); });  # jac:ignore[W1037]
+}
+
+def _slots(scope: TenantScope, screening: Screening) -> list[SeatSlot] {
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        found = [screening-->[?:SeatSlot]];
+    } finally {
+        restore(me);
+    }
+    return sorted(
+        found, key=lambda (x: SeatSlot) -> tuple[int, int] { return (x.row, x.col); }
+    );  # jac:ignore[W1037]
+}
+
+def _make_slots(scope: TenantScope, screening: Screening) {
+    # One SeatSlot per seat of the pinned layout, unless they already exist (a screening
+    # that was unpublished and is being published again). Call as the principal.
+    if [screening-->[?:SeatSlot]] {
+        return;
+    }
+    layout = find_layout(scope.tenant, screening.layout_id);
+    if layout is None {
+        raise Refused("no_layout", "This screening's seat layout is missing.");
+    }
+    for seat in layout.seats {
+        slot = SeatSlot(
+            tenant_id=scope.ctx.tenant_id,
+            screening_id=node_id(screening),
+            label=seat.label,
+            row=seat.row,
+            col=seat.col,
+            seat_type=seat.seat_type,
+            zone=seat.zone,
+            state="not_for_sale" if seat.seat_type in UNSELLABLE else "available"
+        );
+        screening ++> slot;
+        attach_to_tenant(slot, scope.tenant);
+    }
+}
+
+def _publish(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = on_shift(tenant);
+    screening = _screening(scope, screening_id, UPDATE);
+    try {
+        transition(ScreeningState(screening.state), ScreeningState.PUBLISHED);
+    } except InvalidTransition {
+        raise Refused(
+            "invalid_transition", "Only a scheduled screening can be published."
+        );
+    }
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        _make_slots(scope, screening);
+        screening.state = ScreeningState.PUBLISHED.value;
+        screening.updated_at = now().isoformat();
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    project(scope.tenant, screening);
+    return {"ok": True, "screening": _view(scope, screening)};
+}
+
+def _unpublish(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = on_shift(tenant);
+    screening = _screening(scope, screening_id, UPDATE);
+    if screening.state != ScreeningState.PUBLISHED.value {
+        raise Refused(
+            "invalid_transition",
+            "Only a published screening that isn't on sale can be unpublished."
+        );
+    }
+    done = _move_to(tenant, screening_id, UPDATE, ScreeningState.SCHEDULED);
+    unproject(scope.tenant, screening_id);
+    return done;
+}
+
+def _list_seat_slots(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = on_shift(tenant);
+    screening = _screening(scope, screening_id, READ);
+    return {
+        "ok": True,
+        "slots": [
+            {
+                "label": x.label,
+                "row": x.row,
+                "col": x.col,
+                "seat_type": x.seat_type,
+                "zone": x.zone,
+                "state": x.state
+            } for x in _slots(scope, screening)
+        ]
+    };
+}
+
+def:priv publish_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _publish(tenant, screening_id); });  # jac:ignore[W1037]
+}
+
+def:priv unpublish_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _unpublish(tenant, screening_id); });  # jac:ignore[W1037]
+}
+
+def:priv list_seat_slots(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _list_seat_slots(tenant, screening_id); });  # jac:ignore[W1037]
+}
+
+def:pub public_screenings(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The cinema's storefront programme, for anyone (no login): published screenings
+    # and their public details only (core/catalog/storefront.jac).
+    cinema = open_cinema(slug);
+    if cinema is None {
+        return NOT_FOUND;
+    }
+    return {
+        "ok": True,
+        "cinema": {"name": cinema.name, "slug": cinema.slug},
+        "screenings": public_programme(cinema)
+    };
 }

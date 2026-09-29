@@ -24,6 +24,7 @@ import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 import from core.catalog.models { Movie }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.venues { screenings_of_movie }
+import from core.catalog.storefront { PUBLIC_STATES, project }
 import from core.catalog.poster {
     PosterRejected,
     decode_upload,
@@ -224,6 +225,12 @@ def _update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its six
         flush_now();
     } finally {
         restore(me);
+    }
+    # Published screenings of this movie show its details on the storefront (P3.5b).
+    for screening in screenings_of_movie(scope.tenant, movie_id) {
+        if screening.state in PUBLIC_STATES {
+            project(scope.tenant, screening);
+        }
     }
     return {"ok": True, "movie": _view(movie)};
 }

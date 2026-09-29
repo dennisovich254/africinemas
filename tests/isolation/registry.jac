@@ -7,6 +7,8 @@
   "{tenant}" standing for B's slug.
 - "customer": a storefront endpoint; anyone may use it at any cinema, but it only ever
   returns the caller's own customer data (never staff or other customers' data).
+- "storefront": public, no login; returns a cinema's published storefront only (never
+  internal ids, staff or owner data). Probed anonymously at tenant B.
 
 isolation_tests.jac fails when the app serves an endpoint that isn't listed here, so no
 new endpoint can skip the cross-tenant checks.
@@ -175,6 +177,19 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "screening_id": "x"}
          },
+         "publish_screening": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
+         "unpublish_screening": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
+         "list_seat_slots": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
+         "public_screenings": {"scope": "storefront", "probe": {"slug": "{tenant}"}},
          "join_as_customer": {
              "scope": "customer",
              "probe": {"tenant": "{tenant}", "display_name": "Probe"}
