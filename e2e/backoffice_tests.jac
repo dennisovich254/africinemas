@@ -129,6 +129,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                 == [
                     "Overview",
                     "Screens",
+                    "Movies",
                     "Screenings",
                     "Box office",
                     "Scanner",

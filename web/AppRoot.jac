@@ -33,10 +33,7 @@ def:pub AppRoot -> JsxElement {
                     <Route path="/app/new" element={<NewCinemaWizard/>}/>
                     <Route path="/app/:slug" element={<BackOffice/>}/>
                     <Route path="/app/:slug/:section" element={<BackOffice/>}/>
-                    <Route
-                        path="/app/:slug/screens/:auditorium_id"
-                        element={<BackOffice/>}
-                    />
+                    <Route path="/app/:slug/:section/:item" element={<BackOffice/>}/>
                 </Route>
                 <Route path="*" element={<NotFoundPage/>}/>
             </Routes>
