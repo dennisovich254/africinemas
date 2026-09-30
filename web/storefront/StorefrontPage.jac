@@ -9,7 +9,6 @@ lists what's on (public_screenings); movie pages, seat maps and checkout come in
 
 import from react { useState, useEffect }
 import from "@jac/runtime" { useParams }
-import from ...components.ui.empty { Empty, EmptyHeader, EmptyTitle, EmptyDescription }
 import from ...components.ui.spinner { Spinner }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from core.theming.branding_api { public_branding }
@@ -145,18 +144,16 @@ def:pub StorefrontPage -> JsxElement {
                 >
                     <h2 className="font-display text-4xl leading-none">What's on</h2>
                     {len(listed) == 0
-                        and <Empty className="border">
-                            <EmptyHeader>
-                                <EmptyTitle>
-                                    <h3 className="text-base font-semibold">
-                                        Nothing on sale yet
-                                    </h3>
-                                </EmptyTitle>
-                                <EmptyDescription>
-                                    New showtimes will appear here. Check back soon.
-                                </EmptyDescription>
-                            </EmptyHeader>
-                        </Empty>}
+                        and <div
+                            className="flex flex-col gap-1 rounded-lg border bg-card p-6"
+                        >
+                            <h3 className="text-base font-semibold">
+                                Nothing on sale yet
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                                New showtimes will appear here. Check back soon.
+                            </p>
+                        </div>}
                     {len(listed) > 0
                         and <ul className="grid gap-3 sm:grid-cols-2">
                             {[
