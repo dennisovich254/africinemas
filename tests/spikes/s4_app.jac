@@ -55,14 +55,22 @@ edge OwnsTenant {}
 edge HasPayment {}
 
 def _inbox -> Inbox {
-    # Call while acting as the system root: the inbox hangs off it.
+    # Call while acting as the system root: the inbox hangs off it. Made on first use,
+    # which can race with the scheduled job and leave two (graph find-or-create,
+    # JI-024), so the one with the smallest id is always picked; production code uses
+    # an atomic claim instead (ADR-0007).
     found = [root-->[?:Inbox]];
     if found {
-        return found[0];
+        return sorted(found, key=lambda (b: Inbox) -> str { return node_id(b); })[0];
     }
     box = Inbox();
     root ++> box;
     return box;
+}
+
+def _receipts -> list[Receipt] {
+    # Every receipt, in whichever inbox it landed (see _inbox).
+    return [r for box in [root-->[?:Inbox]] for r in [box-->[?:Receipt]]];
 }
 
 def:priv s4_create_tenant(name: str) -> dict[str, str] {
@@ -91,7 +99,7 @@ def:pub s4_record_receipt(
     act_as(system_root_id());
     try {
         box = _inbox();
-        for r in [box-->[?:Receipt]] {
+        for r in _receipts() {
             if r.reference == reference {
                 return {"accepted": True, "receipt_id": node_id(r), "duplicate": True};
             }
@@ -111,7 +119,7 @@ def s4_process_receipts {
     box = _inbox();
     box.runs += 1;
     box.last_run_root = job_root;
-    for r in [box-->[?:Receipt]] {
+    for r in _receipts() {
         if r.status != "new" {
             continue;
         }
@@ -183,7 +191,7 @@ def:priv s4_processor_info -> dict[str, any] {
             "system_root": system_root_id(),
             "receipts": [
                 {"reference": r.reference, "amount": r.amount, "status": r.status}
-                for r in [box-->[?:Receipt]]
+                for r in _receipts()
             ]
         };
     } finally {
