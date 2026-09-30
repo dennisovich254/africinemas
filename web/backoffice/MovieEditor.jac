@@ -318,7 +318,7 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                         label="Title"
                         value={values["title"]}
                         error={field_errors[FIELDS["title"]] or ""}
-                        on_value={lambda (v: str) { change("title", v); }}
+                        on_value={lambda (text: str) { change("title", text); }}
                     />
                 </div>
                 <div className="sm:col-span-2">
@@ -328,7 +328,7 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                         value={values["synopsis"]}
                         multiline={True}
                         error={field_errors[FIELDS["synopsis"]] or ""}
-                        on_value={lambda (v: str) { change("synopsis", v); }}
+                        on_value={lambda (text: str) { change("synopsis", text); }}
                     />
                 </div>
                 <TextField
@@ -337,7 +337,7 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                     value={values["runtime"]}
                     input_mode="numeric"
                     error={field_errors[FIELDS["runtime"]] or ""}
-                    on_value={lambda (v: str) { change("runtime", v); }}
+                    on_value={lambda (text: str) { change("runtime", text); }}
                     on_blur={check_runtime}
                 />
                 <div className="flex flex-col gap-1.5">
@@ -351,7 +351,9 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                         aria-describedby={error_id(FIELDS["rating"])
                             if field_errors[FIELDS["rating"]]
                             else None}
-                        onChange={on_input(lambda (v: str) { change("rating", v); })}
+                        onChange={on_input(
+                            lambda (text: str) { change("rating", text); }
+                        )}
                         className={SELECT_CLASSES}
                     >
                         <option value="">Choose a rating</option>
@@ -369,14 +371,14 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                     value={values["genres"]}
                     hint="Separate them with commas, up to 5."
                     error={field_errors[FIELDS["genres"]] or ""}
-                    on_value={lambda (v: str) { change("genres", v); }}
+                    on_value={lambda (text: str) { change("genres", text); }}
                 />
                 <TextField
                     field_id={FIELDS["language"]}
                     label="Language (optional)"
                     value={values["language"]}
                     error={field_errors[FIELDS["language"]] or ""}
-                    on_value={lambda (v: str) { change("language", v); }}
+                    on_value={lambda (text: str) { change("language", text); }}
                 />
                 <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
                     <Button

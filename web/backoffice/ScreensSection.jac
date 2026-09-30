@@ -138,8 +138,9 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
     }
 
     async def run(call: any, fields: dict[str, str], done: str) -> bool {  # jac:ignore[W1037]
-        # Runs a change; on success reloads and announces `done`, on refusal shows the
-        # server's message by the field it concerns (or at the top of the page).
+        # Runs a change; on success reloads and announces `done`. A refusal is shown by
+        # the field it concerns, else at fields["*"] (the item it's about), else at the
+        # top of the page.
         answer: any = None;  # jac:ignore[W1037]
         set_busy(True);
         set_message("");
@@ -155,6 +156,9 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
         set_busy(False);
         if not answer["ok"] {
             target = field_for(answer["error"]["code"], fields);
+            if not target and "*" in fields {
+                target = fields["*"];
+            }
             if target {
                 only_error(target, answer["error"]["message"]);
             } else {
@@ -252,13 +256,13 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
         if target["kind"] == "venue" {
             await run(
                 lambda -> any { return delete_venue(slug, target["id"]); },  # jac:ignore[W1037,W2037]
-                {},
+                {"*": f"problem-venue-{target['id']}"},
                 f"Deleted {target['name']}."
             );
         } else {
             await run(
                 lambda -> any { return delete_auditorium(slug, target["id"]); },  # jac:ignore[W1037,W2037]
-                {},
+                {"*": f"problem-screen-{target['id']}"},
                 f"Deleted {target['name']}."
             );
         }
@@ -349,14 +353,14 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                         label="Venue name"
                         value={venue_values["name"]}
                         error={field_errors[f"venue-name-{vid}"] or ""}
-                        on_value={lambda (v: str) { edit_venue_form("name", v); }}
+                        on_value={lambda (text: str) { edit_venue_form("name", text); }}
                     />
                     <TextField
                         field_id={f"venue-city-{vid}"}
                         label="City"
                         value={venue_values["city"]}
                         error={field_errors[f"venue-city-{vid}"] or ""}
-                        on_value={lambda (v: str) { edit_venue_form("city", v); }}
+                        on_value={lambda (text: str) { edit_venue_form("city", text); }}
                     />
                     <div className="sm:col-span-2">
                         <TextField
@@ -364,8 +368,8 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                             label="Address"
                             value={venue_values["address"]}
                             error={field_errors[f"venue-address-{vid}"] or ""}
-                            on_value={lambda (v: str) { edit_venue_form(
-                                "address", v
+                            on_value={lambda (text: str) { edit_venue_form(
+                                "address", text
                             ); }}
                         />
                     </div>
@@ -438,7 +442,7 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                         label={f"New name for {a['name']}"}
                         value={rename_text}
                         error={field_errors[f"screen-name-{sid}"] or ""}
-                        on_value={lambda (v: str) { set_rename_text(v); }}
+                        on_value={lambda (text: str) { set_rename_text(text); }}
                     />
                     <div className="flex flex-wrap gap-3">
                         <Button type="submit" className="min-h-11 px-5" disabled={busy}>
@@ -489,6 +493,11 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                         </div>}
                 </div>
                 {confirm_box("screen", sid)}
+                {field_errors[f"problem-screen-{sid}"]
+                    and <FieldError
+                        field_id={f"problem-screen-{sid}"}
+                        error={field_errors[f"problem-screen-{sid}"]}
+                    />}
             </div>;
     }
 
@@ -503,14 +512,14 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
             label="Venue name"
             value={new_values["name"]}
             error={field_errors["new-venue-name"] or ""}
-            on_value={lambda (v: str) { edit_new_venue("name", v); }}
+            on_value={lambda (text: str) { edit_new_venue("name", text); }}
         />
         <TextField
             field_id="new-venue-city"
             label="City"
             value={new_values["city"]}
             error={field_errors["new-venue-city"] or ""}
-            on_value={lambda (v: str) { edit_new_venue("city", v); }}
+            on_value={lambda (text: str) { edit_new_venue("city", text); }}
         />
         <div className="sm:col-span-2">
             <TextField
@@ -518,7 +527,7 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                 label="Address (optional)"
                 value={new_values["address"]}
                 error={field_errors["new-venue-address"] or ""}
-                on_value={lambda (v: str) { edit_new_venue("address", v); }}
+                on_value={lambda (text: str) { edit_new_venue("address", text); }}
             />
         </div>
         <div className="sm:col-span-2">
@@ -555,6 +564,13 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                         >
                             {VenueHeader(v)}
                             {confirm_box("venue", v["venue_id"])}
+                            {field_errors[f"problem-venue-{v['venue_id']}"]
+                                and <FieldError
+                                    field_id={f"problem-venue-{v['venue_id']}"}
+                                    error={field_errors[
+                                        f"problem-venue-{v['venue_id']}"
+                                    ]}
+                                />}
                             {len(screens_of(v)) == 0
                                 and <p className="text-sm text-muted-foreground">
                                     No screens at this venue yet.
@@ -593,8 +609,8 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                                                 ]
                                                 else None}
                                             onChange={on_input(
-                                                lambda (v: str) { type_new_screen(
-                                                    v["venue_id"], v
+                                                lambda (text: str) { type_new_screen(
+                                                    v["venue_id"], text
                                                 ); }
                                             )}
                                             className="min-h-11 min-w-0 flex-1 basis-48"
