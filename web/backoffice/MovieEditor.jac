@@ -30,10 +30,10 @@ import from .form_parts {
     field_for,
     error_id,
     on_input,
-    submit_with
+    submit_with,
+    read_as_base64
 }
 import from .MoviesSection { PosterThumb, movie_path }
-import from .BrandingSection { read_as_base64 }
 
 glob RATINGS: list[str] = ["GE", "PG", "16", "18", "R"],
      RUNTIME_MAX: int = 600,

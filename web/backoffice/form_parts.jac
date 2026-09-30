@@ -4,6 +4,7 @@
   aria-describedby and announced (role="alert").
 - ConfirmDelete: the in-page "are you sure?" step before anything is deleted.
 - field_for: which field a server refusal belongs to, so it's shown next to it.
+- read_as_base64: a chosen file's contents, for the upload endpoints (logos, posters).
 - on_input / submit_with: event handlers that hand over just the text, or just the
   submit, so pages never handle browser events themselves.
 """
@@ -140,4 +141,21 @@ def:pub submit_with(action: any) -> any {  # jac:ignore[W1037]
         action();
     }
     return handler;
+}
+
+def:pub read_as_base64(file: any) -> any {  # jac:ignore[W1037]
+    # A promise of a chosen file's contents as base64 (no "data:" prefix), for uploads.
+    def run(resolve: any, reject: any) {  # jac:ignore[W1037]
+        win: any = window;  # jac:ignore[W1037,W2001]
+        reader_class: any = win.FileReader;  # jac:ignore[W1037]
+        reader: any = new(reader_class);  # jac:ignore[W1037]
+        def done {
+            text: str = reader.result;
+            resolve(text.split(",")[1]);
+        }
+        reader.onload = done;
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    }
+    return new(Promise, run);  # jac:ignore[W2001]
 }
