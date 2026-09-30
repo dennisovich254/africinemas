@@ -2,6 +2,7 @@
 # End-to-end browser tests (plan P0.8b). Builds and serves the production bundle, runs the
 # Playwright tests in e2e/ against it, and always stops the server.
 #   scripts/e2e.sh                 build + serve on $E2E_PORT (default 8870), then test
+#   scripts/e2e.sh e2e/x_tests.jac  the same, running only the given test file(s)
 #   E2E_BASE_URL=http://... ...    test an already-running server instead
 # Screenshots and the server log land in e2e/artifacts/ (git-ignored).
 set -euo pipefail
@@ -38,4 +39,9 @@ if [[ -z "${E2E_BASE_URL:-}" ]]; then
     export E2E_BASE_URL="http://127.0.0.1:$port"
 fi
 
-JAC_TEST_STRICT=1 JAC_TEST_JOBS="${JAC_TEST_JOBS:-1}" jac test -d e2e "$@"
+# With test files as arguments (scripts/e2e.sh e2e/branding_tests.jac), run only those.
+if [[ $# -gt 0 && "$1" == *.jac ]]; then
+    JAC_TEST_STRICT=1 JAC_TEST_JOBS="${JAC_TEST_JOBS:-1}" jac test "$@"
+else
+    JAC_TEST_STRICT=1 JAC_TEST_JOBS="${JAC_TEST_JOBS:-1}" jac test -d e2e "$@"
+fi

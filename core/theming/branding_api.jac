@@ -25,8 +25,15 @@ import from core.tenancy.responses { NOT_FOUND }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.storefront { set_branding, branding_of }
 import from core.catalog.poster { PosterRejected, decode_upload, process_logo }
-import from core.theming.tokens { DEFAULT_THEME, InvalidThemeValue }
-import from core.theming.css { theme_css }
+import from core.theming.tokens {
+    DEFAULT_THEME,
+    InvalidThemeValue,
+    ROLES,
+    DISPLAY_FONTS,
+    BODY_FONTS,
+    RADII
+}
+import from core.theming.css { theme_css, FONT_STACKS, RADIUS_REM }
 import from core.theming.branding { PRESETS, parse_theme, repair_reporting }
 import from core.theming.models { Branding, ThemeVersion }
 
@@ -86,13 +93,18 @@ def _draft_theme(branding: Branding | None) -> dict[str, any] {  # jac:ignore[W1
     return dict(branding.draft);
 }
 
+def _data_url(logo: str) -> str {
+    return f"data:image/webp;base64,{logo}" if logo else "";
+}
+
 def _view(scope: TenantScope, branding: Branding | None) -> dict[str, any] {  # jac:ignore[W1037]
     versions = _versions(scope, branding);
     latest = versions[0] if versions else None;
     return {
         "draft": {
             "theme": _draft_theme(branding),
-            "has_logo": branding is not None and bool(branding.draft_logo)
+            "has_logo": branding is not None and bool(branding.draft_logo),
+            "logo": _data_url(branding.draft_logo if branding is not None else "")
         },
         "published": {
             "version": latest.version,
@@ -131,7 +143,16 @@ def _get_branding(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {
         "ok": True,
         "branding": _view(scope, _branding(scope)),
-        "presets": [p.as_dict() for p in PRESETS]
+        "presets": [p.as_dict() for p in PRESETS],
+        # What the Branding page may offer, so it never keeps its own copy (P3.8b).
+        "options": {
+            "roles": ROLES,
+            "display_fonts": DISPLAY_FONTS,
+            "body_fonts": BODY_FONTS,
+            "radii": RADII,
+            "font_stacks": FONT_STACKS,
+            "radius_rem": RADIUS_REM
+        }
     };
 }
 
@@ -286,7 +307,7 @@ def:pub public_branding(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
             "version": shown.get("version", 0),
             "theme": theme.as_dict(),
             "css": theme_css(theme, "storefront"),
-            "logo": f"data:image/webp;base64,{logo}" if logo else ""
+            "logo": _data_url(logo)
         }
     };
 }
