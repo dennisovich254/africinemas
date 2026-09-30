@@ -148,11 +148,12 @@ def parse_price_list(
             or len(name) > NAME_MAX {
             problem(
                 "bad_ticket_type",
-                "Give each ticket type a code (letters, digits, _) and a name."
+                f"Give each ticket type a name of up to {NAME_MAX} characters."
             );
         } elif code in ticket_types {
             problem(
-                "duplicate_ticket_type", f"There are two ticket types coded {code}."
+                "duplicate_ticket_type",
+                f"There are two ticket types called {name}. Give each a different name."
             );
         } else {
             ticket_types[code] = name;
@@ -173,11 +174,18 @@ def parse_price_list(
         if len(zone) > ZONE_MAX {
             problem("bad_zone", f"A zone name has up to {ZONE_MAX} characters.");
         } elif not _cents(amount, 0, PRICE_MAX_CENTS) {
-            problem("bad_price", "Prices are whole cents from 0 to KES 1,000,000.");
+            where = f" in {zone}" if zone else "";
+            problem(
+                "bad_price",
+                f"{ticket_types.get(code, code)}{where}: enter a price from KES 0 to 1,000,000."
+            );
         } elif code not in ticket_types {
             problem("unknown_ticket_type", f"There's no ticket type coded {code}.");
         } elif code in prices.get(zone, {}) {
-            problem("duplicate_price", f"{code} has two prices in the same zone.");
+            problem(
+                "duplicate_price",
+                f"{ticket_types[code]} has two prices in {zone or 'the standard zone'}."
+            );
         } else {
             prices.setdefault(zone, {})[code] = int(amount);
         }
@@ -185,15 +193,17 @@ def parse_price_list(
     surcharges: list[Surcharge] = [];
     raw_surcharges = data.get("surcharges", []);
     if isinstance(raw_surcharges, list) and len(raw_surcharges) > SURCHARGES_MAX {
-        problem("bad_surcharge", f"Use at most {SURCHARGES_MAX} surcharges.");
+        problem("bad_surcharge", f"Use at most {SURCHARGES_MAX} time-of-day extras.");
         raw_surcharges = [];
     }
     for item in raw_surcharges if isinstance(raw_surcharges, list) else [] {
         parsed = _surcharge(item);
         if parsed is None {
+            label = _clean(item.get("name", "")) if isinstance(item, dict) else "";
             problem(
                 "bad_surcharge",
-                "Each surcharge needs a name, weekdays (0-6), a start before its end (HH:MM) and an amount in cents."
+                f"{label
+                    or 'A time-of-day extra'} needs a name, at least one day, a start time before its end time, and an amount."
             );
         } else {
             surcharges.append(parsed);
@@ -201,9 +211,7 @@ def parse_price_list(
     }
     fee = data.get("service_fee_cents", 0);
     if not _cents(fee, 0, ADJUST_MAX_CENTS) {
-        problem(
-            "bad_service_fee", "The service fee is whole cents from 0 to KES 100,000."
-        );
+        problem("bad_service_fee", "Enter a service fee from KES 0 to 100,000.");
         fee = 0;
     }
     if problems {
