@@ -5,7 +5,8 @@ The navigation lists only the sections the member's roles allow (nav.jac), from
 actions need an open shift (ADR-0006), so until one is open every section shows a
 "Start shift" banner. Signing out ends the shift.
 
-Screens (P3.3) lists each venue's screens and opens their seat layout designer; the other
+Screens (P3.3) lists each venue's screens and opens their seat layout designer; Settings
+holds the cinema's branding (P3.8b), and the header shows its published logo; the other
 sections arrive with their phases, and for now each shows what it will hold.
 """
 
@@ -31,6 +32,8 @@ import from .nav { web_address, nav_for, section_label, section_path, role_label
 import from .PlainLayout { PlainLayout, AccountActions }
 import from .ScreensSection { ScreensSection }
 import from .SeatDesigner { SeatDesigner }
+import from .BrandingSection { BrandingSection }
+import from core.theming.branding_api { public_branding }
 
 glob SECTION_PREVIEW: dict[str, str] = {
          "screenings": "Set up your screens, seat layouts, movies and showtimes here.",
@@ -149,6 +152,7 @@ def:pub BackOffice -> JsxElement {
     [shift_open, set_shift_open] = useState(False);
     [starting, set_starting] = useState(False);
     [start_failed, set_start_failed] = useState(False);
+    [logo, set_logo] = useState("");
 
     async def load {
         answer: any = None;  # jac:ignore[W1037]
@@ -165,6 +169,16 @@ def:pub BackOffice -> JsxElement {
         }
         set_access(answer);
         set_shift_open(answer["shift_open"]);
+        # The cinema's published logo for the header (P3.8b); the look stays the platform's.
+        shown: any = None;  # jac:ignore[W1037]
+        try {
+            shown = await public_branding(slug);
+        } except Exception as e {
+            console.warn("public_branding failed", e);
+        }
+        if shown and shown["ok"] {
+            set_logo(shown["branding"]["logo"]);
+        }
     }
 
     async def begin_shift {
@@ -248,6 +262,8 @@ def:pub BackOffice -> JsxElement {
         />;
     } elif section == "screens" {
         content = <ScreensSection slug={slug}/>;
+    } elif section == "settings" {
+        content = <BrandingSection slug={slug} cinema={me["name"]}/>;
     } else {
         content = <SectionPreview section={section} slug={slug}/>;
     }
@@ -257,6 +273,7 @@ def:pub BackOffice -> JsxElement {
                 title={title}
                 nav={nav}
                 brand={me["name"]}
+                logo={logo}
                 home={section_path(slug, "")}
                 account={<AccountActions slugs={[slug]} switch_to="/app"/>}
             >

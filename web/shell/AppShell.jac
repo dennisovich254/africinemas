@@ -64,22 +64,31 @@ def NavLinks(
         </nav>;
 }
 
-def Brand(name: str, home: str) -> JsxElement {
+def Brand(name: str, home: str, logo: str = "") -> JsxElement {
+    # The cinema's published logo (P3.8b) beside its name, or the name alone.
     return
         <Link
             to={home}
-            className="font-display inline-flex min-h-11 items-center text-2xl leading-none"
+            className="font-display inline-flex min-h-11 min-w-0 items-center gap-2 text-2xl leading-none"
         >
-            {name}
+            {logo
+                and <img
+                    src={logo}
+                    alt=""
+                    data-testid="brand-logo"
+                    className="h-7 w-auto max-w-24 shrink-0"
+                />}
+            <span className="truncate">{name}</span>
         </Link>;
 }
 
 # `children` and `actions` are pass-through JSX (jac-cl-organization idiom).
-def:pub AppShell(
+def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home and three slots
     title: str,
     nav: list[dict[str, str]],
     brand: str = "AfriCinemas",
     home: str = "/",
+    logo: str = "",
     children: any = None,  # jac:ignore[W1037]
     actions: any = None,  # jac:ignore[W1037]
     account: any = None  # jac:ignore[W1037]
@@ -99,7 +108,7 @@ def:pub AppShell(
                 data-testid="shell-sidebar"
                 className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col gap-6 overflow-y-auto border-r bg-card p-4 lg:flex"
             >
-                <Brand name={brand} home={home}/>
+                <Brand name={brand} home={home} logo={logo}/>
                 <NavLinks items={nav} current={location.pathname}/>
                 {account and <div className="mt-auto border-t pt-4">{account}</div>}
             </aside>
@@ -163,7 +172,7 @@ def:pub AppShell(
                                 </div>}
                         </SheetContent>
                     </Sheet>
-                    <Brand name={brand} home={home}/>
+                    <Brand name={brand} home={home} logo={logo}/>
                 </header>
                 <main
                     id="content"

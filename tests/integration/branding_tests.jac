@@ -69,7 +69,12 @@ test "a new cinema starts from the default theme, with the presets to choose fro
         assert answer["ok"] , answer;
         b = answer["branding"];
         assert b["draft"]["theme"] == DEFAULT_THEME.as_dict();
-        assert b["draft"]["has_logo"] is False;
+        assert b["draft"]["has_logo"] is False and b["draft"]["logo"] == "";
+        options = answer["options"];
+        assert len(options["roles"]) == 20 and "Bebas Neue" in options["display_fonts"];
+        assert options["radii"] == ["none", "small", "medium", "large"];
+        assert set(options["font_stacks"].keys())
+            >= set(options["display_fonts"] + options["body_fonts"]);
         assert b["published"] is None and b["versions"] == [];
         assert [p["name"] for p in answer["presets"]]
             == ["AfriCinemas", "Projector Black", "Velvet Curtain", "Blackout Crimson"];
@@ -185,7 +190,9 @@ test "a logo is part of the draft, and published and rolled back with the theme"
             {"tenant": NOVA, "content_type": "image/png", "data_base64": _png()}
         );
         assert up["ok"] , up;
-        assert _branding(app)["branding"]["draft"]["has_logo"];
+        draft = _branding(app)["branding"]["draft"];
+        assert draft["has_logo"]
+            and draft["logo"].startswith("data:image/webp;base64,");
         assert _public(app)["branding"]["logo"] == "" , "a draft logo isn't public";
         app.call("owner", "publish_theme", {"tenant": NOVA});
         logo = _public(app)["branding"]["logo"];
