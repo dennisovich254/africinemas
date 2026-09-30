@@ -5,7 +5,8 @@ The navigation lists only the sections the member's roles allow (nav.jac), from
 actions need an open shift (ADR-0006), so until one is open every section shows a
 "Start shift" banner. Signing out ends the shift.
 
-Screens (P3.3, P3.7a) manages venues and screens and opens their seat layout designer;
+Venues (P3.7a) manages the cinema's locations; Screens (P3.3, P3.7a) manages each
+venue's screens and opens their seat layout designer;
 Movies (P3.7a) lists, adds and edits the cinema's films; Settings
 holds the cinema's branding (P3.8b), and the header shows its published logo; the other
 sections arrive with their phases, and for now each shows what it will hold.
@@ -35,6 +36,7 @@ import from .ScreensSection { ScreensSection }
 import from .SeatDesigner { SeatDesigner }
 import from .BrandingSection { BrandingSection }
 import from .MoviesSection { MoviesSection }
+import from .VenuesSection { VenuesSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
@@ -271,6 +273,8 @@ def:pub BackOffice -> JsxElement {
             auditorium_id={auditorium_id}
             permissions={permissions}
         />;
+    } elif section == "venues" {
+        content = <VenuesSection slug={slug}/>;
     } elif section == "screens" {
         content = <ScreensSection slug={slug} permissions={permissions}/>;
     } elif movie_id {

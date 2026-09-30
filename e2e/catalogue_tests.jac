@@ -1,7 +1,8 @@
-"""P3.7a E2E: managing venues and screens (Screens page) and movies (Movies page).
+"""P3.7a E2E: managing venues (Venues page), screens (Screens page) and movies (Movies page).
 
-Staff who configure venues add, edit and delete venues and their screens on the Screens
-page; everyone else who reads seat plans sees the same list without those controls.
+Staff who configure venues add, edit and delete venues on the Venues page, and add,
+rename and delete each venue's screens on the Screens page; everyone else who reads seat
+plans sees the screens without those controls, and no Venues page.
 Staff who create movies add them on the Movies page, edit their details and upload a
 poster. Deleting anything asks first, and the server's refusals (a venue that still has
 screens, a name already taken) are shown next to what they concern.
@@ -27,6 +28,7 @@ import from e2e.support.api {
 }
 
 glob TITLE: str = '[data-testid="shell-title"]',
+     VENUES: str = '[data-testid="venues-page"]',
      SCREENS: str = '[data-testid="screens-page"]',
      MOVIES: str = '[data-testid="movies-page"]',
      MOVIE_FORM: str = '[data-testid="movie-form"]',
@@ -75,7 +77,7 @@ def _poster_png -> bytes {
 }
 
 def _venue(page: any, name: str) -> any {  # jac:ignore[W1037]
-    # The venue's section on the Screens page.
+    # The venue's card on the Venues page, or its group on the Screens page.
     return page.locator(f'[data-testid="venue"]:has(h2:text-is("{name}"))');
 }
 
@@ -86,7 +88,7 @@ test "an owner adds a venue and a screen, renames the screen and opens its layou
             owner = owner_with_cinema();
             page = _page(browser, pw, project);
             _sign_in(page, owner["email"]);
-            _open(page, owner["slug"], "screens", SCREENS);
+            _open(page, owner["slug"], "venues", VENUES);
             assert page.is_visible('text="No venues yet"');
             # The add forms stay folded away until asked for.
             assert page.locator("#new-venue-name").count() == 0;
@@ -99,6 +101,11 @@ test "an owner adds a venue and a screen, renames the screen and opens its layou
             venue.wait_for();
             assert "Nairobi" in venue.inner_text();
             page.wait_for_selector("#new-venue-name", state="detached");
+            # Its screens are on the Screens page.
+            venue.locator('a:has-text("Screens")').click();
+            page.wait_for_selector(SCREENS);
+            venue = _venue(page, "Westgate");
+            venue.wait_for();
             assert venue.locator('input[id^="new-screen-"]').count() == 0;
             venue.locator('button:has-text("Add screen")').click();
             venue.locator('input[id^="new-screen-"]').fill("Screen 1");  # jac:ignore[W6002]
@@ -126,7 +133,7 @@ test "venue changes show the server's refusals next to what they concern" {
     try {
         page = _page(browser, pw, "desktop");
         _sign_in(page, owner["email"]);
-        _open(page, owner["slug"], "screens", SCREENS);
+        _open(page, owner["slug"], "venues", VENUES);
         # A name that's taken is flagged under the name field, and the form stays open.
         page.click('button:has-text("Add venue")');
         _type(page, "#new-venue-name", "westgate");
@@ -144,24 +151,25 @@ test "venue changes show the server's refusals next to what they concern" {
         page.click(f'{CONFIRM} button:has-text("Delete venue")');
         page.wait_for_selector('[role="alert"]:has-text("screens")');
         assert _venue(page, "Westgate").is_visible();
-        # An empty screen can: after a Cancel, then a confirmed delete.
+        # Editing a venue's details.
+        page.click('button[aria-label="Edit Westgate"]');
+        _type(page, 'input[id^="venue-city-"]', "Nairobi West");
+        page.click('button:has-text("Save venue")');
+        page.wait_for_selector('[data-testid="venue"]:has-text("Nairobi West")');
+        # An empty screen can be deleted: after a Cancel, then a confirmed delete.
+        _open(page, owner["slug"], "screens", SCREENS);
         page.click('button[aria-label="Delete Screen 1"]');
         page.click(f'{CONFIRM} button:has-text("Cancel")');
         page.wait_for_selector(CONFIRM, state="detached");
         page.click('button[aria-label="Delete Screen 1"]');
         page.click(f'{CONFIRM} button:has-text("Delete screen")');
         page.wait_for_selector('[data-testid="screen-name"]', state="detached");
-        # Editing a venue's details.
-        page.click('button[aria-label="Edit Westgate"]');
-        _type(page, 'input[id^="venue-city-"]', "Nairobi West");
-        page.click('button:has-text("Save venue")');
-        page.wait_for_selector('[data-testid="venue"]:has-text("Nairobi West")');
     } finally {
         close_contexts(browser);
     }
 }
 
-test "staff who only read seat plans see venues and screens without the controls" {
+test "staff who only read seat plans see screens without the controls, and no Venues page" {
     owner = owner_with_cinema();
     venue_id = add_venue(owner, "Westgate");
     add_screen(owner, venue_id, "Screen 1");
@@ -177,8 +185,13 @@ test "staff who only read seat plans see venues and screens without the controls
         assert page.locator('button:has-text("Add screen")').count() == 0;
         assert page.locator('button[aria-label^="Delete"]').count() == 0;
         assert page.locator('button[aria-label^="Rename"]').count() == 0;
-        nav = page.locator('[data-testid="shell-sidebar"] nav a').all_inner_texts();
-        assert "Movies" not in [n.strip() for n in nav] , nav;
+        nav = [
+            n.strip()
+            for n in page.locator(
+                '[data-testid="shell-sidebar"] nav a'
+            ).all_inner_texts()
+        ];
+        assert "Movies" not in nav and "Venues" not in nav , nav;
     } finally {
         close_contexts(browser);
     }
@@ -288,6 +301,7 @@ test "the Screens and Movies pages pass the phone checks" {
         ).new_page();
         _sign_in(page, owner["email"]);
         for (path, ready) in [
+            ("venues", VENUES),
             ("screens", SCREENS),
             ("movies", MOVIES),
             ("movies/new", MOVIE_FORM),
@@ -354,6 +368,7 @@ test "review screenshots of the Screens and Movies pages" {
                 ).new_page();
                 _sign_in(page, owner["email"]);
                 for (path, ready, name) in [
+                    ("venues", VENUES, "venues"),
                     ("screens", SCREENS, "screens"),
                     ("movies", MOVIES, "movies"),
                     (f"movies/{movie}", MOVIE_FORM, "movie-edit")

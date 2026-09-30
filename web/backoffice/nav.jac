@@ -12,6 +12,8 @@ glob SUFFIX: str = ".africinemas.co.ke",
      # (key, label, permission). The empty key is the overview, which everyone sees.
      SECTIONS: list[tuple[str, str, str]] = [
          ("", "Overview", ""),
+         # Staff who set up the cinema's locations (owners, admins), P3.7a.
+         ("venues", "Venues", "venues.configure"),
          # Staff who read seat plans (box office, managers, admins); not ushers.
          ("screens", "Screens", "seats.read"),
          # Staff who add films (owners, admins, content managers), P3.7a.

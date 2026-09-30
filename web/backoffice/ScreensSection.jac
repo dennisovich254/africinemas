@@ -1,13 +1,13 @@
-"""`/app/:slug/screens`: the cinema's venues and their screens (P3.3, P3.7a).
+"""`/app/:slug/screens`: each venue's screens (P3.3, P3.7a).
 
-Everyone who reads seat plans sees each venue's screens and opens their seat layouts.
-Staff who configure venues also add, edit and delete venues and screens here. Deleting
-asks first; the server's refusals (a name already taken, a venue that still has
-screens, a screen with screenings) are shown next to what they concern.
+Everyone who reads seat plans sees the screens, grouped by venue, and opens their seat
+layouts. Staff who configure venues also add ("Add screen" opens the name field),
+rename and delete screens here; venues themselves are managed on the Venues page.
+Deleting asks first; the server's refusals (a name already taken, a screen with
+screenings) are shown next to what they concern.
 """
 
 import from react { useState, useEffect }
-import from ..shell.AppLink { AppLink }
 import from "@hugeicons/react" { HugeiconsIcon }
 import from "@hugeicons/core-free-icons" { ArrowRight01Icon }
 import from ...components.ui.alert { Alert, AlertDescription }
@@ -17,13 +17,11 @@ import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.catalog.venue_api {
     list_venues,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
-    create_venue,  # jac:ignore[W2037]
-    update_venue,  # jac:ignore[W2037]
-    delete_venue,  # jac:ignore[W2037]
     create_auditorium,  # jac:ignore[W2037]
     rename_auditorium,  # jac:ignore[W2037]
     delete_auditorium  # jac:ignore[W2037]
 }
+import from ..shell.AppLink { AppLink }
 import from .form_parts {
     TextField,
     FieldError,
@@ -33,6 +31,7 @@ import from .form_parts {
     on_input,
     submit_with
 }
+import from .VenuesSection { place_of }
 
 def:pub screen_path(slug: str, auditorium_id: str) -> str {
     return f"/app/{slug}/screens/{auditorium_id}";
@@ -92,15 +91,11 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
     [busy, set_busy] = useState(False);
     [errors, set_errors] = useState({});
     [message, set_message] = useState("");
-    [new_venue, set_new_venue] = useState({"name": "", "city": "", "address": ""});
-    [editing, set_editing] = useState("");
-    [venue_form, set_venue_form] = useState({"name": "", "city": "", "address": ""});
     [new_screens, set_new_screens] = useState({});
     [renaming, set_renaming] = useState("");
     [rename_text, set_rename_text] = useState("");
     [confirming, set_confirming] = useState(None);
-    # The add forms stay folded behind their buttons until asked for.
-    [adding_venue, set_adding_venue] = useState(False);
+    # The add form stays folded behind its button until asked for.
     [adding_screen, set_adding_screen] = useState("");
     manage = "venues.configure" in permissions;
 
@@ -110,7 +105,7 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
             answer = await list_venues(slug);  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("list_venues failed", e);
-            set_failed("We couldn't load your venues. Refresh the page to try again.");
+            set_failed("We couldn't load your screens. Refresh the page to try again.");
             return;
         }
         if not answer["ok"] {
@@ -127,8 +122,6 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
     useEffect(start_loading, [slug]);
 
     field_errors: dict[str, str] = errors;
-    venue_values: dict[str, str] = venue_form;
-    new_values: dict[str, str] = new_venue;
     typed_names: dict[str, str] = new_screens;
 
     def only_error(field_id: str, text: str) {
@@ -142,8 +135,8 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
 
     async def run(call: any, fields: dict[str, str], done: str) -> bool {  # jac:ignore[W1037]
         # Runs a change; on success reloads and announces `done`. A refusal is shown by
-        # the field it concerns, else at fields["*"] (the item it's about), else at the
-        # top of the page.
+        # the field it concerns, else at fields["*"] (the screen it's about), else at
+        # the top of the page.
         answer: any = None;  # jac:ignore[W1037]
         set_busy(True);
         set_message("");
@@ -174,54 +167,6 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
         set_message(done);
         await load();
         return True;
-    }
-
-    async def add_venue {
-        form: dict[str, str] = new_venue;
-        def send -> any {  # jac:ignore[W1037]
-            return create_venue(slug, form["name"], form["city"], form["address"]);  # jac:ignore[W2037]
-        }
-        ok = await run(
-            send,
-            {
-                "name": "new-venue-name",
-                "city": "new-venue-city",
-                "address": "new-venue-address"
-            },
-            f"Added {form['name']}."
-        );
-        if ok {
-            set_new_venue({"name": "", "city": "", "address": ""});
-            set_adding_venue(False);
-        }
-    }
-
-    def start_edit(v: dict[str, any]) {  # jac:ignore[W1037]
-        set_editing(v["venue_id"]);
-        set_venue_form({"name": v["name"], "city": v["city"], "address": v["address"]});
-        set_confirming(None);
-        only_error("", "");
-    }
-
-    async def save_venue(venue_id: str) {
-        form: dict[str, str] = venue_form;
-        def send -> any {  # jac:ignore[W1037]
-            return update_venue(  # jac:ignore[W2037]
-                slug, venue_id, form["name"], form["city"], form["address"]
-            );
-        }
-        ok = await run(
-            send,
-            {
-                "name": f"venue-name-{venue_id}",
-                "city": f"venue-city-{venue_id}",
-                "address": f"venue-address-{venue_id}"
-            },
-            f"Saved {form['name']}."
-        );
-        if ok {
-            set_editing("");
-        }
     }
 
     async def add_screen(venue_id: str) {
@@ -258,39 +203,11 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
     async def confirm_delete {
         target: dict[str, str] = confirming;
         set_confirming(None);
-        if target["kind"] == "venue" {
-            await run(
-                lambda -> any { return delete_venue(slug, target["id"]); },  # jac:ignore[W1037,W2037]
-                {"*": f"problem-venue-{target['id']}"},
-                f"Deleted {target['name']}."
-            );
-        } else {
-            await run(
-                lambda -> any { return delete_auditorium(slug, target["id"]); },  # jac:ignore[W1037,W2037]
-                {"*": f"problem-screen-{target['id']}"},
-                f"Deleted {target['name']}."
-            );
-        }
-    }
-
-    def edit_new_venue(key: str, value: str) {
-        form: dict[str, str] = {};
-        was: dict[str, str] = new_venue;
-        for k in was {
-            form[k] = was[k];
-        }
-        form[key] = value;
-        set_new_venue(form);
-    }
-
-    def edit_venue_form(key: str, value: str) {
-        form: dict[str, str] = {};
-        was: dict[str, str] = venue_form;
-        for k in was {
-            form[k] = was[k];
-        }
-        form[key] = value;
-        set_venue_form(form);
+        await run(
+            lambda -> any { return delete_auditorium(slug, target["id"]); },  # jac:ignore[W1037,W2037]
+            {"*": f"problem-screen-{target['id']}"},
+            f"Deleted {target['name']}."
+        );
     }
 
     def type_new_screen(venue_id: str, value: str) {
@@ -301,6 +218,11 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
         }
         typed[venue_id] = value;
         set_new_screens(typed);
+    }
+
+    def cancel_new_screen {
+        set_adding_screen("");
+        only_error("", "");
     }
 
     if failed {
@@ -319,121 +241,6 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
     listed: list[dict[str, any]] = venues;  # jac:ignore[W1037]
     asking: dict[str, str] | None = confirming;
 
-    def confirm_box(kind: str, item_id: str) -> any {  # jac:ignore[W1037]
-        if asking is None or asking["kind"] != kind or asking["id"] != item_id {
-            return None;
-        }
-        detail = (
-            "Its screens must be deleted first."
-                if kind == "venue"
-                else "Its seat layouts are deleted with it. Screens with screenings can't be deleted."
-        );
-        return
-            <ConfirmDelete
-                question={f"Delete {asking['name']}?"}
-                detail={detail}
-                confirm_label={"Delete venue" if kind == "venue" else "Delete screen"}
-                on_confirm={confirm_delete}
-                on_cancel={lambda { set_confirming(None); }}
-                busy={busy}
-            />;
-    }
-
-    def VenueHeader(v: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
-        vid: str = v["venue_id"];
-        if editing == vid {
-            return
-                <form
-                    className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2"
-                    onSubmit={submit_with(lambda { save_venue(vid); })}
-                >
-                    <h2
-                        id={f"venue-{vid}"}
-                        className="text-lg font-semibold sm:col-span-2"
-                    >
-                        Edit {v["name"]}
-                    </h2>
-                    <TextField
-                        field_id={f"venue-name-{vid}"}
-                        label="Venue name"
-                        value={venue_values["name"]}
-                        error={field_errors[f"venue-name-{vid}"] or ""}
-                        on_value={lambda (text: str) { edit_venue_form("name", text); }}
-                    />
-                    <TextField
-                        field_id={f"venue-city-{vid}"}
-                        label="City"
-                        value={venue_values["city"]}
-                        error={field_errors[f"venue-city-{vid}"] or ""}
-                        on_value={lambda (text: str) { edit_venue_form("city", text); }}
-                    />
-                    <div className="sm:col-span-2">
-                        <TextField
-                            field_id={f"venue-address-{vid}"}
-                            label="Address"
-                            value={venue_values["address"]}
-                            error={field_errors[f"venue-address-{vid}"] or ""}
-                            on_value={lambda (text: str) { edit_venue_form(
-                                "address", text
-                            ); }}
-                        />
-                    </div>
-                    <div className="flex flex-wrap gap-3 sm:col-span-2">
-                        <Button type="submit" className="min-h-11 px-5" disabled={busy}>
-                            Save venue
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="min-h-11 px-5"
-                            onClick={lambda { set_editing(""); }}
-                        >
-                            Cancel
-                        </Button>
-                    </div>
-                </form>;
-        }
-        return
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-0 flex-col">
-                    <h2 id={f"venue-{vid}"} className="text-lg font-semibold">
-                        {v["name"]}
-                    </h2>
-                    {(v["city"] or v["address"])
-                        and <p className="text-sm text-muted-foreground">
-                            {", ".join(
-                                [
-                                    x
-                                    for x in [v["address"], v["city"]]
-                                    if x
-                                ]
-                            )}
-                        </p>}
-                </div>
-                {manage
-                    and <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            className="min-h-11 px-4"
-                            aria-label={f"Edit {v['name']}"}
-                            onClick={lambda { start_edit(v); }}
-                        >
-                            Edit
-                        </Button>
-                        <Button
-                            variant="outline"
-                            className="min-h-11 px-4"
-                            aria-label={f"Delete {v['name']}"}
-                            onClick={lambda { set_confirming(
-                                {"kind": "venue", "id": vid, "name": v["name"]}
-                            ); }}
-                        >
-                            Delete
-                        </Button>
-                    </div>}
-            </div>;
-    }
-
     def ScreenRow(a: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
         sid: str = a["auditorium_id"];
         if renaming == sid {
@@ -448,6 +255,7 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                         value={rename_text}
                         error={field_errors[f"screen-name-{sid}"] or ""}
                         on_value={lambda (text: str) { set_rename_text(text); }}
+                        auto_focus={True}
                     />
                     <div className="flex flex-wrap gap-3">
                         <Button type="submit" className="min-h-11 px-5" disabled={busy}>
@@ -457,7 +265,10 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                             type="button"
                             variant="ghost"
                             className="min-h-11 px-5"
-                            onClick={lambda { set_renaming(""); }}
+                            onClick={lambda {
+                                set_renaming("");
+                                only_error("", "");
+                            }}
                         >
                             Cancel
                         </Button>
@@ -490,14 +301,23 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                                 className="min-h-11 px-3"
                                 aria-label={f"Delete {a['name']}"}
                                 onClick={lambda { set_confirming(
-                                    {"kind": "screen", "id": sid, "name": a["name"]}
+                                    {"id": sid, "name": a["name"]}
                                 ); }}
                             >
                                 Delete
                             </Button>
                         </div>}
                 </div>
-                {confirm_box("screen", sid)}
+                {asking is not None
+                    and asking["id"] == sid
+                    and <ConfirmDelete
+                        question={f"Delete {asking['name']}?"}
+                        detail="Its seat layouts are deleted with it. Screens with screenings can't be deleted."
+                        confirm_label="Delete screen"
+                        on_confirm={confirm_delete}
+                        on_cancel={lambda { set_confirming(None); }}
+                        busy={busy}
+                    />}
                 {field_errors[f"problem-screen-{sid}"]
                     and <FieldError
                         field_id={f"problem-screen-{sid}"}
@@ -508,14 +328,17 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
 
     def ScreenAdder(v: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
         # "Add screen" for this venue, or its name field once asked for.
-        if adding_screen != v["venue_id"] {
+        vid: str = v["venue_id"];
+        field_id = f"new-screen-{vid}";
+        problem = field_errors[field_id] or "";
+        if adding_screen != vid {
             return
                 <Button
                     variant="outline"
                     className="min-h-11 w-fit px-5"
                     aria-label={f"Add screen at {v['name']}"}
                     onClick={lambda {
-                        set_adding_screen(v["venue_id"]);
+                        set_adding_screen(vid);
                         only_error("", "");
                     }}
                 >
@@ -525,33 +348,26 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
         return
             <form
                 className="flex flex-col gap-1.5"
-                onSubmit={submit_with(lambda { add_screen(v["venue_id"]); })}
+                onSubmit={submit_with(lambda { add_screen(vid); })}
             >
-                <Label htmlFor={f"new-screen-{v['venue_id']}"}>
-                    New screen at {v["name"]}
-                </Label>
+                <Label htmlFor={field_id}>New screen at {v["name"]}</Label>
                 <div className="flex flex-wrap gap-2">
                     <Input
-                        id={f"new-screen-{v['venue_id']}"}
-                        value={typed_names[v["venue_id"]] or ""}
+                        id={field_id}
+                        value={typed_names[vid] or ""}
                         placeholder="e.g. Screen 2"
                         autoFocus={True}
-                        aria-invalid={"true"
-                            if field_errors[f"new-screen-{v['venue_id']}"]
-                            else "false"}
-                        aria-describedby={error_id(f"new-screen-{v['venue_id']}")
-                            if field_errors[f"new-screen-{v['venue_id']}"]
-                            else None}
+                        aria-invalid={"true" if problem else "false"}
+                        aria-describedby={error_id(field_id) if problem else None}
                         onChange={on_input(
-                            lambda (text: str) { type_new_screen(v["venue_id"], text); }
+                            lambda (text: str) { type_new_screen(vid, text); }
                         )}
                         className="min-h-11 min-w-0 flex-1 basis-48"
                     />
                     <Button
                         type="submit"
                         className="min-h-11 px-5"
-                        disabled={busy
-                            or not (typed_names[v["venue_id"]] or "").strip()}
+                        disabled={busy or not (typed_names[vid] or "").strip()}
                     >
                         Create screen
                     </Button>
@@ -564,96 +380,29 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                         Cancel
                     </Button>
                 </div>
-                {field_errors[f"new-screen-{v['venue_id']}"]
-                    and <FieldError
-                        field_id={f"new-screen-{v['venue_id']}"}
-                        error={field_errors[f"new-screen-{v['venue_id']}"]}
-                    />}
+                {problem and <FieldError field_id={field_id} error={problem}/>}
             </form>;
     }
 
-    def cancel_new_venue {
-        set_adding_venue(False);
-        set_new_venue({"name": "", "city": "", "address": ""});
-        only_error("", "");
-    }
-
-    def cancel_new_screen {
-        set_adding_screen("");
-        only_error("", "");
-    }
-
-    add_venue_button = <Button
-        variant="outline"
-        className="min-h-11 w-fit px-5"
-        onClick={lambda { set_adding_venue(True); }}
-    >
-        Add venue
-    </Button>;
-
-    add_venue_form = <form
-        data-testid="add-venue"
-        className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2"
-        onSubmit={submit_with(lambda { add_venue(); })}
-    >
-        <h2 className="text-lg font-semibold sm:col-span-2">Add a venue</h2>
-        <TextField
-            field_id="new-venue-name"
-            label="Venue name"
-            value={new_values["name"]}
-            error={field_errors["new-venue-name"] or ""}
-            on_value={lambda (text: str) { edit_new_venue("name", text); }}
-            auto_focus={True}
-        />
-        <TextField
-            field_id="new-venue-city"
-            label="City"
-            value={new_values["city"]}
-            error={field_errors["new-venue-city"] or ""}
-            on_value={lambda (text: str) { edit_new_venue("city", text); }}
-        />
-        <div className="sm:col-span-2">
-            <TextField
-                field_id="new-venue-address"
-                label="Address (optional)"
-                value={new_values["address"]}
-                error={field_errors["new-venue-address"] or ""}
-                on_value={lambda (text: str) { edit_new_venue("address", text); }}
-            />
-        </div>
-        <div className="flex flex-wrap gap-3 sm:col-span-2">
-            <Button
-                type="submit"
-                className="min-h-11 px-5"
-                disabled={busy or not new_values["name"].strip()}
-            >
-                Create venue
-            </Button>
-            <Button
-                type="button"
-                variant="ghost"
-                className="min-h-11 px-5"
-                onClick={cancel_new_venue}
-            >
-                Cancel
-            </Button>
-        </div>
-    </form>;
-
     return
         <div className="flex flex-col gap-8" data-testid="screens-page">
-            <p role="status" aria-live="polite" className="text-sm">{message}</p>
+            <p role="status" aria-live="polite" className="text-sm empty:hidden">
+                {message}
+            </p>
             {len(listed) == 0
-                and <div className="flex flex-col gap-1 rounded-lg border bg-card p-6">
-                    <h2 className="text-base font-semibold">No venues yet</h2>
-                    <p className="text-sm text-muted-foreground">
-                        {"Add your first venue, then its screens. You'll design each screen's seat layout here."
-                            if manage
-                            else "Once your cinema's venues and screens are set up, they'll appear here."}
-                    </p>
+                and <div className="flex flex-col gap-3 rounded-lg border bg-card p-6">
+                    <div className="flex flex-col gap-1">
+                        <h2 className="text-base font-semibold">No venues yet</h2>
+                        <p className="text-sm text-muted-foreground">
+                            {"Screens belong to a venue. Add your first venue, then come back to add its screens."
+                                if manage
+                                else "Once your cinema's venues and screens are set up, they'll appear here."}
+                        </p>
+                    </div>
                     {manage
-                        and not adding_venue
-                        and <div className="pt-2">{add_venue_button}</div>}
+                        and <Button asChild={True} className="min-h-11 w-fit px-5">
+                            <AppLink to={f"/app/{slug}/venues"}>Go to Venues</AppLink>
+                        </Button>}
                 </div>}
             {len(listed) > 0
                 and <div className="flex flex-col gap-8" data-testid="screens-list">
@@ -664,15 +413,18 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                             aria-labelledby={f"venue-{v['venue_id']}"}
                             className="flex flex-col gap-3"
                         >
-                            {VenueHeader(v)}
-                            {confirm_box("venue", v["venue_id"])}
-                            {field_errors[f"problem-venue-{v['venue_id']}"]
-                                and <FieldError
-                                    field_id={f"problem-venue-{v['venue_id']}"}
-                                    error={field_errors[
-                                        f"problem-venue-{v['venue_id']}"
-                                    ]}
-                                />}
+                            <div className="flex flex-col">
+                                <h2
+                                    id={f"venue-{v['venue_id']}"}
+                                    className="text-lg font-semibold"
+                                >
+                                    {v["name"]}
+                                </h2>
+                                {place_of(v)
+                                    and <p className="text-sm text-muted-foreground">
+                                        {place_of(v)}
+                                    </p>}
+                            </div>
                             {len(screens_of(v)) == 0
                                 and <p className="text-sm text-muted-foreground">
                                     No screens at this venue yet.
@@ -687,7 +439,5 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                         </section> for v in listed
                     ]}
                 </div>}
-            {manage and adding_venue and add_venue_form}
-            {manage and not adding_venue and len(listed) > 0 and add_venue_button}
         </div>;
 }
