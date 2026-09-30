@@ -99,6 +99,9 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
     [renaming, set_renaming] = useState("");
     [rename_text, set_rename_text] = useState("");
     [confirming, set_confirming] = useState(None);
+    # The add forms stay folded behind their buttons until asked for.
+    [adding_venue, set_adding_venue] = useState(False);
+    [adding_screen, set_adding_screen] = useState("");
     manage = "venues.configure" in permissions;
 
     async def load {
@@ -189,6 +192,7 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
         );
         if ok {
             set_new_venue({"name": "", "city": "", "address": ""});
+            set_adding_venue(False);
         }
     }
 
@@ -235,6 +239,7 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
             }
             cleared[venue_id] = "";
             set_new_screens(cleared);
+            set_adding_screen("");
         }
     }
 
@@ -501,6 +506,91 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
             </div>;
     }
 
+    def ScreenAdder(v: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+        # "Add screen" for this venue, or its name field once asked for.
+        if adding_screen != v["venue_id"] {
+            return
+                <Button
+                    variant="outline"
+                    className="min-h-11 w-fit px-5"
+                    aria-label={f"Add screen at {v['name']}"}
+                    onClick={lambda {
+                        set_adding_screen(v["venue_id"]);
+                        only_error("", "");
+                    }}
+                >
+                    Add screen
+                </Button>;
+        }
+        return
+            <form
+                className="flex flex-col gap-1.5"
+                onSubmit={submit_with(lambda { add_screen(v["venue_id"]); })}
+            >
+                <Label htmlFor={f"new-screen-{v['venue_id']}"}>
+                    New screen at {v["name"]}
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                    <Input
+                        id={f"new-screen-{v['venue_id']}"}
+                        value={typed_names[v["venue_id"]] or ""}
+                        placeholder="e.g. Screen 2"
+                        autoFocus={True}
+                        aria-invalid={"true"
+                            if field_errors[f"new-screen-{v['venue_id']}"]
+                            else "false"}
+                        aria-describedby={error_id(f"new-screen-{v['venue_id']}")
+                            if field_errors[f"new-screen-{v['venue_id']}"]
+                            else None}
+                        onChange={on_input(
+                            lambda (text: str) { type_new_screen(v["venue_id"], text); }
+                        )}
+                        className="min-h-11 min-w-0 flex-1 basis-48"
+                    />
+                    <Button
+                        type="submit"
+                        className="min-h-11 px-5"
+                        disabled={busy
+                            or not (typed_names[v["venue_id"]] or "").strip()}
+                    >
+                        Create screen
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-11 px-5"
+                        onClick={cancel_new_screen}
+                    >
+                        Cancel
+                    </Button>
+                </div>
+                {field_errors[f"new-screen-{v['venue_id']}"]
+                    and <FieldError
+                        field_id={f"new-screen-{v['venue_id']}"}
+                        error={field_errors[f"new-screen-{v['venue_id']}"]}
+                    />}
+            </form>;
+    }
+
+    def cancel_new_venue {
+        set_adding_venue(False);
+        set_new_venue({"name": "", "city": "", "address": ""});
+        only_error("", "");
+    }
+
+    def cancel_new_screen {
+        set_adding_screen("");
+        only_error("", "");
+    }
+
+    add_venue_button = <Button
+        variant="outline"
+        className="min-h-11 w-fit px-5"
+        onClick={lambda { set_adding_venue(True); }}
+    >
+        Add venue
+    </Button>;
+
     add_venue_form = <form
         data-testid="add-venue"
         className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2"
@@ -513,6 +603,7 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
             value={new_values["name"]}
             error={field_errors["new-venue-name"] or ""}
             on_value={lambda (text: str) { edit_new_venue("name", text); }}
+            auto_focus={True}
         />
         <TextField
             field_id="new-venue-city"
@@ -530,13 +621,21 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                 on_value={lambda (text: str) { edit_new_venue("address", text); }}
             />
         </div>
-        <div className="sm:col-span-2">
+        <div className="flex flex-wrap gap-3 sm:col-span-2">
             <Button
                 type="submit"
                 className="min-h-11 px-5"
                 disabled={busy or not new_values["name"].strip()}
             >
-                Add venue
+                Create venue
+            </Button>
+            <Button
+                type="button"
+                variant="ghost"
+                className="min-h-11 px-5"
+                onClick={cancel_new_venue}
+            >
+                Cancel
             </Button>
         </div>
     </form>;
@@ -548,10 +647,13 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                 and <div className="flex flex-col gap-1 rounded-lg border bg-card p-6">
                     <h2 className="text-base font-semibold">No venues yet</h2>
                     <p className="text-sm text-muted-foreground">
-                        {"Add your first venue below, then its screens. You'll design each screen's seat layout here."
+                        {"Add your first venue, then its screens. You'll design each screen's seat layout here."
                             if manage
                             else "Once your cinema's venues and screens are set up, they'll appear here."}
                     </p>
+                    {manage
+                        and not adding_venue
+                        and <div className="pt-2">{add_venue_button}</div>}
                 </div>}
             {len(listed) > 0
                 and <div className="flex flex-col gap-8" data-testid="screens-list">
@@ -581,63 +683,11 @@ def:pub ScreensSection(slug: str, permissions: list[str]) -> JsxElement {
                                     for a in screens_of(v)
                                 ]}
                             </ul>
-                            {manage
-                                and <form
-                                    className="flex flex-col gap-1.5"
-                                    onSubmit={submit_with(
-                                        lambda { add_screen(v["venue_id"]); }
-                                    )}
-                                >
-                                    <Label htmlFor={f"new-screen-{v['venue_id']}"}>
-                                        New screen at {v["name"]}
-                                    </Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        <Input
-                                            id={f"new-screen-{v['venue_id']}"}
-                                            value={typed_names[v["venue_id"]] or ""}
-                                            placeholder="e.g. Screen 2"
-                                            aria-invalid={"true"
-                                                if field_errors[
-                                                    f"new-screen-{v['venue_id']}"
-                                                ]
-                                                else "false"}
-                                            aria-describedby={error_id(
-                                                f"new-screen-{v['venue_id']}"
-                                            )
-                                                if field_errors[
-                                                    f"new-screen-{v['venue_id']}"
-                                                ]
-                                                else None}
-                                            onChange={on_input(
-                                                lambda (text: str) { type_new_screen(
-                                                    v["venue_id"], text
-                                                ); }
-                                            )}
-                                            className="min-h-11 min-w-0 flex-1 basis-48"
-                                        />
-                                        <Button
-                                            type="submit"
-                                            variant="outline"
-                                            className="min-h-11 px-5"
-                                            disabled={busy
-                                                or not (
-                                                    typed_names[v["venue_id"]] or ""
-                                                ).strip()}
-                                        >
-                                            Add screen
-                                        </Button>
-                                    </div>
-                                    {field_errors[f"new-screen-{v['venue_id']}"]
-                                        and <FieldError
-                                            field_id={f"new-screen-{v['venue_id']}"}
-                                            error={field_errors[
-                                                f"new-screen-{v['venue_id']}"
-                                            ]}
-                                        />}
-                                </form>}
+                            {manage and ScreenAdder(v)}
                         </section> for v in listed
                     ]}
                 </div>}
-            {manage and add_venue_form}
+            {manage and adding_venue and add_venue_form}
+            {manage and not adding_venue and len(listed) > 0 and add_venue_button}
         </div>;
 }

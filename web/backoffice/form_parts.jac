@@ -38,7 +38,8 @@ def:pub TextField(  # jac:ignore[W3030] a form field: id, label, value, error, h
     on_blur: any = None,  # jac:ignore[W1037]
     multiline: bool = False,
     input_mode: str = "text",
-    hint: str = ""
+    hint: str = "",
+    auto_focus: bool = False
 ) -> JsxElement {
     described = error_id(field_id) if error else None;
     control: any = None;  # jac:ignore[W1037]
@@ -57,6 +58,7 @@ def:pub TextField(  # jac:ignore[W3030] a form field: id, label, value, error, h
             id={field_id}
             value={value}
             inputMode={input_mode}
+            autoFocus={auto_focus}
             aria-invalid={"true" if error else "false"}
             aria-describedby={described}
             onChange={on_input(on_value)}

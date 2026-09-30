@@ -88,15 +88,23 @@ test "an owner adds a venue and a screen, renames the screen and opens its layou
             _sign_in(page, owner["email"]);
             _open(page, owner["slug"], "screens", SCREENS);
             assert page.is_visible('text="No venues yet"');
+            # The add forms stay folded away until asked for.
+            assert page.locator("#new-venue-name").count() == 0;
+            page.click('button:has-text("Add venue")');
+            assert page.evaluate("document.activeElement.id") == "new-venue-name";
             _type(page, "#new-venue-name", "Westgate");
             _type(page, "#new-venue-city", "Nairobi");
-            page.click('button:has-text("Add venue")');
+            page.click('button:has-text("Create venue")');
             venue = _venue(page, "Westgate");
             venue.wait_for();
             assert "Nairobi" in venue.inner_text();
-            venue.locator('input[id^="new-screen-"]').fill("Screen 1");  # jac:ignore[W6002]
+            page.wait_for_selector("#new-venue-name", state="detached");
+            assert venue.locator('input[id^="new-screen-"]').count() == 0;
             venue.locator('button:has-text("Add screen")').click();
+            venue.locator('input[id^="new-screen-"]').fill("Screen 1");  # jac:ignore[W6002]
+            venue.locator('button:has-text("Create screen")').click();
             venue.locator('[data-testid="screen-name"]:text-is("Screen 1")').wait_for();
+            venue.locator('input[id^="new-screen-"]').wait_for(state="detached");
             venue.locator('button[aria-label="Rename Screen 1"]').click();
             venue.locator('input[id^="screen-name-"]').fill("IMAX");  # jac:ignore[W6002]
             venue.locator('button:has-text("Save name")').click();
@@ -119,13 +127,17 @@ test "venue changes show the server's refusals next to what they concern" {
         page = _page(browser, pw, "desktop");
         _sign_in(page, owner["email"]);
         _open(page, owner["slug"], "screens", SCREENS);
-        # A name that's taken is flagged under the name field.
-        _type(page, "#new-venue-name", "westgate");
+        # A name that's taken is flagged under the name field, and the form stays open.
         page.click('button:has-text("Add venue")');
+        _type(page, "#new-venue-name", "westgate");
+        page.click('button:has-text("Create venue")');
         page.wait_for_selector('#new-venue-name-error[role="alert"]');
         assert "already" in page.inner_text("#new-venue-name-error");
         assert page.get_attribute("#new-venue-name", "aria-describedby")
             == "new-venue-name-error";
+        # Cancel folds it away again.
+        page.click('[data-testid="add-venue"] button:has-text("Cancel")');
+        page.wait_for_selector("#new-venue-name", state="detached");
         # A venue with screens can't be deleted: asked first, then told why.
         page.click('button[aria-label="Delete Westgate"]');
         page.wait_for_selector(CONFIRM);
@@ -161,7 +173,8 @@ test "staff who only read seat plans see venues and screens without the controls
         _sign_in(page, agent["email"]);
         _open(page, owner["slug"], "screens", SCREENS);
         page.wait_for_selector('[data-testid="screen-name"]:text-is("Screen 1")');
-        assert page.locator("#new-venue-name").count() == 0;
+        assert page.locator('button:has-text("Add venue")').count() == 0;
+        assert page.locator('button:has-text("Add screen")').count() == 0;
         assert page.locator('button[aria-label^="Delete"]').count() == 0;
         assert page.locator('button[aria-label^="Rename"]').count() == 0;
         nav = page.locator('[data-testid="shell-sidebar"] nav a').all_inner_texts();
