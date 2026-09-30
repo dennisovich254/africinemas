@@ -62,6 +62,15 @@ import from core.catalog.pricing_api {
     save_price_list,  # jac:ignore[W2037]
     quote_tickets  # jac:ignore[W2037]
 }
+import from core.theming.branding_api {
+    get_branding,  # jac:ignore[W2037]
+    save_theme,  # jac:ignore[W2037]
+    upload_logo,  # jac:ignore[W2037]
+    remove_logo,  # jac:ignore[W2037]
+    publish_theme,  # jac:ignore[W2037]
+    rollback_theme,  # jac:ignore[W2037]
+    public_branding
+}
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]
     my_customer_profile  # jac:ignore[W2037]

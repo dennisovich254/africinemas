@@ -210,6 +210,26 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "items": [{"seat_label": "A1", "ticket_type": "ADULT"}]
              }
          },
+         "get_branding": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "save_theme": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "theme": {"name": "Probe"}}
+         },
+         "upload_logo": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "content_type": "image/png",
+                 "data_base64": ""
+             }
+         },
+         "remove_logo": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "publish_theme": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "rollback_theme": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "version": 1}
+         },
+         "public_branding": {"scope": "storefront", "probe": {"slug": "{tenant}"}},
          "join_as_customer": {
              "scope": "customer",
              "probe": {"tenant": "{tenant}", "display_name": "Probe"}

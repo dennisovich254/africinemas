@@ -1,4 +1,5 @@
-"""Checking and converting uploaded posters (P3.4, architecture §56), as pure logic.
+"""Checking and converting uploaded posters (P3.4) and logos (P3.8a), architecture §56,
+as pure logic.
 
 An upload arrives as base64. It is capped in size before decoding; its declared type must
 be JPEG, PNG or WebP and match the file's signature bytes; its dimensions are read from
@@ -23,6 +24,8 @@ glob MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024,
      OUT_WIDTH: int = 800,
      OUT_HEIGHT: int = 1200,
      WEBP_QUALITY: int = 85,
+     LOGO_MIN: int = 64,
+     LOGO_OUT: int = 512,
      # Declared content type -> the format its bytes must be.
      ALLOWED: dict[str, str] = {
          "image/jpeg": "JPEG",
@@ -82,7 +85,26 @@ def _sniff(data: bytes) -> str {
 }
 
 def process_poster(data: bytes, declared_type: str) -> bytes {
+    # A checked poster, re-encoded as a clean WebP. Raises PosterRejected.
+    return _process(
+        data, declared_type, (MIN_WIDTH, MIN_HEIGHT), (OUT_WIDTH, OUT_HEIGHT)
+    );
+}
+
+def process_logo(data: bytes, declared_type: str) -> bytes {
+    # A cinema's logo (P3.8a): the same checks, a smaller minimum, fitted into
+    # LOGO_OUT x LOGO_OUT, and its transparency kept.
+    return _process(data, declared_type, (LOGO_MIN, LOGO_MIN), (LOGO_OUT, LOGO_OUT));
+}
+
+def _process(
+    data: bytes,
+    declared_type: str,
+    min_size: tuple[int, int],
+    out_size: tuple[int, int]
+) -> bytes {
     # A checked upload, re-encoded as a clean WebP. Raises PosterRejected.
+    (min_width, min_height) = min_size;
     wrong_type = PosterRejected("wrong_type", "Choose a JPEG, PNG or WebP image.");
     expected = ALLOWED.get(declared_type, "");
     if not expected or _sniff(data) != expected {
@@ -107,10 +129,10 @@ def process_poster(data: bytes, declared_type: str) -> bytes {
             "too_large", f"Choose an image of at most {MAX_SIDE} pixels on each side."
         );
     }
-    if width < MIN_WIDTH or height < MIN_HEIGHT {
+    if width < min_width or height < min_height {
         raise PosterRejected(
             "too_small",
-            f"Choose an image of at least {MIN_WIDTH} x {MIN_HEIGHT} pixels."
+            f"Choose an image of at least {min_width} x {min_height} pixels."
         );
     }
     try {
@@ -126,7 +148,7 @@ def process_poster(data: bytes, declared_type: str) -> bytes {
         if upright.mode in ("RGBA", "LA", "P") and upright.has_transparency_data
         else "RGB";
     pixels = upright.convert(mode);
-    pixels.thumbnail((OUT_WIDTH, OUT_HEIGHT));
+    pixels.thumbnail(out_size);
     # A new image from the pixels alone: nothing from the upload's metadata survives.
     clean = Image.frombytes(mode, pixels.size, pixels.tobytes());
     out = io.BytesIO();
