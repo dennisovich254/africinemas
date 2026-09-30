@@ -101,8 +101,11 @@ node Storefront {
     # its principal and granted READ to everyone. Anyone who has a node's id can read
     # all of it, so it holds public fields only: never tenant, staff or internal ids.
     # Reached through Tenant.storefront_id, never by searching root.shared.
+    # branding is the published theme and logo (P3.8a): {version, theme, logo}, or {}
+    # for the platform default.
     has slug: str,
-        name: str;
+        name: str,
+        branding: dict[str, any] = {};  # jac:ignore[W1037]
 }
 
 node StorefrontScreening {

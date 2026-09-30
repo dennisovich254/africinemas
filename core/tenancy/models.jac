@@ -26,7 +26,9 @@ node Tenant {
         storefront_id: str = "",
         # The cinema's PriceList (P3.6), made on its first save. Setting it makes two
         # concurrent first saves write the same record, so only one list is created.
-        price_list_id: str = "";
+        price_list_id: str = "",
+        # The cinema's Branding (P3.8a), made on first use, the same way.
+        branding_id: str = "";
 
     def move_to(target: TenantState) {
         self.state = transition(TenantState(self.state), target).value;

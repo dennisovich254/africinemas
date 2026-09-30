@@ -180,3 +180,25 @@ def public_programme(tenant: Tenant) -> list[dict[str, any]] {  # jac:ignore[W10
     );
     return [public_view(e) for e in shown];
 }
+
+def set_branding(tenant: Tenant, shown: dict[str, any]) {  # jac:ignore[W1037]
+    # Puts the cinema's published theme and logo on its storefront (P3.8a).
+    me = node_id(root);
+    act_as(tenant.principal_root_id);
+    try {
+        storefront = _storefront(tenant);
+        storefront.branding = shown;
+        flush_now();
+    } finally {
+        restore(me);
+    }
+}
+
+def branding_of(tenant: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
+    # The storefront's published theme and logo, as anyone may read them; {} for none.
+    storefront = _read(tenant.storefront_id);
+    if not isinstance(storefront, Storefront) {
+        return {};
+    }
+    return dict((storefront as Storefront).branding);
+}
