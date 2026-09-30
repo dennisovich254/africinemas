@@ -5,7 +5,9 @@ The navigation lists only the sections the member's roles allow (nav.jac), from
 actions need an open shift (ADR-0006), so until one is open every section shows a
 "Start shift" banner. Signing out ends the shift.
 
-Screens (P3.3) lists each venue's screens and opens their seat layout designer; Settings
+Venues (P3.7a) manages the cinema's locations; Screens (P3.3, P3.7a) manages each
+venue's screens and opens their seat layout designer;
+Movies (P3.7a) lists, adds and edits the cinema's films; Settings
 holds the cinema's branding (P3.8b), and the header shows its published logo; the other
 sections arrive with their phases, and for now each shows what it will hold.
 """
@@ -33,6 +35,9 @@ import from .PlainLayout { PlainLayout, AccountActions }
 import from .ScreensSection { ScreensSection }
 import from .SeatDesigner { SeatDesigner }
 import from .BrandingSection { BrandingSection }
+import from .MoviesSection { MoviesSection }
+import from .VenuesSection { VenuesSection }
+import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
 glob SECTION_PREVIEW: dict[str, str] = {
@@ -143,9 +148,12 @@ def NoAccess(slug: str) -> JsxElement {
 def:pub BackOffice -> JsxElement {
     params = useParams();
     slug: str = params["slug"] or "";
-    # A screen's seat layout (/app/:slug/screens/:auditorium_id) is part of Screens.
-    auditorium_id: str = params["auditorium_id"] or "";
-    section: str = "screens" if auditorium_id else (params["section"] or "");
+    section: str = params["section"] or "";
+    # One item of a section: a screen's seat layout (/app/:slug/screens/:item) or a
+    # movie (/app/:slug/movies/:item, "new" to add one).
+    item: str = params["item"] or "";
+    auditorium_id: str = item if section == "screens" else "";
+    movie_id: str = item if section == "movies" else "";
     [access, set_access] = useState(None);
     [missing, set_missing] = useState(False);
     [failed, set_failed] = useState(False);
@@ -246,7 +254,12 @@ def:pub BackOffice -> JsxElement {
     permissions: list[str] = me["permissions"];
     nav = nav_for(slug, permissions);
     allowed = section in [item["key"] for item in nav];
-    title = "Seat layout" if auditorium_id else (section_label(section) or "Overview");
+    title = section_label(section) or "Overview";
+    if auditorium_id {
+        title = "Seat layout";
+    } elif movie_id {
+        title = "New movie" if movie_id == "new" else "Movie";
+    }
     content: any = None;  # jac:ignore[W1037]
     if not allowed {
         content = <NoAccess slug={slug}/>;
@@ -260,8 +273,15 @@ def:pub BackOffice -> JsxElement {
             auditorium_id={auditorium_id}
             permissions={permissions}
         />;
+    } elif section == "venues" {
+        content = <VenuesSection slug={slug}/>;
     } elif section == "screens" {
-        content = <ScreensSection slug={slug}/>;
+        content = <ScreensSection slug={slug} permissions={permissions}/>;
+    } elif movie_id {
+        # key: another movie gets a fresh form, never the last one's fields.
+        content = <MovieEditor key={movie_id} slug={slug} movie_id={movie_id}/>;
+    } elif section == "movies" {
+        content = <MoviesSection slug={slug} permissions={permissions}/>;
     } elif section == "settings" {
         content = <BrandingSection slug={slug} cinema={me["name"]}/>;
     } else {

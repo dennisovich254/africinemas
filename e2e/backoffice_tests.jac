@@ -128,7 +128,9 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
             assert _nav_labels(page, project)
                 == [
                     "Overview",
+                    "Venues",
                     "Screens",
+                    "Movies",
                     "Screenings",
                     "Box office",
                     "Scanner",

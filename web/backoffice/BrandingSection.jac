@@ -35,6 +35,7 @@ import from .branding_model {
     version_label
 }
 import from .ThemePreview { ThemePreview }
+import from .form_parts { read_as_base64 }
 
 glob MODES: list[str] = ["light", "dark"],
      SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm",
@@ -67,23 +68,6 @@ def texts_for(theme: dict[str, any]) -> dict[str, str] {  # jac:ignore[W1037]
         }
     }
     return texts;
-}
-
-def read_as_base64(file: any) -> any {  # jac:ignore[W1037]
-    # A promise of the file's contents as base64 (no "data:" prefix).
-    def run(resolve: any, reject: any) {  # jac:ignore[W1037]
-        win: any = window;  # jac:ignore[W1037,W2001]
-        reader_class: any = win.FileReader;  # jac:ignore[W1037]
-        reader: any = new(reader_class);  # jac:ignore[W1037]
-        def done {
-            text: str = reader.result;
-            resolve(text.split(",")[1]);
-        }
-        reader.onload = done;
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    }
-    return new(Promise, run);  # jac:ignore[W2001]
 }
 
 def ColourField(  # jac:ignore[W3030] a colour field: its mode, role, values and three handlers
