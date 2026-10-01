@@ -25,7 +25,7 @@ import from core.catalog.storefront {
     upcoming,
     showtime,
     public_view,
-    on_day,
+    by_cinema_day,
     home_of,
     movies_by_key
 }
@@ -34,7 +34,9 @@ import from core.catalog.venues { find_screening, find_movie }
 import from core.catalog.poster { media_store, media_key }
 
 # How many of a movie's next showtimes the home page lists.
-glob NEXT_SHOWTIMES: int = 6;
+glob NEXT_SHOWTIMES: int = 6,
+     # How many days ahead the home page's showtimes-by-day section looks (P4.1c).
+     DAYS_AHEAD: int = 7;
 
 def _timezone(tenant: Tenant) -> str {
     # The cinema's time zone, from its price list (P3.6), for showing showtimes in the
@@ -84,6 +86,7 @@ def _movie_card(entries: list[StorefrontScreening]) -> dict[str, any] {  # jac:i
         "genres": movie["genres"],
         "language": movie["language"],
         "has_poster": movie["has_poster"],
+        "has_backdrop": movie.get("has_backdrop", False),
         "next": [showtime(e) for e in entries[:NEXT_SHOWTIMES]]
     };
 }
@@ -168,7 +171,8 @@ def _soon_card(movie: Movie) -> dict[str, any] {  # jac:ignore[W1037]
         "runtime_minutes": movie.runtime_minutes,
         "genres": list(movie.genres),
         "language": movie.language,
-        "has_poster": movie.poster_key != ""
+        "has_poster": movie.poster_key != "",
+        "has_backdrop": movie.backdrop_key != ""
     };
 }
 
@@ -178,6 +182,16 @@ def _has_content(fields: dict[str, any]) -> bool {  # jac:ignore[W1037]
         bool(v)
         for (k, v) in fields.items()
         if k != "title"
+    );
+}
+
+def _day_showtime(e: StorefrontScreening) -> dict[str, any] {  # jac:ignore[W1037]
+    # A showtime in the by-day list, with what the storefront needs to group it by movie.
+    return dict(
+        showtime(e),
+        movie_key=e.movie.get("movie_key", ""),
+        title=e.movie.get("title", ""),
+        has_poster=e.movie.get("has_poster", False)
     );
 }
 
@@ -213,15 +227,13 @@ def fill_page(
                 sections.append({"type": kind, "fields": fields, "movie": featured});
             }
         } elif kind == "today" {
-            today = [
-                dict(
-                    showtime(e),
-                    movie_key=e.movie.get("movie_key", ""),
-                    title=e.movie.get("title", "")
-                ) for e in on_day(entries, now(), tz)
+            # Showtimes by day (P4.1c): the next DAYS_AHEAD cinema days with showtimes.
+            days = [
+                {"date": day, "showtimes": [_day_showtime(e) for e in group]}
+                for (day, group) in by_cinema_day(entries, now(), tz, DAYS_AHEAD)
             ];
-            if today {
-                sections.append({"type": kind, "fields": fields, "showtimes": today});
+            if days {
+                sections.append({"type": kind, "fields": fields, "days": days});
             }
         } elif kind == "now_showing" {
             if cards {
@@ -275,6 +287,43 @@ def:pub public_screening(slug: str, screening_id: str) -> dict[str, any] {  # ja
     return NOT_FOUND;
 }
 
+def _public_movie(cinema: Tenant, movie_key: str) -> tuple[bool, Movie | None] {
+    # (on the storefront?, the movie) for a public key: a movie is public while it's on
+    # sale or coming soon on the published home page.
+    entries = _showing(cinema, movie_key);
+    if entries {
+        screening = find_screening(cinema, entries[0].screening_id);
+        if screening is None {
+            return (True, None);
+        }
+        return (True, find_movie(cinema, screening.movie_id));
+    }
+    if movie_key and movie_key in _soon_keys(home_of(cinema)) {
+        return (True, movies_by_key(cinema).get(movie_key));
+    }
+    return (False, None);
+}
+
+def _image(cinema: Tenant, movie_key: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A public movie's poster or backdrop as a WebP data URL.
+    (public, movie) = _public_movie(cinema, movie_key);
+    if not public {
+        return NOT_FOUND;
+    }
+    key = "";
+    if movie is not None {
+        key = movie.poster_key if kind == "poster" else movie.backdrop_key;
+    }
+    data = media_store().download(key) if key else None;
+    if not data {
+        return refused(f"no_{kind}", f"This movie has no {kind} yet.");
+    }
+    return {
+        "ok": True,
+        kind: f"data:image/webp;base64,{base64.b64encode(data).decode()}"
+    };
+}
+
 def:pub public_poster(slug: str, movie_key: str) -> dict[str, any] {  # jac:ignore[W1037]
     # A movie's poster as a WebP data URL, while the movie is on the storefront: on sale,
     # or coming soon on the published home page.
@@ -282,28 +331,16 @@ def:pub public_poster(slug: str, movie_key: str) -> dict[str, any] {  # jac:igno
     if cinema is None {
         return NOT_FOUND;
     }
-    entries = _showing(cinema, movie_key);
-    movie: Movie | None = None;
-    if entries {
-        screening = find_screening(cinema, entries[0].screening_id);
-        movie = find_movie(cinema, screening.movie_id)
-            if screening is not None
-            else None;
-    } elif movie_key and movie_key in _soon_keys(home_of(cinema)) {
-        movie = movies_by_key(cinema).get(movie_key);
-    } else {
+    return _image(cinema, movie_key, "poster");
+}
+
+def:pub public_backdrop(slug: str, movie_key: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A movie's landscape backdrop (P4.1c), on the same terms as its poster.
+    cinema = open_cinema(slug);
+    if cinema is None {
         return NOT_FOUND;
     }
-    data = media_store().download(movie.poster_key)
-        if movie is not None and movie.poster_key
-        else None;
-    if not data {
-        return refused("no_poster", "This movie has no poster yet.");
-    }
-    return {
-        "ok": True,
-        "poster": f"data:image/webp;base64,{base64.b64encode(data).decode()}"
-    };
+    return _image(cinema, movie_key, "backdrop");
 }
 
 def _shown_photos(page: dict[str, any]) -> list[str] {  # jac:ignore[W1037]

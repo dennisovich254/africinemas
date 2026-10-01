@@ -11,7 +11,7 @@ been authorized.
 """
 
 import from uuid { uuid4 }
-import from datetime { datetime }
+import from datetime { datetime, timedelta }
 import from zoneinfo { ZoneInfo }
 import from jaclang { JacRuntime as Jac }
 import from core.clock { now }
@@ -73,7 +73,8 @@ def _public_fields(tenant: Tenant, screening: Screening) -> dict[str, any] {  # 
             "age_rating": movie.age_rating,
             "genres": list(movie.genres),
             "language": movie.language,
-            "has_poster": movie.poster_key != ""
+            "has_poster": movie.poster_key != "",
+            "has_backdrop": movie.backdrop_key != ""
         }
             if movie is not None
             else {},
@@ -262,6 +263,32 @@ def on_day(
         for e in entries
         if datetime.fromisoformat(e.starts_at).astimezone(zone).date() == day
     ];
+}
+
+def by_cinema_day(
+    entries: list[StorefrontScreening], at: datetime, tz: str, days: int
+) -> list[tuple[str, list[StorefrontScreening]]] {
+    # The entries from `at`'s calendar day onward, `days` days in all, grouped by the
+    # cinema's calendar day (time zone `tz`): [("2026-10-03", [...]), ...], earliest
+    # first, leaving out days without showtimes.
+    zone = ZoneInfo(tz);
+    first = at.astimezone(zone).date();
+    last = first + timedelta(days=days - 1);
+    groups: list[tuple[str, list[StorefrontScreening]]] = [];
+    for e in sorted(
+        entries, key=lambda (e: StorefrontScreening) -> str { return e.starts_at; }
+    ) {  # jac:ignore[W1037]
+        day = datetime.fromisoformat(e.starts_at).astimezone(zone).date();
+        if day < first or day > last {
+            continue;
+        }
+        label = day.isoformat();
+        if not groups or groups[len(groups) - 1][0] != label {
+            groups.append((label, []));
+        }
+        groups[len(groups) - 1][1].append(e);
+    }
+    return groups;
 }
 
 def set_home(tenant: Tenant, page: dict[str, any]) {  # jac:ignore[W1037]

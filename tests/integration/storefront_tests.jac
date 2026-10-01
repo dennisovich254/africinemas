@@ -36,6 +36,7 @@ glob MAIN: str = path.join(
      MOVIE_KEYS: list[str] = [
          "age_rating",
          "genres",
+         "has_backdrop",
          "has_poster",
          "language",
          "movie_key",

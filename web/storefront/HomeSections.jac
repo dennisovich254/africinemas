@@ -18,7 +18,7 @@ import from .StorefrontParts { Poster, ShowtimeLink }
 import from .showtimes { details_line, where_label }
 
 glob HEADINGS: dict[str, str] = {
-         "today": "Today",
+         "today": "Showtimes",
          "now_showing": "Now showing",
          "coming_soon": "Coming soon",
          "about": "About us",
@@ -145,7 +145,14 @@ def Hero(slug: str, section: dict[str, any], template: str) -> JsxElement {  # j
 }
 
 def Today(slug: str, section: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
-    showtimes: list[dict[str, any]] = section["showtimes"];  # jac:ignore[W1037]
+    # Showtimes by day (P4.1c-a): every day's showtimes in order, each with its day.
+    # P4.1c-b turns this into a date strip.
+    showtimes: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for day in section["days"] {
+        for s in day["showtimes"] {
+            showtimes.append(s);
+        }
+    }
     return
         <section data-testid="section-today" className="flex flex-col gap-4">
             <SectionHeading text={heading_of(section)}/>
@@ -155,7 +162,7 @@ def Today(slug: str, section: dict[str, any], tz: str) -> JsxElement {  # jac:ig
                         key={s["screening_id"]}
                         className="flex items-center gap-4 px-4 py-2"
                     >
-                        <ShowtimeLink slug={slug} showtime={s} tz={tz}/>
+                        <ShowtimeLink slug={slug} showtime={s} tz={tz} with_day={True}/>
                         <div className="flex min-w-0 flex-col">
                             <span className="truncate font-medium">{s["title"]}</span>
                             <span className="text-sm text-muted-foreground">

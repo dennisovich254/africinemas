@@ -7,7 +7,7 @@ checks everything again on save; these only shape the edits.
 
 glob:pub SECTION_LABELS: dict[str, str] = {
          "hero": "Featured movie",
-         "today": "Today's showtimes",
+         "today": "Showtimes by day",
          "now_showing": "Now showing",
          "coming_soon": "Coming soon",
          "about": "About",
