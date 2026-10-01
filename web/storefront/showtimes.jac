@@ -67,8 +67,8 @@ def:pub where_label(showtime: dict[str, any]) -> str {  # jac:ignore[W1037]
 }
 
 def:pub by_day(
-    showtimes: list[dict[str, any]],
-    tz: str  # jac:ignore[W1037]
+    showtimes: list[dict[str, any]],  # jac:ignore[W1037]
+    tz: str
 ) -> list[dict[str, any]] {  # jac:ignore[W1037]
     # Showtimes (earliest first) grouped by the cinema's calendar day:
     # [{"day": "Friday 3 October", "showtimes": [...]}].
