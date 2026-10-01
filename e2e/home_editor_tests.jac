@@ -75,10 +75,12 @@ def _publish(page: any) {  # jac:ignore[W1037]
 }
 
 test "an owner picks a template, fills in a section, previews it and publishes" {
-    owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
         for project in PROJECTS {
+            # A cinema per device: the second run would otherwise find these edits
+            # already saved and published, with nothing left to save.
+            owner = cinema_with_programme();
             page = _editor(browser, pw, project, owner);
             page.click('label:has-text("Schedule")');
             page.wait_for_selector(f'{PREVIEW}[data-template="schedule"]');
