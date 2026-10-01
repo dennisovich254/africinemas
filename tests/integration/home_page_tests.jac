@@ -114,7 +114,11 @@ test "an owner saves, publishes and rolls back the home page" {
             == [
                 {
                     "type": "about",
-                    "fields": {"title": "About", "text": "Two screens in Westlands."}
+                    "fields": {
+                        "title": "About",
+                        "text": "Two screens in Westlands.",
+                        "photos": []
+                    }
                 }
             ] , page;
         assert code_of(_publish(app)) == "nothing_to_publish";
