@@ -7,7 +7,9 @@ own title replaces its default heading. Text is shown as plain text, with its li
 breaks; links to other sites open in a new tab.
 """
 
+import from react { useState, useEffect }
 import from ..shell.AppLink { AppLink }
+import from core.catalog.storefront_api { public_home_photo }
 import from .StorefrontParts { Poster, ShowtimeLink }
 import from .showtimes { details_line, where_label }
 
@@ -216,12 +218,68 @@ def ComingSoon(slug: str, section: dict[str, any], template: str) -> JsxElement 
         </section>;
 }
 
-def About(section: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+def HomePhoto(slug: str, photo: str, label: str) -> JsxElement {
+    # A photo the page shows: a data URL already (the editor's preview), or loaded by
+    # name. It keeps its 4:3 frame while it loads.
+    [src, set_src] = useState(photo if photo.startswith("data:") else "");
+
+    async def load {
+        if photo.startswith("data:") {
+            set_src(photo);
+            return;
+        }
+        shown: any = None;  # jac:ignore[W1037]
+        try {
+            shown = await public_home_photo(slug, photo);
+        } except Exception as e {
+            console.warn("photo load failed", e);
+            return;
+        }
+        set_src(shown["photo"] if shown["ok"] else "");
+    }
+
+    def start_loading {
+        load();
+    }
+    useEffect(start_loading, [slug, photo]);
+
+    return
+        <div className="aspect-[4/3] overflow-hidden rounded-lg bg-muted">
+            {src
+                and <img
+                    src={src}
+                    alt={label}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                />}
+        </div>;
+}
+
+def About(slug: str, section: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     text: str = section["fields"]["text"];
+    photos: list[str] = section["fields"].get("photos", []) or [];
+    heading = heading_of(section);
     return
         <section data-testid="section-about" className="flex flex-col gap-4">
-            <SectionHeading text={heading_of(section)}/>
-            <p className="max-w-prose whitespace-pre-line leading-relaxed">{text}</p>
+            <SectionHeading text={heading}/>
+            {text
+                and <p className="max-w-prose whitespace-pre-line leading-relaxed">
+                    {text}
+                </p>}
+            {len(photos) > 0
+                and <div
+                    data-testid="about-photos"
+                    className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+                >
+                    {[
+                        <HomePhoto
+                            key={f"{i}"}
+                            slug={slug}
+                            photo={p}
+                            label={f"{heading}, photo {i + 1}"}
+                        /> for (i, p) in enumerate(photos)
+                    ]}
+                </div>}
         </section>;
 }
 
@@ -333,7 +391,7 @@ def:pub HomeSection(
         return <ComingSoon slug={slug} section={section} template={template}/>;
     }
     if kind == "about" {
-        return <About section={section}/>;
+        return <About slug={slug} section={section}/>;
     }
     if kind == "location" {
         return <Location section={section}/>;
