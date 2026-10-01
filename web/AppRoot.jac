@@ -4,7 +4,8 @@ Both entry points (main.jac and desktop/main.jac) render <AppRoot />, so every
 screen is written once (docs/adr/0001-desktop-reuses-web-ui.md). It owns the only
 router: manual routing, no `pages/` directory (docs/adr/0002-manual-routing-in-shared-approot.md).
 The back-office (`/app...`) sits under one AuthGuard: signed-out visitors go to /login.
-A cinema's public storefront is `/c/:slug` (P3.8b; Phase 4 fills it in).
+A cinema's public storefront is `/c/:slug`, with its movies at `/c/:slug/m/:movie` and
+showtimes at `/c/:slug/s/:screening` (P4.1).
 """
 
 import from "@jac/runtime" { Router, Routes, Route, AuthGuard }
@@ -17,6 +18,8 @@ import from .backoffice.BackOffice { BackOffice }
 import from .routes.DesignSystemPage { DesignSystemPage }
 import from .routes.NotFoundPage { NotFoundPage }
 import from .storefront.StorefrontPage { StorefrontPage }
+import from .storefront.MoviePage { MoviePage }
+import from .storefront.ScreeningPage { ScreeningPage }
 import from .auth.InvitePage { InvitePage }
 
 def:pub AppRoot -> JsxElement {
@@ -29,6 +32,8 @@ def:pub AppRoot -> JsxElement {
                 <Route path="/login" element={<LoginPage/>}/>
                 <Route path="/signup" element={<SignupPage/>}/>
                 <Route path="/c/:slug" element={<StorefrontPage/>}/>
+                <Route path="/c/:slug/m/:movie" element={<MoviePage/>}/>
+                <Route path="/c/:slug/s/:screening" element={<ScreeningPage/>}/>
                 <Route path="/invite/:token" element={<InvitePage/>}/>
                 <Route element={<AuthGuard redirect="/login"/>}>
                     <Route path="/app" element={<CinemaPicker/>}/>

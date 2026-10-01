@@ -187,14 +187,21 @@ test "the storefront shows published screenings with public details only, withou
         shown_one = public["screenings"][0];
         assert sorted(shown_one.keys()) == PUBLIC_KEYS , sorted(shown_one.keys());
         assert shown_one["screening_id"] == shown and shown_one["state"] == "published";
-        assert shown_one["movie"]
+        # movie_key is the movie's public name, a random key (P4.1).
+        assert len(shown_one["movie"]["movie_key"]) == 32;
+        assert {
+            k: v
+            for (k, v) in shown_one["movie"].items()
+            if k != "movie_key"
+        }
             == {
                 "title": "Rafiki",
                 "synopsis": "Two young women in Nairobi fall in love.",
                 "runtime_minutes": 83,
                 "age_rating": "18",
                 "genres": ["Drama"],
-                "language": "English, Swahili"
+                "language": "English, Swahili",
+                "has_poster": False
             } , shown_one["movie"];
         assert shown_one["venue"] == {"name": "Westgate", "city": "Nairobi"};
         assert shown_one["screen"] == {"name": "Screen 1"};

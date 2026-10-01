@@ -71,6 +71,12 @@ import from core.theming.branding_api {
     rollback_theme,  # jac:ignore[W2037]
     public_branding
 }
+import from core.catalog.storefront_api {
+    public_home,
+    public_movie,
+    public_screening,
+    public_poster
+}
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]
     my_customer_profile  # jac:ignore[W2037]

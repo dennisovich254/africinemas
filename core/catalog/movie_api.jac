@@ -13,7 +13,6 @@ tests/isolation/registry.jac.
 """
 
 import io;
-import os;
 import base64;
 import from uuid { uuid4 }
 import from jaclang { JacRuntime as Jac }
@@ -29,13 +28,13 @@ import from core.catalog.poster {
     PosterRejected,
     decode_upload,
     process_poster,
-    media_key
+    media_key,
+    media_store
 }
 
 glob READ: str = "movies.read",
      CREATE: str = "movies.create",
      UPDATE: str = "movies.update",
-     MEDIA_ENV: str = "AFRICINEMAS_MEDIA_DIR",
      TITLE_MAX: int = 120,
      SYNOPSIS_MAX: int = 2000,
      RUNTIME_MAX: int = 600,
@@ -44,12 +43,6 @@ glob READ: str = "movies.read",
      GENRES_MAX: int = 5,
      GENRE_MAX: int = 30,
      LANGUAGE_MAX: int = 40;
-
-def _media -> any {  # jac:ignore[W1037]
-    # Where posters live: local disk (AFRICINEMAS_MEDIA_DIR, default ./storage) unless
-    # [scale.storage] configures object storage.
-    return store(base_path=os.environ.get(MEDIA_ENV, "./storage"));
-}
 
 def _clean(text: str) -> str {
     return " ".join(text.split());
@@ -226,13 +219,17 @@ def _update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its six
     } finally {
         restore(me);
     }
+    _reproject(scope, movie_id);
+    return {"ok": True, "movie": _view(movie)};
+}
+
+def _reproject(scope: TenantScope, movie_id: str) {
     # Published screenings of this movie show its details on the storefront (P3.5b).
     for screening in screenings_of_movie(scope.tenant, movie_id) {
         if screening.state in PUBLIC_STATES {
             project(scope.tenant, screening);
         }
     }
-    return {"ok": True, "movie": _view(movie)};
 }
 
 def _delete_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
@@ -254,7 +251,7 @@ def _delete_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[
         restore(me);
     }
     if old_key {
-        on_commit(lambda { _media().delete(old_key); });
+        on_commit(lambda { media_store().delete(old_key); });
     }
     return {"ok": True};
 }
@@ -271,7 +268,7 @@ def _upload_poster(
     }
     new_key = media_key(scope.ctx.tenant_id, str(uuid4()));
     old_key = movie.poster_key;
-    storage = _media();
+    storage = media_store();
     storage.upload(io.BytesIO(webp), new_key);
     me = node_id(root);
     try {
@@ -288,15 +285,16 @@ def _upload_poster(
         raise e;
     }
     if old_key {
-        on_commit(lambda { _media().delete(old_key); });
+        on_commit(lambda { media_store().delete(old_key); });
     }
+    _reproject(scope, movie_id);
     return {"ok": True, "movie": _view(movie)};
 }
 
 def _get_poster(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, READ);
     movie = _find(scope, movie_id);
-    data = _media().download(movie.poster_key) if movie.poster_key else None;
+    data = media_store().download(movie.poster_key) if movie.poster_key else None;
     if not data {
         raise Refused("no_poster", "This movie has no poster yet.");
     }
