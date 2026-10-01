@@ -10,10 +10,14 @@ Writes run as the cinema's principal; call them from a staff request that has al
 been authorized.
 """
 
+import from uuid { uuid4 }
+import from datetime { datetime }
 import from jaclang { JacRuntime as Jac }
+import from core.clock { now }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 import from core.catalog.models {
+    Movie,
     Storefront,
     StorefrontScreening,
     Screening,
@@ -61,12 +65,14 @@ def _public_fields(tenant: Tenant, screening: Screening) -> dict[str, any] {  # 
     layout = find_layout(tenant, screening.layout_id);
     return {
         "movie": {
+            "movie_key": movie.public_key,
             "title": movie.title,
             "synopsis": movie.synopsis,
             "runtime_minutes": movie.runtime_minutes,
             "age_rating": movie.age_rating,
             "genres": list(movie.genres),
-            "language": movie.language
+            "language": movie.language,
+            "has_poster": movie.poster_key != ""
         }
             if movie is not None
             else {},
@@ -95,12 +101,20 @@ def _seat_map(layout: SeatLayout | None) -> dict[str, any] {  # jac:ignore[W1037
     };
 }
 
+def _give_public_key(movie: Movie | None) {
+    # Names the movie on the storefront. Call as the cinema's principal.
+    if movie is not None and not movie.public_key {
+        movie.public_key = uuid4().hex;
+    }
+}
+
 def project(tenant: Tenant, screening: Screening) {
     # Puts `screening` on the storefront, or refreshes its entry there.
-    fields = _public_fields(tenant, screening);
     me = node_id(root);
     act_as(tenant.principal_root_id);
     try {
+        _give_public_key(find_movie(tenant, screening.movie_id));
+        fields = _public_fields(tenant, screening);
         storefront = _storefront(tenant);
         existing = [
             e
@@ -201,4 +215,37 @@ def branding_of(tenant: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
         return {};
     }
     return dict((storefront as Storefront).branding);
+}
+
+def upcoming(tenant: Tenant) -> list[StorefrontScreening] {
+    # The storefront's screenings that haven't started, earliest first (P4.1).
+    storefront = _read(tenant.storefront_id);
+    if not isinstance(storefront, Storefront) {
+        return [];
+    }
+    return not_started(_entries(storefront as Storefront), now());
+}
+
+def not_started(
+    entries: list[StorefrontScreening], at: datetime
+) -> list[StorefrontScreening] {
+    # The entries starting after `at`, earliest first.
+    return sorted(
+        [
+            e
+            for e in entries
+            if datetime.fromisoformat(e.starts_at) > at
+        ],
+        key=lambda (e: StorefrontScreening) -> str { return e.starts_at; }  # jac:ignore[W1037]
+    );
+}
+
+def showtime(shown: StorefrontScreening) -> dict[str, any] {  # jac:ignore[W1037]
+    # A screening as a line in a movie's list of showtimes.
+    return {
+        "screening_id": shown.screening_id,
+        "starts_at": shown.starts_at,
+        "venue": shown.venue,
+        "screen": shown.screen
+    };
 }

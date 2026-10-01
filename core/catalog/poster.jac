@@ -12,6 +12,7 @@ client.
 """
 
 import io;
+import os;
 import base64;
 import binascii;
 import from PIL { Image, ImageOps }
@@ -40,6 +41,14 @@ class PosterRejected(ValueError) {
         self.code = code;
         self.message = message;
     }
+}
+
+glob MEDIA_ENV: str = "AFRICINEMAS_MEDIA_DIR";
+
+def media_store -> any {  # jac:ignore[W1037]
+    # Where posters and other media live: local disk (AFRICINEMAS_MEDIA_DIR, default
+    # ./storage) unless [scale.storage] configures object storage.
+    return store(base_path=os.environ.get(MEDIA_ENV, "./storage"));
 }
 
 def media_key(tenant_id: str, name: str) -> str {

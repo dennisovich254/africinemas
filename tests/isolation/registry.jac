@@ -190,6 +190,19 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"tenant": "{tenant}", "screening_id": "x"}
          },
          "public_screenings": {"scope": "storefront", "probe": {"slug": "{tenant}"}},
+         "public_home": {"scope": "storefront", "probe": {"slug": "{tenant}"}},
+         "public_movie": {
+             "scope": "storefront",
+             "probe": {"slug": "{tenant}", "movie_key": "x"}
+         },
+         "public_screening": {
+             "scope": "storefront",
+             "probe": {"slug": "{tenant}", "screening_id": "x"}
+         },
+         "public_poster": {
+             "scope": "storefront",
+             "probe": {"slug": "{tenant}", "movie_key": "x"}
+         },
          "get_price_list": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
          "save_price_list": {
              "scope": "tenant",

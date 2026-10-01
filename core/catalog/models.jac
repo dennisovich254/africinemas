@@ -53,6 +53,8 @@ node SeatLayout {
 node Movie {
     # A film the cinema shows (P3.4). Belongs to the cinema, not to a venue. The poster
     # is a storage key, "tenant/{tenant_id}/media/{uuid}.webp", or "" for none.
+    # public_key names the movie on the storefront (P4.1), so its id never leaves the
+    # cinema; it's given when the movie first goes on the storefront.
     has tenant_id: str,
         title: str,
         synopsis: str = "",
@@ -61,6 +63,7 @@ node Movie {
         genres: list[str] = [],
         language: str = "",
         poster_key: str = "",
+        public_key: str = "",
         created_at: str = "",
         updated_at: str = "";
 }
