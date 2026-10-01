@@ -10,7 +10,7 @@ import from react { useState, useEffect }
 import from "@jac/runtime" { useParams }
 import from core.catalog.storefront_api { public_home }
 import from .StorefrontShell { StorefrontShell, Loading }
-import from .HomeSections { HomeSection }
+import from .HomeSections { HomeBlock, home_blocks, nav_links }
 
 def:pub StorefrontPage -> JsxElement {
     params: any = useParams();  # jac:ignore[W1037,W1051]
@@ -49,12 +49,13 @@ def:pub StorefrontPage -> JsxElement {
     }
     template: str = shown["template"];
     sections: list[dict[str, any]] = shown["sections"];  # jac:ignore[W1037]
+    blocks = home_blocks(sections);
     return
-        <StorefrontShell slug={slug}>
+        <StorefrontShell slug={slug} links={nav_links(sections)}>
             <div
                 data-testid="home-page"
                 data-template={template}
-                className={"@container flex flex-col gap-10 "
+                className={"@container flex flex-col gap-12 "
                     + ("mx-auto w-full max-w-2xl" if template == "compact" else "")}
             >
                 {len(sections) == 0
@@ -66,13 +67,13 @@ def:pub StorefrontPage -> JsxElement {
                             New showtimes will appear here. Check back soon.
                         </p>
                     </div>}{[
-                    <HomeSection
-                        key={s["type"]}
+                    <HomeBlock
+                        key={f"{n}"}
                         slug={slug}
-                        section={s}
+                        block={b}
                         tz={tz}
                         template={template}
-                    /> for s in sections
+                    /> for (n, b) in enumerate(blocks)
                 ]}
             </div>
         </StorefrontShell>;

@@ -82,3 +82,51 @@ def:pub by_day(
     }
     return groups;
 }
+
+def:pub cinema_today(tz: str) -> str {
+    # Today's date where the cinema is, as "2026-10-03".
+    return new(Date).toLocaleDateString("en-CA", {"timeZone": tz});  # jac:ignore[W2001]
+}
+
+def:pub date_label(date: str, today: str) -> str {
+    # "Today", "Tomorrow" or "Sat 4 Oct" for a cinema date ("2026-10-04").
+    if date == today {
+        return "Today";
+    }
+    noon_utc: any = new(Date, f"{date}T12:00:00Z");  # jac:ignore[W1037,W2001]
+    next_day: any = new(Date, f"{today}T12:00:00Z");  # jac:ignore[W1037,W2001]
+    next_day.setUTCDate(next_day.getUTCDate() + 1);
+    if noon_utc.getTime() == next_day.getTime() {
+        return "Tomorrow";
+    }
+    return noon_utc.toLocaleDateString(
+        [], {"weekday": "short", "day": "numeric", "month": "short", "timeZone": "UTC"}
+    );
+}
+
+def:pub by_movie(showtimes: list[dict[str, any]]) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # One day's showtimes grouped by movie, in order of each movie's first showtime:
+    # [{"movie_key", "title", "has_poster", "showtimes": [...]}].
+    groups: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for s in showtimes {
+        found: dict[str, any] | None = None;  # jac:ignore[W1037]
+        for g in groups {
+            if g["movie_key"] == s["movie_key"] {
+                found = g;
+            }
+        }
+        if found is None {
+            groups.append(
+                {
+                    "movie_key": s["movie_key"],
+                    "title": s["title"],
+                    "has_poster": s["has_poster"],
+                    "showtimes": [s]
+                }
+            );
+        } else {
+            found["showtimes"].append(s);
+        }
+    }
+    return groups;
+}

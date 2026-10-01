@@ -14,11 +14,19 @@ in the editor's preview at any size. The page puts them in an `@container`.
 import from react { useState, useEffect }
 import from ..shell.AppLink { AppLink }
 import from core.catalog.storefront_api { public_home_photo }
-import from .StorefrontParts { Poster, ShowtimeLink }
-import from .showtimes { details_line, where_label }
+import from .StorefrontParts { Poster, Backdrop, ShowtimeLink }
+import from .showtimes {
+    details_line,
+    where_label,
+    day_label,
+    time_label,
+    cinema_today,
+    date_label,
+    by_movie
+}
 
 glob HEADINGS: dict[str, str] = {
-         "today": "Showtimes",
+         "today": "What's on",
          "now_showing": "Now showing",
          "coming_soon": "Coming soon",
          "about": "About us",
@@ -38,39 +46,152 @@ def SectionHeading(text: str) -> JsxElement {
 }
 
 def:pub MovieCard(slug: str, movie: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
-    showtimes: list[dict[str, any]] = movie["next"];  # jac:ignore[W1037]
+    # A movie on sale as a poster-led card: the poster, its title and details, and its
+    # next showtime. The whole card leads to the movie's page.
+    upcoming: list[dict[str, any]] = movie["next"];  # jac:ignore[W1037]
+    soonest: dict[str, any] | None = upcoming[0] if len(upcoming) > 0 else None;  # jac:ignore[W1037]
+    return
+        <li data-testid="movie-card" className="min-w-0">
+            <AppLink
+                to={f"/c/{slug}/m/{movie['movie_key']}"}
+                className="group flex flex-col gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            >
+                <Poster
+                    slug={slug}
+                    movie_key={movie["movie_key"]}
+                    has_poster={movie["has_poster"]}
+                    className="shadow-sm transition-transform duration-200 group-hover:-translate-y-1 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0"
+                />
+                <h3
+                    className="font-display text-xl leading-tight group-hover:underline group-hover:underline-offset-4"
+                >
+                    {movie["title"]}
+                </h3>
+            </AppLink>
+            <p className="text-sm text-muted-foreground">{details_line(movie)}</p>
+            {soonest is not None
+                and <p className="text-sm">
+                    {f"Next: {day_label(soonest['starts_at'], tz)}, {time_label(
+                        soonest['starts_at'], tz
+                    )}"}
+                </p>}
+        </li>;
+}
+
+def Hero(slug: str, section: dict[str, any], template: str) -> JsxElement {  # jac:ignore[W1037]
+    # The page's one bold moment: the featured movie over its backdrop (or its blurred
+    # poster), the cinema's headline, and Book tickets. Marquee makes it tall; the
+    # other templates keep it slim.
+    fields: dict[str, str] = section["fields"];
+    movie: dict[str, any] | None = section["movie"];  # jac:ignore[W1037]
+    big: bool = template == "marquee";
+    on_sale: bool = movie is not None and "next" in movie;
+    title: str = movie["title"] if movie is not None else fields["headline"];
+    return
+        <section
+            data-testid="section-hero"
+            className={"relative isolate flex items-end overflow-hidden rounded-xl border bg-card "
+                + ("min-h-[22rem] @xl:min-h-[28rem]" if big else "min-h-[14rem]")}
+        >
+            {movie is not None and <Backdrop slug={slug} movie={movie}/>}
+            <div
+                aria-hidden="true"
+                className="absolute inset-0 -z-10 bg-linear-to-t from-card via-card/85 to-card/20"
+            />
+            <div
+                className={"landing-rise grid w-full items-end gap-5 p-5 @xl:p-8 "
+                    + (
+                        "@xl:grid-cols-[10rem_1fr] @4xl:grid-cols-[12rem_1fr]"
+                            if movie is not None
+                            else ""
+                    )}
+            >
+                {movie is not None
+                    and <div className="hidden w-full @xl:block">
+                        <Poster
+                            slug={slug}
+                            movie_key={movie["movie_key"]}
+                            has_poster={movie["has_poster"]}
+                            className="shadow-lg"
+                        />
+                    </div>}
+                <div className="flex min-w-0 max-w-2xl flex-col gap-3">
+                    {movie is not None
+                        and fields["headline"]
+                        and <p
+                            className="text-sm font-semibold uppercase tracking-wide text-primary"
+                        >
+                            {fields["headline"]}
+                        </p>}
+                    <h2
+                        className={"font-display leading-none "
+                            + (
+                                "text-5xl @xl:text-6xl"
+                                    if big
+                                    else "text-4xl @xl:text-5xl"
+                            )}
+                    >
+                        {title}
+                    </h2>
+                    {movie is not None
+                        and <p className="text-sm text-muted-foreground">
+                            {details_line(movie)}
+                        </p>}
+                    {fields["text"]
+                        and <p className="max-w-prose text-pretty">{fields["text"]}</p>}
+                    {on_sale
+                        and <AppLink
+                            to={f"/c/{slug}/m/{movie['movie_key']}"}
+                            testid="hero-cta"
+                            className="inline-flex min-h-11 w-fit items-center rounded-md bg-primary px-6 font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        >
+                            Book tickets
+                        </AppLink>}
+                    {movie is not None
+                        and not on_sale
+                        and <p
+                            className="w-fit rounded-md bg-secondary px-3 py-1 text-sm font-medium text-secondary-foreground"
+                        >
+                            Coming soon
+                        </p>}
+                </div>
+            </div>
+        </section>;
+}
+
+def DayMovie(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
+    # One movie's showtimes on the chosen day: a small poster, the title, the times.
+    showtimes: list[dict[str, any]] = group["showtimes"];  # jac:ignore[W1037]
     return
         <li
-            data-testid="movie-card"
-            className="grid grid-cols-[6rem_1fr] gap-4 rounded-lg border bg-card p-4 @xl:grid-cols-[7.5rem_1fr]"
+            data-testid="day-movie"
+            className="grid grid-cols-[4rem_1fr] gap-4 py-4 @xl:grid-cols-[5rem_1fr]"
         >
             <Poster
                 slug={slug}
-                movie_key={movie["movie_key"]}
-                has_poster={movie["has_poster"]}
+                movie_key={group["movie_key"]}
+                has_poster={group["has_poster"]}
             />
-            <div className="flex min-w-0 flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                    <h3 className="font-display text-2xl leading-tight">
-                        <AppLink
-                            to={f"/c/{slug}/m/{movie['movie_key']}"}
-                            className="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                        >
-                            {movie["title"]}
-                        </AppLink>
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                        {details_line(movie)}
-                    </p>
-                </div>
-                <ul aria-label="Next showtimes" className="flex flex-wrap gap-2">
+            <div className="flex min-w-0 flex-col gap-2">
+                <h3 className="font-display text-xl leading-tight">
+                    <AppLink
+                        to={f"/c/{slug}/m/{group['movie_key']}"}
+                        className="inline-flex min-h-11 items-center underline-offset-4 hover:underline"
+                    >
+                        {group["title"]}
+                    </AppLink>
+                </h3>
+                <ul
+                    aria-label={f"{group['title']} showtimes"}
+                    className="flex flex-wrap gap-2"
+                >
                     {[
                         <li key={s["screening_id"]}>
                             <ShowtimeLink
                                 slug={slug}
                                 showtime={s}
                                 tz={tz}
-                                with_day={True}
+                                with_place={True}
                             />
                         </li> for s in showtimes
                     ]}
@@ -79,97 +200,53 @@ def:pub MovieCard(slug: str, movie: dict[str, any], tz: str) -> JsxElement {  # 
         </li>;
 }
 
-def Hero(slug: str, section: dict[str, any], template: str) -> JsxElement {  # jac:ignore[W1037]
-    # The featured movie (if any) beside the cinema's headline and text.
-    fields: dict[str, str] = section["fields"];
-    movie: dict[str, any] | None = section["movie"];  # jac:ignore[W1037]
-    big: bool = template == "marquee";
-    on_sale: bool = movie is not None and "next" in movie;
-    columns: str = "";
-    if movie is not None {
-        columns = "@xl:grid-cols-[14rem_1fr] @4xl:grid-cols-[18rem_1fr]"
-            if big
-            else "grid-cols-[6rem_1fr]";
-    }
+def Today(slug: str, section: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
+    # Showtimes by day: a strip of the coming days (Today first), and the chosen day's
+    # showtimes grouped by movie.
+    days: list[dict[str, any]] = section["days"];  # jac:ignore[W1037]
+    [chosen, set_chosen] = useState(0);
+    index: int = chosen if chosen < len(days) else 0;
+    today = cinema_today(tz);
+    day: dict[str, any] = days[index];  # jac:ignore[W1037]
     return
         <section
-            data-testid="section-hero"
-            className={f"grid gap-6 rounded-lg border bg-card p-4 @xl:p-6 {columns}"}
+            id="showtimes"
+            data-testid="section-today"
+            className="flex scroll-mt-24 flex-col gap-4"
         >
-            {movie is not None
-                and <div className={"w-40 @xl:w-full" if big else ""}>
-                    <Poster
-                        slug={slug}
-                        movie_key={movie["movie_key"]}
-                        has_poster={movie["has_poster"]}
-                    />
-                </div>}
-            <div className="flex min-w-0 flex-col justify-center gap-3">
-                <h2
-                    className={"font-display leading-none "
-                        + ("text-4xl @xl:text-5xl" if big else "text-3xl")}
-                >
-                    {fields["headline"]
-                        or (movie["title"] if movie is not None else "")}
-                </h2>
-                {fields["text"]
-                    and <p className="max-w-prose text-muted-foreground">
-                        {fields["text"]}
-                    </p>}
-                {movie is not None
-                    and fields["headline"]
-                    and <p className="font-display text-2xl leading-tight">
-                        {movie["title"]}
-                    </p>}
-                {movie is not None
-                    and <p className="text-sm text-muted-foreground">
-                        {details_line(movie)}
-                    </p>}
-                {on_sale
-                    and <AppLink
-                        to={f"/c/{slug}/m/{movie['movie_key']}"}
-                        testid="hero-cta"
-                        className="inline-flex min-h-11 w-fit items-center rounded-md bg-primary px-5 font-medium text-primary-foreground hover:bg-primary/90"
-                    >
-                        See showtimes
-                    </AppLink>}
-                {movie is not None
-                    and not on_sale
-                    and <p
-                        className="w-fit rounded-md bg-secondary px-2 py-0.5 text-sm font-medium text-secondary-foreground"
-                    >
-                        Coming soon
-                    </p>}
-            </div>
-        </section>;
-}
-
-def Today(slug: str, section: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
-    # Showtimes by day (P4.1c-a): every day's showtimes in order, each with its day.
-    # P4.1c-b turns this into a date strip.
-    showtimes: list[dict[str, any]] = [];  # jac:ignore[W1037]
-    for day in section["days"] {
-        for s in day["showtimes"] {
-            showtimes.append(s);
-        }
-    }
-    return
-        <section data-testid="section-today" className="flex flex-col gap-4">
             <SectionHeading text={heading_of(section)}/>
-            <ul className="flex flex-col divide-y rounded-lg border bg-card">
+            <div
+                role="group"
+                aria-label="Choose a day"
+                data-testid="day-strip"
+                className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+            >
                 {[
-                    <li
-                        key={s["screening_id"]}
-                        className="flex items-center gap-4 px-4 py-2"
+                    <button
+                        key={d["date"]}
+                        type="button"
+                        data-testid="day-option"
+                        aria-pressed={"true" if i == index else "false"}
+                        onClick={lambda { set_chosen(i); }}
+                        className={"inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring "
+                            + (
+                                "border-primary bg-primary text-primary-foreground"
+                                    if i == index
+                                    else "bg-card hover:border-primary"
+                            )}
                     >
-                        <ShowtimeLink slug={slug} showtime={s} tz={tz} with_day={True}/>
-                        <div className="flex min-w-0 flex-col">
-                            <span className="truncate font-medium">{s["title"]}</span>
-                            <span className="text-sm text-muted-foreground">
-                                {where_label(s)}
-                            </span>
-                        </div>
-                    </li> for s in showtimes
+                        {date_label(d["date"], today)}
+                    </button> for (i, d) in enumerate(days)
+                ]}
+            </div>
+            <ul
+                aria-live="polite"
+                data-testid="day-showtimes"
+                className="flex flex-col divide-y rounded-xl border bg-card px-4"
+            >
+                {[
+                    <DayMovie key={g["movie_key"]} slug={slug} group={g} tz={tz}/>
+                    for g in by_movie(day["showtimes"])
                 ]}
             </ul>
         </section>;
@@ -183,11 +260,19 @@ def NowShowing(
 ) -> JsxElement {
     movies: list[dict[str, any]] = section["movies"];  # jac:ignore[W1037]
     return
-        <section data-testid="section-now_showing" className="flex flex-col gap-4">
+        <section
+            id="now-showing"
+            data-testid="section-now_showing"
+            className="flex scroll-mt-24 flex-col gap-4"
+        >
             <SectionHeading text={heading_of(section)}/>
             <ul
-                className={"grid gap-4 "
-                    + ("@4xl:grid-cols-2" if template == "marquee" else "")}
+                className={"grid grid-cols-2 gap-x-4 gap-y-6 "
+                    + (
+                        ""
+                            if template == "compact"
+                            else "@xl:grid-cols-3 @4xl:grid-cols-4"
+                    )}
             >
                 {[
                     <MovieCard key={m["movie_key"]} slug={slug} movie={m} tz={tz}/>
@@ -197,30 +282,31 @@ def NowShowing(
         </section>;
 }
 
-def ComingSoon(slug: str, section: dict[str, any], template: str) -> JsxElement {  # jac:ignore[W1037]
+def ComingSoon(slug: str, section: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+    # A row of posters that swipes sideways when it's wider than the page.
     movies: list[dict[str, any]] = section["movies"];  # jac:ignore[W1037]
     return
-        <section data-testid="section-coming_soon" className="flex flex-col gap-4">
+        <section
+            id="coming-soon"
+            data-testid="section-coming_soon"
+            className="flex scroll-mt-24 flex-col gap-4"
+        >
             <SectionHeading text={heading_of(section)}/>
-            <ul
-                className={"grid gap-4 "
-                    + (
-                        "grid-cols-2 @xl:grid-cols-3 @4xl:grid-cols-4"
-                            if template != "compact"
-                            else "grid-cols-2"
-                    )}
-            >
+            <ul className="-mx-1 flex snap-x gap-4 overflow-x-auto px-1 pb-2">
                 {[
-                    <li key={m["movie_key"]} className="flex flex-col gap-2">
+                    <li
+                        key={m["movie_key"]}
+                        className="flex w-32 shrink-0 snap-start flex-col gap-2 @xl:w-40"
+                    >
                         <Poster
                             slug={slug}
                             movie_key={m["movie_key"]}
                             has_poster={m["has_poster"]}
                         />
-                        <h3 className="font-display text-xl leading-tight">
+                        <h3 className="font-display text-lg leading-tight">
                             {m["title"]}
                         </h3>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                             {details_line(m)}
                         </p>
                     </li> for m in movies
@@ -300,7 +386,7 @@ def Location(section: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     return
         <section data-testid="section-location" className="flex flex-col gap-4">
             <SectionHeading text={heading_of(section)}/>
-            <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+            <div className="flex flex-col gap-3">
                 {fields["address"]
                     and <p className="whitespace-pre-line">{fields["address"]}</p>}{fields[
                     "map_url"
@@ -399,7 +485,7 @@ def:pub HomeSection(
         return <NowShowing slug={slug} section={section} tz={tz} template={template}/>;
     }
     if kind == "coming_soon" {
-        return <ComingSoon slug={slug} section={section} template={template}/>;
+        return <ComingSoon slug={slug} section={section}/>;
     }
     if kind == "about" {
         return <About slug={slug} section={section}/>;
@@ -411,4 +497,75 @@ def:pub HomeSection(
         return <Contact section={section}/>;
     }
     return <Faq section={section}/>;
+}
+
+glob VISIT_TYPES: list[str] = ["location", "contact", "faq"];
+
+def:pub home_blocks(sections: list[dict[str, any]]) -> list[list[dict[str, any]]] {  # jac:ignore[W1037]
+    # The page's sections, with each run of Visit us sections (location, contact,
+    # questions) gathered into one band.
+    blocks: list[list[dict[str, any]]] = [];  # jac:ignore[W1037]
+    for s in sections {
+        last = blocks[len(blocks) - 1] if len(blocks) > 0 else [];
+        if s["type"] in VISIT_TYPES
+            and len(last) > 0
+            and last[0]["type"] in VISIT_TYPES {
+            last.append(s);
+        } else {
+            blocks.append([s]);
+        }
+    }
+    return blocks;
+}
+
+def:pub nav_links(sections: list[dict[str, any]]) -> list[list[str]] {  # jac:ignore[W1037]
+    # The header's links to the sections this page shows.
+    kinds = [s["type"] for s in sections];
+    links: list[list[str]] = [];
+    if "today" in kinds {
+        links.append(["What's on", "#showtimes"]);
+    } elif "now_showing" in kinds {
+        links.append(["What's on", "#now-showing"]);
+    }
+    if "coming_soon" in kinds {
+        links.append(["Coming soon", "#coming-soon"]);
+    }
+    if any(k in VISIT_TYPES for k in kinds) {
+        links.append(["Visit us", "#visit-us"]);
+    }
+    return links;
+}
+
+def:pub HomeBlock(
+    slug: str,
+    block: list[dict[str, any]],  # jac:ignore[W1037]
+    tz: str,
+    template: str
+) -> JsxElement {
+    # One section, or the Visit us band of location, contact and questions together.
+    if block[0]["type"] not in VISIT_TYPES {
+        return
+            <HomeSection slug={slug} section={block[0]} tz={tz} template={template}/>;
+    }
+    return
+        <div
+            id="visit-us"
+            data-testid="visit-us"
+            className={"grid scroll-mt-24 gap-10 rounded-xl border bg-card p-5 @xl:p-8 "
+                + (
+                    "@4xl:grid-cols-2"
+                        if len(block) > 1 and template != "compact"
+                        else ""
+                )}
+        >
+            {[
+                <HomeSection
+                    key={s["type"]}
+                    slug={slug}
+                    section={s}
+                    tz={tz}
+                    template={template}
+                /> for s in block
+            ]}
+        </div>;
 }

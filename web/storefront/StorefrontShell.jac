@@ -1,5 +1,5 @@
 """The frame of every storefront page (P4.1): the cinema's published theme, its name or
-logo, and the footer.
+logo with links to the page's sections (a sticky header, P4.1c), and the footer.
 
 The theme's CSS comes from public_branding, which builds it on the server from checked
 tokens only (core/theming/css.jac), so it can be added to the page as it is (as a <style>
@@ -13,6 +13,8 @@ import from ...components.ui.spinner { Spinner }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppLink { AppLink }
 import from core.theming.branding_api { public_branding }
+
+glob NAV_LINK: str = "inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 def:pub Loading -> JsxElement {
     return
@@ -48,8 +50,11 @@ def:pub NotOnSale(slug: str, title: str) -> JsxElement {
 
 def:pub StorefrontShell(
     slug: str,
+    links: list[list[str]] | None = None,
     children: any = None  # jac:ignore[W1037] pass-through children (jac-cl-organization idiom)
 ) -> JsxElement {
+    # `links`: the header's [label, "#anchor"] links to this page's sections (the home
+    # page passes them); other pages link back to what's on.
     [branding, set_branding] = useState(None);
     [cinema, set_cinema] = useState(None);
     [missing, set_missing] = useState(False);
@@ -112,9 +117,11 @@ def:pub StorefrontShell(
     return
         <ThemeProvider surface="storefront">
             <div data-testid="storefront" className="flex min-h-svh flex-col">
-                <header className="border-b bg-card">
+                <header
+                    className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+                >
                     <div
-                        className="mx-auto flex w-full max-w-5xl items-center px-4 py-3"
+                        className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2"
                     >
                         <h1
                             data-testid="storefront-name"
@@ -127,6 +134,24 @@ def:pub StorefrontShell(
                                     className="h-10 w-auto max-w-[70vw]"
                                 />}{not look["logo"] and place["name"]}
                         </h1>
+                        <nav
+                            aria-label={f"{place['name']} storefront"}
+                            className="flex flex-wrap gap-x-1"
+                        >
+                            {links is not None
+                                and [
+                                    <a
+                                        key={link[1]}
+                                        href={link[1]}
+                                        className={NAV_LINK}
+                                    >
+                                        {link[0]}
+                                    </a> for link in links
+                                ]}{links is None
+                                and <AppLink to={f"/c/{slug}"} className={NAV_LINK}>
+                                    What's on
+                                </AppLink>}
+                        </nav>
                     </div>
                 </header>
                 <main
@@ -134,10 +159,15 @@ def:pub StorefrontShell(
                 >
                     {children}
                 </main>
-                <footer
-                    className="border-t px-4 py-4 text-center text-sm text-muted-foreground"
-                >
-                    Tickets by AfriCinemas
+                <footer className="border-t bg-card">
+                    <div
+                        className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-sm text-muted-foreground"
+                    >
+                        <span className="font-medium text-foreground">
+                            {place["name"]}
+                        </span>
+                        <span>Tickets by AfriCinemas</span>
+                    </div>
                 </footer>
             </div>
         </ThemeProvider>;
