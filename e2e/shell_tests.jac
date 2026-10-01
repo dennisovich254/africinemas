@@ -326,7 +326,7 @@ test "unknown paths show a not-found page with a way home" {
         page.goto(BASE_URL + "/no-such-page");
         page.wait_for_selector('[data-testid="not-found"]');
         page.click('[data-testid="not-found"] a');
-        page.wait_for_selector('[data-testid="welcome-card"]');
+        page.wait_for_selector('[data-testid="landing"]');
     } finally {
         close_contexts(browser);
     }
