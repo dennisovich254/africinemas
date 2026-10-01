@@ -97,7 +97,8 @@ test "an owner creates, lists, edits and deletes movies, and they persist" {
                 "age_rating": "18",
                 "genres": ["Drama", "Romance"],
                 "language": "English, Swahili",
-                "has_poster": False
+                "has_poster": False,
+                "has_backdrop": False
             } , rafiki;
         _movie(app, "Atlantics");
         changed = _details("Rafiki");
