@@ -186,3 +186,14 @@ test "every problem is reported at once" {
             ("template", "unknown_template")
         ];
 }
+
+test "About can show a few photos, named by the photos the cinema uploaded" {
+    (page, problems) = parse_page(
+        _page([_section("about", {"text": "Our lobby.", "photos": ["p1", "p2"]})])
+    );
+    assert problems == [] and page is not None , problems;
+    assert page["sections"][0]["fields"]["photos"] == ["p1", "p2"];
+    too_many = [f"p{i}" for i in range(LIMITS["photos"] + 1)];
+    assert _codes(_page([_section("about", {"photos": too_many})]))
+        == [("sections.0.fields.photos", "too_many")];
+}

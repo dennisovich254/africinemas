@@ -31,7 +31,7 @@ import from core.catalog.storefront {
 }
 import from core.homepage.page { default_page }
 import from core.catalog.venues { find_screening, find_movie }
-import from core.catalog.poster { media_store }
+import from core.catalog.poster { media_store, media_key }
 
 # How many of a movie's next showtimes the home page lists.
 glob NEXT_SHOWTIMES: int = 6;
@@ -88,29 +88,45 @@ def _movie_card(entries: list[StorefrontScreening]) -> dict[str, any] {  # jac:i
     };
 }
 
-def:pub public_home(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
-    # The cinema's home page: each movie on sale once, the soonest first, with its next
-    # showtimes, and the venues showing them.
-    cinema = open_cinema(slug);
-    if cinema is None {
-        return NOT_FOUND;
-    }
+def programme(
+    cinema: Tenant
+) -> tuple[list[StorefrontScreening], list[dict[str, any]], list[dict[str, str]]] {  # jac:ignore[W1037]
+    # The upcoming showtimes, each movie on sale once (the soonest first, with its next
+    # showtimes) and the venues showing them.
+    entries = upcoming(cinema);
     by_movie: dict[str, list[StorefrontScreening]] = {};
     venues: list[dict[str, str]] = [];
-    for e in upcoming(cinema) {
+    for e in entries {
         by_movie.setdefault(e.movie.get("movie_key", ""), []).append(e);
         if e.venue not in venues {
             venues.append(e.venue);
         }
     }
-    cards = [_movie_card(entries) for entries in by_movie.values()];
+    return (entries, [_movie_card(group) for group in by_movie.values()], venues);
+}
+
+def cinema_info(cinema: Tenant) -> dict[str, str] {
+    # The cinema's name, slug and time zone, as its storefront pages show them.
+    return _cinema(cinema);
+}
+
+def:pub public_home(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The cinema's home page: its published page with its sections filled in, plus
+    # each movie on sale once and the venues showing them.
+    cinema = open_cinema(slug);
+    if cinema is None {
+        return NOT_FOUND;
+    }
+    (entries, cards, venues) = programme(cinema);
     shown = _cinema(cinema);
+    page = _published(cinema);
+    known = movies_by_key(cinema) if _soon_keys(page) else {};
     return {
         "ok": True,
         "cinema": shown,
         "movies": cards,
         "venues": venues,
-        "page": _page(cinema, upcoming(cinema), cards, shown["timezone"])
+        "page": fill_page(page, entries, cards, shown["timezone"], known)
     };
 }
 
@@ -165,17 +181,17 @@ def _has_content(fields: dict[str, any]) -> bool {  # jac:ignore[W1037]
     );
 }
 
-def _page(
-    cinema: Tenant,
+def fill_page(
+    page: dict[str, any],  # jac:ignore[W1037]
     entries: list[StorefrontScreening],
     cards: list[dict[str, any]],  # jac:ignore[W1037]
-    tz: str
+    tz: str,
+    known: dict[str, Movie]
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    # The published page with its sections filled in, leaving out hidden ones and those
-    # with nothing to show.
-    page = _published(cinema);
+    # A page (movies named by key) with its sections filled in from the programme,
+    # leaving out hidden ones and those with nothing to show. `known` holds the movies
+    # coming soon can show, by key.
     soon_keys = _soon_keys(page);
-    known = movies_by_key(cinema) if soon_keys else {};
     on_sale = {c["movie_key"]: c for c in cards};
     sections: list[dict[str, any]] = [];  # jac:ignore[W1037]
     for s in page["sections"] {
@@ -288,4 +304,30 @@ def:pub public_poster(slug: str, movie_key: str) -> dict[str, any] {  # jac:igno
         "ok": True,
         "poster": f"data:image/webp;base64,{base64.b64encode(data).decode()}"
     };
+}
+
+def _shown_photos(page: dict[str, any]) -> list[str] {  # jac:ignore[W1037]
+    # The photos a published page shows: those of a visible About section.
+    for s in page.get("sections", []) {
+        if s["type"] == "about" and s["visible"] {
+            return list(s["fields"].get("photos", []));
+        }
+    }
+    return [];
+}
+
+def photo_data_url(cinema: Tenant, photo: str) -> str {
+    # One of the cinema's home-page photos as a WebP data URL, or "" if it's gone.
+    data = media_store().download(media_key(node_id(cinema), photo)) if photo else None;
+    return f"data:image/webp;base64,{base64.b64encode(data).decode()}" if data else "";
+}
+
+def:pub public_home_photo(slug: str, photo: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A photo the cinema's published home page shows, as a WebP data URL.
+    cinema = open_cinema(slug);
+    if cinema is None or not photo or photo not in _shown_photos(home_of(cinema)) {
+        return NOT_FOUND;
+    }
+    shown = photo_data_url(cinema, photo);
+    return {"ok": True, "photo": shown} if shown else NOT_FOUND;
 }

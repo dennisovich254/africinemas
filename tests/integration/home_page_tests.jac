@@ -282,3 +282,120 @@ test "one cinema's page never changes another's" {
         app.close();
     }
 }
+
+def _photo(width: int = 800, height: int = 600) -> str {
+    out = io.BytesIO();
+    Image.new("RGB", (width, height), "#2E5A7A").save(out, format="PNG");
+    return base64.b64encode(out.getvalue()).decode();
+}
+
+def _upload_photo(app: Served, data: str) -> any {  # jac:ignore[W1037]
+    return app.call(
+        "owner",
+        "upload_home_photo",
+        {"tenant": "nova", "content_type": "image/png", "data_base64": data}
+    );
+}
+
+test "About photos are checked, used on the page, and public only once published" {
+    media = tempfile.mkdtemp(prefix="africinemas-media-");
+    os.environ[MEDIA_ENV] = media;
+    (app, nova) = _nova();
+    try {
+        assert code_of(_upload_photo(app, _photo(200, 100))) == "too_small";
+        uploaded = _upload_photo(app, _photo());
+        assert uploaded["ok"] , uploaded;
+        photo = uploaded["photo"];
+        home = app.call("owner", "get_home_page", {"tenant": "nova"})["home"];
+        assert home["photos"] == [photo];
+        staff_view = app.call(
+            "owner", "get_home_photo", {"tenant": "nova", "photo": photo}
+        );
+        assert staff_view["ok"]
+            and staff_view["photo"].startswith("data:image/webp;base64,");
+        about = {
+            "type": "about",
+            "visible": True,
+            "fields": {"text": "Our lobby.", "photos": [photo]}
+        };
+        refused = _save(
+            app,
+            "marquee",
+            [
+                {
+                    "type": "about",
+                    "visible": True,
+                    "fields": {"text": "Hi.", "photos": ["not-a-photo"]}
+                }
+            ]
+        );
+        assert [(p["path"], p["code"]) for p in refused["error"]["problems"]]
+            == [("sections.0.fields.photos.0", "unknown_photo")];
+        assert _save(app, "marquee", [about])["ok"];
+        public = {"slug": "nova", "photo": photo};
+        assert code_of(browse(app, "public_home_photo", public)) == "not_found";
+        _publish(app);
+        assert _section(app, "about")["fields"]["photos"] == [photo];
+        shown = browse(app, "public_home_photo", public);
+        assert shown["ok"] and shown["photo"].startswith("data:image/webp;base64,");
+        # Removing it takes it out of the draft; the live page keeps it until the
+        # next publish.
+        assert app.call(
+            "owner", "remove_home_photo", {"tenant": "nova", "photo": photo}
+        )["ok"];
+        home = app.call("owner", "get_home_page", {"tenant": "nova"})["home"];
+        assert home["photos"] == [];
+        draft_about = [
+            s
+            for s in home["draft"]["sections"]
+            if s["type"] == "about"
+        ][0];
+        assert draft_about["fields"]["photos"] == [];
+        assert browse(app, "public_home_photo", public)["ok"];
+    } finally {
+        os.environ.pop(MEDIA_ENV, None);
+        app.close();
+        shutil.rmtree(media, ignore_errors=True);
+    }
+}
+
+test "the preview fills in a draft page without publishing it" {
+    (app, nova) = _nova();
+    try {
+        add_screening(app, "owner", nova, "Rafiki", 0);
+        draft = {
+            "template": "compact",
+            "sections": [
+                {"type": "now_showing", "visible": True, "fields": {}},
+                {
+                    "type": "coming_soon",
+                    "visible": True,
+                    "fields": {"movie_ids": [nova.movies["Kati Kati"]]}
+                },
+                _about("Two screens.")
+            ]
+        };
+        shown = app.call(
+            "owner", "preview_home_page", {"tenant": "nova", "page": draft}
+        );
+        assert shown["ok"] , shown;
+        assert shown["page"]["template"] == "compact";
+        assert [s["type"] for s in shown["page"]["sections"]]
+            == ["now_showing", "coming_soon", "about"];
+        soon = shown["page"]["sections"][1]["movies"];
+        assert [m["title"] for m in soon] == ["Kati Kati"];
+        assert nova.movies["Kati Kati"] not in str(shown);
+        # Nothing was saved or published.
+        assert _home(app)["page"]["template"] == "marquee";
+        home = app.call("owner", "get_home_page", {"tenant": "nova"})["home"];
+        assert home["draft"]["template"] == "marquee";
+        bad = app.call(
+            "owner",
+            "preview_home_page",
+            {"tenant": "nova", "page": {"template": "neon", "sections": []}}
+        );
+        assert code_of(bad) == "invalid_page";
+    } finally {
+        app.close();
+    }
+}

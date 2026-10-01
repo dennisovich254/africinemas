@@ -27,6 +27,9 @@ glob MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024,
      WEBP_QUALITY: int = 85,
      LOGO_MIN: int = 64,
      LOGO_OUT: int = 512,
+     # Home-page photos (P4.1b): landscape or portrait, fitted into PHOTO_OUT square.
+     PHOTO_MIN_SIDE: int = 400,
+     PHOTO_OUT: int = 1600,
      # Declared content type -> the format its bytes must be.
      ALLOWED: dict[str, str] = {
          "image/jpeg": "JPEG",
@@ -104,6 +107,17 @@ def process_logo(data: bytes, declared_type: str) -> bytes {
     # A cinema's logo (P3.8a): the same checks, a smaller minimum, fitted into
     # LOGO_OUT x LOGO_OUT, and its transparency kept.
     return _process(data, declared_type, (LOGO_MIN, LOGO_MIN), (LOGO_OUT, LOGO_OUT));
+}
+
+def process_photo(data: bytes, declared_type: str) -> bytes {
+    # A photo for the cinema's home page (P4.1b): the same checks, at least
+    # at least 400 x 300 pixels, fitted into PHOTO_OUT x PHOTO_OUT.
+    return _process(
+        data,
+        declared_type,
+        (PHOTO_MIN_SIDE, PHOTO_MIN_SIDE * 3 // 4),
+        (PHOTO_OUT, PHOTO_OUT)
+    );
 }
 
 def _process(
