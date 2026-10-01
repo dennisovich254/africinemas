@@ -27,6 +27,7 @@ import from ...components.ui.input_group {
     InputGroupText
 }
 import from ...components.ui.spinner { Spinner }
+import from ..auth.session { signed_in_email }
 import from core.tenancy.signup { check_slug, create_cinema }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 import from .nav { web_address, suggest_slug }
 import from .PlainLayout { PlainLayout, AccountActions }
@@ -162,7 +163,7 @@ def:pub NewCinemaWizard -> JsxElement {
         }
         set_busy(True);
         try {
-            result = await create_cinema(name, slug);  # jac:ignore[W2037]
+            result = await create_cinema(name, slug, signed_in_email());  # jac:ignore[W2037]
         } except Exception as err {
             console.warn("create_cinema failed", err);
             set_busy(False);

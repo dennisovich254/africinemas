@@ -109,6 +109,7 @@ default = "server"
 # it the compiler refuses them in a workspace (E5082, docs/jac-issues/JI-027).
 "core.tenancy.signup" = "server"
 "core.tenancy.tenant_api" = "server"
+"core.tenancy.staff_api" = "server"
 "core.catalog.venue_api" = "server"
 "core.catalog.layout_api" = "server"
 "core.catalog.movie_api" = "server"

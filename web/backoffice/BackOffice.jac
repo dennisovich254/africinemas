@@ -8,13 +8,14 @@ actions need an open shift (ADR-0006), so until one is open every section shows 
 Venues (P3.7a) manages the cinema's locations; Screens (P3.3, P3.7a) manages each
 venue's screens and opens their seat layout designer;
 Movies (P3.7a) lists, adds and edits the cinema's films; Screenings and Prices (P3.7b)
-hold the programme and the price list; Settings
+hold the programme and the price list; Staff (P3.7c) invites and manages the team; Settings
 holds the cinema's branding (P3.8b), and the header shows its published logo; the other
 sections arrive with their phases, and for now each shows what it will hold.
 """
 
 import from react { useState, useEffect }
-import from "@jac/runtime" { Link, useParams }
+import from "@jac/runtime" { useParams }
+import from ..shell.AppLink { AppLink }
 import from "@hugeicons/react" { HugeiconsIcon }
 import from "@hugeicons/core-free-icons" { Clock01Icon }
 import from ...components.ui.alert { Alert, AlertTitle, AlertDescription, AlertAction }
@@ -40,6 +41,7 @@ import from .MoviesSection { MoviesSection }
 import from .VenuesSection { VenuesSection }
 import from .ScreeningsSection { ScreeningsSection }
 import from .PricesSection { PricesSection }
+import from .StaffSection { StaffSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
@@ -121,7 +123,7 @@ def SectionPreview(section: str, slug: str) -> JsxElement {
             </EmptyHeader>
             <EmptyContent>
                 <Button asChild={True} variant="outline" className="min-h-11">
-                    <Link to={section_path(slug, "")}>Back to overview</Link>
+                    <AppLink to={section_path(slug, "")}>Back to overview</AppLink>
                 </Button>
             </EmptyContent>
         </Empty>;
@@ -142,7 +144,7 @@ def NoAccess(slug: str) -> JsxElement {
             </EmptyHeader>
             <EmptyContent>
                 <Button asChild={True} variant="outline" className="min-h-11">
-                    <Link to={section_path(slug, "")}>Back to overview</Link>
+                    <AppLink to={section_path(slug, "")}>Back to overview</AppLink>
                 </Button>
             </EmptyContent>
         </Empty>;
@@ -235,7 +237,7 @@ def:pub BackOffice -> JsxElement {
                     variant="outline"
                     className="min-h-11 self-start"
                 >
-                    <Link to="/app">Your cinemas</Link>
+                    <AppLink to="/app">Your cinemas</AppLink>
                 </Button>
             </PlainLayout>;
     }
@@ -289,6 +291,8 @@ def:pub BackOffice -> JsxElement {
         content = <ScreeningsSection slug={slug}/>;
     } elif section == "prices" {
         content = <PricesSection slug={slug}/>;
+    } elif section == "staff" {
+        content = <StaffSection slug={slug} permissions={permissions}/>;
     } elif section == "settings" {
         content = <BrandingSection slug={slug} cinema={me["name"]}/>;
     } else {

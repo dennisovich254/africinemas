@@ -215,3 +215,62 @@ test "invalid roles and venue scopes are refused" {
         app.close();
     }
 }
+
+test "the staff list says who each person is, as each one verified it" {
+    # The owner gives an invitation a note; each person's sign-in name is stored only
+    # after the server checks it is theirs (P3.7c), so nobody can pose as someone else.
+    app = served(MAIN, ["owner", "ann", "bob"]);
+    try {
+        made = app.call(
+            "owner",
+            "create_cinema",
+            {"name": "Nova Cinemas", "slug": "nova", "email": "owner"}
+        );
+        assert made["created"] , made;
+        app.call("owner", "start_shift", {"tenant": "nova"});
+        for_ann = app.call(
+            "owner",
+            "invite_staff",
+            {
+                "tenant": "nova",
+                "role": "usher",
+                "venue_id": "",
+                "label": "  Ann,  door staff "
+            }
+        );
+        assert for_ann["ok"] , for_ann;
+        ann = app.call(
+            "ann", "accept_invite", {"token": for_ann["token"], "email": "ann"}
+        );
+        assert ann["ok"] , ann;
+        for_bob = app.call(
+            "owner", "invite_staff", {"tenant": "nova", "role": "usher", "venue_id": ""}
+        );
+        bob = app.call(
+            "bob", "accept_invite", {"token": for_bob["token"], "email": "ann"}
+        );
+        assert bob["ok"] , "a claim that isn't yours is ignored, not refused";
+        staff = {
+            s["member_id"]: s
+            for s in app.call("owner", "list_staff", {"tenant": "nova"})["staff"]
+        };
+        assert staff[ann["member_id"]]["email"] == "ann";
+        assert staff[ann["member_id"]]["label"] == "Ann, door staff";
+        assert staff[ann["member_id"]]["is_you"] is False;
+        assert staff[bob["member_id"]]["email"] == "" , "bob can't claim ann's name";
+        owner_rows = [
+            s
+            for s in staff.values()
+            if s["is_you"]
+        ];
+        assert len(owner_rows) == 1 and owner_rows[0]["email"] == "owner" , owner_rows;
+        too_long = app.call(
+            "owner",
+            "invite_staff",
+            {"tenant": "nova", "role": "usher", "venue_id": "", "label": "x" * 61}
+        );
+        assert too_long["error"]["code"] == "invalid_label" , too_long;
+    } finally {
+        app.close();
+    }
+}

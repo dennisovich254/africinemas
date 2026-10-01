@@ -1,5 +1,6 @@
 """`/signup`: a cinema owner creates an account, then goes straight to the new-cinema
-wizard at `/app/new`."""
+wizard at `/app/new`; someone invited to a cinema's staff goes back to their invitation
+(`?next=/invite/...`, P3.7c)."""
 
 import from react { useState }
 import from "@jac/runtime" { Navigate, useNavigate, jacIsLoggedIn }
@@ -8,7 +9,7 @@ import from ...components.ui.field { FieldGroup }
 import from ...components.ui.spinner { Spinner }
 import from .AuthLayout { AuthLayout, AuthFooter, EmailField, FormError }
 import from .PasswordField { PasswordField }
-import from .session { sign_up }
+import from .session { sign_up, next_path }
 
 glob PASSWORD_MIN: int = 8;
 
@@ -18,8 +19,9 @@ def:pub SignupPage -> JsxElement {
     [password, set_password] = useState("");
     [busy, set_busy] = useState(False);
     [error, set_error] = useState("");
+    invited = next_path();
     if jacIsLoggedIn() {
-        return <Navigate to="/app" replace={True}/>;
+        return <Navigate to={invited or "/app"} replace={True}/>;
     }
     async def submit(e: any) {  # jac:ignore[W1037]
         e.preventDefault();
@@ -44,7 +46,7 @@ def:pub SignupPage -> JsxElement {
         if problem {
             set_error(problem);
         } else {
-            nav("/app/new");
+            nav(invited or "/app/new");
         }
     }
     return
@@ -53,7 +55,7 @@ def:pub SignupPage -> JsxElement {
             description="Start selling tickets for your cinema in minutes."
             footer={<AuthFooter
                 text="Already have an account?"
-                to="/login"
+                to={"/login?next=" + invited if invited else "/login"}
                 label="Sign in"
             />}
         >

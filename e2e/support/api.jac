@@ -53,7 +53,9 @@ def owner_with_cinema(name: str = "Nova Cinemas") -> dict[str, str] {
     email = email_for(unique("owner"));
     token = register(email);
     slug = unique("cinema");
-    created = call(token, "create_cinema", {"name": name, "slug": slug});
+    created = call(
+        token, "create_cinema", {"name": name, "slug": slug, "email": email}
+    );
     assert created["created"] , created;
     assert call(token, "start_shift", {"tenant": slug})["ok"];
     return {"email": email, "token": token, "slug": slug, "name": name};
@@ -91,7 +93,7 @@ def add_staff(owner: dict[str, str], role: str, venue_id: str = "") -> dict[str,
     assert invite["ok"] , invite;
     email = email_for(unique(role));
     token = register(email);
-    accepted = call(token, "accept_invite", {"token": invite["token"]});
+    accepted = call(token, "accept_invite", {"token": invite["token"], "email": email});
     assert accepted["ok"] , accepted;
     return {"email": email, "token": token};
 }

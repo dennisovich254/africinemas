@@ -7,7 +7,7 @@ import from ...components.ui.field { FieldGroup }
 import from ...components.ui.spinner { Spinner }
 import from .AuthLayout { AuthLayout, AuthFooter, EmailField, FormError }
 import from .PasswordField { PasswordField }
-import from .session { sign_in }
+import from .session { sign_in, next_path }
 
 def:pub LoginPage -> JsxElement {
     nav = useNavigate();
@@ -15,8 +15,10 @@ def:pub LoginPage -> JsxElement {
     [password, set_password] = useState("");
     [busy, set_busy] = useState(False);
     [error, set_error] = useState("");
+    # After signing in: back to the invitation that sent them here, else their cinemas.
+    after = next_path() or "/app";
     if jacIsLoggedIn() {
-        return <Navigate to="/app" replace={True}/>;
+        return <Navigate to={after} replace={True}/>;
     }
     async def submit(e: any) {  # jac:ignore[W1037]
         e.preventDefault();
@@ -30,7 +32,7 @@ def:pub LoginPage -> JsxElement {
         outcome = await sign_in(email, password);
         set_busy(False);
         if outcome == "ok" {
-            nav("/app");
+            nav(after);
         } elif outcome == "offline" {
             set_error(
                 "We couldn't reach AfriCinemas. Check your connection and try again."
@@ -45,7 +47,7 @@ def:pub LoginPage -> JsxElement {
             description="Manage your cinema, staff and screenings."
             footer={<AuthFooter
                 text="New to AfriCinemas?"
-                to="/signup"
+                to={"/signup?next=" + after if after != "/app" else "/signup"}
                 label="Create an account"
             />}
         >
