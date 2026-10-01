@@ -193,9 +193,11 @@ def:pub HomePageSection(slug: str) -> JsxElement {
 
     def schedule_preview -> any {  # jac:ignore[W1037]
         # Redraws the preview (and checks the draft) once typing pauses.
+        # An effect must return a cleanup function or nothing: Jac's None would reach
+        # React as null and break it ("destroy is not a function").
         win: any = window;  # jac:ignore[W1037,W2001]
         if page is None {
-            return None;
+            return lambda {};
         }
         draft: dict[str, any] = page;  # jac:ignore[W1037]
         timer: any = win.setTimeout(  # jac:ignore[W1037,W6001] client-only debounce
