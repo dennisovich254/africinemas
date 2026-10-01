@@ -6,6 +6,11 @@ show only published screenings, and only those that haven't started. A movie is 
 storefront while it has one, named by its public key, never its id. A cinema is found by
 its slug and everything else through it, so one cinema's address never shows another's
 data: anything not on this cinema's storefront is "not_found".
+
+public_home also carries the cinema's published home page (P4.1b, core/homepage/), its
+sections filled from the programme; hidden sections and sections with nothing to show
+are left out. Movies the page shows as coming soon are public too, with their posters; a
+featured movie is shown only if it's on sale or coming soon, else the next one on sale.
 """
 
 import base64;
@@ -13,9 +18,18 @@ import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.responses { NOT_FOUND, refused }
 import from core.tenancy.principal { node_id, act_as, restore }
-import from core.catalog.models { PriceList, StorefrontScreening }
 import from core.catalog.pricing { DEFAULT_TIMEZONE }
-import from core.catalog.storefront { upcoming, showtime, public_view }
+import from core.clock { now }
+import from core.catalog.models { Movie, PriceList, StorefrontScreening }
+import from core.catalog.storefront {
+    upcoming,
+    showtime,
+    public_view,
+    on_day,
+    home_of,
+    movies_by_key
+}
+import from core.homepage.page { default_page }
 import from core.catalog.venues { find_screening, find_movie }
 import from core.catalog.poster { media_store }
 
@@ -89,12 +103,128 @@ def:pub public_home(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
             venues.append(e.venue);
         }
     }
+    cards = [_movie_card(entries) for entries in by_movie.values()];
+    shown = _cinema(cinema);
     return {
         "ok": True,
-        "cinema": _cinema(cinema),
-        "movies": [_movie_card(entries) for entries in by_movie.values()],
-        "venues": venues
+        "cinema": shown,
+        "movies": cards,
+        "venues": venues,
+        "page": _page(cinema, upcoming(cinema), cards, shown["timezone"])
     };
+}
+
+def _published(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
+    # The published page, or the default page in the same shape (movies by key).
+    page = home_of(cinema);
+    if page {
+        return page;
+    }
+    fallback = default_page();
+    for s in fallback["sections"] {
+        if s["type"] == "hero" {
+            s["fields"] = {"headline": "", "text": "", "movie_key": ""};
+        } elif s["type"] == "coming_soon" {
+            s["fields"] = {"title": "", "movie_keys": []};
+        }
+    }
+    return fallback;
+}
+
+def _soon_keys(page: dict[str, any]) -> list[str] {  # jac:ignore[W1037]
+    # The movie keys a published page shows as coming soon. With the movies on sale,
+    # these are the only movies the storefront shows.
+    for s in page.get("sections", []) {
+        if s["type"] == "coming_soon" and s["visible"] {
+            return list(s["fields"].get("movie_keys", []));
+        }
+    }
+    return [];
+}
+
+def _soon_card(movie: Movie) -> dict[str, any] {  # jac:ignore[W1037]
+    # A movie listed as coming soon, which may have no showtimes yet.
+    return {
+        "movie_key": movie.public_key,
+        "title": movie.title,
+        "synopsis": movie.synopsis,
+        "age_rating": movie.age_rating,
+        "runtime_minutes": movie.runtime_minutes,
+        "genres": list(movie.genres),
+        "language": movie.language,
+        "has_poster": movie.poster_key != ""
+    };
+}
+
+def _has_content(fields: dict[str, any]) -> bool {  # jac:ignore[W1037]
+    # Whether a text section has anything besides its title.
+    return any(
+        bool(v)
+        for (k, v) in fields.items()
+        if k != "title"
+    );
+}
+
+def _page(
+    cinema: Tenant,
+    entries: list[StorefrontScreening],
+    cards: list[dict[str, any]],  # jac:ignore[W1037]
+    tz: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # The published page with its sections filled in, leaving out hidden ones and those
+    # with nothing to show.
+    page = _published(cinema);
+    soon_keys = _soon_keys(page);
+    known = movies_by_key(cinema) if soon_keys else {};
+    on_sale = {c["movie_key"]: c for c in cards};
+    sections: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for s in page["sections"] {
+        if not s["visible"] {
+            continue;
+        }
+        kind = s["type"];
+        fields = dict(s["fields"]);
+        if kind == "hero" {
+            key = fields.pop("movie_key", "");
+            featured = on_sale.get(key);
+            if featured is None and key in soon_keys and key in known {
+                featured = _soon_card(known[key]);
+            }
+            if featured is None and cards {
+                featured = cards[0];
+            }
+            if featured is not None or fields["headline"] or fields["text"] {
+                sections.append({"type": kind, "fields": fields, "movie": featured});
+            }
+        } elif kind == "today" {
+            today = [
+                dict(
+                    showtime(e),
+                    movie_key=e.movie.get("movie_key", ""),
+                    title=e.movie.get("title", "")
+                ) for e in on_day(entries, now(), tz)
+            ];
+            if today {
+                sections.append({"type": kind, "fields": fields, "showtimes": today});
+            }
+        } elif kind == "now_showing" {
+            if cards {
+                sections.append({"type": kind, "fields": fields, "movies": cards});
+            }
+        } elif kind == "coming_soon" {
+            soon = [
+                _soon_card(known[k])
+                for k in fields.pop("movie_keys", [])
+                if k in known
+            ];
+            if soon {
+                sections.append({"type": kind, "fields": fields, "movies": soon});
+            }
+        } elif _has_content(fields) {
+            sections.append({"type": kind, "fields": fields});
+        }
+    }
+    return {"template": page["template"], "sections": sections};
 }
 
 def:pub public_movie(slug: str, movie_key: str) -> dict[str, any] {  # jac:ignore[W1037]
@@ -130,17 +260,24 @@ def:pub public_screening(slug: str, screening_id: str) -> dict[str, any] {  # ja
 }
 
 def:pub public_poster(slug: str, movie_key: str) -> dict[str, any] {  # jac:ignore[W1037]
-    # A movie's poster as a WebP data URL, while the movie is on the storefront.
+    # A movie's poster as a WebP data URL, while the movie is on the storefront: on sale,
+    # or coming soon on the published home page.
     cinema = open_cinema(slug);
     if cinema is None {
         return NOT_FOUND;
     }
     entries = _showing(cinema, movie_key);
-    if not entries {
+    movie: Movie | None = None;
+    if entries {
+        screening = find_screening(cinema, entries[0].screening_id);
+        movie = find_movie(cinema, screening.movie_id)
+            if screening is not None
+            else None;
+    } elif movie_key and movie_key in _soon_keys(home_of(cinema)) {
+        movie = movies_by_key(cinema).get(movie_key);
+    } else {
         return NOT_FOUND;
     }
-    screening = find_screening(cinema, entries[0].screening_id);
-    movie = find_movie(cinema, screening.movie_id) if screening is not None else None;
     data = media_store().download(movie.poster_key)
         if movie is not None and movie.poster_key
         else None;

@@ -243,6 +243,19 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"tenant": "{tenant}", "version": 1}
          },
          "public_branding": {"scope": "storefront", "probe": {"slug": "{tenant}"}},
+         "get_home_page": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "save_home_page": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "page": {"template": "compact", "sections": []}
+             }
+         },
+         "publish_home_page": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "rollback_home_page": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "version": 1}
+         },
          "join_as_customer": {
              "scope": "customer",
              "probe": {"tenant": "{tenant}", "display_name": "Probe"}

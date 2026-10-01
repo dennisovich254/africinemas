@@ -106,9 +106,12 @@ node Storefront {
     # Reached through Tenant.storefront_id, never by searching root.shared.
     # branding is the published theme and logo (P3.8a): {version, theme, logo}, or {}
     # for the platform default.
+    # home is the published home page (P4.1b) with movies named by public key, or {}
+    # for the default page.
     has slug: str,
         name: str,
-        branding: dict[str, any] = {};  # jac:ignore[W1037]
+        branding: dict[str, any] = {},  # jac:ignore[W1037]
+        home: dict[str, any] = {};  # jac:ignore[W1037]
 }
 
 node StorefrontScreening {
