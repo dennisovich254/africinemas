@@ -176,7 +176,7 @@ def DayMovie(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:i
                 <h3 className="font-display text-xl leading-tight">
                     <AppLink
                         to={f"/c/{slug}/m/{group['movie_key']}"}
-                        className="inline-flex min-h-11 items-center underline-offset-4 hover:underline"
+                        className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline"
                     >
                         {group["title"]}
                     </AppLink>
