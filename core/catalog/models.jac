@@ -63,6 +63,9 @@ node Movie {
         genres: list[str] = [],
         language: str = "",
         poster_key: str = "",
+        # An optional landscape image for the storefront's hero (P4.1c), stored like
+        # the poster, or "" for none.
+        backdrop_key: str = "",
         public_key: str = "",
         created_at: str = "",
         updated_at: str = "";

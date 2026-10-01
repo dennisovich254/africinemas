@@ -275,6 +275,23 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "photo": "x"}
          },
+         "upload_backdrop": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "movie_id": "x",
+                 "content_type": "image/png",
+                 "data_base64": ""
+             }
+         },
+         "remove_backdrop": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "movie_id": "x"}
+         },
+         "public_backdrop": {
+             "scope": "storefront",
+             "probe": {"slug": "{tenant}", "movie_key": "x"}
+         },
          "public_home_photo": {
              "scope": "storefront",
              "probe": {"slug": "{tenant}", "photo": "x"}

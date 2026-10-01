@@ -130,12 +130,8 @@ glob ORDERS: dict[str, list[str]] = {
      };
 
 def _shown(template: str) -> list[str] {
-    # The template's order without "today": the seeded showtimes are days ahead.
-    return [
-        k
-        for k in ORDERS[template]
-        if k != "today"
-    ];
+    # Every section is filled in, and showtimes by day covers the coming week (P4.1c).
+    return list(ORDERS[template]);
 }
 
 test "a cinema that hasn't published a page shows the default Marquee page" {
@@ -145,7 +141,7 @@ test "a cinema that hasn't published a page shows the default Marquee page" {
         page = browser.new_context(
             **context_options(pw, "desktop", "light")
         ).new_page();
-        assert _open(page, owner["slug"]) == ["hero", "now_showing"];
+        assert _open(page, owner["slug"]) == ["hero", "now_showing", "today"];
         assert page.get_attribute(HOME, "data-template") == "marquee";
         assert "Rafiki" in page.inner_text('[data-testid="section-hero"]');
         page.click('[data-testid="hero-cta"]');
@@ -177,7 +173,7 @@ test "switching template changes the storefront's layout, and hiding a section r
             _sections(owner, ORDERS["marquee"], hidden=["about", "faq"])
         );
         assert _open(page, owner["slug"])
-            == ["hero", "now_showing", "coming_soon", "location", "contact"];
+            == ["hero", "now_showing", "coming_soon", "today", "location", "contact"];
     } finally {
         close_contexts(browser);
     }

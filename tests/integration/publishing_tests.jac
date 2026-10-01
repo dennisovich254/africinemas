@@ -201,7 +201,8 @@ test "the storefront shows published screenings with public details only, withou
                 "age_rating": "18",
                 "genres": ["Drama"],
                 "language": "English, Swahili",
-                "has_poster": False
+                "has_poster": False,
+                "has_backdrop": False
             } , shown_one["movie"];
         assert shown_one["venue"] == {"name": "Westgate", "city": "Nairobi"};
         assert shown_one["screen"] == {"name": "Screen 1"};

@@ -43,7 +43,9 @@ import from core.catalog.movie_api {
     update_movie,  # jac:ignore[W2037]
     delete_movie,  # jac:ignore[W2037]
     upload_poster,  # jac:ignore[W2037]
-    get_poster  # jac:ignore[W2037]
+    get_poster,  # jac:ignore[W2037]
+    upload_backdrop,  # jac:ignore[W2037]
+    remove_backdrop  # jac:ignore[W2037]
 }
 import from core.catalog.screening_api {
     create_screening,  # jac:ignore[W2037]
@@ -76,7 +78,8 @@ import from core.catalog.storefront_api {
     public_movie,
     public_screening,
     public_poster,
-    public_home_photo
+    public_home_photo,
+    public_backdrop
 }
 import from core.homepage.home_api {
     get_home_page,  # jac:ignore[W2037]

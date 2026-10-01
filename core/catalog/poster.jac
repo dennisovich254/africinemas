@@ -30,6 +30,9 @@ glob MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024,
      # Home-page photos (P4.1b): landscape or portrait, fitted into PHOTO_OUT square.
      PHOTO_MIN_SIDE: int = 400,
      PHOTO_OUT: int = 1600,
+     # Movie backdrops (P4.1c): landscape, at least BACKDROP_MIN, fitted into BACKDROP_OUT.
+     BACKDROP_MIN: tuple[int, int] = (960, 540),
+     BACKDROP_OUT: tuple[int, int] = (1920, 1080),
      # Declared content type -> the format its bytes must be.
      ALLOWED: dict[str, str] = {
          "image/jpeg": "JPEG",
@@ -107,6 +110,11 @@ def process_logo(data: bytes, declared_type: str) -> bytes {
     # A cinema's logo (P3.8a): the same checks, a smaller minimum, fitted into
     # LOGO_OUT x LOGO_OUT, and its transparency kept.
     return _process(data, declared_type, (LOGO_MIN, LOGO_MIN), (LOGO_OUT, LOGO_OUT));
+}
+
+def process_backdrop(data: bytes, declared_type: str) -> bytes {
+    # A movie's landscape backdrop (P4.1c): the same checks, at least 960 x 540.
+    return _process(data, declared_type, BACKDROP_MIN, BACKDROP_OUT);
 }
 
 def process_photo(data: bytes, declared_type: str) -> bytes {

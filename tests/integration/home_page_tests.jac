@@ -223,8 +223,9 @@ test "sections fill from the programme, by public key, and hidden or empty ones 
         );
         assert saved["ok"] , saved;
         assert _publish(app)["ok"];
-        # No showtimes today (they're two days ahead), an empty about, a hidden FAQ.
-        assert _types(app) == ["hero", "now_showing", "coming_soon"];
+        # Showtimes by day (P4.1c) lists the coming week; an empty about and a hidden
+        # FAQ are left out.
+        assert _types(app) == ["hero", "now_showing", "coming_soon", "today"];
         rafiki_key = _home(app)["movies"][0]["movie_key"];
         hero = _section(app, "hero");
         assert hero["fields"] == {"headline": "Films worth the trip", "text": ""};

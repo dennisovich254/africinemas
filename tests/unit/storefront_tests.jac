@@ -3,7 +3,7 @@ cinema's day, in its own time zone."""
 
 import from datetime { datetime, timezone }
 import from core.catalog.models { StorefrontScreening }
-import from core.catalog.storefront { not_started, on_day }
+import from core.catalog.storefront { not_started, on_day, by_cinema_day }
 
 def _entry(screening_id: str, starts_at: str) -> StorefrontScreening {
     return StorefrontScreening(
@@ -40,4 +40,19 @@ test "today's showtimes are those on the cinema's calendar day, in its time zone
     assert [e.screening_id for e in on_day(entries, at, "Africa/Nairobi")]
         == ["midnight", "evening"];
     assert [e.screening_id for e in on_day(entries, at, "UTC")] == ["evening", "next"];
+}
+
+test "showtimes group by the cinema's calendar day, for the next seven days" {
+    entries = [
+        _entry("a", "2026-10-03T15:00:00+00:00"),
+        _entry("b", "2026-10-03T21:30:00+00:00"),  # 00:30 on the 4th in Nairobi
+        _entry("c", "2026-10-04T18:00:00+00:00"),
+        _entry("d", "2026-10-09T18:00:00+00:00"),  # day 7 of the week
+        _entry("e", "2026-10-10T18:00:00+00:00")  # the following week
+    ];
+    at = datetime(2026, 10, 3, 9, 0, tzinfo=timezone.utc);
+    days = by_cinema_day(entries, at, "Africa/Nairobi", 7);
+    assert [(d, [e.screening_id for e in group]) for (d, group) in days]
+        == [("2026-10-03", ["a"]), ("2026-10-04", ["b", "c"]), ("2026-10-09", ["d"])];
+    assert by_cinema_day([], at, "Africa/Nairobi", 7) == [];
 }

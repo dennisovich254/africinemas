@@ -28,6 +28,7 @@ import from core.catalog.poster {
     PosterRejected,
     decode_upload,
     process_poster,
+    process_backdrop,
     media_key,
     media_store
 }
@@ -114,7 +115,8 @@ def _view(m: Movie) -> dict[str, any] {  # jac:ignore[W1037]
         "age_rating": m.age_rating,
         "genres": m.genres,
         "language": m.language,
-        "has_poster": m.poster_key != ""
+        "has_poster": m.poster_key != "",
+        "has_backdrop": m.backdrop_key != ""
     };
 }
 
@@ -291,6 +293,56 @@ def _upload_poster(
     return {"ok": True, "movie": _view(movie)};
 }
 
+def _set_backdrop(scope: TenantScope, movie: Movie, new_key: str) {
+    # Points the movie at a new backdrop ("" for none), deleting the old file once the
+    # request commits, and refreshes the storefront.
+    old_key = movie.backdrop_key;
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        movie.backdrop_key = new_key;
+        movie.updated_at = now().isoformat();
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    if old_key {
+        on_commit(lambda { media_store().delete(old_key); });
+    }
+    _reproject(scope, node_id(movie));
+}
+
+def _upload_backdrop(
+    tenant: str, movie_id: str, content_type: str, data_base64: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = scoped(tenant, UPDATE);
+    movie = _find(scope, movie_id);
+    try {
+        webp = process_backdrop(decode_upload(data_base64), content_type);
+    } except PosterRejected as e {
+        raise Refused(e.code, e.message);
+    }
+    new_key = media_key(scope.ctx.tenant_id, str(uuid4()));
+    storage = media_store();
+    storage.upload(io.BytesIO(webp), new_key);
+    try {
+        _set_backdrop(scope, movie, new_key);
+    } except Exception as e {
+        storage.delete(new_key);
+        raise e;
+    }
+    return {"ok": True, "movie": _view(movie)};
+}
+
+def _remove_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = scoped(tenant, UPDATE);
+    movie = _find(scope, movie_id);
+    if movie.backdrop_key {
+        _set_backdrop(scope, movie, "");
+    }
+    return {"ok": True, "movie": _view(movie)};
+}
+
 def _get_poster(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, READ);
     movie = _find(scope, movie_id);
@@ -369,4 +421,18 @@ def:priv upload_poster(
 
 def:priv get_poster(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_poster(tenant, movie_id); });  # jac:ignore[W1037]
+}
+
+def:priv upload_backdrop(
+    tenant: str, movie_id: str, content_type: str, data_base64: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(
+        lambda -> any { return _upload_backdrop(  # jac:ignore[W1037]
+            tenant, movie_id, content_type, data_base64
+        ); }
+    );
+}
+
+def:priv remove_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _remove_backdrop(tenant, movie_id); });  # jac:ignore[W1037]
 }
