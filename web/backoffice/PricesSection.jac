@@ -688,7 +688,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <Label htmlFor={f"surcharge-end-{k}"}>
-                            Until (00:00 is midnight)
+                            Until (midnight runs to the end of the day)
                         </Label>
                         <Input
                             id={f"surcharge-end-{k}"}
