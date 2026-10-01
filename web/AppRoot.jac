@@ -8,7 +8,7 @@ A cinema's public storefront is `/c/:slug` (P3.8b; Phase 4 fills it in).
 """
 
 import from "@jac/runtime" { Router, Routes, Route, AuthGuard }
-import from .routes.WelcomePage { WelcomePage }
+import from .routes.LandingPage { LandingPage }
 import from .auth.LoginPage { LoginPage }
 import from .auth.SignupPage { SignupPage }
 import from .backoffice.CinemaPicker { CinemaPicker }
@@ -23,7 +23,7 @@ def:pub AppRoot -> JsxElement {
     return
         <Router>
             <Routes>
-                <Route path="/" element={<WelcomePage/>}/>
+                <Route path="/" element={<LandingPage/>}/>
                 <Route path="/design-system" element={<DesignSystemPage/>}/>
                 <Route path="/design-system/:section" element={<DesignSystemPage/>}/>
                 <Route path="/login" element={<LoginPage/>}/>
