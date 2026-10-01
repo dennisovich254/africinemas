@@ -7,7 +7,8 @@ actions need an open shift (ADR-0006), so until one is open every section shows 
 
 Venues (P3.7a) manages the cinema's locations; Screens (P3.3, P3.7a) manages each
 venue's screens and opens their seat layout designer;
-Movies (P3.7a) lists, adds and edits the cinema's films; Settings
+Movies (P3.7a) lists, adds and edits the cinema's films; Screenings and Prices (P3.7b)
+hold the programme and the price list; Settings
 holds the cinema's branding (P3.8b), and the header shows its published logo; the other
 sections arrive with their phases, and for now each shows what it will hold.
 """
@@ -37,6 +38,8 @@ import from .SeatDesigner { SeatDesigner }
 import from .BrandingSection { BrandingSection }
 import from .MoviesSection { MoviesSection }
 import from .VenuesSection { VenuesSection }
+import from .ScreeningsSection { ScreeningsSection }
+import from .PricesSection { PricesSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
@@ -282,6 +285,10 @@ def:pub BackOffice -> JsxElement {
         content = <MovieEditor key={movie_id} slug={slug} movie_id={movie_id}/>;
     } elif section == "movies" {
         content = <MoviesSection slug={slug} permissions={permissions}/>;
+    } elif section == "screenings" {
+        content = <ScreeningsSection slug={slug}/>;
+    } elif section == "prices" {
+        content = <PricesSection slug={slug}/>;
     } elif section == "settings" {
         content = <BrandingSection slug={slug} cinema={me["name"]}/>;
     } else {

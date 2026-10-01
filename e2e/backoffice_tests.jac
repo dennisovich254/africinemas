@@ -132,6 +132,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                     "Screens",
                     "Movies",
                     "Screenings",
+                    "Prices",
                     "Box office",
                     "Scanner",
                     "Staff",

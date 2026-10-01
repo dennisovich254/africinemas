@@ -19,6 +19,8 @@ glob SUFFIX: str = ".africinemas.co.ke",
          # Staff who add films (owners, admins, content managers), P3.7a.
          ("movies", "Movies", "movies.create"),
          ("screenings", "Screenings", "showtimes.create"),
+         # The price list is a cinema setting (P3.6, P3.7b).
+         ("prices", "Prices", "tenant.settings.update"),
          ("box-office", "Box office", "bookings.create"),
          ("scanner", "Scanner", "tickets.scan"),
          ("staff", "Staff", "employees.read"),

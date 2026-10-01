@@ -81,7 +81,8 @@ def:pub ConfirmDelete(
     confirm_label: str,
     on_confirm: any,  # jac:ignore[W1037]
     on_cancel: any,  # jac:ignore[W1037]
-    busy: bool = False
+    busy: bool = False,
+    cancel_label: str = "Cancel"
 ) -> JsxElement {
     return
         <div
@@ -107,7 +108,7 @@ def:pub ConfirmDelete(
                     disabled={busy}
                     onClick={on_cancel}
                 >
-                    Cancel
+                    {cancel_label}
                 </Button>
             </div>
         </div>;
