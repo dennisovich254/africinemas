@@ -38,6 +38,7 @@ import from core.tenancy.registry {
     release_slug
 }
 import from core.tenancy.groups { add_staff }
+import from core.tenancy.identity { verified_sign_in }
 import from core.tenancy.principal {
     Principal,
     node_id,
@@ -68,7 +69,12 @@ def _slug_hold_s -> int {
 }
 
 def _provision(
-    tenant_id: str, name: str, slug: str, principal: Principal, owner: str
+    tenant_id: str,
+    name: str,
+    slug: str,
+    principal: Principal,
+    owner: str,
+    email: str = ""
 ) -> Tenant {
     act_as(principal.root_id);
     try {
@@ -86,7 +92,7 @@ def _provision(
         restore(owner);
     }
     # The owner joins the tenant's access group and the owner role group (ADR-0004).
-    add_staff(tenant, ROLE_OWNER, "");
+    add_staff(tenant, ROLE_OWNER, "", email);
     checkpoint("after_group");
     checkpoint("after_membership");
     act_as(principal.root_id);
@@ -99,7 +105,11 @@ def _provision(
     return tenant;
 }
 
-def:priv create_cinema(name: str, slug: str) -> dict[str, bool | str | dict[str, str]] {
+def:priv create_cinema(
+    name: str, slug: str, email: str = ""
+) -> dict[str, bool | str | dict[str, str]] {
+    # `email` is the owner's sign-in name, kept on their staff record once verified
+    # (core/tenancy/identity.jac, P3.7c).
     clean_name = name.strip();
     if not clean_name or len(clean_name) > NAME_MAX {
         return _refused(
@@ -128,7 +138,9 @@ def:priv create_cinema(name: str, slug: str) -> dict[str, bool | str | dict[str,
         checkpoint("after_claim");
         principal = create_principal(wanted);
         checkpoint("after_principal");
-        tenant = _provision(tenant_id, clean_name, wanted, principal, owner);
+        tenant = _provision(
+            tenant_id, clean_name, wanted, principal, owner, verified_sign_in(email)
+        );
         checkpoint("before_commit");
     } except Exception as e {
         # Graph work rolls back with the request; undo what lives outside it.

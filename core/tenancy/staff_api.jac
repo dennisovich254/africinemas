@@ -10,6 +10,8 @@
 - accept_invite: the invitee's own request (their membership edge must come from their
   root, ADR-0004). Single use is decided by an atomic claim on the invite (ADR-0007);
   the token is only peeked in the body and consumed in on_commit (JI-022).
+- Staff records show who each person is (P3.7c): the inviter's note, and the sign-in
+  name the person gave when accepting, kept only once verified as theirs.
 - list_staff / change_staff_roles / set_staff_status / remove_staff: need
   employees.read, employees.assign_roles or employees.disable; the actor must be able to
   grant every role the member holds (so an admin can't touch an owner), and nobody can
@@ -32,6 +34,7 @@ import from core.authz.policy { Forbidden, role_key, can_grant }
 import from core.authz.context { NoShift, NotFound, TenantScope, scoped }
 import from core.tenancy.models { Tenant, Invite, Membership }
 import from core.tenancy.groups { add_staff }
+import from core.tenancy.identity { verified_sign_in }
 import from core.tenancy.membership { records_of, remove_member }
 import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
 import from core.catalog.venues { find_venue }
@@ -49,6 +52,7 @@ glob INVITE_PURPOSE: str = "staff-invite",
      TTL_DEFAULT_S: int = 72 * 3600,
      CLAIM_HOLD_S: int = 300,
      STATUSES: list[str] = ["active", "disabled"],
+     LABEL_MAX: int = 60,
      INVALID_INVITE: dict[str, bool | dict[str, str]] = {
          "ok": False,
          "error": {
@@ -95,7 +99,10 @@ def _may_manage(scope: TenantScope, record: Membership) -> bool {
     return all(can_grant(scope.ctx, key.partition("@")[0]) for key in record.roles);
 }
 
-def:priv invite_staff(tenant: str, role: str, venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:priv invite_staff(
+    tenant: str, role: str, venue_id: str, label: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # `label` is the inviter's note on who it's for, shown in the staff list (P3.7c).
     try {
         scope = scoped(tenant, "employees.invite");
     } except NotFound {
@@ -116,11 +123,19 @@ def:priv invite_staff(tenant: str, role: str, venue_id: str) -> dict[str, any] {
     if venue_id and find_venue(scope.tenant, venue_id) is None {
         return UNKNOWN_VENUE;
     }
+    note = " ".join(label.split()) if isinstance(label, str) else "";
+    if len(note) > LABEL_MAX {
+        return refused(
+            "invalid_label", f"Keep the note to {LABEL_MAX} characters or fewer."
+        );
+    }
     me = node_id(root);
     created = now();
     act_as(scope.tenant.principal_root_id);
     try {
-        invite = Invite(role_key=key, invited_by=me, created_at=created.isoformat());
+        invite = Invite(
+            role_key=key, invited_by=me, created_at=created.isoformat(), label=note
+        );
         scope.tenant ++> invite;
         flush_now();
     } finally {
@@ -143,7 +158,8 @@ def:priv invite_staff(tenant: str, role: str, venue_id: str) -> dict[str, any] {
     };
 }
 
-def:priv accept_invite(token: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:priv accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ignore[W1037]
+    # `email` is the invitee's sign-in name, kept once verified as theirs (P3.7c).
     peeked = token_peek(INVITE_PURPOSE, token) if token else None;
     if peeked is None {
         return INVALID_INVITE;
@@ -176,7 +192,7 @@ def:priv accept_invite(token: str) -> dict[str, any] {  # jac:ignore[W1037]
     }
     try {
         (role, _, venue) = invite.role_key.partition("@");
-        record = add_staff(tenant, role, venue);
+        record = add_staff(tenant, role, venue, verified_sign_in(email), invite.label);
         act_as(tenant.principal_root_id);
         try {
             invite.used_by = me;
@@ -216,7 +232,10 @@ def:priv list_staff(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
                 "member_id": m.staff_root_id,
                 "roles": m.roles,
                 "status": m.status,
-                "joined_at": m.joined_at
+                "joined_at": m.joined_at,
+                "email": m.email,
+                "label": m.label,
+                "is_you": m.staff_root_id == me
             } for m in records_of(scope.tenant)
         ];
     } finally {

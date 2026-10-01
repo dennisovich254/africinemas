@@ -42,9 +42,12 @@ def access_group(tenant: Tenant) -> StaffGroup {
     }
 }
 
-def add_staff(tenant: Tenant, role: str, venue_id: str) -> Membership {
+def add_staff(
+    tenant: Tenant, role: str, venue_id: str, email: str = "", label: str = ""
+) -> Membership {
     # Makes the CALLER staff of `tenant` with `role` (at `venue_id`, "" = tenant-wide),
     # adding the role if they are already staff. Call in the member's own request.
+    # `email` (already verified) and `label` fill in who they are when known (P3.7c).
     key = role_key(role, venue_id);
     me = node_id(root);
     group = access_group(tenant);
@@ -65,6 +68,12 @@ def add_staff(tenant: Tenant, role: str, venue_id: str) -> Membership {
             if key not in record.roles {
                 record.roles = record.roles + [key];
             }
+            if email and not record.email {
+                record.email = email;
+            }
+            if label and not record.label {
+                record.label = label;
+            }
             flush_now();
         } finally {
             restore(me);
@@ -75,6 +84,8 @@ def add_staff(tenant: Tenant, role: str, venue_id: str) -> Membership {
     act_as(tenant.principal_root_id);
     try {
         record = new_record(group, me, edge_id, [key]);
+        record.email = email;
+        record.label = label;
         flush_now();
     } finally {
         restore(me);

@@ -17,6 +17,7 @@ import from .backoffice.BackOffice { BackOffice }
 import from .routes.DesignSystemPage { DesignSystemPage }
 import from .routes.NotFoundPage { NotFoundPage }
 import from .storefront.StorefrontPage { StorefrontPage }
+import from .auth.InvitePage { InvitePage }
 
 def:pub AppRoot -> JsxElement {
     return
@@ -28,6 +29,7 @@ def:pub AppRoot -> JsxElement {
                 <Route path="/login" element={<LoginPage/>}/>
                 <Route path="/signup" element={<SignupPage/>}/>
                 <Route path="/c/:slug" element={<StorefrontPage/>}/>
+                <Route path="/invite/:token" element={<InvitePage/>}/>
                 <Route element={<AuthGuard redirect="/login"/>}>
                     <Route path="/app" element={<CinemaPicker/>}/>
                     <Route path="/app/new" element={<NewCinemaWizard/>}/>

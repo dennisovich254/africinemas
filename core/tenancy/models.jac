@@ -46,11 +46,15 @@ node Membership {
     # The tenant's record of one staff member (ADR-0008, P2.5), owned by the tenant's
     # principal and readable only by that member: their MemberOf edge (so the tenant can
     # remove it), their role keys ("usher", "usher@venue-1") and their status.
+    # email is their sign-in name, kept once the server has checked it is theirs, and
+    # label the inviter's note on who the invitation was for (P3.7c); both may be "".
     has staff_root_id: str,
         edge_id: str,
         roles: list[str] = [],
         status: str = "active",
-        joined_at: str = "";
+        joined_at: str = "",
+        email: str = "",
+        label: str = "";
 }
 
 node Invite {
@@ -59,7 +63,8 @@ node Invite {
     has role_key: str,
         invited_by: str,
         created_at: str,
-        used_by: str = "";
+        used_by: str = "",
+        label: str = "";
 }
 
 node CustomerProfile {
