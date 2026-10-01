@@ -1,9 +1,10 @@
 """P3.9 E2E: the AfriCinemas landing page at `/`.
 
-The page cinema owners (and hackathon judges) see first: what AfriCinemas does, how it
-works, who it's for, and a way in. "Create your cinema" leads to sign-up and "Sign in"
-to sign-in; signed-in staff still see the page, with a link to their cinemas. The theme
-tests (e2e/theme_tests.jac) check its colours and fonts.
+The page cinema owners (and hackathon judges) see first: a hero over a looping cinema
+video, three steps with examples of the product, and a closing call. "Create your
+cinema" leads to sign-up, "See how it works" to the steps and "Sign in" to sign-in;
+signed-in staff get a link to their cinemas instead. The video stays still for "reduce
+motion" and can be paused. The theme tests (e2e/theme_tests.jac) check colours and fonts.
 """
 
 import from e2e.support.web {
@@ -46,31 +47,40 @@ test "the landing page says what AfriCinemas does and how it works" {
     (pw, browser) = shared_browser();
     try {
         page = _open(browser, pw, "desktop");
-        h1 = page.inner_text("h1");
-        assert "M-Pesa" in h1 or "tickets" in h1.lower() , h1;
-        steps = page.locator('[data-testid="how-it-works"] li').all_inner_texts();
-        assert len(steps) == 4 , steps;
-        for (step, word) in zip(steps, ["cinema", "screening", "M-Pesa", "QR"]) {
+        assert "box office" in page.inner_text("h1").lower();
+        steps = page.locator('[data-testid="how-it-works"] > li').all_inner_texts();
+        assert len(steps) == 3 , steps;
+        for (step, word) in zip(steps, ["screenings", "M-Pesa", "door"]) {
             assert word.lower() in step.lower() , f"{word} not in {step}";
         }
-        assert page.locator('[data-testid="audience"] li').count() >= 3;
-        assert page.locator('[data-testid="product-glimpse"]').is_visible();
+        assert page.locator('[data-testid="audience"] li').count() == 3;
+        video = page.locator('[data-testid="hall-video"]');
+        for attr in ["loop", "playsinline", "poster"] {
+            assert video.get_attribute(attr) is not None , attr;
+        }
+        # React sets muted as a property, not an attribute.
+        assert page.evaluate(
+            "document.querySelector('[data-testid=hall-video]').muted"
+        );
+        assert video.locator("source").count() == 2;
     } finally {
         close_contexts(browser);
     }
 }
 
-test "Create your cinema leads to sign-up and Sign in to sign-in" {
+test "Create your cinema leads to sign-up, and Sign in to sign-in" {
     (pw, browser) = shared_browser();
     try {
         for project in PROJECTS {
             page = _open(browser, pw, project);
             assert "Create your cinema" in page.inner_text(CTA);
+            page.click(SECONDARY);
+            page.wait_for_url("**/#how");
             page.click(CTA);
             page.wait_for_url("**/signup");
             page.goto(BASE_URL + "/");
             page.wait_for_selector(LANDING);
-            page.click(SECONDARY);
+            page.click('nav a[href="/login"]');
             page.wait_for_url("**/login");
             page.context.close();
         }
@@ -101,6 +111,33 @@ test "signed-in staff still see the page, with a link to their cinemas" {
     }
 }
 
+test "the hero video plays, can be paused, and stays still for reduce motion" {
+    (pw, browser) = shared_browser();
+    try {
+        page = _open(browser, pw, "desktop", "dark");
+        page.wait_for_function(
+            "!document.querySelector('[data-testid=hall-video]').paused"
+        );
+        page.click('[data-testid="hall-pause"]');
+        assert page.evaluate(
+            "document.querySelector('[data-testid=hall-video]').paused"
+        );
+        assert page.get_attribute('[data-testid="hall-pause"]', "aria-label")
+            == "Play background video";
+        still = browser.new_context(
+            viewport={"width": 1440, "height": 900}, reduced_motion="reduce"
+        ).new_page();
+        still.goto(BASE_URL + "/");
+        still.wait_for_selector(LANDING);
+        still.wait_for_timeout(800);
+        assert still.evaluate(
+            "document.querySelector('[data-testid=hall-video]').paused"
+        ) , "the video played despite reduce motion";
+    } finally {
+        close_contexts(browser);
+    }
+}
+
 test "the landing page passes the phone checks" {
     (pw, browser) = shared_browser();
     try {
@@ -125,8 +162,11 @@ test "review screenshots of the landing page" {
     try {
         for scheme in ["light", "dark"] {
             for width in [375, 768, 1440] {
+                # Reduced motion: the poster frame and no fade, so every shot is settled.
                 page = browser.new_context(
-                    viewport={"width": width, "height": 900}, color_scheme=scheme
+                    viewport={"width": width, "height": 900},
+                    color_scheme=scheme,
+                    reduced_motion="reduce"
                 ).new_page();
                 page.goto(BASE_URL + "/");
                 page.wait_for_selector(LANDING);

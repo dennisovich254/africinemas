@@ -7,6 +7,7 @@ the shared server; see [desktop] backend in jac.toml.
 import "..styles.global.css";
 import "..styles.fonts.css";
 import "..styles.brand.css";
+import "..styles.landing.css";
 import from ..web.AppRoot { AppRoot }
 
 def:pub app -> JsxElement {

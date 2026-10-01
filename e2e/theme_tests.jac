@@ -26,8 +26,10 @@ def _assert_tokens(page: any, tokens: ThemeTokens, where: str) {  # jac:ignore[W
     assert computed(page, SURFACE, "background-color")
         == hex_to_rgb(tokens.background) , f"{where}: page background";
     assert computed(page, SURFACE, "color") == hex_to_rgb(tokens.ink) , f"{where}: text colour";
-    assert computed(page, CTA, "background-color") == hex_to_rgb(tokens.accent) , f"{where}: primary button fill";
-    assert computed(page, CTA, "color") == hex_to_rgb(tokens.on_accent) , f"{where}: primary button text";
+    # The landing hero is always the dark storefront (P3.9), so its button is too.
+    hero = DEFAULT_THEME.dark;
+    assert computed(page, CTA, "background-color") == hex_to_rgb(hero.accent) , f"{where}: primary button fill";
+    assert computed(page, CTA, "color") == hex_to_rgb(hero.on_accent) , f"{where}: primary button text";
 }
 
 test "storefront renders the light theme on phone and desktop" {
@@ -97,7 +99,8 @@ test "secondary button stays on-theme and readable in both modes" {
             text = _rgb_to_hex(computed(page, SECONDARY, "color"));
             fill_is_dark = contrast_ratio("#FFFFFF", fill)
                 >= contrast_ratio("#000000", fill);
-            assert fill_is_dark == (scheme == "dark") , f"{scheme}: secondary button painted {fill}";
+            # It sits in the landing hero, which is dark in both modes (P3.9).
+            assert fill_is_dark , f"{scheme}: secondary button painted {fill}";
             assert contrast_ratio(text, fill) >= 4.5 , f"{scheme}: text {text} on {fill} is {contrast_ratio(
                 text, fill
             ):.2f}:1";
