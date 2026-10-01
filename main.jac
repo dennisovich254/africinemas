@@ -75,13 +75,18 @@ import from core.catalog.storefront_api {
     public_home,
     public_movie,
     public_screening,
-    public_poster
+    public_poster,
+    public_home_photo
 }
 import from core.homepage.home_api {
     get_home_page,  # jac:ignore[W2037]
     save_home_page,  # jac:ignore[W2037]
     publish_home_page,  # jac:ignore[W2037]
-    rollback_home_page  # jac:ignore[W2037]
+    rollback_home_page,  # jac:ignore[W2037]
+    preview_home_page,  # jac:ignore[W2037]
+    upload_home_photo,  # jac:ignore[W2037]
+    get_home_photo,  # jac:ignore[W2037]
+    remove_home_photo  # jac:ignore[W2037]
 }
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]

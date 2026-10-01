@@ -252,6 +252,33 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              }
          },
          "publish_home_page": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "preview_home_page": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "page": {"template": "compact", "sections": []}
+             }
+         },
+         "upload_home_photo": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "content_type": "image/png",
+                 "data_base64": ""
+             }
+         },
+         "get_home_photo": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "photo": "x"}
+         },
+         "remove_home_photo": {
+             "scope": "tenant",
+             "probe": {"tenant": "{tenant}", "photo": "x"}
+         },
+         "public_home_photo": {
+             "scope": "storefront",
+             "probe": {"slug": "{tenant}", "photo": "x"}
+         },
          "rollback_home_page": {
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "version": 1}

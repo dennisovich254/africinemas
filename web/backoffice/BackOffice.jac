@@ -37,6 +37,7 @@ import from .PlainLayout { PlainLayout, AccountActions }
 import from .ScreensSection { ScreensSection }
 import from .SeatDesigner { SeatDesigner }
 import from .BrandingSection { BrandingSection }
+import from .HomePageSection { HomePageSection }
 import from .MoviesSection { MoviesSection }
 import from .VenuesSection { VenuesSection }
 import from .ScreeningsSection { ScreeningsSection }
@@ -148,6 +149,43 @@ def NoAccess(slug: str) -> JsxElement {
                 </Button>
             </EmptyContent>
         </Empty>;
+}
+
+def SettingsPage(
+    slug: str,
+    tab: str,
+    branding: any  # jac:ignore[W1037] the Branding page, drawn by BackOffice
+) -> JsxElement {
+    # Settings: Branding (/app/:slug/settings) and the home page
+    # (/app/:slug/settings/home-page, P4.1b), as tabs.
+    tabs = [("", "Branding"), ("home-page", "Home page")];
+    return
+        <div className="flex flex-col gap-6">
+            <nav aria-label="Settings" className="flex gap-2 border-b">
+                {[
+                    <AppLink
+                        key={key or "branding"}
+                        to={section_path(slug, "settings") + (f"/{key}" if key else "")}
+                        testid={f"settings-tab-{key or 'branding'}"}
+                        current={key == tab}
+                        className={"-mb-px inline-flex min-h-11 items-center border-b-2 px-3 text-sm font-medium "
+                            + (
+                                "border-primary text-foreground"
+                                    if key == tab
+                                    else "border-transparent text-muted-foreground hover:text-foreground"
+                            )}
+                    >
+                        {label}
+                    </AppLink> for (key, label) in tabs
+                ]}
+            </nav>
+            {tab == "home-page"
+                and <div className="flex flex-col gap-6">
+                    <h2 className="text-xl font-semibold">Home page</h2>
+                    <HomePageSection slug={slug}/>
+                </div>}
+            {tab != "home-page" and branding}
+        </div>;
 }
 
 def:pub BackOffice -> JsxElement {
@@ -294,7 +332,11 @@ def:pub BackOffice -> JsxElement {
     } elif section == "staff" {
         content = <StaffSection slug={slug} permissions={permissions}/>;
     } elif section == "settings" {
-        content = <BrandingSection slug={slug} cinema={me["name"]}/>;
+        content = <SettingsPage
+            slug={slug}
+            tab={item}
+            branding={<BrandingSection slug={slug} cinema={me["name"]}/>}
+        />;
     } else {
         content = <SectionPreview section={section} slug={slug}/>;
     }

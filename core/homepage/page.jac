@@ -84,6 +84,7 @@ glob SECTION_TYPES: list[str] = [
          "email": 120,
          "id": 64,
          "movie_ids": 8,
+         "photos": 4,
          "hours": 7,
          "days": 40,
          "times": 40,
@@ -107,7 +108,8 @@ glob SECTION_TYPES: list[str] = [
          },
          "about": {
              "title": Field(kind="text", limit="title"),
-             "text": Field(kind="text", limit="text")
+             "text": Field(kind="text", limit="text"),
+             "photos": Field(kind="ids", limit="photos")
          },
          "location": {
              "title": Field(kind="text", limit="title"),
@@ -392,4 +394,14 @@ def page_movie_ids(page: dict[str, any]) -> list[str] {  # jac:ignore[W1037]
         }
     }
     return ordered;
+}
+
+def page_photos(page: dict[str, any]) -> list[str] {  # jac:ignore[W1037]
+    # The photos the page shows (in the About section).
+    for s in page["sections"] {
+        if s["type"] == "about" {
+            return list(s["fields"]["photos"]);
+        }
+    }
+    return [];
 }

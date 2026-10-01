@@ -14,6 +14,9 @@ node HomePage {
     has tenant_id: str,
         draft: dict[str, any] = {},  # jac:ignore[W1037]
         version: int = 0,
+        # Photos uploaded for the page (names in the cinema's media folder, newest
+        # last); the About section shows some of them.
+        photos: list[str] = [],
         updated_at: str = "";
 }
 

@@ -54,7 +54,7 @@ def:pub StorefrontPage -> JsxElement {
             <div
                 data-testid="home-page"
                 data-template={template}
-                className={"flex flex-col gap-10 "
+                className={"@container flex flex-col gap-10 "
                     + ("mx-auto w-full max-w-2xl" if template == "compact" else "")}
             >
                 {len(sections) == 0
