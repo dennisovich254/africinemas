@@ -90,7 +90,7 @@ test "an owner picks a template, fills in a section, previews it and publishes" 
                 f"document.querySelector('{MESSAGE}').innerText.includes('Draft saved')"
             );
             _publish(page);
-            assert "is live" in page.inner_text('[data-testid="home-status"]');
+            page.wait_for_selector('[data-testid="home-status"]:has-text("is live")');
             page.goto(f"{BASE_URL}/c/{owner['slug']}");
             page.wait_for_selector(
                 '[data-testid="home-page"][data-template="schedule"]'

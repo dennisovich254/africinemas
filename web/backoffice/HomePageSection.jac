@@ -292,8 +292,8 @@ def:pub HomePageSection(slug: str) -> JsxElement {
             set_message(answer["error"]["message"]);
             return;
         }
-        set_message(f"Version {answer['version']} is live on your storefront.");
         await reload_versions();
+        set_message(f"Version {answer['version']} is live on your storefront.");
     }
 
     async def restore(version: int) {
