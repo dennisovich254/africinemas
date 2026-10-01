@@ -144,7 +144,7 @@ def _screening_at(owner: dict[str, str], day: str, clock: str, publish: bool) ->
 
 def _add_screening(page: any, day: str, clock: str) {  # jac:ignore[W1037]
     page.click('button:has-text("Add screening")');
-    page.select_option("#screening-movie", label="Rafiki");
+    page.select_option("#screening-movie", label="Rafiki (83 min)");
     _type(page, "#screening-date", day);
     _type(page, "#screening-time", clock);
     page.click('button:has-text("Create screening")');
@@ -158,7 +158,7 @@ test "a screening is added, published and appears on the storefront" {
             page = _page(browser, pw, project);
             _sign_in(page, owner["email"]);
             _open(page, owner["slug"], "screenings", PROGRAMME);
-            assert page.is_visible('text="No screenings on Screen 1 yet"');
+            page.wait_for_selector('text="No screenings on Screen 1 yet"');
             assert page.locator("#screening-movie").count() == 0 , "the form starts folded";
             _add_screening(page, _day(2), "19:30");
             row = page.locator(ROW, has_text="Rafiki");
