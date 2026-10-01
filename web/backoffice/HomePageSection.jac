@@ -76,6 +76,7 @@ def:pub HomePageSection(slug: str) -> JsxElement {
     [preview, set_preview] = useState(None);
     [tz, set_tz] = useState("Africa/Nairobi");
     [device, set_device] = useState("phone");
+    [view, set_view] = useState("edit");
     [photos, set_photos] = useState([]);
     [thumbs, set_thumbs] = useState({});
     [theme_css, set_theme_css] = useState("");
@@ -611,9 +612,12 @@ def:pub HomePageSection(slug: str) -> JsxElement {
     </section>;
 
     shown: dict[str, any] | None = preview;  # jac:ignore[W1037]
-    preview_box = <div className="flex flex-col gap-3">
+    shown_template: str = shown["template"] if shown is not None else "";
+    preview_box = <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-semibold">Preview</h3>
+            <p className="text-sm text-muted-foreground">
+                Your draft, filled with today's programme, in your published theme.
+            </p>
             <div role="group" aria-label="Preview size" className="flex gap-2">
                 {[
                     <Button
@@ -628,12 +632,17 @@ def:pub HomePageSection(slug: str) -> JsxElement {
                 ]}
             </div>
         </div>
+        {invalid
+            and <p role="alert" className="text-sm text-destructive">
+                Your draft has problems to fix on the Edit tab, so this shows the last version without them.
+            </p>}
         <div
             data-surface="storefront"
             data-testid="home-preview"
-            data-template={shown["template"] if shown is not None else ""}
-            className={"overflow-hidden rounded-xl border bg-background p-4 text-foreground "
-                + ("mx-auto w-full max-w-[375px]" if device == "phone" else "w-full")}
+            data-template={shown_template}
+            data-device={device}
+            className={"mx-auto w-full overflow-hidden rounded-xl border bg-background p-4 text-foreground "
+                + ("max-w-[375px]" if device == "phone" else "max-w-5xl")}
         >
             {shown is None
                 and <p role="status" className="text-sm text-muted-foreground">
@@ -643,20 +652,28 @@ def:pub HomePageSection(slug: str) -> JsxElement {
                 and <p className="text-sm text-muted-foreground">
                     Nothing to show yet: add showtimes or fill in a section.
                 </p>}{shown is not None
-                and <div className="flex flex-col gap-8">
+                and <div
+                    className={"@container flex flex-col gap-8 "
+                        + (
+                            "mx-auto w-full max-w-2xl"
+                                if shown_template == "compact"
+                                else ""
+                        )}
+                >
                     {[
                         <HomeSection
                             key={s["type"]}
                             slug={slug}
                             section={s}
                             tz={tz}
-                            template={shown["template"]}
+                            template={shown_template}
                         /> for s in shown["sections"]
                     ]}
                 </div>}
         </div>
     </div>;
 
+    tabs = [("edit", "Edit"), ("preview", "Preview")];
     return
         <div className="flex flex-col gap-6" data-testid="home-editor">
             <div className="flex flex-wrap items-center gap-3">
@@ -673,13 +690,39 @@ def:pub HomePageSection(slug: str) -> JsxElement {
                     View your storefront
                 </a>
             </div>
-            <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                <div className="flex min-w-0 flex-col gap-8">
-                    {templates}{section_list}{actions}{history}
-                </div>
-                <div className="min-w-0 xl:sticky xl:top-8 xl:self-start">
-                    {preview_box}
-                </div>
+            {actions}
+            <div role="tablist" aria-label="Home page" className="flex gap-2 border-b">
+                {[
+                    <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        id={f"home-tab-{key}"}
+                        data-testid={f"home-tab-{key}"}
+                        aria-selected={"true" if view == key else "false"}
+                        aria-controls={f"home-panel-{key}"}
+                        onClick={lambda { set_view(key); }}
+                        className={"-mb-px inline-flex min-h-11 items-center border-b-2 px-4 text-sm font-medium "
+                            + (
+                                "border-primary text-foreground"
+                                    if view == key
+                                    else "border-transparent text-muted-foreground hover:text-foreground"
+                            )}
+                    >
+                        {label}
+                    </button> for (key, label) in tabs
+                ]}
+            </div>
+            <div
+                role="tabpanel"
+                id={f"home-panel-{view}"}
+                aria-labelledby={f"home-tab-{view}"}
+                className="min-w-0"
+            >
+                {view == "edit"
+                    and <div className="flex max-w-3xl flex-col gap-8">
+                        {templates}{section_list}{history}
+                    </div>}{view == "preview" and preview_box}
             </div>
         </div>;
 }

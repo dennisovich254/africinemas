@@ -1,7 +1,7 @@
 """P4.1b E2E: the home page editor (Settings › Home page).
 
-An owner picks a template, shows, hides, reorders and fills in sections, watching the
-live preview, then publishes; the storefront follows. A problem shows under its field
+An owner picks a template, shows, hides, reorders and fills in sections on the Edit tab,
+checks the Preview tab (phone or desktop), then publishes; the storefront follows. A problem shows under its field
 and stops publishing. Earlier versions can be restored, and About photos uploaded.
 """
 
@@ -43,7 +43,7 @@ def _editor(
     owner: dict[str, str],
     scheme: str = "light"
 ) -> any {  # jac:ignore[W1037]
-    # Signs in as the owner and opens Settings › Home page.
+    # Signs in as the owner and opens Settings › Home page, on the Edit tab.
     page = browser.new_context(**context_options(pw, project, scheme)).new_page();
     page.goto(BASE_URL + "/login");
     _type(page, "#email", owner["email"]);
@@ -53,8 +53,18 @@ def _editor(
     page.goto(f"{BASE_URL}/app/{owner['slug']}/settings");
     page.click('[data-testid="settings-tab-home-page"]');
     page.wait_for_selector(EDITOR);
-    page.wait_for_selector(f"{PREVIEW} [data-testid^=section-]");
+    page.wait_for_selector('[data-testid="edit-hero"]');
     return page;
+}
+
+def _tab(page: any, name: str) {  # jac:ignore[W1037]
+    # Switches to the Edit or Preview tab; the preview waits until it has drawn.
+    page.click(f'[data-testid="home-tab-{name}"]');
+    if name == "preview" {
+        page.wait_for_selector(f"{PREVIEW} [data-testid^=section-]");
+    } else {
+        page.wait_for_selector('[data-testid="edit-hero"]');
+    }
 }
 
 def _open_section(page: any, kind: str) {  # jac:ignore[W1037]
@@ -64,6 +74,12 @@ def _open_section(page: any, kind: str) {  # jac:ignore[W1037]
 def _preview_has(page: any, text: str) {  # jac:ignore[W1037]
     page.wait_for_function(
         f"document.querySelector('{PREVIEW}').innerText.includes({text!r})"
+    );
+}
+
+def _preview_order(page: any, order: list[str]) {  # jac:ignore[W1037]
+    page.wait_for_function(
+        f"JSON.stringify({PREVIEW_ORDER_JS}) === JSON.stringify({order!r})"
     );
 }
 
@@ -83,9 +99,10 @@ test "an owner picks a template, fills in a section, previews it and publishes" 
             owner = cinema_with_programme();
             page = _editor(browser, pw, project, owner);
             page.click('label:has-text("Schedule")');
-            page.wait_for_selector(f'{PREVIEW}[data-template="schedule"]');
             _open_section(page, "about");
             _type(page, "#home-4-text", "A family-run cinema since 1998.");
+            _tab(page, "preview");
+            page.wait_for_selector(f'{PREVIEW}[data-template="schedule"]');
             _preview_has(page, "A family-run cinema since 1998.");
             page.click('button:has-text("Save draft")');
             page.wait_for_function(
@@ -106,21 +123,38 @@ test "an owner picks a template, fills in a section, previews it and publishes" 
     }
 }
 
+test "the preview lays out like a phone or a desktop, whatever the window" {
+    owner = cinema_with_programme();
+    (pw, browser) = shared_browser();
+    try {
+        page = _editor(browser, pw, "desktop", owner);
+        _tab(page, "preview");
+        card_columns = "getComputedStyle(document.querySelector('[data-testid=home-preview] [data-testid=movie-card]')).gridTemplateColumns.split(' ')[0]";
+        assert page.get_attribute(PREVIEW, "data-device") == "phone";
+        assert page.evaluate(card_columns) == "96px";  # the phone layout's 6rem poster
+        page.click('[aria-label="Preview size"] button:has-text("Desktop")');
+        page.wait_for_function(f"{card_columns} === '120px'");  # 7.5rem from @xl up
+    } finally {
+        close_contexts(browser);
+    }
+}
+
 test "hiding and moving sections changes the preview, then the storefront" {
     owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
         page = _editor(browser, pw, "desktop", owner);
         # Marquee's default order: Featured movie, Now showing, Coming soon, Today, …
-        assert page.evaluate(PREVIEW_ORDER_JS) == ["hero", "now_showing"];
+        _tab(page, "preview");
+        _preview_order(page, ["hero", "now_showing"]);
+        _tab(page, "edit");
         page.click('[aria-label="Move Now showing up"]');
-        page.wait_for_function(
-            f"JSON.stringify({PREVIEW_ORDER_JS}) === JSON.stringify(['now_showing', 'hero'])"
-        );
+        _tab(page, "preview");
+        _preview_order(page, ["now_showing", "hero"]);
+        _tab(page, "edit");
         page.uncheck('[data-testid="edit-hero"] input[type="checkbox"]');
-        page.wait_for_function(
-            f"JSON.stringify({PREVIEW_ORDER_JS}) === JSON.stringify(['now_showing'])"
-        );
+        _tab(page, "preview");
+        _preview_order(page, ["now_showing"]);
         _publish(page);
         page.goto(f"{BASE_URL}/c/{owner['slug']}");
         page.wait_for_selector('[data-testid="section-now_showing"]');
@@ -156,11 +190,15 @@ test "an owner restores an earlier version of the page" {
     try {
         page = _editor(browser, pw, "desktop", owner);
         page.click('label:has-text("Compact")');
+        _tab(page, "preview");
         page.wait_for_selector(f'{PREVIEW}[data-template="compact"]');
         _publish(page);
+        _tab(page, "edit");
         page.click('label:has-text("Schedule")');
+        _tab(page, "preview");
         page.wait_for_selector(f'{PREVIEW}[data-template="schedule"]');
         _publish(page);
+        _tab(page, "edit");
         page.click('button:has-text("Restore version 1")');
         page.wait_for_selector('[data-testid="home-restore-confirm"]');
         page.click(
@@ -169,8 +207,9 @@ test "an owner restores an earlier version of the page" {
         page.wait_for_function(
             f"document.querySelector('{MESSAGE}').innerText.includes('as version 3')"
         );
-        page.wait_for_selector(f'{PREVIEW}[data-template="compact"]');
         assert page.locator('[data-testid="home-versions"] li').count() == 3;
+        _tab(page, "preview");
+        page.wait_for_selector(f'{PREVIEW}[data-template="compact"]');
     } finally {
         close_contexts(browser);
     }
@@ -193,6 +232,7 @@ test "an owner uploads a photo and shows it in About" {
         );
         page.wait_for_selector('[data-testid="home-photo"] img');
         page.check('[data-testid="home-photo"] input[type="checkbox"]');
+        _tab(page, "preview");
         page.wait_for_selector(f'{PREVIEW} [data-testid="about-photos"] img');
         _publish(page);
         page.goto(f"{BASE_URL}/c/{owner['slug']}");
@@ -215,6 +255,9 @@ test "the home page editor passes the phone checks" {
         page.click('button:has-text("Add opening hours")');
         page.click('button:has-text("Add question")');
         assert page.evaluate(OVERFLOW_JS) <= 0 , "the editor scrolls sideways";
+        assert page.evaluate(SMALL_TARGETS_JS) == [] , page.evaluate(SMALL_TARGETS_JS);
+        _tab(page, "preview");
+        assert page.evaluate(OVERFLOW_JS) <= 0 , "the preview scrolls sideways";
         assert page.evaluate(SMALL_TARGETS_JS) == [] , page.evaluate(SMALL_TARGETS_JS);
         assert "jac:ignore" not in page.inner_text("body");
     } finally {
@@ -240,6 +283,19 @@ test "review screenshots of the home page editor" {
                 page.screenshot(
                     path=artifact(f"home-editor-{width}-{scheme}.png"), full_page=True
                 );
+                _tab(page, "preview");
+                for device in ["Phone", "Desktop"] {
+                    page.click(
+                        f'[aria-label="Preview size"] button:has-text("{device}")'
+                    );
+                    page.wait_for_timeout(300);
+                    page.screenshot(
+                        path=artifact(
+                            f"home-preview-{device.lower()}-{width}-{scheme}.png"
+                        ),
+                        full_page=True
+                    );
+                }
                 page.context.close();
             }
         }

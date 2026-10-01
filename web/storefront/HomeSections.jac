@@ -5,6 +5,10 @@ featured movie and lays what's on in two columns, Schedule leads with today's sh
 and lists movies in one column, and Compact is one narrow scrolling list. A section's
 own title replaces its default heading. Text is shown as plain text, with its line
 breaks; links to other sites open in a new tab.
+
+Sections lay out by the width of their container (Tailwind container queries: @xl is
+36rem, @4xl is 56rem), not the window's, so they look the same on the storefront and
+in the editor's preview at any size. The page puts them in an `@container`.
 """
 
 import from react { useState, useEffect }
@@ -30,7 +34,7 @@ def heading_of(section: dict[str, any]) -> str {  # jac:ignore[W1037]
 }
 
 def SectionHeading(text: str) -> JsxElement {
-    return <h2 className="font-display text-3xl leading-none sm:text-4xl">{text}</h2>;
+    return <h2 className="font-display text-3xl leading-none @xl:text-4xl">{text}</h2>;
 }
 
 def:pub MovieCard(slug: str, movie: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
@@ -38,7 +42,7 @@ def:pub MovieCard(slug: str, movie: dict[str, any], tz: str) -> JsxElement {  # 
     return
         <li
             data-testid="movie-card"
-            className="grid grid-cols-[6rem_1fr] gap-4 rounded-lg border bg-card p-4 sm:grid-cols-[7.5rem_1fr]"
+            className="grid grid-cols-[6rem_1fr] gap-4 rounded-lg border bg-card p-4 @xl:grid-cols-[7.5rem_1fr]"
         >
             <Poster
                 slug={slug}
@@ -83,17 +87,17 @@ def Hero(slug: str, section: dict[str, any], template: str) -> JsxElement {  # j
     on_sale: bool = movie is not None and "next" in movie;
     columns: str = "";
     if movie is not None {
-        columns = "sm:grid-cols-[14rem_1fr] lg:grid-cols-[18rem_1fr]"
+        columns = "@xl:grid-cols-[14rem_1fr] @4xl:grid-cols-[18rem_1fr]"
             if big
             else "grid-cols-[6rem_1fr]";
     }
     return
         <section
             data-testid="section-hero"
-            className={f"grid gap-6 rounded-lg border bg-card p-4 sm:p-6 {columns}"}
+            className={f"grid gap-6 rounded-lg border bg-card p-4 @xl:p-6 {columns}"}
         >
             {movie is not None
-                and <div className={"w-40 sm:w-full" if big else ""}>
+                and <div className={"w-40 @xl:w-full" if big else ""}>
                     <Poster
                         slug={slug}
                         movie_key={movie["movie_key"]}
@@ -103,7 +107,7 @@ def Hero(slug: str, section: dict[str, any], template: str) -> JsxElement {  # j
             <div className="flex min-w-0 flex-col justify-center gap-3">
                 <h2
                     className={"font-display leading-none "
-                        + ("text-4xl sm:text-5xl" if big else "text-3xl")}
+                        + ("text-4xl @xl:text-5xl" if big else "text-3xl")}
                 >
                     {fields["headline"]
                         or (movie["title"] if movie is not None else "")}
@@ -176,7 +180,7 @@ def NowShowing(
             <SectionHeading text={heading_of(section)}/>
             <ul
                 className={"grid gap-4 "
-                    + ("lg:grid-cols-2" if template == "marquee" else "")}
+                    + ("@4xl:grid-cols-2" if template == "marquee" else "")}
             >
                 {[
                     <MovieCard key={m["movie_key"]} slug={slug} movie={m} tz={tz}/>
@@ -194,7 +198,7 @@ def ComingSoon(slug: str, section: dict[str, any], template: str) -> JsxElement 
             <ul
                 className={"grid gap-4 "
                     + (
-                        "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                        "grid-cols-2 @xl:grid-cols-3 @4xl:grid-cols-4"
                             if template != "compact"
                             else "grid-cols-2"
                     )}
@@ -269,7 +273,7 @@ def About(slug: str, section: dict[str, any]) -> JsxElement {  # jac:ignore[W103
             {len(photos) > 0
                 and <div
                     data-testid="about-photos"
-                    className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+                    className="grid grid-cols-2 gap-3 @xl:grid-cols-4"
                 >
                     {[
                         <HomePhoto
