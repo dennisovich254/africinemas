@@ -7,10 +7,6 @@ works at every step, and a link to a movie or showtime that isn't on sale says s
 leads back to the cinema. The theme tests (e2e/branding_tests.jac) check the colours.
 """
 
-import io;
-import base64;
-import from datetime { datetime, timedelta }
-import from PIL { Image }
 import from e2e.support.web {
     shared_browser,
     close_contexts,
@@ -19,7 +15,7 @@ import from e2e.support.web {
     context_options,
     artifact
 }
-import from e2e.support.api { call, owner_with_cinema, add_venue, add_screen }
+import from e2e.support.catalog { cinema_with_programme }
 
 glob STOREFRONT: str = '[data-testid="storefront"]',
      CARD: str = '[data-testid="movie-card"]',
@@ -38,94 +34,6 @@ glob STOREFRONT: str = '[data-testid="storefront"]',
      HEADINGS_JS: str = "[...document.querySelectorAll('h1,h2,h3,h4')].map(h => +h.tagName[1])",
      POSTER_LOADED_JS: str = "e => e.complete && e.naturalWidth > 0";
 
-def _day(days_ahead: int) -> str {
-    return (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d");
-}
-
-def _poster -> str {
-    out = io.BytesIO();
-    Image.new("RGB", (400, 600), "#7A2E3B").save(out, format="PNG");
-    return base64.b64encode(out.getvalue()).decode();
-}
-
-def _movie(owner: dict[str, str], title: str, synopsis: str) -> str {
-    made = call(
-        owner["token"],
-        "create_movie",
-        {
-            "tenant": owner["slug"],
-            "title": title,
-            "synopsis": synopsis,
-            "runtime_minutes": 83,
-            "age_rating": "16",
-            "genres": ["Drama"],
-            "language": "English, Swahili"
-        }
-    );
-    assert made["ok"] , made;
-    return made["movie"]["movie_id"];
-}
-
-def _show(owner: dict[str, str], movie: str, day: str, clock: str) -> str {
-    made = call(
-        owner["token"],
-        "create_screening",
-        {
-            "tenant": owner["slug"],
-            "auditorium_id": owner["screen"],
-            "movie_id": movie,
-            "starts_at": f"{day}T{clock}:00+03:00"
-        }
-    );
-    assert made["ok"] , made;
-    sid = made["screening"]["screening_id"];
-    for step in ["schedule_screening", "publish_screening"] {
-        assert call(
-            owner["token"], step, {"tenant": owner["slug"], "screening_id": sid}
-        )["ok"];
-    }
-    return sid;
-}
-
-def _cinema -> dict[str, str] {
-    # A cinema showing Rafiki (with a poster) twice over two days, and Supa Modo once.
-    owner = owner_with_cinema();
-    venue = add_venue(owner, "Westgate");
-    owner["screen"] = add_screen(owner, venue, "Screen 1");
-    assert call(
-        owner["token"],
-        "save_layout",
-        {
-            "tenant": owner["slug"],
-            "auditorium_id": owner["screen"],
-            "rows": 1,
-            "cols": 3,
-            "seats": [{"label": f"A{i + 1}", "row": 0, "col": i} for i in range(3)]
-        }
-    )["ok"];
-    assert call(
-        owner["token"],
-        "publish_layout",
-        {"tenant": owner["slug"], "auditorium_id": owner["screen"]}
-    )["ok"];
-    rafiki = _movie(owner, "Rafiki", "Two young women in Nairobi fall in love.");
-    supa = _movie(owner, "Supa Modo", "A young girl dreams of being a superhero.");
-    assert call(
-        owner["token"],
-        "upload_poster",
-        {
-            "tenant": owner["slug"],
-            "movie_id": rafiki,
-            "content_type": "image/png",
-            "data_base64": _poster()
-        }
-    )["ok"];
-    owner["first"] = _show(owner, rafiki, _day(2), "18:15");
-    _show(owner, supa, _day(2), "21:00");
-    owner["second"] = _show(owner, rafiki, _day(3), "20:00");
-    return owner;
-}
-
 def _page(browser: any, pw: any, project: str, scheme: str = "light") -> any {  # jac:ignore[W1037]
     return browser.new_context(**context_options(pw, project, scheme)).new_page();
 }
@@ -136,7 +44,7 @@ def _home(page: any, slug: str) {  # jac:ignore[W1037]
 }
 
 test "a visitor goes from the movie list to a movie and one of its showtimes, and back" {
-    owner = _cinema();
+    owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
         for project in PROJECTS {
@@ -177,7 +85,7 @@ test "a visitor goes from the movie list to a movie and one of its showtimes, an
 }
 
 test "a showtime on the movie list leads straight to it, and back to its movie" {
-    owner = _cinema();
+    owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
         page = _page(browser, pw, "mobile");
@@ -195,7 +103,7 @@ test "a showtime on the movie list leads straight to it, and back to its movie" 
 }
 
 test "a link to a movie or showtime that isn't on sale says so and leads back" {
-    owner = _cinema();
+    owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
         page = _page(browser, pw, "desktop");
@@ -230,7 +138,7 @@ def _paths(owner: dict[str, str], page: any) -> list[tuple[str, str, str]] {  # 
 }
 
 test "the storefront pages pass the phone checks" {
-    owner = _cinema();
+    owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
         page = browser.new_context(
@@ -258,7 +166,7 @@ test "the storefront pages pass the phone checks" {
 }
 
 test "review screenshots of the storefront pages" {
-    owner = _cinema();
+    owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
         paths = _paths(owner, browser.new_page());
