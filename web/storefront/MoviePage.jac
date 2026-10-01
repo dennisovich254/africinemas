@@ -12,7 +12,7 @@ import from .StorefrontShell { StorefrontShell, Loading, NotOnSale }
 import from .StorefrontParts { Poster, ShowtimeLink }
 import from .showtimes { details_line, by_day }
 
-def DayGroup(slug: str, group: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+def DayGroup(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
     # One day's showtimes, under the day's name.
     showtimes: list[dict[str, any]] = group["showtimes"];  # jac:ignore[W1037]
     day: str = group["day"];
@@ -22,7 +22,12 @@ def DayGroup(slug: str, group: dict[str, any]) -> JsxElement {  # jac:ignore[W10
             <ul className="flex flex-wrap gap-2">
                 {[
                     <li key={s["screening_id"]}>
-                        <ShowtimeLink slug={slug} showtime={s} with_place={True}/>
+                        <ShowtimeLink
+                            slug={slug}
+                            showtime={s}
+                            tz={tz}
+                            with_place={True}
+                        />
                     </li> for s in showtimes
                 ]}
             </ul>
@@ -66,7 +71,8 @@ def:pub MoviePage -> JsxElement {
             </StorefrontShell>;
     }
     movie: dict[str, any] = found["movie"];  # jac:ignore[W1037]
-    days: list[dict[str, any]] = by_day(found["screenings"]);  # jac:ignore[W1037]
+    tz: str = found["cinema"]["timezone"];
+    days: list[dict[str, any]] = by_day(found["screenings"], tz);  # jac:ignore[W1037]
     return
         <StorefrontShell slug={slug}>
             <div data-testid="movie-page" className="flex flex-col gap-8">
@@ -110,7 +116,10 @@ def:pub MoviePage -> JsxElement {
                     >
                         Showtimes
                     </h3>
-                    {[<DayGroup key={d["day"]} slug={slug} group={d}/> for d in days]}
+                    {[
+                        <DayGroup key={d["day"]} slug={slug} group={d} tz={tz}/>
+                        for d in days
+                    ]}
                 </section>
             </div>
         </StorefrontShell>;

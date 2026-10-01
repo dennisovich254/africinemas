@@ -52,6 +52,7 @@ def:pub Poster(
 def:pub ShowtimeLink(
     slug: str,
     showtime: dict[str, any],  # jac:ignore[W1037]
+    tz: str,
     with_day: bool = False,
     with_place: bool = False
 ) -> JsxElement {
@@ -65,8 +66,8 @@ def:pub ShowtimeLink(
             className="inline-flex min-h-11 min-w-11 flex-col justify-center rounded-md border bg-background px-3 py-1.5 text-left transition-colors hover:border-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
             <span className="font-medium tabular-nums">
-                {f"{day_label(starts_at)} · " if with_day else ""}{time_label(
-                    starts_at
+                {f"{day_label(starts_at, tz)} · " if with_day else ""}{time_label(
+                    starts_at, tz
                 )}
             </span>
             {with_place

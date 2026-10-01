@@ -12,7 +12,9 @@ import base64;
 import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.responses { NOT_FOUND, refused }
-import from core.catalog.models { StorefrontScreening }
+import from core.tenancy.principal { node_id, act_as, restore }
+import from core.catalog.models { PriceList, StorefrontScreening }
+import from core.catalog.pricing { DEFAULT_TIMEZONE }
 import from core.catalog.storefront { upcoming, showtime, public_view }
 import from core.catalog.venues { find_screening, find_movie }
 import from core.catalog.poster { media_store }
@@ -20,8 +22,29 @@ import from core.catalog.poster { media_store }
 # How many of a movie's next showtimes the home page lists.
 glob NEXT_SHOWTIMES: int = 6;
 
+def _timezone(tenant: Tenant) -> str {
+    # The cinema's time zone, from its price list (P3.6), for showing showtimes in the
+    # cinema's local time wherever the visitor is.
+    if not tenant.price_list_id {
+        return DEFAULT_TIMEZONE;
+    }
+    me = node_id(root);
+    act_as(tenant.principal_root_id);
+    try {
+        found: any = jobj(tenant.price_list_id);  # jac:ignore[W1037]
+    } except Exception {
+        found = None;
+    } finally {
+        restore(me);
+    }
+    if not isinstance(found, PriceList) {
+        return DEFAULT_TIMEZONE;
+    }
+    return (found as PriceList).data.get("timezone") or DEFAULT_TIMEZONE;
+}
+
 def _cinema(tenant: Tenant) -> dict[str, str] {
-    return {"name": tenant.name, "slug": tenant.slug};
+    return {"name": tenant.name, "slug": tenant.slug, "timezone": _timezone(tenant)};
 }
 
 def _showing(tenant: Tenant, movie_key: str) -> list[StorefrontScreening] {

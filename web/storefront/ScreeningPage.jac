@@ -60,6 +60,7 @@ def:pub ScreeningPage -> JsxElement {
     screening: dict[str, any] = found["screening"];  # jac:ignore[W1037]
     movie: dict[str, any] = screening["movie"];  # jac:ignore[W1037]
     starts_at: str = screening["starts_at"];
+    tz: str = found["cinema"]["timezone"];
     return
         <StorefrontShell slug={slug}>
             <div data-testid="screening-page" className="flex flex-col gap-8">
@@ -88,10 +89,10 @@ def:pub ScreeningPage -> JsxElement {
                     </div>
                 </div>
                 <dl className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-3">
-                    <Fact name="Day" text={long_day_label(starts_at)}/>
+                    <Fact name="Day" text={long_day_label(starts_at, tz)}/>
                     <Fact
                         name="Time"
-                        text={time_label(starts_at)}
+                        text={time_label(starts_at, tz)}
                         testid="screening-time"
                     />
                     <Fact name="Where" text={where_label(screening)}/>

@@ -13,7 +13,7 @@ import from .StorefrontShell { StorefrontShell, Loading }
 import from .StorefrontParts { Poster, ShowtimeLink }
 import from .showtimes { details_line }
 
-def MovieCard(slug: str, movie: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+def MovieCard(slug: str, movie: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
     showtimes: list[dict[str, any]] = movie["next"];  # jac:ignore[W1037]
     return
         <li
@@ -42,7 +42,12 @@ def MovieCard(slug: str, movie: dict[str, any]) -> JsxElement {  # jac:ignore[W1
                 <ul aria-label="Next showtimes" className="flex flex-wrap gap-2">
                     {[
                         <li key={s["screening_id"]}>
-                            <ShowtimeLink slug={slug} showtime={s} with_day={True}/>
+                            <ShowtimeLink
+                                slug={slug}
+                                showtime={s}
+                                tz={tz}
+                                with_day={True}
+                            />
                         </li> for s in showtimes
                     ]}
                 </ul>
@@ -54,6 +59,7 @@ def:pub StorefrontPage -> JsxElement {
     params: any = useParams();  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     [movies, set_movies] = useState(None);
+    [tz, set_tz] = useState("Africa/Nairobi");
 
     async def load {
         home: any = None;  # jac:ignore[W1037]
@@ -63,6 +69,9 @@ def:pub StorefrontPage -> JsxElement {
             console.warn("storefront load failed", e);
             set_movies([]);
             return;
+        }
+        if home["ok"] {
+            set_tz(home["cinema"]["timezone"]);
         }
         set_movies(home["movies"] if home["ok"] else []);
     }
@@ -89,7 +98,7 @@ def:pub StorefrontPage -> JsxElement {
                 and len(listed) > 0
                 and <ul className="grid gap-4 lg:grid-cols-2">
                     {[
-                        <MovieCard key={m["movie_key"]} slug={slug} movie={m}/>
+                        <MovieCard key={m["movie_key"]} slug={slug} movie={m} tz={tz}/>
                         for m in listed
                     ]}
                 </ul>}

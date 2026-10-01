@@ -43,6 +43,12 @@ glob MAIN: str = path.join(
          "runtime_minutes",
          "title"
      ],
+     # Showtimes are shown in the cinema's time zone, from its price list (P3.6).
+     NOVA_CINEMA: dict[str, str] = {
+         "name": "Nova Cinemas",
+         "slug": "nova",
+         "timezone": "Africa/Nairobi"
+     },
      SHOWTIME_KEYS: list[str] = ["screen", "screening_id", "starts_at", "venue"];
 
 def _nova(names: list[str] | None = None) -> tuple[Served, Cinema] {  # jac:ignore[W1037]
@@ -82,8 +88,7 @@ test "the home page lists each movie on sale once, earliest first, with its next
         add_screening(app, "owner", nova, "Rafiki", 9, state="scheduled");
         add_screening(app, "owner", nova, "Kati Kati", 12, state="draft");
         home = _home(app);
-        assert home["ok"]
-            and home["cinema"] == {"name": "Nova Cinemas", "slug": "nova"} , home;
+        assert home["ok"] and home["cinema"] == NOVA_CINEMA , home;
         assert [m["title"] for m in home["movies"]] == ["Rafiki", "Supa Modo"] , home;
         rafiki = home["movies"][0];
         assert sorted(rafiki.keys()) == MOVIE_KEYS , sorted(rafiki.keys());
@@ -115,7 +120,7 @@ test "a movie page shows the movie and its published showtimes only" {
         key = _key(app, "Rafiki");
         page = browse(app, "public_movie", {"slug": "nova", "movie_key": key});
         assert page["ok"] , page;
-        assert page["cinema"] == {"name": "Nova Cinemas", "slug": "nova"};
+        assert page["cinema"] == NOVA_CINEMA;
         assert page["movie"]["title"] == "Rafiki"
             and page["movie"]["synopsis"] == "About Rafiki."
             and page["movie"]["movie_key"] == key , page["movie"];
@@ -253,5 +258,28 @@ test "a poster is public while its movie is on sale, and follows new uploads" {
         os.environ.pop(MEDIA_ENV, None);
         app.close();
         shutil.rmtree(media, ignore_errors=True);
+    }
+}
+
+test "showtimes come with the cinema's own time zone, from its price list" {
+    (app, nova) = _nova();
+    try {
+        add_screening(app, "owner", nova, "Rafiki", 0);
+        saved = app.call(
+            "owner",
+            "save_price_list",
+            {
+                "tenant": "nova",
+                "timezone": "Africa/Lagos",
+                "ticket_types": [{"code": "ADULT", "name": "Adult"}],
+                "prices": [],
+                "surcharges": [],
+                "service_fee_cents": 0
+            }
+        );
+        assert saved["ok"] , saved;
+        assert _home(app)["cinema"]["timezone"] == "Africa/Lagos";
+    } finally {
+        app.close();
     }
 }
