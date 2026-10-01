@@ -12,6 +12,7 @@ been authorized.
 
 import from uuid { uuid4 }
 import from datetime { datetime }
+import from zoneinfo { ZoneInfo }
 import from jaclang { JacRuntime as Jac }
 import from core.clock { now }
 import from core.tenancy.models { Tenant }
@@ -101,7 +102,7 @@ def _seat_map(layout: SeatLayout | None) -> dict[str, any] {  # jac:ignore[W1037
     };
 }
 
-def _give_public_key(movie: Movie | None) {
+def give_public_key(movie: Movie | None) {
     # Names the movie on the storefront. Call as the cinema's principal.
     if movie is not None and not movie.public_key {
         movie.public_key = uuid4().hex;
@@ -113,7 +114,7 @@ def project(tenant: Tenant, screening: Screening) {
     me = node_id(root);
     act_as(tenant.principal_root_id);
     try {
-        _give_public_key(find_movie(tenant, screening.movie_id));
+        give_public_key(find_movie(tenant, screening.movie_id));
         fields = _public_fields(tenant, screening);
         storefront = _storefront(tenant);
         existing = [
@@ -247,5 +248,56 @@ def showtime(shown: StorefrontScreening) -> dict[str, any] {  # jac:ignore[W1037
         "starts_at": shown.starts_at,
         "venue": shown.venue,
         "screen": shown.screen
+    };
+}
+
+def on_day(
+    entries: list[StorefrontScreening], at: datetime, tz: str
+) -> list[StorefrontScreening] {
+    # The entries starting on `at`'s calendar day in the cinema's time zone `tz`.
+    zone = ZoneInfo(tz);
+    day = at.astimezone(zone).date();
+    return [
+        e
+        for e in entries
+        if datetime.fromisoformat(e.starts_at).astimezone(zone).date() == day
+    ];
+}
+
+def set_home(tenant: Tenant, page: dict[str, any]) {  # jac:ignore[W1037]
+    # Puts the cinema's published home page (movies named by key) on its storefront.
+    me = node_id(root);
+    act_as(tenant.principal_root_id);
+    try {
+        storefront = _storefront(tenant);
+        storefront.home = page;
+        flush_now();
+    } finally {
+        restore(me);
+    }
+}
+
+def home_of(tenant: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
+    # The storefront's published home page, as anyone may read it; {} for the default.
+    storefront = _read(tenant.storefront_id);
+    if not isinstance(storefront, Storefront) {
+        return {};
+    }
+    return dict((storefront as Storefront).home);
+}
+
+def movies_by_key(tenant: Tenant) -> dict[str, Movie] {
+    # The cinema's movies that have a public key, by key.
+    me = node_id(root);
+    act_as(tenant.principal_root_id);
+    try {
+        found = [tenant-->[?:Movie]];
+    } finally {
+        restore(me);
+    }
+    return {
+        m.public_key: m
+        for m in found
+        if m.public_key
     };
 }
