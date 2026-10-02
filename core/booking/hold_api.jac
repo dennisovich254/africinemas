@@ -18,6 +18,9 @@ hold is one per (showtime, holder).
 - The seats' SeatSlots record the hold too (state "held", hold_expires_at, hold_id), so
   availability reads (P4.2) show it; a hold past its time lapses on every read.
 - Only showtimes on the cinema's storefront that haven't started can be held.
+- Each new hold is listed in OPEN_HOLDS (a claim per hold, owned by its cinema) before
+  it is made, so the expiry sweeper (P4.4, core/booking/sweeper.jac) finds open holds
+  without walking every showtime.
 """
 
 import os;
@@ -29,7 +32,14 @@ import from core.claims { claim, release, renew }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.groups { attach_to_tenant }
-import from core.tenancy.principal { node_id, act_as, restore, flush_now }
+import from core.tenancy.principal {
+    node_id,
+    act_as,
+    restore,
+    flush_now,
+    fresh_node_id,
+    assign_id
+}
 import from core.authz.context { NotFound }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.models { Screening, SeatSlot }
@@ -43,7 +53,8 @@ glob HOLD_ENV: str = "AFRICINEMAS_HOLD_SECONDS",
      HOLD_SECONDS: int = 480,
      MAX_SECONDS: int = 900,
      MAX_SEATS: int = 10,
-     HOLDER_PATTERN: str = "[A-Za-z0-9_-]{16,64}";
+     HOLDER_PATTERN: str = "[A-Za-z0-9_-]{16,64}",
+     OPEN_HOLDS: str = "open-hold";
 
 def _seconds(env: str, fallback: int) -> int {
     # A duration from the environment (tests shorten holds), or the default.
@@ -124,8 +135,9 @@ def _mark(slots: list[SeatSlot], labels: list[str], hold_id: str, until: str) {
     }
 }
 
-def _unmark(slots: list[SeatSlot], labels: list[str], hold_id: str) {
-    # Frees seats this hold no longer has. Call as the cinema's principal.
+def free_seats(slots: list[SeatSlot], labels: list[str], hold_id: str) {
+    # Frees seats this hold no longer has: only slots it still holds, never a paying
+    # one or one a newer hold has taken. Call as the cinema's principal.
     for x in slots {
         if x.label in labels
             and x.hold_id == hold_id
@@ -220,6 +232,13 @@ def _hold_seats(
     }
     stamp = now();
     until = (stamp + timedelta(seconds=seconds)).isoformat();
+    hold_ref = "";
+    if previous is None {
+        # Listed before it exists (ADR-0007): a hold that never commits leaves only an
+        # entry the sweeper drops.
+        hold_ref = fresh_node_id();
+        claim(OPEN_HOLDS, hold_ref, node_id(cinema));
+    }
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -231,6 +250,7 @@ def _hold_seats(
                 holder=holder,
                 created_at=stamp.isoformat()
             );
+            assign_id(hold, hold_ref);
             screening ++> hold;
             attach_to_tenant(hold, cinema);
         }
@@ -239,7 +259,7 @@ def _hold_seats(
         made.status = "held";
         made.expires_at = until;
         hold_id = node_id(made);
-        _unmark(slots, dropped, hold_id);
+        free_seats(slots, dropped, hold_id);
         _mark(slots, wanted, hold_id, until);
         flush_now();
     } finally {
@@ -272,7 +292,7 @@ def _release_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] {
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
-        _unmark(slots_of(cinema, screening), list(hold.seats), node_id(hold));
+        free_seats(slots_of(cinema, screening), list(hold.seats), node_id(hold));
         hold.status = "released";
         flush_now();
     } finally {

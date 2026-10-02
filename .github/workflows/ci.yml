@@ -74,8 +74,9 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
-    # A healthy run takes a few minutes; fail fast if the embedded Postgres hangs.
-    timeout-minutes: 12
+    # The full suite takes ~12 min (one worker; every real-server test boots its own
+    # server and Postgres). The limit leaves headroom but still stops a hung Postgres.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-jac

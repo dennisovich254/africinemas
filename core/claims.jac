@@ -116,3 +116,36 @@ def renew(namespace: str, key: str, owner: str, ttl_seconds: int) -> bool {
     }
     return make_permanent(namespace, key, owner);
 }
+
+def claims_in(namespace: str) -> list[tuple[str, str, float]] {
+    # Every claim in `namespace`, live or lapsed, as (key, owner, seconds since it was
+    # made or last changed), oldest first.
+    prefix = _key(namespace, "");
+    found = _store().rows(
+        """
+        SELECT key, value, EXTRACT(EPOCH FROM now() - updated_at) FROM kv_state
+        WHERE left(key, :n) = :p
+        ORDER BY updated_at
+        """,
+        {"n": len(prefix), "p": prefix}
+    );
+    return [(str(r[0])[len(prefix):], str(r[1]), float(r[2])) for r in found];
+}
+
+def drop_lapsed(namespace: str) -> int {
+    # Deletes the lapsed claims in `namespace` and in every namespace under it ("seat"
+    # covers "seat:<showtime>"): they hold nothing, but each leaves a row. A claim taken
+    # over at the same moment has a new expiry, so the delete passes it by. Returns how
+    # many were deleted.
+    prefix = f"{PREFIX}{namespace}:";
+    return len(
+        _store().rows(
+            """
+            DELETE FROM kv_state
+            WHERE left(key, :n) = :p AND expires_at IS NOT NULL AND expires_at <= now()
+            RETURNING key
+            """,
+            {"n": len(prefix), "p": prefix}
+        )
+    );
+}

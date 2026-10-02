@@ -94,6 +94,8 @@ import from core.homepage.home_api {
     remove_home_photo  # jac:ignore[W2037]
 }
 import from core.booking.hold_api { hold_seats, my_hold, release_hold, extend_hold }
+# The hold expiry sweeper (P4.4) runs on a schedule; importing it registers the task.
+import from core.booking.sweeper { sweep_holds }  # jac:ignore[W2037]
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]
     my_customer_profile  # jac:ignore[W2037]

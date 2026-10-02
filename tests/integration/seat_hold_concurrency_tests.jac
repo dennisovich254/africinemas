@@ -9,9 +9,8 @@ import os;
 import shutil;
 import tempfile;
 import from concurrent.futures { ThreadPoolExecutor }
-import from datetime { datetime, timedelta, timezone }
 import from pathlib { Path }
-import from tests.support.real_server { RealServer, remove_project }
+import from tests.support.real_server { RealServer, remove_project, published_showtime }
 
 glob REPO_ROOT: Path = Path(__file__).resolve().parent.parent.parent,
      RACERS: int = 50,
@@ -51,71 +50,12 @@ def _project -> str {
     return workdir;
 }
 
-def _showtime(server: RealServer) -> str {
-    # A cinema with a published three-seat showtime; returns the showtime's id.
-    owner = server.register("owner");
-    server.call("create_cinema", {"name": "Nova Cinemas", "slug": "nova"}, owner);
-    server.call("start_shift", {"tenant": "nova"}, owner);
-    venue = server.call(
-        "create_venue",
-        {"tenant": "nova", "name": "Westgate", "city": "", "address": ""},
-        owner
-    )["venue"]["venue_id"];
-    screen = server.call(
-        "create_auditorium",
-        {"tenant": "nova", "venue_id": venue, "name": "Screen 1"},
-        owner
-    )["auditorium"]["auditorium_id"];
-    server.call(
-        "save_layout",
-        {
-            "tenant": "nova",
-            "auditorium_id": screen,
-            "rows": 1,
-            "cols": 3,
-            "seats": [{"label": f"A{i + 1}", "row": 0, "col": i} for i in range(3)]
-        },
-        owner
-    );
-    server.call("publish_layout", {"tenant": "nova", "auditorium_id": screen}, owner);
-    movie = server.call(
-        "create_movie",
-        {
-            "tenant": "nova",
-            "title": "Rafiki",
-            "synopsis": "",
-            "runtime_minutes": 90,
-            "age_rating": "18",
-            "genres": [],
-            "language": ""
-        },
-        owner
-    )["movie"]["movie_id"];
-    start = (datetime.now(timezone.utc) + timedelta(days=2)).replace(microsecond=0);
-    screening = server.call(
-        "create_screening",
-        {
-            "tenant": "nova",
-            "auditorium_id": screen,
-            "movie_id": movie,
-            "starts_at": start.isoformat()
-        },
-        owner
-    )["screening"]["screening_id"];
-    for step in ["schedule_screening", "publish_screening"] {
-        assert server.call(step, {"tenant": "nova", "screening_id": screening}, owner)[
-            "ok"
-        ];
-    }
-    return screening;
-}
-
 test "fifty visitors holding one seat at once: exactly one gets it" {
     workdir = _project();
     server = RealServer(workdir=workdir, env=dict(os.environ));
     try {
         server.start();
-        screening = _showtime(server);
+        screening = published_showtime(server);
         hold = lambda (i: int) -> any { return server.call(
             "hold_seats",
             {
@@ -159,7 +99,7 @@ test "overlapping holds at once never leave anyone holding part of a request" {
     server = RealServer(workdir=workdir, env=dict(os.environ));
     try {
         server.start();
-        screening = _showtime(server);
+        screening = published_showtime(server);
         wanted = [["A1", "A2"], ["A2", "A3"]];
         hold = lambda (i: int) -> any { return server.call(
             "hold_seats",
