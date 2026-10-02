@@ -93,7 +93,7 @@ test "the hero puts the featured movie on its backdrop, and Book tickets leads t
     }
 }
 
-test "the header links jump to the page's sections, with Visit us together" {
+test "the header links the storefront's pages, and Visit us is one band" {
     owner = cinema_with_programme();
     sections = [
         {"type": "hero", "visible": True, "fields": {}},
@@ -125,20 +125,22 @@ test "the header links jump to the page's sections, with Visit us together" {
     assert call(owner["token"], "publish_home_page", {"tenant": owner["slug"]})["ok"];
     (pw, browser) = shared_browser();
     try {
-        page = _page(browser, pw, "mobile");
+        page = _page(browser, pw, "desktop");
         _home(page, owner["slug"]);
-        nav = page.locator("header nav a");
-        assert nav.all_inner_texts() == ["What's on", "Coming soon", "Visit us"];
+        nav = page.locator('header nav[aria-label="Storefront"] a');
+        assert nav.all_inner_texts() == ["Movies", "Showtimes", "Cinemas"];
         band = page.locator('[data-testid="visit-us"]');
         for kind in ["location", "contact", "faq"] {
             assert band.locator(f'[data-testid="section-{kind}"]').count() == 1 , kind;
         }
-        page.click('header nav a:has-text("Visit us")');
+        assert "Kati Kati" in page.inner_text('[data-testid="section-coming_soon"]');
+        # The footer's Visit us leads to the cinemas page, scrolled to the band.
+        page.click('footer a:has-text("Visit us")');
+        page.wait_for_selector('[data-testid="cinemas-page"]');
         page.wait_for_function("location.hash === '#visit-us'");
         page.wait_for_function(
-            "(() => { const r = document.querySelector('[data-testid=visit-us]').getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight; })()"
+            "(() => { const b = document.querySelector('[data-testid=visit-us]'); if (!b) return false; const r = b.getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight; })()"
         );
-        assert "Kati Kati" in page.inner_text('[data-testid="section-coming_soon"]');
     } finally {
         close_contexts(browser);
     }

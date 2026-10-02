@@ -117,7 +117,7 @@ test "marketing screenshots of the storefront on a phone" {
                 locale="en-KE"
             ).new_page();
             page.goto(f"{BASE_URL}/c/{owner['slug']}");
-            page.wait_for_selector('[data-testid="storefront"] li');
+            page.wait_for_selector('[data-testid="movie-card"]');
             page.evaluate("document.fonts.ready");
             page.screenshot(path=artifact(f"marketing-storefront-{scheme}.png"));
             page.context.close();

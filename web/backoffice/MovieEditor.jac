@@ -48,7 +48,8 @@ glob RATINGS: list[str] = ["GE", "PG", "16", "18", "R"],
          "runtime": "movie-runtime",
          "rating": "movie-rating",
          "genres": "movie-genres",
-         "language": "movie-language"
+         "language": "movie-language",
+         "release_date": "movie-release-date"
      },
      BLANK: dict[str, str] = {
          "title": "",
@@ -56,7 +57,8 @@ glob RATINGS: list[str] = ["GE", "PG", "16", "18", "R"],
          "runtime": "",
          "rating": "",
          "genres": "",
-         "language": ""
+         "language": "",
+         "release_date": ""
      };
 
 def:pub runtime_error(text: str) -> str {
@@ -95,7 +97,8 @@ def form_from(movie: dict[str, any]) -> dict[str, str] {  # jac:ignore[W1037]
         "runtime": str(movie["runtime_minutes"]),
         "rating": movie["age_rating"],
         "genres": ", ".join(movie["genres"]),
-        "language": movie["language"]
+        "language": movie["language"],
+        "release_date": movie.get("release_date", "") or ""
     };
 }
 
@@ -188,7 +191,8 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                     minutes,
                     values["rating"],
                     genres,
-                    values["language"]
+                    values["language"],
+                    values["release_date"]
                 );
             } else {
                 answer = await update_movie(  # jac:ignore[W2037]
@@ -199,7 +203,8 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                     minutes,
                     values["rating"],
                     genres,
-                    values["language"]
+                    values["language"],
+                    values["release_date"]
                 );
             }
         } except Exception as e {
@@ -428,6 +433,37 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                     error={field_errors[FIELDS["language"]] or ""}
                     on_value={lambda (text: str) { change("language", text); }}
                 />
+                <div className="flex min-w-0 flex-col gap-1.5">
+                    <Label htmlFor={FIELDS["release_date"]}>
+                        Release date (optional)
+                    </Label>
+                    <input
+                        id={FIELDS["release_date"]}
+                        type="date"
+                        value={values["release_date"]}
+                        aria-invalid={"true"
+                            if field_errors[FIELDS["release_date"]]
+                            else "false"}
+                        aria-describedby={"movie-release-date-error"
+                            if field_errors[FIELDS["release_date"]]
+                            else "movie-release-date-hint"}
+                        onChange={on_input(
+                            lambda (text: str) { change("release_date", text); }
+                        )}
+                        className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    />
+                    <p
+                        id="movie-release-date-hint"
+                        className="text-sm text-muted-foreground"
+                    >
+                        Shown on your storefront, for example under Coming soon.
+                    </p>
+                    {field_errors[FIELDS["release_date"]]
+                        and <FieldError
+                            field_id={FIELDS["release_date"]}
+                            error={field_errors[FIELDS["release_date"]]}
+                        />}
+                </div>
                 <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
                     <Button
                         type="submit"

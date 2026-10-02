@@ -10,6 +10,7 @@ import from "@jac/runtime" { useParams }
 import from ..shell.AppLink { AppLink }
 import from core.catalog.storefront_api { public_screening }
 import from .StorefrontShell { StorefrontShell, Loading, NotOnSale }
+import from .venue_choice { use_title }
 import from .StorefrontParts { Poster }
 import from .showtimes { long_day_label, time_label, where_label, details_line }
 
@@ -45,6 +46,13 @@ def:pub ScreeningPage -> JsxElement {
     useEffect(start_loading, [slug, screening_id]);
 
     found: dict[str, any] | None = page;  # jac:ignore[W1037]
+    use_title(
+        f"{found['screening']['movie']['title']}, {long_day_label(
+            found['screening']['starts_at'], found['cinema']['timezone']
+        )} · {found['cinema']['name']}"
+            if found is not None and found["ok"]
+            else ""
+    );
     if found is None {
         return
             <StorefrontShell slug={slug}>

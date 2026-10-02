@@ -41,8 +41,11 @@ glob MAIN: str = path.join(
          "language",
          "movie_key",
          "next",
+         "release_date",
          "runtime_minutes",
-         "title"
+         "synopsis",
+         "title",
+         "venues"
      ],
      # Showtimes are shown in the cinema's time zone, from its price list (P3.6).
      NOVA_CINEMA: dict[str, str] = {

@@ -26,6 +26,7 @@ import from core.catalog.storefront {
     showtime,
     public_view,
     by_cinema_day,
+    venues_with_screens,
     home_of,
     movies_by_key
 }
@@ -36,7 +37,9 @@ import from core.catalog.poster { media_store, media_key }
 # How many of a movie's next showtimes the home page lists.
 glob NEXT_SHOWTIMES: int = 6,
      # How many days ahead the home page's showtimes-by-day section looks (P4.1c).
-     DAYS_AHEAD: int = 7;
+     DAYS_AHEAD: int = 7,
+     # How many days ahead quick book offers showtimes (P4.1d).
+     SHOWTIME_DAYS: int = 14;
 
 def _timezone(tenant: Tenant) -> str {
     # The cinema's time zone, from its price list (P3.6), for showing showtimes in the
@@ -81,13 +84,20 @@ def _movie_card(entries: list[StorefrontScreening]) -> dict[str, any] {  # jac:i
     return {
         "movie_key": movie["movie_key"],
         "title": movie["title"],
+        # For the full-width hero, where any movie on sale can be shown (P4.1d).
+        "synopsis": movie.get("synopsis", ""),
         "age_rating": movie["age_rating"],
         "runtime_minutes": movie["runtime_minutes"],
         "genres": movie["genres"],
         "language": movie["language"],
         "has_poster": movie["has_poster"],
         "has_backdrop": movie.get("has_backdrop", False),
-        "next": [showtime(e) for e in entries[:NEXT_SHOWTIMES]]
+        "release_date": movie.get("release_date", ""),
+        "next": [showtime(e) for e in entries[:NEXT_SHOWTIMES]],
+        # The venues it's showing at, by name, for the venue picker (P4.1d).
+        "venues": sorted(
+            set(e.venue.get("name", "") for e in entries), key=str.casefold
+        )
     };
 }
 
@@ -129,7 +139,14 @@ def:pub public_home(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
         "cinema": shown,
         "movies": cards,
         "venues": venues,
-        "page": fill_page(page, entries, cards, shown["timezone"], known)
+        "page": fill_page(page, entries, cards, shown["timezone"], known),
+        # Every showtime of the next SHOWTIME_DAYS days, for quick book (P4.1d).
+        "showtimes": [
+            _day_showtime(e)
+            for (_, group) in by_cinema_day(
+                entries, now(), shown["timezone"], SHOWTIME_DAYS
+            ) for e in group
+        ]
     };
 }
 
@@ -172,7 +189,8 @@ def _soon_card(movie: Movie) -> dict[str, any] {  # jac:ignore[W1037]
         "genres": list(movie.genres),
         "language": movie.language,
         "has_poster": movie.poster_key != "",
-        "has_backdrop": movie.backdrop_key != ""
+        "has_backdrop": movie.backdrop_key != "",
+        "release_date": movie.release_date
     };
 }
 
@@ -367,4 +385,36 @@ def:pub public_home_photo(slug: str, photo: str) -> dict[str, any] {  # jac:igno
     }
     shown = photo_data_url(cinema, photo);
     return {"ok": True, "photo": shown} if shown else NOT_FOUND;
+}
+
+def:pub public_venues(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The cinema's venues for Find a cinema (P4.1d): name, city, address, how many
+    # screens and how many upcoming showtimes, by name. Names are unique per cinema,
+    # so the storefront filters by them; no ids leave the server.
+    cinema = open_cinema(slug);
+    if cinema is None {
+        return NOT_FOUND;
+    }
+    counts: dict[str, int] = {};
+    for e in upcoming(cinema) {
+        name = e.venue.get("name", "");
+        counts[name] = counts.get(name, 0) + 1;
+    }
+    venues = [
+        {
+            "name": v.name,
+            "city": v.city,
+            "address": v.address,
+            "screens": screens,
+            "showtimes": counts.get(v.name, 0)
+        } for (v, screens) in venues_with_screens(cinema)
+    ];
+    def by_name(v: dict[str, any]) -> str {  # jac:ignore[W1037]
+        return v["name"].casefold();
+    }
+    return {
+        "ok": True,
+        "cinema": _cinema(cinema),
+        "venues": sorted(venues, key=by_name)
+    };
 }

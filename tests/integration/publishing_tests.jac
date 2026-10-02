@@ -202,7 +202,8 @@ test "the storefront shows published screenings with public details only, withou
                 "genres": ["Drama"],
                 "language": "English, Swahili",
                 "has_poster": False,
-                "has_backdrop": False
+                "has_backdrop": False,
+                "release_date": ""
             } , shown_one["movie"];
         assert shown_one["venue"] == {"name": "Westgate", "city": "Nairobi"};
         assert shown_one["screen"] == {"name": "Screen 1"};

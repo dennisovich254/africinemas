@@ -19,6 +19,8 @@ import from core.tenancy.models { Tenant }
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 import from core.catalog.models {
     Movie,
+    Venue,
+    Auditorium,
     Storefront,
     StorefrontScreening,
     Screening,
@@ -74,7 +76,8 @@ def _public_fields(tenant: Tenant, screening: Screening) -> dict[str, any] {  # 
             "genres": list(movie.genres),
             "language": movie.language,
             "has_poster": movie.poster_key != "",
-            "has_backdrop": movie.backdrop_key != ""
+            "has_backdrop": movie.backdrop_key != "",
+            "release_date": movie.release_date
         }
             if movie is not None
             else {},
@@ -327,4 +330,16 @@ def movies_by_key(tenant: Tenant) -> dict[str, Movie] {
         for m in found
         if m.public_key
     };
+}
+
+def venues_with_screens(tenant: Tenant) -> list[tuple[Venue, int]] {
+    # The cinema's venues, each with its number of screens (P4.1d).
+    me = node_id(root);
+    act_as(tenant.principal_root_id);
+    try {
+        found = [(v, len([v-->[?:Auditorium]])) for v in [tenant-->[?:Venue]]];
+    } finally {
+        restore(me);
+    }
+    return found;
 }

@@ -66,6 +66,8 @@ node Movie {
         # An optional landscape image for the storefront's hero (P4.1c), stored like
         # the poster, or "" for none.
         backdrop_key: str = "",
+        # The release date ("2026-12-18", or "" for none), shown with the movie (P4.1d).
+        release_date: str = "",
         public_key: str = "",
         created_at: str = "",
         updated_at: str = "";

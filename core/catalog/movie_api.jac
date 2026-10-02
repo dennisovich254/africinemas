@@ -16,6 +16,7 @@ import io;
 import base64;
 import from uuid { uuid4 }
 import from jaclang { JacRuntime as Jac }
+import from datetime { date }
 import from core.clock { now }
 import from core.authz.context { NotFound, TenantScope, scoped }
 import from core.tenancy.groups { attach_to_tenant }
@@ -49,6 +50,26 @@ def _clean(text: str) -> str {
     return " ".join(text.split());
 }
 
+def _release_date(text: str) -> str {
+    # A release date as "YYYY-MM-DD", or "" for none. Raises Refused.
+    cleaned = (text or "").strip();
+    if not cleaned {
+        return "";
+    }
+    refused = Refused(
+        "invalid_release_date", "Enter the release date as a date, like 2026-12-18."
+    );
+    try {
+        day = date.fromisoformat(cleaned);
+    } except ValueError {
+        raise refused;
+    }
+    if len(cleaned) != 10 or not 1900 <= day.year <= 2100 {
+        raise refused;
+    }
+    return day.isoformat();
+}
+
 class MovieDetails {
     # Checked, tidied movie fields from a request.
     def init(
@@ -58,7 +79,8 @@ class MovieDetails {
         runtime_minutes: int,
         age_rating: str,
         genres: list[str],
-        language: str
+        language: str,
+        release_date: str = ""
     ) {
         self.title = _clean(title);
         if not self.title or len(self.title) > TITLE_MAX {
@@ -103,6 +125,7 @@ class MovieDetails {
                 "invalid_language", f"Keep the language to {LANGUAGE_MAX} characters."
             );
         }
+        self.release_date = _release_date(release_date);
     }
 }
 
@@ -116,7 +139,8 @@ def _view(m: Movie) -> dict[str, any] {  # jac:ignore[W1037]
         "genres": m.genres,
         "language": m.language,
         "has_poster": m.poster_key != "",
-        "has_backdrop": m.backdrop_key != ""
+        "has_backdrop": m.backdrop_key != "",
+        "release_date": m.release_date
     };
 }
 
@@ -144,21 +168,23 @@ def _write(movie: Movie, details: MovieDetails) {
     movie.age_rating = details.age_rating;
     movie.genres = details.genres;
     movie.language = details.language;
+    movie.release_date = details.release_date;
     movie.updated_at = now().isoformat();
 }
 
-def _create_movie(
+def _create_movie(  # jac:ignore[W3030] the new-movie form: cinema and its seven fields
     tenant: str,
     title: str,
     synopsis: str,
     runtime_minutes: int,
     age_rating: str,
     genres: list[str],
-    language: str
+    language: str,
+    release_date: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, CREATE);
     details = MovieDetails(
-        title, synopsis, runtime_minutes, age_rating, genres, language
+        title, synopsis, runtime_minutes, age_rating, genres, language, release_date
     );
     me = node_id(root);
     act_as(scope.tenant.principal_root_id);
@@ -198,7 +224,7 @@ def _get_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W10
     return {"ok": True, "movie": _view(_find(scope, movie_id))};
 }
 
-def _update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its six fields
+def _update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its seven fields
     tenant: str,
     movie_id: str,
     title: str,
@@ -206,12 +232,13 @@ def _update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its six
     runtime_minutes: int,
     age_rating: str,
     genres: list[str],
-    language: str
+    language: str,
+    release_date: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, UPDATE);
     movie = _find(scope, movie_id);
     details = MovieDetails(
-        title, synopsis, runtime_minutes, age_rating, genres, language
+        title, synopsis, runtime_minutes, age_rating, genres, language, release_date
     );
     me = node_id(root);
     act_as(scope.tenant.principal_root_id);
@@ -357,18 +384,26 @@ def _get_poster(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1
     };
 }
 
-def:priv create_movie(
+def:priv create_movie(  # jac:ignore[W3030] the new-movie form: cinema and its seven fields
     tenant: str,
     title: str,
     synopsis: str,
     runtime_minutes: int,
     age_rating: str,
     genres: list[str],
-    language: str
+    language: str,
+    release_date: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _create_movie(  # jac:ignore[W1037]
-            tenant, title, synopsis, runtime_minutes, age_rating, genres, language
+            tenant,
+            title,
+            synopsis,
+            runtime_minutes,
+            age_rating,
+            genres,
+            language,
+            release_date
         ); }
     );
 }
@@ -381,7 +416,7 @@ def:priv get_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore
     return answer(lambda -> any { return _get_movie(tenant, movie_id); });  # jac:ignore[W1037]
 }
 
-def:priv update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its six fields
+def:priv update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its seven fields
     tenant: str,
     movie_id: str,
     title: str,
@@ -389,7 +424,8 @@ def:priv update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its
     runtime_minutes: int,
     age_rating: str,
     genres: list[str],
-    language: str
+    language: str,
+    release_date: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _update_movie(  # jac:ignore[W1037]
@@ -400,7 +436,8 @@ def:priv update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its
             runtime_minutes,
             age_rating,
             genres,
-            language
+            language,
+            release_date
         ); }
     );
 }

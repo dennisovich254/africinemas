@@ -130,3 +130,42 @@ def:pub by_movie(showtimes: list[dict[str, any]]) -> list[dict[str, any]] {  # j
     }
     return groups;
 }
+
+def:pub release_label(date: str) -> str {
+    # "Opens Fri 18 Dec 2026" for a release date ("2026-12-18").
+    noon_utc: any = new(Date, f"{date}T12:00:00Z");  # jac:ignore[W1037,W2001]
+    nice: str = noon_utc.toLocaleDateString(
+        [],
+        {
+            "weekday": "short",
+            "day": "numeric",
+            "month": "short",
+            "year": "numeric",
+            "timeZone": "UTC"
+        }
+    );
+    return f"Opens {nice}";
+}
+
+def:pub sorted_unique(items: list[str]) -> list[str] {
+    # Each item once, A to Z (for filter options).
+    found: list[str] = [];
+    for item in items {
+        if item and item not in found {
+            found.append(item);
+        }
+    }
+    return sorted(found, key=lambda (t: str) -> str { return t.lower(); });
+}
+
+def:pub cinema_date(starts_at: str, tz: str) -> str {
+    # A showtime's calendar day where the cinema is, as "2026-10-03".
+    return _date(starts_at).toLocaleDateString("en-CA", {"timeZone": tz});
+}
+
+def:pub listed(item: str, items: list[str] | None) -> bool {
+    # Whether `item` is one of `items`. Typed, so it compiles to a value check: `in` on
+    # an untyped value became JavaScript's `in`, which tests an array's indexes (JI-035).
+    found: list[str] = items or [];
+    return item in found;
+}

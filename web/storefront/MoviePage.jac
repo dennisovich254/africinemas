@@ -9,6 +9,7 @@ import from "@jac/runtime" { useParams }
 import from ..shell.AppLink { AppLink }
 import from core.catalog.storefront_api { public_movie }
 import from .StorefrontShell { StorefrontShell, Loading, NotOnSale }
+import from .venue_choice { use_title }
 import from .StorefrontParts { Poster, Backdrop, ShowtimeLink }
 import from .showtimes { details_line, by_day }
 
@@ -58,6 +59,11 @@ def:pub MoviePage -> JsxElement {
     useEffect(start_loading, [slug, movie_key]);
 
     found: dict[str, any] | None = page;  # jac:ignore[W1037]
+    use_title(
+        f"{found['movie']['title']} · {found['cinema']['name']}"
+            if found is not None and found["ok"]
+            else ""
+    );
     if found is None {
         return
             <StorefrontShell slug={slug}>
