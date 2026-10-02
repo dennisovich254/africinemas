@@ -1,7 +1,7 @@
 """`/c/:slug/s/:screening`: one showtime on a cinema's storefront (P4.1).
 
-The movie, the day and time, and where (public_screening). Seat selection and checkout
-come here in P4.6. A showtime that isn't on sale (unpublished, started or unknown) says
+The movie, the day and time, and where (public_screening), then checkout: seats,
+tickets and the order (Checkout, P4.6). A showtime that isn't on sale (unpublished, started or unknown) says
 so and leads back to the cinema.
 """
 
@@ -13,6 +13,7 @@ import from .StorefrontShell { StorefrontShell, Loading, NotOnSale }
 import from .venue_choice { use_title }
 import from .StorefrontParts { Poster }
 import from .showtimes { long_day_label, time_label, where_label, details_line }
+import from .Checkout { Checkout }
 
 def Fact(name: str, text: str, testid: str = "") -> JsxElement {
     return
@@ -105,9 +106,7 @@ def:pub ScreeningPage -> JsxElement {
                     />
                     <Fact name="Where" text={where_label(screening)}/>
                 </dl>
-                <p className="text-muted-foreground">
-                    Online seat booking for this showtime opens soon.
-                </p>
+                <Checkout slug={slug} screening_id={screening_id} tz={tz}/>
             </div>
         </StorefrontShell>;
 }

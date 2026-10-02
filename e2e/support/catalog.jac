@@ -101,3 +101,60 @@ def cinema_with_programme -> dict[str, str] {
     owner["second"] = publish_showing(owner, rafiki, day_ahead(3), "20:00");
     return owner;
 }
+
+def cinema_selling_tickets(cols: int = 6) -> dict[str, str] {
+    # A cinema selling tickets for one showtime of Rafiki in two days: rows A and B of
+    # `cols` seats (B's last seat blocked), Adult KES 800 and Child KES 500, a KES 30
+    # booking fee and no extras. Returns the owner, with "show" the showtime's id.
+    owner = owner_with_cinema();
+    venue = add_venue(owner, "Westgate");
+    owner["screen"] = add_screen(owner, venue, "Screen 1");
+    seats: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for (r, row) in enumerate(["A", "B"]) {
+        for c in range(cols) {
+            seat: dict[str, any] = {"label": f"{row}{c + 1}", "row": r, "col": c};  # jac:ignore[W1037]
+            if row == "B" and c == cols - 1 {
+                seat["seat_type"] = "BLOCKED";
+            }
+            seats.append(seat);
+        }
+    }
+    assert call(
+        owner["token"],
+        "save_layout",
+        {
+            "tenant": owner["slug"],
+            "auditorium_id": owner["screen"],
+            "rows": 2,
+            "cols": cols,
+            "seats": seats
+        }
+    )["ok"];
+    assert call(
+        owner["token"],
+        "publish_layout",
+        {"tenant": owner["slug"], "auditorium_id": owner["screen"]}
+    )["ok"];
+    prices = call(
+        owner["token"],
+        "save_price_list",
+        {
+            "tenant": owner["slug"],
+            "timezone": "Africa/Nairobi",
+            "ticket_types": [
+                {"code": "ADULT", "name": "Adult"},
+                {"code": "CHILD", "name": "Child"}
+            ],
+            "prices": [
+                {"zone": "", "ticket_type": "ADULT", "price_cents": 80000},
+                {"zone": "", "ticket_type": "CHILD", "price_cents": 50000}
+            ],
+            "surcharges": [],
+            "service_fee_cents": 3000
+        }
+    );
+    assert prices["ok"] , prices;
+    rafiki = add_movie(owner, "Rafiki", "Two young women in Nairobi fall in love.");
+    owner["show"] = publish_showing(owner, rafiki, day_ahead(2), "18:15");
+    return owner;
+}

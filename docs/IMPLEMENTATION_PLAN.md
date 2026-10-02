@@ -34,7 +34,7 @@ Most customers will book on a phone, in a mobile browser, without installing the
 
 Breakpoints (Tailwind defaults, used everywhere): **base = phone (≥ 360 px)**, `sm` 640, `md` 768 (tablet), `lg` 1024 (laptop), `xl` 1280 (desktop). No horizontal page scroll at any width, and no hover-only interactions.
 
-Optional (decided at 4.6): `[client.pwa]` makes the storefront installable from the browser, with an offline ticket view.
+Optional (decided at 4.6: deferred to Phase 6, with tickets): `[client.pwa]` makes the storefront installable from the browser, with an offline ticket view.
 
 ---
 
@@ -232,7 +232,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 - [x] **4.3 Seat holds** (§24, §25; one hold per seat is an atomic claim with the hold time as its TTL, ADR-0007) — **T:** hold/release/extend; per-customer cap; **concurrency: 50 parallel holds on one seat → exactly 1 succeeds**; overlapping multi-seat holds → no partial holds.
 - [x] **4.4 Hold expiry sweeper** (`@schedule`) — **T:** idempotent when run twice (it runs on every replica); never releases `PAYMENT_PENDING` holds.
 - [x] **4.5 Orders/bookings with price snapshot & idempotency** (§26, §27) — **T:** same idempotency key → same booking (including concurrently); the snapshot is unchanged after a price edit.
-- [ ] **4.6 Storefront UI: seat map & checkout shell (mobile-first)** — **T (E2E, mobile + desktop):** pick a screening → select 2 seats (tap on mobile, click/keyboard on desktop) → hold timer shows → proceed to pay. On mobile: the seat map fits the width and can be zoomed, and the sticky bottom bar shows the seats and total. Keyboard-only seat selection works on desktop. Decide on `[client.pwa]` here.
+- [x] **4.6 Storefront UI: seat map & checkout shell (mobile-first)** — **T (E2E, mobile + desktop):** pick a screening → select 2 seats (tap on mobile, click/keyboard on desktop) → hold timer shows → proceed to pay. On mobile: the seat map fits the width and can be zoomed, and the sticky bottom bar shows the seats and total. Keyboard-only seat selection works on desktop. Decide on `[client.pwa]` here: **deferred to Phase 6** (2026-10-02), since its point is an offline ticket view and tickets arrive in 6.1.
 - [ ] **4.7 Load test (spike S5)** — **T:** 200 concurrent hold attempts on one screening: zero double-holds, p95 latency and 409-rate within the targets recorded in the S5 ADR.
 
 ### Phase 5 — M-Pesa payments via Daraja (Week 3, days 1–3)
