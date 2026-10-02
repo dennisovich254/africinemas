@@ -748,7 +748,9 @@ def:pub for_venue(sections: list[dict[str, any]], venue: str) -> list[dict[str, 
                 }
             }
             if len(days) > 0 {
-                narrowed.append(dict(s, days=days));
+                narrowed.append(
+                    {"type": s["type"], "fields": s["fields"], "days": days}
+                );
             }
         } elif s["type"] == "now_showing" {
             movies = [
@@ -757,7 +759,9 @@ def:pub for_venue(sections: list[dict[str, any]], venue: str) -> list[dict[str, 
                 if listed(venue, m.get("venues"))
             ];
             if len(movies) > 0 {
-                narrowed.append(dict(s, movies=movies));
+                narrowed.append(
+                    {"type": s["type"], "fields": s["fields"], "movies": movies}
+                );
             }
         } else {
             narrowed.append(s);
