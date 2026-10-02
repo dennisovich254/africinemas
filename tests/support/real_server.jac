@@ -13,6 +13,7 @@ import subprocess;
 import time;
 import urllib.error;
 import urllib.request;
+import from datetime { datetime, timedelta, timezone }
 
 glob BOOT_TIMEOUT_S: int = 240;
 
@@ -169,4 +170,64 @@ def drop_database_of(workdir: str) {
 
 def remove_project(workdir: str) {
     shutil.rmtree(workdir, ignore_errors=True);
+}
+
+def published_showtime(server: RealServer) -> str {
+    # Cinema "nova" with a published three-seat showtime (A1-A3) in two days; returns
+    # the showtime's id. The server must serve the endpoints it calls.
+    owner = server.register("owner");
+    server.call("create_cinema", {"name": "Nova Cinemas", "slug": "nova"}, owner);
+    server.call("start_shift", {"tenant": "nova"}, owner);
+    venue = server.call(
+        "create_venue",
+        {"tenant": "nova", "name": "Westgate", "city": "", "address": ""},
+        owner
+    )["venue"]["venue_id"];
+    screen = server.call(
+        "create_auditorium",
+        {"tenant": "nova", "venue_id": venue, "name": "Screen 1"},
+        owner
+    )["auditorium"]["auditorium_id"];
+    server.call(
+        "save_layout",
+        {
+            "tenant": "nova",
+            "auditorium_id": screen,
+            "rows": 1,
+            "cols": 3,
+            "seats": [{"label": f"A{i + 1}", "row": 0, "col": i} for i in range(3)]
+        },
+        owner
+    );
+    server.call("publish_layout", {"tenant": "nova", "auditorium_id": screen}, owner);
+    movie = server.call(
+        "create_movie",
+        {
+            "tenant": "nova",
+            "title": "Rafiki",
+            "synopsis": "",
+            "runtime_minutes": 90,
+            "age_rating": "18",
+            "genres": [],
+            "language": ""
+        },
+        owner
+    )["movie"]["movie_id"];
+    start = (datetime.now(timezone.utc) + timedelta(days=2)).replace(microsecond=0);
+    screening = server.call(
+        "create_screening",
+        {
+            "tenant": "nova",
+            "auditorium_id": screen,
+            "movie_id": movie,
+            "starts_at": start.isoformat()
+        },
+        owner
+    )["screening"]["screening_id"];
+    for step in ["schedule_screening", "publish_screening"] {
+        assert server.call(step, {"tenant": "nova", "screening_id": screening}, owner)[
+            "ok"
+        ];
+    }
+    return screening;
 }
