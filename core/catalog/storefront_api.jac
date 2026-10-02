@@ -26,6 +26,7 @@ import from core.catalog.storefront {
     showtime,
     public_view,
     by_cinema_day,
+    venues_with_screens,
     home_of,
     movies_by_key
 }
@@ -87,6 +88,7 @@ def _movie_card(entries: list[StorefrontScreening]) -> dict[str, any] {  # jac:i
         "language": movie["language"],
         "has_poster": movie["has_poster"],
         "has_backdrop": movie.get("has_backdrop", False),
+        "release_date": movie.get("release_date", ""),
         "next": [showtime(e) for e in entries[:NEXT_SHOWTIMES]]
     };
 }
@@ -172,7 +174,8 @@ def _soon_card(movie: Movie) -> dict[str, any] {  # jac:ignore[W1037]
         "genres": list(movie.genres),
         "language": movie.language,
         "has_poster": movie.poster_key != "",
-        "has_backdrop": movie.backdrop_key != ""
+        "has_backdrop": movie.backdrop_key != "",
+        "release_date": movie.release_date
     };
 }
 
@@ -367,4 +370,36 @@ def:pub public_home_photo(slug: str, photo: str) -> dict[str, any] {  # jac:igno
     }
     shown = photo_data_url(cinema, photo);
     return {"ok": True, "photo": shown} if shown else NOT_FOUND;
+}
+
+def:pub public_venues(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The cinema's venues for Find a cinema (P4.1d): name, city, address, how many
+    # screens and how many upcoming showtimes, by name. Names are unique per cinema,
+    # so the storefront filters by them; no ids leave the server.
+    cinema = open_cinema(slug);
+    if cinema is None {
+        return NOT_FOUND;
+    }
+    counts: dict[str, int] = {};
+    for e in upcoming(cinema) {
+        name = e.venue.get("name", "");
+        counts[name] = counts.get(name, 0) + 1;
+    }
+    venues = [
+        {
+            "name": v.name,
+            "city": v.city,
+            "address": v.address,
+            "screens": screens,
+            "showtimes": counts.get(v.name, 0)
+        } for (v, screens) in venues_with_screens(cinema)
+    ];
+    def by_name(v: dict[str, any]) -> str {  # jac:ignore[W1037]
+        return v["name"].casefold();
+    }
+    return {
+        "ok": True,
+        "cinema": _cinema(cinema),
+        "venues": sorted(venues, key=by_name)
+    };
 }

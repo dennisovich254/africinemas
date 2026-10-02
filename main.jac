@@ -79,7 +79,8 @@ import from core.catalog.storefront_api {
     public_screening,
     public_poster,
     public_home_photo,
-    public_backdrop
+    public_backdrop,
+    public_venues
 }
 import from core.homepage.home_api {
     get_home_page,  # jac:ignore[W2037]

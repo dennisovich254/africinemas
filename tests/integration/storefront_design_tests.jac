@@ -176,3 +176,101 @@ test "showtimes more than a week ahead wait for their week" {
         app.close();
     }
 }
+
+test "a movie may have a release date, shown on the storefront with it" {
+    (app, nova) = _nova();
+    try {
+        details = {
+            "tenant": "nova",
+            "title": "Nairobi Half Life",
+            "synopsis": "",
+            "runtime_minutes": 96,
+            "age_rating": "16",
+            "genres": ["Drama"],
+            "language": "English",
+            "release_date": "2026-12-18"
+        };
+        made = app.call("owner", "create_movie", details);
+        assert made["ok"] and made["movie"]["release_date"] == "2026-12-18" , made;
+        for bad in ["2026-13-01", "18/12/2026", "1850-01-01"] {
+            refused = app.call(
+                "owner", "create_movie", dict(details, release_date=bad)
+            );
+            assert code_of(refused) == "invalid_release_date" , (bad, refused);
+        }
+        movie_id = made["movie"]["movie_id"];
+        nova.movies["Nairobi Half Life"] = movie_id;
+        app.call(
+            "owner",
+            "save_home_page",
+            {
+                "tenant": "nova",
+                "page": {
+                    "template": "marquee",
+                    "sections": [
+                        {
+                            "type": "coming_soon",
+                            "visible": True,
+                            "fields": {"movie_ids": [movie_id]}
+                        }
+                    ]
+                }
+            }
+        );
+        app.call("owner", "publish_home_page", {"tenant": "nova"});
+        soon = _section(app, "coming_soon");
+        assert soon is not None
+            and soon["movies"][0]["release_date"] == "2026-12-18" , soon;
+        add_screening(app, "owner", nova, "Nairobi Half Life", 0);
+        assert _home(app)["movies"][0]["release_date"] == "2026-12-18";
+        # The edit form sends every field; an empty date clears it.
+        cleared = app.call(
+            "owner", "update_movie", dict(details, movie_id=movie_id, release_date="")
+        );
+        assert cleared["ok"] and cleared["movie"]["release_date"] == "" , cleared;
+    } finally {
+        app.close();
+    }
+}
+
+test "the storefront lists a cinema's venues, with their screens and what's on" {
+    (app, nova) = _nova();
+    try {
+        app.call(
+            "owner",
+            "create_venue",
+            {
+                "tenant": "nova",
+                "name": "CBD",
+                "city": "Nairobi",
+                "address": "Moi Avenue"
+            }
+        );
+        add_screening(app, "owner", nova, "Rafiki", 0);
+        add_screening(app, "owner", nova, "Supa Modo", 3);
+        shown = browse(app, "public_venues", {"slug": "nova"});
+        assert shown["ok"] , shown;
+        assert shown["venues"]
+            == [
+                {
+                    "name": "CBD",
+                    "city": "Nairobi",
+                    "address": "Moi Avenue",
+                    "screens": 0,
+                    "showtimes": 0
+                },
+                {
+                    "name": "Westgate",
+                    "city": "Nairobi",
+                    "address": "Mwanzi Road",
+                    "screens": 1,
+                    "showtimes": 2
+                }
+            ] , shown["venues"];
+        assert nova.venue not in str(shown) and nova.screen not in str(shown);
+        assert code_of(browse(app, "public_venues", {"slug": "no-such-cinema"}))
+            == "not_found";
+    } finally {
+        app.close();
+    }
+}

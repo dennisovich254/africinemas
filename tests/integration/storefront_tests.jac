@@ -41,6 +41,7 @@ glob MAIN: str = path.join(
          "language",
          "movie_key",
          "next",
+         "release_date",
          "runtime_minutes",
          "title"
      ],
