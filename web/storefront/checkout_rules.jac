@@ -140,3 +140,33 @@ def:pub order_key -> str {
     # A fresh idempotency key for an order the visitor starts.
     return _random_id("order");
 }
+
+def _split(label: str) -> list[str] {
+    # "AA12" -> ["AA", "12"]: the row part and the trailing number.
+    cut = len(label);
+    while cut > 0 and label[cut - 1] in "0123456789" {
+        cut -= 1;
+    }
+    return [label[:cut], label[cut:]];
+}
+
+def:pub seat_number(label: str) -> str {
+    # What a seat shows: its number ("12" for "AA12"), or its whole label if it has none.
+    number = _split(label)[1];
+    return number if len(number) > 0 else label;
+}
+
+def:pub row_names(seats: list[dict[str, any]], rows: int) -> list[str] {  # jac:ignore[W1037]
+    # The name of each row, from its seats' labels ("A" for A1..A12); "" for a row
+    # without seats.
+    names: list[str] = [];
+    for r in range(rows) {
+        names.append("");
+    }
+    for s in seats {
+        if names[s["row"]] == "" {
+            names[s["row"]] = _split(s["label"])[0];
+        }
+    }
+    return names;
+}

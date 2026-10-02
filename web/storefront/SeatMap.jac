@@ -1,9 +1,10 @@
 """The storefront seat map (P4.6): a showtime's seats, to choose from.
 
-Seats sit where the cinema's layout puts them, with the screen at the top. Each state
-has a shape and words as well as a colour (architecture §102): available seats are
-outlined, the visitor's own are filled with a tick, held ones with a clock, sold ones
-with a cross; seats not for sale are faint and can't be chosen. The legend says the same
+Seats sit where the cinema's layout puts them, in the back office's seat designer
+format: the screen as a labelled panel over the seats, row names down the left, and
+each seat its number. Each state has a shape and words as well as a colour
+(architecture §102): available seats are outlined with their number, the visitor's own
+are filled with a tick, held ones with a clock, sold ones with a cross; seats not for sale are faint and can't be chosen. The legend says the same
 in words, and every seat's name says it to screen readers.
 
 On a phone the map first fits the width, as an overview (a big hall's seats are small);
@@ -22,11 +23,11 @@ import from "@hugeicons/core-free-icons" {
     MinusSignIcon
 }
 import from ...components.ui.button { Button }
-import from .checkout_rules { seat_words, next_seat }
+import from .checkout_rules { seat_words, next_seat, seat_number, row_names }
 import from .showtimes { listed }
 
 glob ZOOMS: list[str] = ["minmax(0, 2.75rem)", "2.25rem", "2.75rem"],
-     SEAT_BASE: str = "flex aspect-square w-full items-center justify-center rounded-t-lg rounded-b-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring",
+     SEAT_BASE: str = "flex aspect-square w-full items-center justify-center rounded-t-lg rounded-b-sm text-[10px] font-semibold leading-none tabular-nums outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring",
      # The legend's swatches: a seat's shape at a fixed size (SEAT_BASE fills its cell).
      SWATCH_BASE: str = "flex size-5 shrink-0 items-center justify-center rounded-t-lg rounded-b-sm",
      LOOKS: dict[str, str] = {
@@ -97,13 +98,13 @@ def SeatButton(
                 if locked or look not in ["available", "chosen"]
                 else None}
             tabIndex={0 if focusable else -1}
-            style={{"gridRow": seat["row"] + 1, "gridColumn": seat["col"] + 1}}
+            style={{"gridRow": seat["row"] + 2, "gridColumn": seat["col"] + 2}}
             className={f"{SEAT_BASE} {LOOKS[look]}"}
             onClick={lambda { on_choose(seat); }}
             onFocus={lambda { on_focus(label); }}
             onKeyDown={lambda (e: any) { on_move(label, e); }}  # jac:ignore[W1037]
         >
-            <SeatIcon look={look}/>
+            {seat_number(label) if look == "available" else <SeatIcon look={look}/>}
         </button>;
 }
 
@@ -181,12 +182,23 @@ def:pub SeatMap(
                     <span
                         key={f"gap-{r}-{c}"}
                         aria-hidden="true"
-                        style={{"gridRow": r + 1, "gridColumn": c + 1}}
+                        style={{"gridRow": r + 2, "gridColumn": c + 2}}
                     />
                 );
             }
         }
     }
+    names = row_names(seats, rows);
+    labels = [
+        <span
+            key={f"row-{r}"}
+            aria-hidden="true"
+            className="flex items-center justify-center text-xs text-muted-foreground"
+            style={{"gridRow": r + 2, "gridColumn": 1}}
+        >
+            {names[r]}
+        </span> for r in range(rows)
+    ];
     # One component per seat, so each seat's handlers keep their own seat (handlers
     # made in a plain loop all saw the last seat).
     buttons = [
@@ -244,17 +256,6 @@ def:pub SeatMap(
                     className={"mx-auto flex flex-col items-center gap-5 "
                         + ("w-full" if zoom == 0 else "w-max")}
                 >
-                    <div className="flex w-full max-w-md flex-col items-center gap-1">
-                        <div
-                            aria-hidden="true"
-                            className="h-1.5 w-full rounded-full bg-muted-foreground/40"
-                        />
-                        <p
-                            className="text-xs tracking-widest text-muted-foreground uppercase"
-                        >
-                            Screen
-                        </p>
-                    </div>
                     <div
                         role="group"
                         aria-label="Seats. Use the arrow keys to move between seats."
@@ -262,14 +263,25 @@ def:pub SeatMap(
                         className={"grid "
                             + ("w-full gap-1" if zoom == 0 else "gap-1.5")}
                         style={{
-                            "gridTemplateColumns": f"repeat({cols}, {ZOOMS[zoom]})",
-                            "gridTemplateRows": f"repeat({rows}, auto)",
-                            "maxWidth": f"calc({cols} * 2.75rem + {cols - 1} * 0.25rem)"
+                            "gridTemplateColumns": f"1.25rem repeat({cols}, {ZOOMS[
+                                zoom
+                            ]})",
+                            "gridTemplateRows": f"auto repeat({rows}, auto)",
+                            "maxWidth": f"calc(1.25rem + {cols} * 2.75rem + {cols} * 0.25rem)"
                                 if zoom == 0
                                 else "none"
                         }}
                     >
-                        {cells}{buttons}
+                        <div
+                            aria-hidden="true"
+                            className="mb-3 rounded-sm bg-muted py-1 text-center text-xs font-medium tracking-widest text-muted-foreground uppercase"
+                            style={{"gridRow": 1, "gridColumn": "2 / -1"}}
+                        >
+                            Screen
+                        </div>
+                        {labels}
+                        {cells}
+                        {buttons}
                     </div>
                 </div>
             </div>
