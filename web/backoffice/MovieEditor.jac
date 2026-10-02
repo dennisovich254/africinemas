@@ -21,7 +21,9 @@ import from core.catalog.movie_api {
     get_movie,  # jac:ignore[W2037]
     update_movie,  # jac:ignore[W2037]
     delete_movie,  # jac:ignore[W2037]
-    upload_poster  # jac:ignore[W2037]
+    upload_poster,  # jac:ignore[W2037]
+    upload_backdrop,  # jac:ignore[W2037]
+    remove_backdrop  # jac:ignore[W2037]
 }
 import from .form_parts {
     TextField,
@@ -255,6 +257,52 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
         set_message("Poster saved.");
     }
 
+    async def choose_backdrop(e: any) {  # jac:ignore[W1037]
+        file: any = e.target.files[0];  # jac:ignore[W1037]
+        answer: any = None;  # jac:ignore[W1037]
+        if not file {
+            return;
+        }
+        set_busy("backdrop");
+        set_message("");
+        set_error("backdrop-file", "");
+        try {
+            encoded = await read_as_base64(file);
+            answer = await upload_backdrop(slug, movie_id, file.type, encoded);  # jac:ignore[W2037]
+        } except Exception as err {
+            console.warn("upload_backdrop failed", err);
+            set_busy("");
+            set_message("We couldn't upload that backdrop. Try again.");
+            return;
+        }
+        e.target.value = "";
+        set_busy("");
+        if not answer["ok"] {
+            set_error("backdrop-file", answer["error"]["message"]);
+            return;
+        }
+        set_movie(answer["movie"]);
+        set_message("Backdrop saved.");
+    }
+
+    async def drop_backdrop {
+        answer: any = None;  # jac:ignore[W1037]
+        set_busy("backdrop");
+        try {
+            answer = await remove_backdrop(slug, movie_id);  # jac:ignore[W2037]
+        } except Exception as err {
+            console.warn("remove_backdrop failed", err);
+            set_busy("");
+            set_message("We couldn't remove the backdrop. Try again.");
+            return;
+        }
+        set_busy("");
+        if answer["ok"] {
+            set_movie(answer["movie"]);
+            set_message("Backdrop removed.");
+        }
+    }
+
     async def remove {
         answer: any = None;  # jac:ignore[W1037]
         set_confirming(False);
@@ -438,6 +486,59 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                                     error={field_errors["poster-file"]}
                                 />}
                         </div>
+                    </div>
+                </section>}
+            {current is not None
+                and <section
+                    aria-labelledby="backdrop-heading"
+                    className="flex flex-col gap-3"
+                >
+                    <h3 id="backdrop-heading" className="font-semibold">Backdrop</h3>
+                    <p className="text-sm text-muted-foreground">
+                        A wide image for the top of your storefront when this movie is featured. Without one, the poster is used, blurred.
+                    </p>
+                    {current["has_backdrop"]
+                        and <div
+                            data-testid="backdrop-set"
+                            className="flex flex-wrap items-center gap-3"
+                        >
+                            <span className="text-sm font-medium">
+                                A backdrop is set.
+                            </span>
+                            <Button
+                                variant="outline"
+                                className="min-h-11 px-4"
+                                disabled={busy != ""}
+                                onClick={drop_backdrop}
+                            >
+                                Remove backdrop
+                            </Button>
+                        </div>}
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                        <Label htmlFor="backdrop-file">
+                            {"Replace the backdrop"
+                                if current["has_backdrop"]
+                                else "Upload a backdrop"}
+                        </Label>
+                        <input
+                            id="backdrop-file"
+                            type="file"
+                            accept={POSTER_TYPES}
+                            disabled={busy != ""}
+                            aria-describedby={"backdrop-file-error"
+                                if field_errors["backdrop-file"]
+                                else "backdrop-hint"}
+                            onChange={choose_backdrop}
+                            className="min-h-11 max-w-full text-sm file:mr-3 file:min-h-11 file:rounded-md file:border file:bg-card file:px-4 file:font-medium"
+                        />
+                        <p id="backdrop-hint" className="text-sm text-muted-foreground">
+                            PNG, JPEG or WebP, landscape, at least 960 × 540 pixels, up to 5 MB.
+                        </p>
+                        {field_errors["backdrop-file"]
+                            and <FieldError
+                                field_id="backdrop-file"
+                                error={field_errors["backdrop-file"]}
+                            />}
                     </div>
                 </section>}
             {current is not None

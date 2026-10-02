@@ -129,11 +129,12 @@ test "the preview lays out like a phone or a desktop, whatever the window" {
     try {
         page = _editor(browser, pw, "desktop", owner);
         _tab(page, "preview");
-        card_columns = "getComputedStyle(document.querySelector('[data-testid=home-preview] [data-testid=movie-card]')).gridTemplateColumns.split(' ')[0]";
+        # Now showing has two columns at phone width and more from @xl (36rem) up.
+        columns = "getComputedStyle(document.querySelector('[data-testid=home-preview] [data-testid=section-now_showing] ul')).gridTemplateColumns.split(' ').length";
         assert page.get_attribute(PREVIEW, "data-device") == "phone";
-        assert page.evaluate(card_columns) == "96px";  # the phone layout's 6rem poster
+        assert page.evaluate(columns) == 2;
         page.click('[aria-label="Preview size"] button:has-text("Desktop")');
-        page.wait_for_function(f"{card_columns} === '120px'");  # 7.5rem from @xl up
+        page.wait_for_function(f"{columns} > 2");
     } finally {
         close_contexts(browser);
     }

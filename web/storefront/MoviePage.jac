@@ -9,7 +9,7 @@ import from "@jac/runtime" { useParams }
 import from ..shell.AppLink { AppLink }
 import from core.catalog.storefront_api { public_movie }
 import from .StorefrontShell { StorefrontShell, Loading, NotOnSale }
-import from .StorefrontParts { Poster, ShowtimeLink }
+import from .StorefrontParts { Poster, Backdrop, ShowtimeLink }
 import from .showtimes { details_line, by_day }
 
 def DayGroup(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
@@ -83,27 +83,44 @@ def:pub MoviePage -> JsxElement {
                 >
                     {"← All movies"}
                 </AppLink>
-                <div className="grid gap-6 sm:grid-cols-[12rem_1fr]">
-                    <div className="w-40 sm:w-48">
-                        <Poster
-                            slug={slug}
-                            movie_key={movie["movie_key"]}
-                            has_poster={movie["has_poster"]}
-                        />
-                    </div>
-                    <div className="flex max-w-prose flex-col gap-3">
-                        <h2 className="font-display text-4xl leading-none">
-                            {movie["title"]}
-                        </h2>
-                        <p className="text-sm text-muted-foreground">
-                            {details_line(movie)}
-                        </p>
-                        {movie["language"]
-                            and <p className="text-sm text-muted-foreground">
-                                {f"Language: {movie['language']}"}
-                            </p>}
-                        {movie["synopsis"]
-                            and <p className="leading-relaxed">{movie["synopsis"]}</p>}
+                <div
+                    data-testid="movie-hero"
+                    className="relative isolate overflow-hidden rounded-xl border bg-card"
+                >
+                    <Backdrop slug={slug} movie={movie}/>
+                    <div
+                        aria-hidden="true"
+                        className="absolute inset-0 -z-10 bg-linear-to-t from-card via-card/90 to-card/40"
+                    />
+                    <div
+                        className="landing-rise grid gap-6 p-5 sm:grid-cols-[12rem_1fr] sm:items-end sm:p-8"
+                    >
+                        <div className="w-36 sm:w-full">
+                            <Poster
+                                slug={slug}
+                                movie_key={movie["movie_key"]}
+                                has_poster={movie["has_poster"]}
+                                className="shadow-lg"
+                            />
+                        </div>
+                        <div className="flex max-w-prose flex-col gap-3">
+                            <h2
+                                className="font-display text-4xl leading-none sm:text-5xl"
+                            >
+                                {movie["title"]}
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                {details_line(movie)}
+                            </p>
+                            {movie["language"]
+                                and <p className="text-sm text-muted-foreground">
+                                    {f"Language: {movie['language']}"}
+                                </p>}
+                            {movie["synopsis"]
+                                and <p className="leading-relaxed">
+                                    {movie["synopsis"]}
+                                </p>}
+                        </div>
                     </div>
                 </div>
                 <section

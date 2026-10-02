@@ -24,7 +24,7 @@ import from core.homepage.home_api {
     remove_home_photo  # jac:ignore[W2037]
 }
 import from core.theming.branding_api { public_branding }
-import from ..storefront.HomeSections { HomeSection }
+import from ..storefront.HomeSections { HomeBlock, home_blocks }
 import from .home_page_model {
     SECTION_LABELS,
     TEMPLATE_INFO,
@@ -653,7 +653,7 @@ def:pub HomePageSection(slug: str) -> JsxElement {
                     Nothing to show yet: add showtimes or fill in a section.
                 </p>}{shown is not None
                 and <div
-                    className={"@container flex flex-col gap-8 "
+                    className={"@container flex flex-col gap-12 "
                         + (
                             "mx-auto w-full max-w-2xl"
                                 if shown_template == "compact"
@@ -661,13 +661,13 @@ def:pub HomePageSection(slug: str) -> JsxElement {
                         )}
                 >
                     {[
-                        <HomeSection
-                            key={s["type"]}
+                        <HomeBlock
+                            key={f"{n}"}
                             slug={slug}
-                            section={s}
+                            block={b}
                             tz={tz}
                             template={shown_template}
-                        /> for s in shown["sections"]
+                        /> for (n, b) in enumerate(home_blocks(shown["sections"]))
                     ]}
                 </div>}
         </div>

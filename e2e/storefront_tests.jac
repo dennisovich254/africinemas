@@ -59,7 +59,8 @@ test "a visitor goes from the movie list to a movie and one of its showtimes, an
                 f"document.querySelector('{CARD} img') && ({POSTER_LOADED_JS})(document.querySelector('{CARD} img'))"
             );
             assert cards.nth(1).locator("img").count() == 0;
-            assert cards.nth(0).locator(SHOWTIME).count() == 2;
+            # Showtimes live in the date strip (P4.1c): two days with showtimes.
+            assert page.locator('[data-testid="day-option"]').count() == 2;
             cards.nth(0).locator('a:has-text("Rafiki")').click();
             page.wait_for_selector(MOVIE_PAGE);
             assert "/m/" in page.url;
@@ -84,13 +85,14 @@ test "a visitor goes from the movie list to a movie and one of its showtimes, an
     }
 }
 
-test "a showtime on the movie list leads straight to it, and back to its movie" {
+test "a showtime picked from the date strip leads straight to it, and back to its movie" {
     owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
         page = _page(browser, pw, "mobile");
         _home(page, owner["slug"]);
-        page.locator(CARD).nth(0).locator(SHOWTIME).nth(1).click();
+        page.locator('[data-testid="day-option"]').nth(1).click();
+        page.locator(f'[data-testid="day-showtimes"] {SHOWTIME}').first.click();
         page.wait_for_selector(SCREENING_PAGE);
         assert page.url.endswith(f"/s/{owner['second']}");
         page.click('[data-testid="back-to-movie"]');
