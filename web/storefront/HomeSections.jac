@@ -26,7 +26,8 @@ import from .showtimes {
     by_movie,
     release_label,
     sorted_unique,
-    cinema_date
+    cinema_date,
+    listed
 }
 import from .venue_choice { choose_venue }
 
@@ -321,7 +322,7 @@ def:pub NowShowing(
     shown = [
         m
         for m in movies
-        if (not genre or genre in m["genres"])
+        if (not genre or listed(genre, m["genres"]))
             and (not rating or m["age_rating"] == rating)
             and (not language or m["language"] == language)
     ];
@@ -753,7 +754,7 @@ def:pub for_venue(sections: list[dict[str, any]], venue: str) -> list[dict[str, 
             movies = [
                 m
                 for m in s["movies"]
-                if venue in (m.get("venues") or [])
+                if listed(venue, m.get("venues"))
             ];
             if len(movies) > 0 {
                 narrowed.append(dict(s, movies=movies));

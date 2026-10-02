@@ -11,6 +11,7 @@ import from core.catalog.storefront_api { public_home }
 import from .StorefrontShell { StorefrontShell, HomeSkeleton, LoadError }
 import from .HomeSections { NowShowing, ComingSoon }
 import from .venue_choice { use_venue, use_title, scroll_to_hash }
+import from .showtimes { listed }
 
 def:pub MoviesPage -> JsxElement {
     params: any = useParams();  # jac:ignore[W1037,W1051]
@@ -62,7 +63,7 @@ def:pub MoviesPage -> JsxElement {
     on_sale = [
         m
         for m in found["movies"]
-        if not venue or venue in (m.get("venues") or [])
+        if not venue or listed(venue, m.get("venues"))
     ];
     soon: list[dict[str, any]] = [];  # jac:ignore[W1037]
     for s in found["page"]["sections"] {

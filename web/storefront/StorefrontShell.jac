@@ -147,7 +147,7 @@ def FooterColumn(title: str, links: list[list[str]]) -> JsxElement {
                     <li key={link[1]}>
                         <a
                             href={link[1]}
-                            className="inline-flex min-h-11 items-center text-sm hover:text-foreground hover:underline"
+                            className="inline-flex min-h-11 min-w-11 items-center text-sm hover:text-foreground hover:underline"
                         >
                             {link[0]}
                         </a>

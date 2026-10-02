@@ -162,3 +162,10 @@ def:pub cinema_date(starts_at: str, tz: str) -> str {
     # A showtime's calendar day where the cinema is, as "2026-10-03".
     return _date(starts_at).toLocaleDateString("en-CA", {"timeZone": tz});
 }
+
+def:pub listed(item: str, items: list[str] | None) -> bool {
+    # Whether `item` is one of `items`. Typed, so it compiles to a value check: `in` on
+    # an untyped value became JavaScript's `in`, which tests an array's indexes (JI-035).
+    found: list[str] = items or [];
+    return item in found;
+}
