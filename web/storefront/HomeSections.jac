@@ -737,7 +737,9 @@ def:pub FeaturedHero(
     under_header: bool = True
 ) -> JsxElement {
     # The Marquee template's hero (P4.1d): full width, under the see-through header,
-    # always in the theme's dark colours so the words read over the picture. The
+    # always in the theme's dark colours. The picture is left clear except for a shade
+    # behind the words (from the bottom on phones, from the left on wide screens), so
+    # they stay readable. The
     # featured movie first, then the others on sale, chosen with the picker on the right
     # (or under the words on phones). It never moves by itself.
     fields: dict[str, str] = section["fields"];
@@ -781,11 +783,7 @@ def:pub FeaturedHero(
                     and <Backdrop key={movie["movie_key"]} slug={slug} movie={movie}/>}
                 <div
                     aria-hidden="true"
-                    className="absolute inset-0 -z-10 bg-linear-to-r from-background via-background/75 to-background/10"
-                />
-                <div
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-linear-to-t from-background to-transparent"
+                    className="absolute inset-x-0 bottom-0 -z-10 h-3/4 bg-linear-to-t from-background/85 to-transparent @4xl:inset-y-0 @4xl:right-auto @4xl:h-full @4xl:w-3/5 @4xl:bg-linear-to-r @4xl:from-background/80 @4xl:via-background/40"
                 />
                 <div
                     className={"mx-auto grid w-full max-w-5xl items-end gap-8 px-4 pb-10 @4xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] "
@@ -915,7 +913,7 @@ def:pub FeaturedHero(
                                                 + (
                                                     "ring-2 ring-primary"
                                                         if i == current
-                                                        else "opacity-80 hover:opacity-100"
+                                                        else "hover:ring-2 hover:ring-foreground/40"
                                                 )}
                                         >
                                             <Thumb slug={slug} movie={c}/>
