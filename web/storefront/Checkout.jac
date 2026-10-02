@@ -91,7 +91,7 @@ def BottomBar(children: any) -> JsxElement {  # jac:ignore[W1037]
     return
         <div
             data-testid="checkout-bar"
-            className="sticky bottom-0 z-20 -mx-4 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:mx-0 sm:rounded-t-lg sm:border-x"
+            className="sticky bottom-0 z-20 -mx-4 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:bottom-4 sm:mx-0 sm:rounded-lg sm:border sm:pb-3"
         >
             <div className="flex items-center justify-between gap-3">{children}</div>
         </div>;

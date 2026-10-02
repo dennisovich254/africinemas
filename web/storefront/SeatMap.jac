@@ -27,6 +27,8 @@ import from .showtimes { listed }
 
 glob ZOOMS: list[str] = ["minmax(0, 2.75rem)", "2.25rem", "2.75rem"],
      SEAT_BASE: str = "flex aspect-square w-full items-center justify-center rounded-t-lg rounded-b-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring",
+     # The legend's swatches: a seat's shape at a fixed size (SEAT_BASE fills its cell).
+     SWATCH_BASE: str = "flex size-5 shrink-0 items-center justify-center rounded-t-lg rounded-b-sm",
      LOOKS: dict[str, str] = {
          "available": "cursor-pointer border-2 border-[var(--ac-seat-available)] bg-transparent hover:bg-[var(--ac-seat-available)]/15",
          "chosen": "cursor-pointer bg-[var(--ac-seat-selected)] text-[var(--ac-on-seat-selected)]",
@@ -112,11 +114,8 @@ def:pub SeatLegend -> JsxElement {
             className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground"
         >
             {[
-                <li key={look} className="flex items-center gap-2">
-                    <span
-                        aria-hidden="true"
-                        className={f"{SEAT_BASE} size-5 {LOOKS[look]}"}
-                    >
+                <li key={look} className="flex items-center gap-2 whitespace-nowrap">
+                    <span aria-hidden="true" className={f"{SWATCH_BASE} {LOOKS[look]}"}>
                         <SeatIcon look={look}/>
                     </span>
                     {words}
