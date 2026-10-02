@@ -274,3 +274,59 @@ test "the storefront lists a cinema's venues, with their screens and what's on" 
         app.close();
     }
 }
+
+test "the home answer carries every showtime for two weeks, and each movie's venues" {
+    (app, nova) = _nova();
+    try {
+        cbd = app.call(
+            "owner",
+            "create_venue",
+            {"tenant": "nova", "name": "CBD", "city": "Nairobi", "address": ""}
+        )["venue"]["venue_id"];
+        screen = app.call(
+            "owner",
+            "create_auditorium",
+            {"tenant": "nova", "venue_id": cbd, "name": "Hall A"}
+        )["auditorium"]["auditorium_id"];
+        app.call(
+            "owner",
+            "save_layout",
+            {
+                "tenant": "nova",
+                "auditorium_id": screen,
+                "rows": 1,
+                "cols": 1,
+                "seats": [{"label": "A1", "row": 0, "col": 0}]
+            }
+        );
+        app.call(
+            "owner", "publish_layout", {"tenant": "nova", "auditorium_id": screen}
+        );
+        add_screening(app, "owner", nova, "Rafiki", 0);
+        for hours in [3, 6, 9, 12, 15, 18, 21] {
+            add_screening(app, "owner", nova, "Supa Modo", hours);
+        }
+        add_screening(app, "owner", nova, "Kati Kati", 24 * 15);  # beyond two weeks
+        nova.screen = screen;
+        cbd_show = add_screening(app, "owner", nova, "Rafiki", 1);
+        home = _home(app);
+        showtimes = home["showtimes"];
+        assert len(showtimes) == 9 , [s["title"] for s in showtimes];
+        assert sorted(showtimes[0].keys()) == DAY_SHOWTIME_KEYS;
+        assert cbd_show in [s["screening_id"] for s in showtimes];
+        rafiki = [
+            m
+            for m in home["movies"]
+            if m["title"] == "Rafiki"
+        ][0];
+        assert rafiki["venues"] == ["CBD", "Westgate"] , rafiki["venues"];
+        supa = [
+            m
+            for m in home["movies"]
+            if m["title"] == "Supa Modo"
+        ][0];
+        assert supa["venues"] == ["Westgate"];
+    } finally {
+        app.close();
+    }
+}
