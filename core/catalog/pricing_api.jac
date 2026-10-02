@@ -16,6 +16,7 @@ import from core.authz.policy { Forbidden, ROLE_PERMISSIONS, Resource, require }
 import from core.authz.context { NotFound, TenantScope, on_shift, scoped }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
+import from core.tenancy.models { Tenant }
 import from core.catalog.models { PriceList, Screening, SeatSlot }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.venues { find_screening }
@@ -32,20 +33,25 @@ glob READ: str = "showtimes.read",
      CONFIGURE: str = "tenant.settings.update",
      QUOTE_MAX_SEATS: int = 20;
 
-def _price_list(scope: TenantScope) -> PriceList | None {
-    if not scope.tenant.price_list_id {
+def cinema_prices(tenant: Tenant) -> PriceList | None {
+    # The cinema's price list, read as its principal; None before one is saved.
+    if not tenant.price_list_id {
         return None;
     }
     me = node_id(root);
-    act_as(scope.tenant.principal_root_id);
+    act_as(tenant.principal_root_id);
     try {
-        found: any = jobj(scope.tenant.price_list_id);  # jac:ignore[W1037]
+        found: any = jobj(tenant.price_list_id);  # jac:ignore[W1037]
     } except Exception {
         found = None;
     } finally {
         restore(me);
     }
     return found as PriceList if isinstance(found, PriceList) else None;
+}
+
+def _price_list(scope: TenantScope) -> PriceList | None {
+    return cinema_prices(scope.tenant);
 }
 
 def _view(price_list: PriceList) -> dict[str, any] {  # jac:ignore[W1037]
@@ -154,10 +160,38 @@ def _quote_tickets(tenant: str, screening_id: str, items: list[any]) -> dict[str
     table = parsed as PriceTable;
     slots = _slots_by_label(scope, screening);
     starts = datetime.fromisoformat(screening.starts_at);
+    lines = price_seats(
+        table,
+        slots,
+        items,
+        starts,
+        lambda (slot: SeatSlot) -> bool { return slot.state == "available"; }
+    );
+    return {
+        "ok": True,
+        "quote": {
+            "screening_id": screening_id,
+            "currency": table.currency,
+            "price_list_version": price_list.version,
+            "lines": lines,
+            "total_cents": sum([l["total_cents"] for l in lines])
+        }
+    };
+}
+
+def price_seats(
+    table: PriceTable,
+    slots: dict[str, SeatSlot],
+    items: list[any],  # jac:ignore[W1037]
+    starts: datetime,
+    sellable: any  # jac:ignore[W1037]
+) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # A priced line per item ({seat_label, ticket_type}) from the price list alone; any
+    # price sent along is ignored. `sellable(slot)` says whether the seat may be priced.
+    # Shared by staff quotes and storefront orders (P4.5).
     lines: list[dict[str, any]] = [];  # jac:ignore[W1037]
     seen: set[str] = set();
     for item in items {
-        # Only the seat and the ticket type are read; any price sent along is ignored.
         label = str(item.get("seat_label", "")).strip().upper();
         ticket = str(item.get("ticket_type", "")).strip().upper();
         if label in seen {
@@ -168,7 +202,7 @@ def _quote_tickets(tenant: str, screening_id: str, items: list[any]) -> dict[str
         if slot is None {
             raise Refused("unknown_seat", f"This screening has no seat {label}.");
         }
-        if slot.state != "available" {
+        if not sellable(slot) {
             raise Refused("seat_not_for_sale", f"Seat {label} isn't for sale.");
         }
         try {
@@ -182,16 +216,7 @@ def _quote_tickets(tenant: str, screening_id: str, items: list[any]) -> dict[str
         priced["ticket_name"] = table.ticket_types[ticket];
         lines.append(priced);
     }
-    return {
-        "ok": True,
-        "quote": {
-            "screening_id": screening_id,
-            "currency": table.currency,
-            "price_list_version": price_list.version,
-            "lines": lines,
-            "total_cents": sum([l["total_cents"] for l in lines])
-        }
-    };
+    return lines;
 }
 
 def:priv get_price_list(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]

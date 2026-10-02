@@ -56,7 +56,7 @@ glob HOLD_ENV: str = "AFRICINEMAS_HOLD_SECONDS",
      HOLDER_PATTERN: str = "[A-Za-z0-9_-]{16,64}",
      OPEN_HOLDS: str = "open-hold";
 
-def _seconds(env: str, fallback: int) -> int {
+def seconds_from_env(env: str, fallback: int) -> int {
     # A duration from the environment (tests shorten holds), or the default.
     try {
         value = int(os.environ.get(env, ""));
@@ -66,11 +66,11 @@ def _seconds(env: str, fallback: int) -> int {
     return value if value > 0 else fallback;
 }
 
-def _namespace(screening_id: str) -> str {
+def seat_namespace(screening_id: str) -> str {
     return f"seat:{screening_id}";
 }
 
-def _showtime(slug: str, screening_id: str) -> tuple[Tenant, Screening] {
+def showtime_on_sale(slug: str, screening_id: str) -> tuple[Tenant, Screening] {
     # The cinema and the showtime, if it's on the storefront and hasn't started.
     cinema = open_cinema(slug);
     if cinema is None or not screening_id {
@@ -86,7 +86,7 @@ def _showtime(slug: str, screening_id: str) -> tuple[Tenant, Screening] {
     return (cinema, screening);
 }
 
-def _check_holder(holder: str) {
+def check_holder(holder: str) {
     if not isinstance(holder, str) or not re.fullmatch(HOLDER_PATTERN, holder) {
         raise Refused(
             "invalid_holder", "This page lost track of you. Reload it and try again."
@@ -100,7 +100,7 @@ def _live(hold: SeatHold) -> bool {
         and datetime.fromisoformat(hold.expires_at) > now();
 }
 
-def _current(cinema: Tenant, screening: Screening, holder: str) -> SeatHold | None {
+def current_hold(cinema: Tenant, screening: Screening, holder: str) -> SeatHold | None {
     # The holder's live hold on this showtime, if any.
     me = node_id(root);
     act_as(cinema.principal_root_id);
@@ -152,8 +152,8 @@ def free_seats(slots: list[SeatSlot], labels: list[str], hold_id: str) {
 def _hold_seats(
     slug: str, screening_id: str, holder: str, labels: list[str]
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    (cinema, screening) = _showtime(slug, screening_id);
-    _check_holder(holder);
+    (cinema, screening) = showtime_on_sale(slug, screening_id);
+    check_holder(holder);
     wanted: list[str] = [];
     for label in labels or [] {
         cleaned = str(label).strip();
@@ -193,10 +193,24 @@ def _hold_seats(
             {"seats": unsellable}
         );
     }
-    previous = _current(cinema, screening, holder);
+    gone = [
+        label
+        for label in wanted
+        if by_label[label].state
+            in [SeatState.PAYMENT_PENDING.value, SeatState.SOLD.value]
+    ];
+    if gone {
+        # Paying or sold: taken, whatever the seat's claim says (P4.5).
+        raise Refused(
+            "seats_taken",
+            "Someone else has just taken some of these seats.",
+            {"seats": gone}
+        );
+    }
+    previous = current_hold(cinema, screening, holder);
     kept: list[str] = list(previous.seats) if previous is not None else [];
-    seconds = _seconds(HOLD_ENV, HOLD_SECONDS);
-    space = _namespace(screening_id);
+    seconds = seconds_from_env(HOLD_ENV, HOLD_SECONDS);
+    space = seat_namespace(screening_id);
     claimed: list[str] = [];
     taken: list[str] = [];
     for label in wanted {
@@ -269,9 +283,9 @@ def _hold_seats(
 }
 
 def _my_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # jac:ignore[W1037]
-    (cinema, screening) = _showtime(slug, screening_id);
-    _check_holder(holder);
-    hold = _current(cinema, screening, holder);
+    (cinema, screening) = showtime_on_sale(slug, screening_id);
+    check_holder(holder);
+    hold = current_hold(cinema, screening, holder);
     if hold is None {
         raise Refused("no_hold", "You aren't holding any seats for this showtime.");
     }
@@ -279,13 +293,13 @@ def _my_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # j
 }
 
 def _release_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # jac:ignore[W1037]
-    (cinema, screening) = _showtime(slug, screening_id);
-    _check_holder(holder);
-    hold = _current(cinema, screening, holder);
+    (cinema, screening) = showtime_on_sale(slug, screening_id);
+    check_holder(holder);
+    hold = current_hold(cinema, screening, holder);
     if hold is None {
         raise Refused("no_hold", "You aren't holding any seats for this showtime.");
     }
-    space = _namespace(screening_id);
+    space = seat_namespace(screening_id);
     for label in hold.seats {
         release(space, label, holder);
     }
@@ -304,18 +318,20 @@ def _release_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] {
 def _extend_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # jac:ignore[W1037]
     # Pushes the hold's expiry out by HOLD_SECONDS, but never beyond MAX_SECONDS from
     # when the hold began.
-    (cinema, screening) = _showtime(slug, screening_id);
-    _check_holder(holder);
-    hold = _current(cinema, screening, holder);
+    (cinema, screening) = showtime_on_sale(slug, screening_id);
+    check_holder(holder);
+    hold = current_hold(cinema, screening, holder);
     if hold is None {
         raise Refused("no_hold", "You aren't holding any seats for this showtime.");
     }
     stamp = now();
     limit = datetime.fromisoformat(hold.created_at)
-        + timedelta(seconds=_seconds(MAX_ENV, MAX_SECONDS));
-    until = min(stamp + timedelta(seconds=_seconds(HOLD_ENV, HOLD_SECONDS)), limit);
+        + timedelta(seconds=seconds_from_env(MAX_ENV, MAX_SECONDS));
+    until = min(
+        stamp + timedelta(seconds=seconds_from_env(HOLD_ENV, HOLD_SECONDS)), limit
+    );
     seconds = max(1, math.ceil((until - stamp).total_seconds()));
-    space = _namespace(screening_id);
+    space = seat_namespace(screening_id);
     for label in hold.seats {
         if not renew(space, label, holder, seconds) {
             raise Refused(

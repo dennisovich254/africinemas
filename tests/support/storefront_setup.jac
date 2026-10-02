@@ -114,3 +114,35 @@ def browse(app: Served, name: str, body: dict[str, any]) -> any {  # jac:ignore[
 def code_of(answer: dict[str, any]) -> str {  # jac:ignore[W1037]
     return "" if answer["ok"] else answer["error"]["code"];
 }
+
+def set_prices(app: Served, who: str, cinema: Cinema, adult: int = 80000) {
+    # Adult and Child tickets (KES 800 and 500 by default), a KES 100 evening extra
+    # (START is 21:00 in Nairobi) and a KES 30 service fee.
+    saved = app.call(
+        who,
+        "save_price_list",
+        {
+            "tenant": cinema.slug,
+            "timezone": "Africa/Nairobi",
+            "ticket_types": [
+                {"code": "ADULT", "name": "Adult"},
+                {"code": "CHILD", "name": "Child"}
+            ],
+            "prices": [
+                {"zone": "", "ticket_type": "ADULT", "price_cents": adult},
+                {"zone": "", "ticket_type": "CHILD", "price_cents": 50000}
+            ],
+            "surcharges": [
+                {
+                    "name": "Evening",
+                    "days": [0, 1, 2, 3, 4, 5, 6],
+                    "start": "18:00",
+                    "end": "24:00",
+                    "amount_cents": 10000
+                }
+            ],
+            "service_fee_cents": 3000
+        }
+    );
+    assert saved["ok"] , saved;
+}
