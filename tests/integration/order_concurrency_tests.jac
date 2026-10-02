@@ -30,39 +30,13 @@ conflict_backoff_ms = 20
 
 [placement]
 default = "server"
-""",
-     # The production endpoints without the web client, and a probe counting orders.
-     APP_MAIN: str = """import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
-import from core.tenancy.tenant_api { start_shift }  # jac:ignore[W2037]
-import from core.catalog.venue_api { create_venue, create_auditorium }  # jac:ignore[W2037]
-import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
-import from core.catalog.movie_api { create_movie }  # jac:ignore[W2037]
-import from core.catalog.screening_api { create_screening, schedule_screening, publish_screening }  # jac:ignore[W2037]
-import from core.catalog.pricing_api { save_price_list }  # jac:ignore[W2037]
-import from core.booking.hold_api { hold_seats }  # jac:ignore[W2037]
-import from core.booking.order_api { place_order, my_order }  # jac:ignore[W2037]
-import from core.tenancy.open_cinema { open_cinema }
-import from core.tenancy.principal { node_id, act_as, restore }
-import from core.catalog.venues { find_screening }
-import from core.booking.models { Order }
-
-def:pub count_orders(screening_id: str) -> int {
-    cinema = open_cinema("nova");
-    screening = find_screening(cinema, screening_id);
-    me = node_id(root);
-    act_as(cinema.principal_root_id);
-    try {
-        found = len([screening-->[?:Order]]);
-    } finally {
-        restore(me);
-    }
-    return found;
-}
 """;
 
 def _project -> str {
     workdir = tempfile.mkdtemp(prefix="africinemas-orders-");
-    (Path(workdir) / "main.jac").write_text(APP_MAIN);
+    shutil.copy(
+        REPO_ROOT / "tests" / "apps" / "order_app.jac", Path(workdir) / "main.jac"
+    );
     shutil.copytree(REPO_ROOT / "core", Path(workdir) / "core");
     (Path(workdir) / "jac.toml").write_text(APP_TOML);
     (Path(workdir) / ".jac").mkdir();
@@ -138,7 +112,8 @@ test "one key sent twenty times at once makes one order" {
             for r in results
             if not r["ok"]
         ][:5];
-        assert server.call("count_orders", {"screening_id": screening}) == 1;
+        assert server.call("count_orders", {"slug": "nova", "screening_id": screening})
+            == 1;
         # Asked again afterwards, every racer gets the one order.
         assert _place(server, screening, key)["order"] == orders[0];
     } finally {
@@ -174,7 +149,8 @@ test "different keys for the same held seats at once still make one order" {
             for r in results
             if not r["ok"]
         ][:5];
-        assert server.call("count_orders", {"screening_id": screening}) == 1;
+        assert server.call("count_orders", {"slug": "nova", "screening_id": screening})
+            == 1;
     } finally {
         server.stop(drop=True);
         remove_project(workdir);
