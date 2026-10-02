@@ -9,7 +9,14 @@ lookup answers None for another cinema's node, a node of another kind, or a bad 
 import from core.tenancy.models { Tenant, Membership }
 import from core.tenancy.membership { records_of }
 import from core.tenancy.principal { node_id, act_as, restore }
-import from core.catalog.models { Venue, Auditorium, SeatLayout, Movie, Screening }
+import from core.catalog.models {
+    Venue,
+    Auditorium,
+    SeatLayout,
+    Movie,
+    Screening,
+    SeatSlot
+}
 
 def _read(tenant: Tenant, node_ref: str) -> any {  # jac:ignore[W1037]
     # The node with id `node_ref`, read as `tenant`'s principal; None if there's none or
@@ -139,4 +146,19 @@ def staff_at(tenant: Tenant, venue_id: str) -> list[Membership] {
         for m in records
         if any(key.partition("@")[2] == venue_id for key in m.roles)
     ];
+}
+
+def slots_of(tenant: Tenant, screening: Screening) -> list[SeatSlot] {
+    # The screening's seat slots, row by row, read as the cinema's principal.
+    me = node_id(root);
+    act_as(tenant.principal_root_id);
+    try {
+        found = [screening-->[?:SeatSlot]];
+    } finally {
+        restore(me);
+    }
+    def place(x: SeatSlot) -> tuple[int, int] {
+        return (x.row, x.col);
+    }
+    return sorted(found, key=place);
 }

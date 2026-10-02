@@ -80,7 +80,8 @@ import from core.catalog.storefront_api {
     public_poster,
     public_home_photo,
     public_backdrop,
-    public_venues
+    public_venues,
+    public_seat_availability
 }
 import from core.homepage.home_api {
     get_home_page,  # jac:ignore[W2037]

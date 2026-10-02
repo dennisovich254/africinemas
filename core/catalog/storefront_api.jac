@@ -31,7 +31,13 @@ import from core.catalog.storefront {
     movies_by_key
 }
 import from core.homepage.page { default_page }
-import from core.catalog.venues { find_screening, find_movie }
+import from core.booking.availability {
+    effective_state,
+    public_state,
+    state_text,
+    sellable
+}
+import from core.catalog.venues { find_screening, find_movie, slots_of }
 import from core.catalog.poster { media_store, media_key }
 
 # How many of a movie's next showtimes the home page lists.
@@ -420,5 +426,55 @@ def:pub public_venues(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
         "ok": True,
         "cinema": _cinema(cinema),
         "venues": sorted(venues, key=by_name)
+    };
+}
+
+def:pub public_seat_availability(slug: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A showtime's seats as a visitor may see them (P4.2): each seat's place, type and
+    # zone, its state (available, held, sold or not for sale; a lapsed hold counts as
+    # available) and the words for it, and how many are available. Only for showtimes
+    # on this cinema's storefront that haven't started.
+    cinema = open_cinema(slug);
+    if cinema is None or not screening_id {
+        return NOT_FOUND;
+    }
+    shown = [
+        e
+        for e in upcoming(cinema)
+        if e.screening_id == screening_id
+    ];
+    screening = find_screening(cinema, screening_id) if shown else None;
+    if screening is None {
+        return NOT_FOUND;
+    }
+    at = now();
+    seats: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    available = 0;
+    for x in slots_of(cinema, screening) {
+        state = effective_state(x.state, x.hold_expires_at, at);
+        if sellable(state) {
+            available += 1;
+        }
+        visible = public_state(state);
+        seats.append(
+            {
+                "label": x.label,
+                "row": x.row,
+                "col": x.col,
+                "seat_type": x.seat_type,
+                "zone": x.zone,
+                "state": visible,
+                "text": state_text(visible)
+            }
+        );
+    }
+    layout = shown[0].seat_map;
+    return {
+        "ok": True,
+        "screening_id": screening_id,
+        "rows": layout.get("rows", 0),
+        "cols": layout.get("cols", 0),
+        "seats": seats,
+        "counts": {"available": available, "total": len(seats)}
     };
 }

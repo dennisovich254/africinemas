@@ -92,8 +92,10 @@ node Screening {
 
 node SeatSlot {
     # One seat of one screening: the unit of seat inventory (§25), created when the
-    # screening is published (P3.5b), one per seat of its pinned layout. state is
-    # "available" or "not_for_sale" (BLOCKED and HOUSE seats); holds and sales come in P4.
+    # screening is published (P3.5b), one per seat of its pinned layout. state is a
+    # SeatState value (core/booking/availability.jac): "available" or "not_for_sale"
+    # (BLOCKED and HOUSE seats) when made; while held, hold_expires_at says until when
+    # (P4.2; holds come in P4.3) and hold_id which hold.
     has tenant_id: str,
         screening_id: str,
         label: str,
@@ -101,7 +103,9 @@ node SeatSlot {
         col: int,
         seat_type: str,
         zone: str = "",
-        state: str = "available";
+        state: str = "available",
+        hold_expires_at: str = "",
+        hold_id: str = "";
 }
 
 node Storefront {

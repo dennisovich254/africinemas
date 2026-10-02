@@ -46,6 +46,7 @@ import from core.catalog.models {
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.storefront { project, unproject, public_programme }
 import from core.catalog.layout { UNSELLABLE }
+import from core.booking.availability { effective_state }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.responses { NOT_FOUND }
 import from core.catalog.venues {
@@ -54,7 +55,8 @@ import from core.catalog.venues {
     find_screening,
     find_layout,
     layouts_of,
-    screenings_of
+    screenings_of,
+    slots_of
 }
 import from core.catalog.screening_rules {
     ScreeningState,
@@ -357,16 +359,7 @@ def:priv cancel_screening(tenant: str, screening_id: str) -> dict[str, any] {  #
 }
 
 def _slots(scope: TenantScope, screening: Screening) -> list[SeatSlot] {
-    me = node_id(root);
-    act_as(scope.tenant.principal_root_id);
-    try {
-        found = [screening-->[?:SeatSlot]];
-    } finally {
-        restore(me);
-    }
-    return sorted(
-        found, key=lambda (x: SeatSlot) -> tuple[int, int] { return (x.row, x.col); }
-    );  # jac:ignore[W1037]
+    return slots_of(scope.tenant, screening);
 }
 
 def _make_slots(scope: TenantScope, screening: Screening) {
@@ -445,7 +438,8 @@ def _list_seat_slots(tenant: str, screening_id: str) -> dict[str, any] {  # jac:
                 "col": x.col,
                 "seat_type": x.seat_type,
                 "zone": x.zone,
-                "state": x.state
+                # A lapsed hold is available again (P4.2).
+                "state": effective_state(x.state, x.hold_expires_at, now()).value
             } for x in _slots(scope, screening)
         ]
     };
