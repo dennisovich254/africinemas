@@ -322,6 +322,24 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "holder": "probe-holder-0123456789abcdef"
              }
          },
+         "place_order": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef",
+                 "idempotency_key": "probe-key-xxxxxxxxxxxxxxxx",
+                 "items": [{"seat_label": "A1", "ticket_type": "ADULT"}]
+             }
+         },
+         "my_order": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
          "public_seat_availability": {
              "scope": "storefront",
              "probe": {"slug": "{tenant}", "screening_id": "x"}

@@ -231,7 +231,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 - [x] **4.2 Seat availability** — **T:** a lazily expired hold shows as AVAILABLE; BLOCKED/HOUSE are not sellable; the response carries text states (accessibility, §102).
 - [x] **4.3 Seat holds** (§24, §25; one hold per seat is an atomic claim with the hold time as its TTL, ADR-0007) — **T:** hold/release/extend; per-customer cap; **concurrency: 50 parallel holds on one seat → exactly 1 succeeds**; overlapping multi-seat holds → no partial holds.
 - [x] **4.4 Hold expiry sweeper** (`@schedule`) — **T:** idempotent when run twice (it runs on every replica); never releases `PAYMENT_PENDING` holds.
-- [ ] **4.5 Orders/bookings with price snapshot & idempotency** (§26, §27) — **T:** same idempotency key → same booking (including concurrently); the snapshot is unchanged after a price edit.
+- [x] **4.5 Orders/bookings with price snapshot & idempotency** (§26, §27) — **T:** same idempotency key → same booking (including concurrently); the snapshot is unchanged after a price edit.
 - [ ] **4.6 Storefront UI: seat map & checkout shell (mobile-first)** — **T (E2E, mobile + desktop):** pick a screening → select 2 seats (tap on mobile, click/keyboard on desktop) → hold timer shows → proceed to pay. On mobile: the seat map fits the width and can be zoomed, and the sticky bottom bar shows the seats and total. Keyboard-only seat selection works on desktop. Decide on `[client.pwa]` here.
 - [ ] **4.7 Load test (spike S5)** — **T:** 200 concurrent hold attempts on one screening: zero double-holds, p95 latency and 409-rate within the targets recorded in the S5 ADR.
 
@@ -241,7 +241,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 - [ ] **5.2 Daraja adapter** (OAuth token cache, STK push, STK query, C2B registration later) — **T:** HTTP-mocked contract tests from recorded sandbox fixtures; token refresh; timeouts/retries; no secrets in logs.
 - [ ] **5.3 `initiate_payment`** (§29) — **T:** creates a `PaymentIntent` + extends the hold to `PAYMENT_PENDING`; **a forced serialization replay still produces exactly one STK call** (`on_commit`/outbox); the idempotency key prevents a double initiate.
 - [ ] **5.4 Callback → receipt → verified finalize** (§33–§35) — **T:** the callback only stores a receipt; the worker verifies via STK query; finalize makes Payment SUCCESS + Booking CONFIRMED + SeatSlots SOLD + Tickets ISSUED atomically; **3 duplicate callbacks → one ticket set**; amount mismatch → `NEEDS_ATTENTION`; late success after release → `NEEDS_ATTENTION` + refund task.
-- [ ] **5.5 TIMEOUT/UNKNOWN resolver job + ledger entries** (§37, §124) — **T:** stuck intents are resolved via status query; ledger entries are append-only and balance per booking.
+- [ ] **5.5 TIMEOUT/UNKNOWN resolver job + ledger entries** (§37, §124) — **T:** stuck intents are resolved via status query; ledger entries are append-only and balance per booking. An order nobody started paying by its `pay_by` (P4.5) is ended: its seats, its hold and their claims (seat, `order-hold`) are released, so PAYMENT_PENDING never sticks.
 - [ ] **5.6 Checkout UI** (enter phone → "check your phone" → live status) — **T (E2E, simulator, mobile + desktop):** success path shows the ticket; a failure releases the seats with a message. The M-Pesa phone field uses `inputmode="tel"` and is validated inline.
 - [ ] **5.7 Daraja sandbox end-to-end** (nightly job + manual; callback via a Cloudflare Tunnel URL) — **✓** A real sandbox STK payment produces a ticket.
 
