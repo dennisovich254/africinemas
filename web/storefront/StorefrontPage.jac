@@ -1,8 +1,8 @@
 """`/c/:slug`: a cinema's public storefront, wearing its published theme (P3.8b).
 
 Draws the cinema's published home page (public_home): its sections in its template's
-order and layout (HomeSections.jac, P4.1b), filled from the programme, with quick book
-after the hero (P4.1d). The visitor's chosen venue narrows the showtimes and movies. A
+order and layout (HomeSections.jac, P4.1b), filled from the programme; Marquee's hero
+runs full width (P4.1d). The visitor's chosen venue narrows the showtimes and movies. A
 movie's title leads to its page (MoviePage), a showtime to its page (ScreeningPage).
 While it loads the page shows its shape; if it can't load it says so, with Try again.
 """
@@ -11,7 +11,7 @@ import from react { useState, useEffect }
 import from "@jac/runtime" { useParams }
 import from core.catalog.storefront_api { public_home }
 import from .StorefrontShell { StorefrontShell, HomeSkeleton, LoadError }
-import from .HomeSections { HomeBlock, home_blocks, for_venue, QuickBook, FeaturedHero }
+import from .HomeSections { HomeBlock, home_blocks, for_venue, FeaturedHero }
 import from .venue_choice { use_venue, use_title, scroll_to_hash }
 
 def:pub StorefrontPage -> JsxElement {
@@ -73,45 +73,12 @@ def:pub StorefrontPage -> JsxElement {
     tz: str = found["cinema"]["timezone"];
     template: str = found["page"]["template"];
     sections = for_venue(found["page"]["sections"], venue);
-    showtimes: list[dict[str, any]] = found["showtimes"];  # jac:ignore[W1037]
-    venues: list[str] = [];
-    for s in showtimes {
-        if s["venue"]["name"] not in venues {
-            venues.append(s["venue"]["name"]);
-        }
-    }
     blocks = home_blocks(sections);
     # Marquee draws its hero full width, above the page (P4.1d).
     hero: any = None;  # jac:ignore[W1037]
     if template == "marquee" and len(blocks) > 0 and blocks[0][0]["type"] == "hero" {
-        hero = <FeaturedHero
-            slug={slug}
-            section={blocks[0][0]}
-            movies={found["movies"]}
-        />;
+        hero = <FeaturedHero slug={slug} section={blocks[0][0]}/>;
         blocks = blocks[1:];
-    }
-    # Quick book comes right after the hero, or first when there's no hero.
-    after: int = 1 if len(blocks) > 0 and blocks[0][0]["type"] == "hero" else 0;
-    quick = <QuickBook
-        key="quick-book"
-        slug={slug}
-        showtimes={showtimes}
-        tz={tz}
-        venues={sorted(venues)}
-        venue={venue}
-    />;
-    parts: list[any] = [];  # jac:ignore[W1037]
-    for (n, b) in enumerate(blocks) {
-        if n == after and len(showtimes) > 0 {
-            parts.append(quick);
-        }
-        parts.append(
-            <HomeBlock key={f"{n}"} slug={slug} block={b} tz={tz} template={template}/>
-        );
-    }
-    if after >= len(blocks) and len(showtimes) > 0 {
-        parts.append(quick);
     }
     return
         <StorefrontShell slug={slug} hero={hero}>
@@ -122,7 +89,6 @@ def:pub StorefrontPage -> JsxElement {
                     + ("mx-auto w-full max-w-2xl" if template == "compact" else "")}
             >
                 {len(sections) == 0
-                    and len(showtimes) == 0
                     and <div
                         className="flex flex-col gap-1 rounded-lg border bg-card p-6"
                     >
@@ -130,7 +96,15 @@ def:pub StorefrontPage -> JsxElement {
                         <p className="text-sm text-muted-foreground">
                             New showtimes will appear here. Check back soon.
                         </p>
-                    </div>}{parts}
+                    </div>}{[
+                    <HomeBlock
+                        key={f"{n}"}
+                        slug={slug}
+                        block={b}
+                        tz={tz}
+                        template={template}
+                    /> for (n, b) in enumerate(blocks)
+                ]}
             </div>
         </StorefrontShell>;
 }

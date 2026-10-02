@@ -12,10 +12,9 @@ in the editor's preview at any size. The page puts them in an `@container`.
 """
 
 import from react { useState, useEffect }
-import from ...components.ui.button { Button }
 import from ..shell.AppLink { AppLink }
 import from core.catalog.storefront_api { public_home_photo }
-import from .StorefrontParts { Poster, Backdrop, Thumb, ShowtimeLink }
+import from .StorefrontParts { Poster, Backdrop, ShowtimeLink }
 import from .showtimes {
     details_line,
     where_label,
@@ -26,11 +25,9 @@ import from .showtimes {
     by_movie,
     release_label,
     sorted_unique,
-    cinema_date,
     listed,
     runtime_label
 }
-import from .venue_choice { choose_venue }
 
 glob HEADINGS: dict[str, str] = {
          "today": "What's on",
@@ -176,13 +173,56 @@ def Hero(slug: str, section: dict[str, any], template: str) -> JsxElement {  # j
         </section>;
 }
 
+def:pub GenreChips(
+    genres: list[str],
+    chosen: str,
+    on_choose: any,  # jac:ignore[W1037]
+    testid: str
+) -> JsxElement {
+    # "All" and one chip per genre; nothing when there's only one genre to choose.
+    if len(genres) < 2 {
+        return <span className="hidden"/>;
+    }
+    chip = "inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ";
+    on = "border-foreground bg-foreground text-background";
+    off = "bg-card hover:border-foreground";
+    return
+        <div
+            role="group"
+            aria-label="Filter by genre"
+            data-testid={testid}
+            className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+        >
+            <button
+                type="button"
+                aria-pressed={"true" if not chosen else "false"}
+                onClick={lambda { on_choose(""); }}
+                className={chip + (on if not chosen else off)}
+            >
+                All
+            </button>
+            {[
+                <button
+                    key={g}
+                    type="button"
+                    aria-pressed={"true" if g == chosen else "false"}
+                    onClick={lambda { on_choose(g); }}
+                    className={chip + (on if g == chosen else off)}
+                >
+                    {g}
+                </button> for g in genres
+            ]}
+        </div>;
+}
+
 def DayMovie(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
-    # One movie's showtimes on the chosen day: a small poster, the title, the times.
+    # One movie on the chosen day: its poster, title and details, and its times. A time
+    # is the way in: it opens that showtime, where booking continues.
     showtimes: list[dict[str, any]] = group["showtimes"];  # jac:ignore[W1037]
     return
         <li
             data-testid="day-movie"
-            className="grid grid-cols-[4rem_1fr] gap-4 py-4 @xl:grid-cols-[5rem_1fr]"
+            className="grid grid-cols-[4.5rem_1fr] gap-4 py-4 @xl:grid-cols-[5.5rem_1fr]"
         >
             <Poster
                 slug={slug}
@@ -190,16 +230,21 @@ def DayMovie(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:i
                 has_poster={group["has_poster"]}
             />
             <div className="flex min-w-0 flex-col gap-2">
-                <h3 className="font-display text-xl leading-tight">
-                    <AppLink
-                        to={f"/c/{slug}/m/{group['movie_key']}"}
-                        className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline"
-                    >
-                        {group["title"]}
-                    </AppLink>
-                </h3>
+                <div className="flex flex-col">
+                    <h3 className="font-display text-xl leading-tight">
+                        <AppLink
+                            to={f"/c/{slug}/m/{group['movie_key']}"}
+                            className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:underline"
+                        >
+                            {group["title"]}
+                        </AppLink>
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                        {details_line(group)}
+                    </p>
+                </div>
                 <ul
-                    aria-label={f"{group['title']} showtimes"}
+                    aria-label={f"{group['title']} times"}
                     className="flex flex-wrap gap-2"
                 >
                     {[
@@ -218,13 +263,22 @@ def DayMovie(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:i
 }
 
 def Today(slug: str, section: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
-    # Showtimes by day: a strip of the coming days (Today first), and the chosen day's
-    # showtimes grouped by movie.
+    # What's on: the coming days (Today first), genre chips when there's a choice, and
+    # the chosen day's movies with their times. Tapping a time opens that showtime.
     days: list[dict[str, any]] = section["days"];  # jac:ignore[W1037]
     [chosen, set_chosen] = useState(0);
+    [genre, set_genre] = useState("");
     index: int = chosen if chosen < len(days) else 0;
     today = cinema_today(tz);
     day: dict[str, any] = days[index];  # jac:ignore[W1037]
+    groups = by_movie(day["showtimes"]);
+    genres = sorted_unique([g for m in groups for g in m["genres"]]);
+    active: str = genre if listed(genre, genres) else "";
+    shown = [
+        m
+        for m in groups
+        if not active or listed(active, m["genres"])
+    ];
     return
         <section
             id="showtimes"
@@ -256,6 +310,12 @@ def Today(slug: str, section: dict[str, any], tz: str) -> JsxElement {  # jac:ig
                     </button> for (i, d) in enumerate(days)
                 ]}
             </div>
+            <GenreChips
+                genres={genres}
+                chosen={active}
+                on_choose={set_genre}
+                testid="genre-chips"
+            />
             <ul
                 aria-live="polite"
                 data-testid="day-showtimes"
@@ -263,85 +323,31 @@ def Today(slug: str, section: dict[str, any], tz: str) -> JsxElement {  # jac:ig
             >
                 {[
                     <DayMovie key={g["movie_key"]} slug={slug} group={g} tz={tz}/>
-                    for g in by_movie(day["showtimes"])
+                    for g in shown
                 ]}
             </ul>
         </section>;
 }
 
-def FilterSelect(  # jac:ignore[W3030] a filter: its id, label, options, value and handler
-    field_id: str,
-    label: str,
-    everything: str,
-    options: list[str],
-    value: str,
-    on_value: any  # jac:ignore[W1037]
-) -> JsxElement {
-    return
-        <label htmlFor={field_id} className="flex min-w-0 flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">{label}</span>
-            <select
-                id={field_id}
-                value={value}
-                onChange={lambda (e: any) { on_value(e.target.value); }}  # jac:ignore[W1037]
-                className="min-h-11 rounded-md border border-input bg-background px-2 text-sm"
-            >
-                <option value="">{everything}</option>
-                {[<option key={o} value={o}>{o}</option> for o in options]}
-            </select>
-        </label>;
-}
-
-def:pub NowShowing(
+def:pub NowShowing(  # jac:ignore[W3030] the cinema, section, time zone, template and two switches
     slug: str,
     section: dict[str, any],  # jac:ignore[W1037]
     tz: str,
     template: str,
-    view_all: bool = False
+    view_all: bool = False,
+    chips: bool = False
 ) -> JsxElement {
-    # The movies on sale as poster cards, with filters (genre, age rating, language)
-    # and a sort when there's more than one movie.
+    # The movies on sale as poster cards. On the home page, a row with View all; on the
+    # Movies page (`chips`), with genre chips above.
     movies: list[dict[str, any]] = section["movies"];  # jac:ignore[W1037]
     [genre, set_genre] = useState("");
-    [rating, set_rating] = useState("");
-    [language, set_language] = useState("");
-    [order, set_order] = useState("soonest");
     genres = sorted_unique([g for m in movies for g in m["genres"]]);
-    ratings = sorted_unique(
-        [
-            m["age_rating"]
-            for m in movies
-            if m["age_rating"]
-        ]
-    );
-    languages = sorted_unique(
-        [
-            m["language"]
-            for m in movies
-            if m["language"]
-        ]
-    );
+    active: str = genre if listed(genre, genres) else "";
     shown = [
         m
         for m in movies
-        if (not genre or listed(genre, m["genres"]))
-            and (not rating or m["age_rating"] == rating)
-            and (not language or m["language"] == language)
+        if not active or listed(active, m["genres"])
     ];
-    def by_title(m: dict[str, any]) -> str {  # jac:ignore[W1037]
-        return m["title"].lower();
-    }
-    if order == "title" {
-        shown = sorted(shown, key=by_title);
-    }
-    filtering: bool = bool(genre or rating or language);
-
-    def clear {
-        set_genre("");
-        set_rating("");
-        set_language("");
-    }
-
     return
         <section
             id="now-showing"
@@ -359,69 +365,13 @@ def:pub NowShowing(
                         View all
                     </AppLink>}
             </div>
-            {len(movies) > 1
-                and <div
-                    role="group"
-                    aria-label="Filter and sort movies"
-                    data-testid="movie-filters"
-                    className="grid grid-cols-2 gap-3 @xl:grid-cols-4"
-                >
-                    {len(genres) > 0
-                        and <FilterSelect
-                            field_id="filter-genre"
-                            label="Genre"
-                            everything="All genres"
-                            options={genres}
-                            value={genre}
-                            on_value={set_genre}
-                        />}
-                    {len(ratings) > 0
-                        and <FilterSelect
-                            field_id="filter-rating"
-                            label="Age rating"
-                            everything="Any rating"
-                            options={ratings}
-                            value={rating}
-                            on_value={set_rating}
-                        />}
-                    {len(languages) > 0
-                        and <FilterSelect
-                            field_id="filter-language"
-                            label="Language"
-                            everything="Any language"
-                            options={languages}
-                            value={language}
-                            on_value={set_language}
-                        />}
-                    <label
-                        htmlFor="sort-movies"
-                        className="flex min-w-0 flex-col gap-1 text-sm"
-                    >
-                        <span className="text-muted-foreground">Sort</span>
-                        <select
-                            id="sort-movies"
-                            value={order}
-                            onChange={lambda (e: any) { set_order(e.target.value); }}  # jac:ignore[W1037]
-                            className="min-h-11 rounded-md border border-input bg-background px-2 text-sm"
-                        >
-                            <option value="soonest">Showing soonest</option>
-                            <option value="title">Title, A to Z</option>
-                        </select>
-                    </label>
-                </div>}
-            <p aria-live="polite" className="sr-only">
-                {f"{len(shown)} of {len(movies)} movies"}
-            </p>
-            {len(shown) == 0
-                and <div
-                    data-testid="filters-empty"
-                    className="flex flex-col items-start gap-3 rounded-lg border bg-card p-6"
-                >
-                    <p>No movies match these filters.</p>
-                    <Button variant="outline" className="min-h-11 px-4" onClick={clear}>
-                        Clear filters
-                    </Button>
-                </div>}
+            {chips
+                and <GenreChips
+                    genres={genres}
+                    chosen={active}
+                    on_choose={set_genre}
+                    testid="movie-genre-chips"
+                />}
             <ul
                 className={"grid grid-cols-2 gap-x-4 gap-y-6 "
                     + (
@@ -435,15 +385,6 @@ def:pub NowShowing(
                     for m in shown
                 ]}
             </ul>
-            {filtering
-                and len(shown) > 0
-                and <Button
-                    variant="ghost"
-                    className="min-h-11 w-fit px-3"
-                    onClick={clear}
-                >
-                    Clear filters
-                </Button>}
         </section>;
 }
 
@@ -789,239 +730,18 @@ def:pub for_venue(sections: list[dict[str, any]], venue: str) -> list[dict[str, 
     return narrowed;
 }
 
-def:pub QuickBook(  # jac:ignore[W3030] quick book: cinema, showtimes, time zone, venues and the chosen one
-    slug: str,
-    showtimes: list[dict[str, any]],  # jac:ignore[W1037]
-    tz: str,
-    venues: list[str],
-    venue: str
-) -> JsxElement {
-    # Venue → movie → date → time → the showtime's page. Each list offers only what
-    # exists after the choices before it; Book waits for a time.
-    [movie_key, set_movie_key] = useState("");
-    [date, set_date] = useState("");
-    [screening, set_screening] = useState("");
-    available = [
-        s
-        for s in showtimes
-        if not venue or s["venue"]["name"] == venue
-    ];
-    movies: list[dict[str, str]] = [];
-    for s in available {
-        if not any(m["key"] == s["movie_key"] for m in movies) {
-            movies.append({"key": s["movie_key"], "title": s["title"]});
-        }
-    }
-    chosen_movie: str = movie_key if any(m["key"] == movie_key for m in movies) else "";
-    of_movie = [
-        s
-        for s in available
-        if s["movie_key"] == chosen_movie
-    ];
-    dates: list[str] = [];
-    for s in of_movie {
-        day = cinema_date(s["starts_at"], tz);
-        if day not in dates {
-            dates.append(day);
-        }
-    }
-    chosen_date: str = date if date in dates else "";
-    times = [
-        s
-        for s in of_movie
-        if cinema_date(s["starts_at"], tz) == chosen_date
-    ];
-    chosen: str = screening
-        if any(s["screening_id"] == screening for s in times)
-        else "";
-    today = cinema_today(tz);
-    select = "min-h-11 w-full rounded-md border border-input bg-background px-2 text-sm disabled:opacity-60";
-
-    def pick_movie(value: str) {
-        set_movie_key(value);
-        set_date("");
-        set_screening("");
-    }
-
-    def pick_date(value: str) {
-        set_date(value);
-        set_screening("");
-    }
-
-    def on_venue(e: any) {  # jac:ignore[W1037]
-        choose_venue(slug, e.target.value);
-    }
-
-    def on_time(e: any) {  # jac:ignore[W1037]
-        set_screening(e.target.value);
-    }
-
-    return
-        <section
-            id="quick-book"
-            data-testid="quick-book"
-            aria-labelledby="quick-book-heading"
-            className="flex scroll-mt-24 flex-col gap-4 rounded-xl border bg-card p-5"
-        >
-            <h2 id="quick-book-heading" className="font-display text-2xl leading-none">
-                Book tickets
-            </h2>
-            {len(available) == 0
-                and <p
-                    data-testid="quick-book-empty"
-                    className="text-sm text-muted-foreground"
-                >
-                    {f"No showtimes at {venue} in the next two weeks. Try all venues."
-                        if venue
-                        else "No showtimes in the next two weeks yet."}
-                </p>}
-            {len(available) > 0
-                and <div
-                    className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] @4xl:items-end"
-                >
-                    {len(venues) > 1
-                        and <label
-                            htmlFor="qb-venue"
-                            className="flex min-w-0 flex-col gap-1 text-sm"
-                        >
-                            <span className="text-muted-foreground">Venue</span>
-                            <select
-                                id="qb-venue"
-                                value={venue if venue in venues else ""}
-                                onChange={on_venue}
-                                className={select}
-                            >
-                                <option value="">All venues</option>
-                                {[
-                                    <option key={v} value={v}>{v}</option>
-                                    for v in venues
-                                ]}
-                            </select>
-                        </label>}
-                    <label
-                        htmlFor="qb-movie"
-                        className="flex min-w-0 flex-col gap-1 text-sm"
-                    >
-                        <span className="text-muted-foreground">Movie</span>
-                        <select
-                            id="qb-movie"
-                            value={chosen_movie}
-                            onChange={lambda (e: any) { pick_movie(e.target.value); }}  # jac:ignore[W1037]
-                            className={select}
-                        >
-                            <option value="">Choose a movie</option>
-                            {[
-                                <option key={m["key"]} value={m["key"]}>
-                                    {m["title"]}
-                                </option> for m in movies
-                            ]}
-                        </select>
-                    </label>
-                    <label
-                        htmlFor="qb-date"
-                        className="flex min-w-0 flex-col gap-1 text-sm"
-                    >
-                        <span className="text-muted-foreground">Day</span>
-                        <select
-                            id="qb-date"
-                            value={chosen_date}
-                            disabled={not chosen_movie}
-                            onChange={lambda (e: any) { pick_date(e.target.value); }}  # jac:ignore[W1037]
-                            className={select}
-                        >
-                            <option value="">
-                                {"Choose a day"
-                                    if chosen_movie
-                                    else "Choose a movie first"}
-                            </option>
-                            {[
-                                <option key={d} value={d}>
-                                    {date_label(d, today)}
-                                </option> for d in dates
-                            ]}
-                        </select>
-                    </label>
-                    <label
-                        htmlFor="qb-time"
-                        className="flex min-w-0 flex-col gap-1 text-sm"
-                    >
-                        <span className="text-muted-foreground">Time</span>
-                        <select
-                            id="qb-time"
-                            value={chosen}
-                            disabled={not chosen_date}
-                            onChange={on_time}
-                            className={select}
-                        >
-                            <option value="">
-                                {"Choose a time"
-                                    if chosen_date
-                                    else "Choose a day first"}
-                            </option>
-                            {[
-                                <option
-                                    key={s["screening_id"]}
-                                    value={s["screening_id"]}
-                                >
-                                    {f"{time_label(s['starts_at'], tz)} · {where_label(
-                                        s
-                                    )}"}
-                                </option> for s in times
-                            ]}
-                        </select>
-                    </label>
-                    {chosen
-                        and <AppLink
-                            to={f"/c/{slug}/s/{chosen}"}
-                            testid="quick-book-go"
-                            className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-6 font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                        >
-                            Book
-                        </AppLink>}
-                    {not chosen
-                        and <Button
-                            disabled={True}
-                            data-testid="quick-book-go"
-                            className="min-h-11 px-6"
-                        >
-                            Book
-                        </Button>}
-                </div>}
-        </section>;
-}
-
 def:pub FeaturedHero(
     slug: str,
     section: dict[str, any],  # jac:ignore[W1037]
-    movies: list[dict[str, any]],  # jac:ignore[W1037]
     under_header: bool = True
 ) -> JsxElement {
-    # The Marquee template's hero (P4.1d): full width, under the see-through header,
-    # always in the theme's dark colours so the words read over the picture. The
-    # featured movie first, then the others on sale, chosen with the picker on the right
-    # (or under the words on phones). It never moves by itself.
+    # The Marquee template's hero (P4.1d): the featured movie full width, under the
+    # see-through header, always in the theme's dark colours. The picture is left clear
+    # except for a shade behind the words (from the bottom on phones, from the left on
+    # wide screens), so they stay readable.
     fields: dict[str, str] = section["fields"];
-    featured: dict[str, any] | None = section["movie"];  # jac:ignore[W1037]
-    choices: list[dict[str, any]] = [];  # jac:ignore[W1037]
-    if featured is not None {
-        choices.append(featured);
-    }
-    for m in movies {
-        if len(choices) < 8
-            and not any(c["movie_key"] == m["movie_key"] for c in choices) {
-            choices.append(m);
-        }
-    }
-    [index, set_index] = useState(0);
-    current: int = index if index < len(choices) else 0;
-    movie: dict[str, any] | None = choices[current] if len(choices) > 0 else None;  # jac:ignore[W1037]
+    movie: dict[str, any] | None = section["movie"];  # jac:ignore[W1037]
     on_sale: bool = movie is not None and "next" in movie;
-    count: int = len(choices);
-
-    def step(delta: int) {
-        set_index((current + delta + count) % count);
-    }
-
     year: str = "";
     if movie is not None and movie.get("release_date") {
         year = movie["release_date"][:4];
@@ -1033,7 +753,6 @@ def:pub FeaturedHero(
                 data-surface="storefront"
                 data-testid="section-hero"
                 data-movie={movie["movie_key"] if movie is not None else ""}
-                aria-roledescription="featured movies"
                 className={"@container relative isolate overflow-hidden bg-background text-foreground "
                     + ("-mt-[3.75rem]" if under_header else "rounded-xl")}
             >
@@ -1041,14 +760,10 @@ def:pub FeaturedHero(
                     and <Backdrop key={movie["movie_key"]} slug={slug} movie={movie}/>}
                 <div
                     aria-hidden="true"
-                    className="absolute inset-0 -z-10 bg-linear-to-r from-background via-background/75 to-background/10"
+                    className="absolute inset-x-0 bottom-0 -z-10 h-3/4 bg-linear-to-t from-background/85 to-transparent @4xl:inset-y-0 @4xl:right-auto @4xl:h-full @4xl:w-3/5 @4xl:bg-linear-to-r @4xl:from-background/80 @4xl:via-background/40"
                 />
                 <div
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-linear-to-t from-background to-transparent"
-                />
-                <div
-                    className={"mx-auto grid w-full max-w-5xl items-end gap-8 px-4 pb-10 @4xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] "
+                    className={"mx-auto grid w-full max-w-5xl items-end gap-8 px-4 pb-10 "
                         + (
                             "min-h-[34rem] pt-28 md:min-h-[38rem]"
                                 if under_header
@@ -1129,92 +844,6 @@ def:pub FeaturedHero(
                                     else "Coming soon"}
                             </p>}
                     </div>
-                    {count > 1
-                        and <div
-                            data-testid="hero-picker"
-                            className="flex min-w-0 flex-col gap-3"
-                        >
-                            <div className="flex items-center justify-between gap-2">
-                                <h3 className="text-sm font-semibold">Now showing</h3>
-                                <div className="flex gap-1">
-                                    <button
-                                        type="button"
-                                        aria-label="Previous movie"
-                                        onClick={lambda { step(-1); }}
-                                        className="grid size-11 place-items-center rounded-full border bg-card/60 hover:bg-card"
-                                    >
-                                        <span aria-hidden="true">‹</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        aria-label="Next movie"
-                                        onClick={lambda { step(1); }}
-                                        className="grid size-11 place-items-center rounded-full border bg-card/60 hover:bg-card"
-                                    >
-                                        <span aria-hidden="true">›</span>
-                                    </button>
-                                </div>
-                            </div>
-                            <ul
-                                className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1"
-                            >
-                                {[
-                                    <li
-                                        key={c["movie_key"]}
-                                        className="w-40 shrink-0 snap-start md:w-44"
-                                    >
-                                        <button
-                                            type="button"
-                                            data-testid="hero-choice"
-                                            aria-pressed={"true"
-                                                if i == current
-                                                else "false"}
-                                            aria-label={f"Feature {c['title']}"}
-                                            onClick={lambda { set_index(i); }}
-                                            className={"flex w-full flex-col gap-1.5 rounded-xl p-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring "
-                                                + (
-                                                    "ring-2 ring-primary"
-                                                        if i == current
-                                                        else "opacity-80 hover:opacity-100"
-                                                )}
-                                        >
-                                            <Thumb slug={slug} movie={c}/>
-                                            <span
-                                                className="truncate px-1 text-sm font-medium"
-                                            >
-                                                {c["title"]}
-                                            </span>
-                                        </button>
-                                    </li> for (i, c) in enumerate(choices)
-                                ]}
-                            </ul>
-                            <div
-                                className="flex justify-center"
-                                role="group"
-                                aria-label="Featured movie"
-                            >
-                                {[
-                                    <button
-                                        key={c["movie_key"]}
-                                        type="button"
-                                        aria-label={f"Show {c['title']}"}
-                                        aria-current={"true" if i == current else None}
-                                        onClick={lambda { set_index(i); }}
-                                        className="grid size-11 place-items-center"
-                                    >
-                                        <span
-                                            aria-hidden="true"
-                                            className={"block h-1.5 rounded-full transition-all motion-reduce:transition-none "
-                                                + (
-                                                    "w-5 bg-primary"
-                                                        if i == current
-                                                        else "w-1.5 bg-muted-foreground/60"
-                                                )}
-                                        />
-                                    </button> for (i, c) in enumerate(choices)
-                                ]}
-                            </div>
-                        </div>}
                 </div>
             </section>
         </div>;

@@ -32,8 +32,11 @@ glob MAIN: str = path.join(
      MEDIA_ENV: str = "AFRICINEMAS_MEDIA_DIR",
      # What a day's showtime carries for the storefront to group it by movie.
      DAY_SHOWTIME_KEYS: list[str] = [
+         "age_rating",
+         "genres",
          "has_poster",
          "movie_key",
+         "runtime_minutes",
          "screen",
          "screening_id",
          "starts_at",

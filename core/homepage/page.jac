@@ -37,9 +37,9 @@ glob SECTION_TYPES: list[str] = [
      TEMPLATES: dict[str, list[str]] = {
          "marquee": [
              "hero",
+             "today",
              "now_showing",
              "coming_soon",
-             "today",
              "about",
              "location",
              "contact",

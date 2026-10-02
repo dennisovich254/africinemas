@@ -102,17 +102,6 @@ def:pub Backdrop(slug: str, movie: dict[str, any]) -> JsxElement {  # jac:ignore
         </div>;
 }
 
-def:pub Thumb(slug: str, movie: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
-    # A small landscape picture of a movie (its backdrop, or its blurred poster), for
-    # the hero's picker (P4.1d). Decorative: the movie's title goes with it.
-    return
-        <span
-            className="relative isolate block aspect-video w-full overflow-hidden rounded-lg"
-        >
-            <Backdrop slug={slug} movie={movie}/>
-        </span>;
-}
-
 def:pub ShowtimeLink(
     slug: str,
     showtime: dict[str, any],  # jac:ignore[W1037]

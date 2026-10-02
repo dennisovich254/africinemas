@@ -145,13 +145,13 @@ test "hiding and moving sections changes the preview, then the storefront" {
     (pw, browser) = shared_browser();
     try {
         page = _editor(browser, pw, "desktop", owner);
-        # Marquee's default order: Featured movie, Now showing, Coming soon, Today, …
+        # Marquee's default order: Featured movie, What's on, Now showing, Coming soon, …
         _tab(page, "preview");
-        _preview_order(page, ["hero", "now_showing", "today"]);
+        _preview_order(page, ["hero", "today", "now_showing"]);
         _tab(page, "edit");
         page.click('[aria-label="Move Now showing up"]');
         _tab(page, "preview");
-        _preview_order(page, ["now_showing", "hero", "today"]);
+        _preview_order(page, ["hero", "now_showing", "today"]);
         _tab(page, "edit");
         page.uncheck('[data-testid="edit-hero"] input[type="checkbox"]');
         _tab(page, "preview");

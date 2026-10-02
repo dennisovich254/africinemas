@@ -1,8 +1,8 @@
 """P4.1d E2E: the storefront's structure, from finding a movie to its showtime.
 
 Search finds movies and venues and says when nothing matches; the venue picker narrows
-the page and is remembered; quick book reaches the chosen showtime; filters narrow Now
-showing; the phone menu works by keyboard; the Movies and Cinemas pages list what's
+the page and is remembered; a time in What's on opens its showtime; genre chips narrow
+What's on and the Movies page; the phone menu works by keyboard; the Movies and Cinemas pages list what's
 on and where. Phone checks and review screenshots of the new pages.
 """
 
@@ -42,7 +42,7 @@ def _page(browser: any, pw: any, project: str) -> any {  # jac:ignore[W1037]
 def _home(page: any, slug: str) {  # jac:ignore[W1037]
     page.goto(f"{BASE_URL}/c/{slug}");
     page.wait_for_selector(HOME);
-    page.wait_for_selector('[data-testid="quick-book"]');
+    page.wait_for_selector('[data-testid="section-today"]');
 }
 
 def _two_venues -> dict[str, str] {
@@ -146,19 +146,17 @@ test "the venue picker narrows the page, and is remembered" {
     }
 }
 
-test "quick book goes from movie to day to time, and on to the showtime" {
+test "tapping a time in What's on opens that showtime" {
     owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
         for project in PROJECTS {
             page = _page(browser, pw, project);
             _home(page, owner["slug"]);
-            assert page.is_disabled("#qb-date") and page.is_disabled("#qb-time");
-            assert page.is_disabled('button[data-testid="quick-book-go"]');
-            page.select_option("#qb-movie", label="Rafiki");
-            page.select_option("#qb-date", index=1);
-            page.select_option("#qb-time", index=1);
-            page.click('a[data-testid="quick-book-go"]');
+            assert page.locator('[data-testid="quick-book"]').count() == 0;
+            page.locator(
+                '[data-testid="day-showtimes"] [data-testid="showtime"]'
+            ).first.click();
             page.wait_for_selector('[data-testid="screening-page"]');
             assert page.url.endswith(f"/s/{owner['first']}") , page.url;
             page.context.close();
@@ -168,23 +166,26 @@ test "quick book goes from movie to day to time, and on to the showtime" {
     }
 }
 
-test "filters narrow Now showing, and say when nothing matches" {
+test "genre chips narrow What's on and the Movies page" {
     owner = _two_venues();
     (pw, browser) = shared_browser();
     try {
-        page = _page(browser, pw, "desktop");
+        page = _page(browser, pw, "mobile");
         _home(page, owner["slug"]);
-        page.select_option("#filter-genre", "Family");
+        chips = page.locator('[data-testid="genre-chips"] button');
+        assert chips.all_inner_texts() == ["All", "Drama", "Family"];
+        chips.nth(2).click();
         page.wait_for_function(
-            f"JSON.stringify({CARD_TITLES_JS}) === JSON.stringify(['Supa Modo'])"
+            f"JSON.stringify({DAY_TITLES_JS}) === JSON.stringify(['Supa Modo'])"
         );
-        page.select_option("#filter-language", "English, Swahili");
-        page.wait_for_selector('[data-testid="filters-empty"]');
-        page.click('[data-testid="filters-empty"] button:has-text("Clear filters")');
-        page.wait_for_function(f"{CARD_TITLES_JS}.length === 2");
-        page.select_option("#sort-movies", "title");
+        assert chips.nth(2).get_attribute("aria-pressed") == "true";
+        chips.nth(0).click();
+        page.wait_for_function(f"{DAY_TITLES_JS}.length === 2");
+        page.goto(f"{BASE_URL}/c/{owner['slug']}/movies");
+        page.wait_for_selector('[data-testid="movie-genre-chips"]');
+        page.click('[data-testid="movie-genre-chips"] button:has-text("Family")');
         page.wait_for_function(
-            f"JSON.stringify({CARD_TITLES_JS}) === JSON.stringify(['Rafiki', 'Supa Modo'])"
+            "JSON.stringify([...document.querySelectorAll('[data-testid=movie-card] h3')].map(h => h.innerText.trim())) === JSON.stringify(['Supa Modo'])"
         );
     } finally {
         close_contexts(browser);
@@ -249,7 +250,7 @@ test "the new pages pass the phone checks" {
             viewport={"width": 375, "height": 812}, is_mobile=True, has_touch=True
         ).new_page();
         for (path, ready) in [
-            ("", '[data-testid="quick-book"]'),
+            ("", '[data-testid="section-today"]'),
             ("/movies", '[data-testid="movies-page"] [data-testid="movie-card"]'),
             ("/cinemas", '[data-testid="venue-card"]')
         ] {
@@ -285,7 +286,7 @@ test "review screenshots of the storefront structure" {
                     reduced_motion="reduce"
                 ).new_page();
                 for (name, path, ready) in [
-                    ("home", "", '[data-testid="quick-book"]'),
+                    ("home", "", '[data-testid="section-today"]'),
                     ("movies", "/movies", '[data-testid="movie-card"]'),
                     ("cinemas", "/cinemas", '[data-testid="venue-card"]')
                 ] {
@@ -306,7 +307,7 @@ test "review screenshots of the storefront structure" {
     }
 }
 
-test "the full-width hero switches movie from its picker, under a see-through header" {
+test "the full-width hero shows the featured movie under a see-through header" {
     owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
@@ -316,19 +317,10 @@ test "the full-width hero switches movie from its picker, under a see-through he
             hero = page.locator('[data-testid="section-hero"]');
             header = page.locator('[data-testid="storefront-header"]');
             assert header.get_attribute("data-over-hero") == "true";
-            first = hero.get_attribute("data-movie");
-            choices = page.locator('[data-testid="hero-choice"]');
-            assert choices.count() == 2;
-            assert choices.nth(0).get_attribute("aria-pressed") == "true";
-            choices.nth(1).click();
-            page.wait_for_function(
-                f"document.querySelector('[data-testid=section-hero]').dataset.movie !== {first!r}"
-            );
-            assert "Supa Modo" in hero.locator("h2").inner_text();
-            page.click('[aria-label="Next movie"]');
-            page.wait_for_function(
-                f"document.querySelector('[data-testid=section-hero]').dataset.movie === {first!r}"
-            );
+            assert "Rafiki" in hero.locator("h2").inner_text();
+            # Nothing laid over the picture but the words: no thumbnails or arrows.
+            assert hero.locator("li, [aria-label='Next movie']").count() == 0;
+            assert hero.locator('[data-testid="hero-cta"]').is_visible();
             page.mouse.wheel(0, 600);
             page.wait_for_function(
                 "document.querySelector('[data-testid=storefront-header]').dataset.overHero === 'false'"

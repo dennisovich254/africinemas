@@ -259,7 +259,7 @@ def:pub StorefrontShell(
     names: list[str] = venues;
     several: bool = len(names) > 1;
     book = <a
-        href={f"/c/{slug}#quick-book"}
+        href={f"/c/{slug}#showtimes"}
         data-testid="header-book"
         className="inline-flex min-h-11 shrink-0 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
@@ -398,7 +398,7 @@ def:pub StorefrontShell(
                             title="Tickets"
                             links={[
                                 ["Showtimes", f"/c/{slug}#showtimes"],
-                                ["Book tickets", f"/c/{slug}#quick-book"]
+                                ["Book tickets", f"/c/{slug}#showtimes"]
                             ]}
                         />
                         <FooterColumn
