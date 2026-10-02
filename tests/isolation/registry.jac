@@ -289,6 +289,39 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
          "public_venues": {"scope": "storefront", "probe": {"slug": "{tenant}"}},
+         "hold_seats": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef",
+                 "labels": ["A1"]
+             }
+         },
+         "my_hold": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
+         "extend_hold": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
+         "release_hold": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
          "public_seat_availability": {
              "scope": "storefront",
              "probe": {"slug": "{tenant}", "screening_id": "x"}
