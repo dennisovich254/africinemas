@@ -333,3 +333,98 @@ test "the home answer carries every showtime for two weeks, and each movie's ven
         app.close();
     }
 }
+
+test "a showtime's seat map says which seats can be bought, in words too" {
+    (app, nova) = _nova();
+    try {
+        shown = add_screening(app, "owner", nova, "Rafiki", 0);
+        hidden = add_screening(app, "owner", nova, "Rafiki", 3, state="scheduled");
+        seats = browse(
+            app, "public_seat_availability", {"slug": "nova", "screening_id": shown}
+        );
+        assert seats["ok"] , seats;
+        assert seats["screening_id"] == shown;
+        assert seats["rows"] == 1 and seats["cols"] == 5;
+        assert [(s["label"], s["state"]) for s in seats["seats"]]
+            == [
+                ("A1", "available"),
+                ("A2", "available"),
+                ("A3", "available"),
+                ("A4", "available"),
+                ("A5", "available")
+            ] , seats["seats"];
+        assert all(s["text"] for s in seats["seats"]);
+        assert seats["counts"] == {"available": 5, "total": 5};
+        for wrong in ["", "no-such-showtime", hidden] {
+            assert code_of(
+                browse(
+                    app,
+                    "public_seat_availability",
+                    {"slug": "nova", "screening_id": wrong}
+                )
+            )
+                == "not_found" , wrong;
+        }
+        assert nova.screen not in str(seats);
+    } finally {
+        app.close();
+    }
+}
+
+test "blocked and house seats show as not for sale, and don't count as available" {
+    (app, nova) = _nova();
+    try {
+        hall = app.call(
+            "owner",
+            "create_auditorium",
+            {"tenant": "nova", "venue_id": nova.venue, "name": "Screen 2"}
+        )["auditorium"]["auditorium_id"];
+        app.call(
+            "owner",
+            "save_layout",
+            {
+                "tenant": "nova",
+                "auditorium_id": hall,
+                "rows": 1,
+                "cols": 4,
+                "seats": [
+                    {"label": "B1", "row": 0, "col": 0},
+                    {"label": "B2", "row": 0, "col": 1, "seat_type": "BLOCKED"},
+                    {"label": "B3", "row": 0, "col": 2, "seat_type": "HOUSE"},
+                    {
+                        "label": "B4",
+                        "row": 0,
+                        "col": 3,
+                        "seat_type": "VIP",
+                        "zone": "Gold"
+                    }
+                ]
+            }
+        );
+        app.call("owner", "publish_layout", {"tenant": "nova", "auditorium_id": hall});
+        nova.screen = hall;
+        shown = add_screening(app, "owner", nova, "Rafiki", 0);
+        seats = browse(
+            app, "public_seat_availability", {"slug": "nova", "screening_id": shown}
+        );
+        states = {s["label"]: s["state"] for s in seats["seats"]};
+        assert states
+            == {
+                "B1": "available",
+                "B2": "not_for_sale",
+                "B3": "not_for_sale",
+                "B4": "available"
+            } , states;
+        texts = {s["label"]: s["text"] for s in seats["seats"]};
+        assert texts["B2"] != texts["B1"];
+        gold = [
+            s
+            for s in seats["seats"]
+            if s["label"] == "B4"
+        ][0];
+        assert gold["seat_type"] == "VIP" and gold["zone"] == "Gold";
+        assert seats["counts"] == {"available": 2, "total": 4};
+    } finally {
+        app.close();
+    }
+}
