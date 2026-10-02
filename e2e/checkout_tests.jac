@@ -102,7 +102,10 @@ test "seats can be chosen and held with the keyboard alone" {
         page.keyboard.press("ArrowDown");
         page.keyboard.press("Space");
         assert page.evaluate("document.activeElement.dataset.seat") == "B2";
-        assert page.inner_text('[data-testid="chosen-seats"]') == "2 seats: A2, B2";
+        page.wait_for_function(
+            "document.querySelector('[data-testid=chosen-seats]').innerText === '2 seats: A2, B2'",
+            timeout=5000
+        );
         # Only one seat is in the tab order, so Tab leaves the map.
         page.keyboard.press("Tab");
         assert page.evaluate("document.activeElement.dataset.seat") is None;

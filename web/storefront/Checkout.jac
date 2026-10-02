@@ -276,22 +276,27 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
     useEffect(reprice, [items, hold]);
 
     def toggle(label: str) {
-        if listed(label, picked) {
-            set_chosen(
-                [
+        # From React's latest list, not this render's: two quick taps (or Enter then
+        # Space) can come before a re-render, and the second would undo the first.
+        def update(prev: list[str]) -> list[str] {
+            if listed(label, prev) {
+                return [
                     s
-                    for s in picked
+                    for s in prev
                     if s != label
-                ]
-            );
-            return;
+                ];
+            }
+            if len(prev) >= MAX_SEATS {
+                return prev;
+            }
+            return prev + [label];
         }
-        if len(picked) >= MAX_SEATS {
+        if not listed(label, picked) and len(picked) >= MAX_SEATS {
             set_problem(f"You can choose up to {MAX_SEATS} seats at a time.");
             return;
         }
         set_problem("");
-        set_chosen(picked + [label]);
+        set_chosen(update);
     }
 
     async def hold_chosen {
