@@ -73,6 +73,38 @@ def SeatIcon(look: str) -> JsxElement {
     return <span/>;
 }
 
+def SeatButton(
+    seat: dict[str, any],  # jac:ignore[W1037]
+    look: str,
+    focusable: bool,
+    locked: bool,
+    on_choose: any,  # jac:ignore[W1037]
+    on_focus: any,  # jac:ignore[W1037]
+    on_move: any  # jac:ignore[W1037]
+) -> JsxElement {
+    label: str = seat["label"];
+    return
+        <button
+            type="button"
+            data-testid="seat"
+            data-seat={label}
+            data-state={look}
+            aria-label={seat_words(seat, look == "chosen")}
+            aria-pressed={look == "chosen" if look in ["available", "chosen"] else None}
+            aria-disabled={"true"
+                if locked or look not in ["available", "chosen"]
+                else None}
+            tabIndex={0 if focusable else -1}
+            style={{"gridRow": seat["row"] + 1, "gridColumn": seat["col"] + 1}}
+            className={f"{SEAT_BASE} {LOOKS[look]}"}
+            onClick={lambda { on_choose(seat); }}
+            onFocus={lambda { on_focus(label); }}
+            onKeyDown={lambda (e: any) { on_move(label, e); }}  # jac:ignore[W1037]
+        >
+            <SeatIcon look={look}/>
+        </button>;
+}
+
 def:pub SeatLegend -> JsxElement {
     return
         <ul
@@ -156,34 +188,20 @@ def:pub SeatMap(
             }
         }
     }
-    for s in seats {
-        look = _look(s, chosen);
-        seat: dict[str, any] = s;  # jac:ignore[W1037]
-        cells.append(
-            <button
-                key={seat["label"]}
-                type="button"
-                data-testid="seat"
-                data-seat={seat["label"]}
-                data-state={look}
-                aria-label={seat_words(seat, look == "chosen")}
-                aria-pressed={look == "chosen"
-                    if look in ["available", "chosen"]
-                    else None}
-                aria-disabled={"true"
-                    if locked or look not in ["available", "chosen"]
-                    else None}
-                tabIndex={0 if seat["label"] == at else -1}
-                style={{"gridRow": seat["row"] + 1, "gridColumn": seat["col"] + 1}}
-                className={f"{SEAT_BASE} {LOOKS[look]}"}
-                onClick={lambda { choose(seat); }}
-                onFocus={lambda { set_cursor(seat["label"]); }}
-                onKeyDown={lambda (e: any) { move(seat["label"], e); }}  # jac:ignore[W1037]
-            >
-                <SeatIcon look={look}/>
-            </button>
-        );
-    }
+    # One component per seat, so each seat's handlers keep their own seat (handlers
+    # made in a plain loop all saw the last seat).
+    buttons = [
+        <SeatButton
+            key={seat["label"]}
+            seat={seat}
+            look={_look(seat, chosen)}
+            focusable={seat["label"] == at}
+            locked={locked}
+            on_choose={choose}
+            on_focus={set_cursor}
+            on_move={move}
+        /> for seat in seats
+    ];
     return
         <div data-testid="seat-map" className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
@@ -252,7 +270,7 @@ def:pub SeatMap(
                                 else "none"
                         }}
                     >
-                        {cells}
+                        {cells}{buttons}
                     </div>
                 </div>
             </div>

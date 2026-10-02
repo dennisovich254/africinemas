@@ -163,7 +163,8 @@ test "a seat someone else holds shows as held and can't be chosen" {
         assert "held by another customer"
             in page.get_attribute(_seat("B1"), "aria-label");
         assert page.get_attribute(_seat("B6"), "data-state") == "not_for_sale";
-        page.click(_seat("B1"));
+        # Marked aria-disabled, so force the click: it must do nothing.
+        page.click(_seat("B1"), force=True);
         assert page.get_attribute(_seat("B1"), "data-state") == "held";
         assert page.inner_text('[data-testid="chosen-seats"]')
             == "Tap the seats you'd like.";
