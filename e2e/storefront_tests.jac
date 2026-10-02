@@ -26,6 +26,7 @@ glob STOREFRONT: str = '[data-testid="storefront"]',
      OVERFLOW_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth",
      SMALL_TARGETS_JS: str = """() => [...document.querySelectorAll(
     'a[href], button, [role=button], input, select, textarea')]
+  .filter(e => e.dataset.testid !== 'seat')
   .filter(e => { const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1; })
   .map(e => { const r = e.getBoundingClientRect();
       return {name: (e.getAttribute('aria-label') || e.textContent).trim().slice(0, 40),

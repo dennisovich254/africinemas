@@ -1,0 +1,290 @@
+"""The storefront seat map (P4.6): a showtime's seats, to choose from.
+
+Seats sit where the cinema's layout puts them, in the back office's seat designer
+format: the screen as a labelled panel over the seats, row names down the left, and
+each seat its number. Each state has a shape and words as well as a colour
+(architecture §102): available seats are outlined with their number, the visitor's own
+are filled with a tick, held ones with a clock, sold ones with a cross; seats not for sale are faint and can't be chosen. The legend says the same
+in words, and every seat's name says it to screen readers.
+
+On a phone the map first fits the width, as an overview (a big hall's seats are small);
+the zoom buttons give full-size seats (up to 44 px), and the map then scrolls sideways
+inside its own box, never the page. Keyboard users tab into the map
+once and move between seats with the arrow keys; Enter or Space chooses a seat.
+"""
+
+import from react { useState }
+import from "@hugeicons/react" { HugeiconsIcon }
+import from "@hugeicons/core-free-icons" {
+    Tick02Icon,
+    Cancel01Icon,
+    Clock01Icon,
+    PlusSignIcon,
+    MinusSignIcon
+}
+import from ...components.ui.button { Button }
+import from .checkout_rules { seat_words, next_seat, seat_number, row_names }
+import from .showtimes { listed }
+
+glob ZOOMS: list[str] = ["minmax(0, 2.75rem)", "2.25rem", "2.75rem"],
+     SEAT_BASE: str = "flex aspect-square w-full items-center justify-center rounded-t-lg rounded-b-sm text-[10px] font-semibold leading-none tabular-nums outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring",
+     # The legend's swatches: a seat's shape at a fixed size (SEAT_BASE fills its cell).
+     SWATCH_BASE: str = "flex size-5 shrink-0 items-center justify-center rounded-t-lg rounded-b-sm",
+     LOOKS: dict[str, str] = {
+         "available": "cursor-pointer border-2 border-[var(--ac-seat-available)] bg-transparent hover:bg-[var(--ac-seat-available)]/15",
+         "chosen": "cursor-pointer bg-[var(--ac-seat-selected)] text-[var(--ac-on-seat-selected)]",
+         "held": "cursor-not-allowed bg-[var(--ac-seat-held)] text-white",
+         "sold": "cursor-not-allowed bg-[var(--ac-seat-sold)] text-muted-foreground",
+         "not_for_sale": "border border-dashed border-border opacity-60"
+     };
+
+def _look(seat: dict[str, any], chosen: list[str]) -> str {  # jac:ignore[W1037]
+    if listed(seat["label"], chosen) {
+        return "chosen";
+    }
+    return seat["state"];
+}
+
+def SeatIcon(look: str) -> JsxElement {
+    if look == "chosen" {
+        return
+            <HugeiconsIcon
+                icon={Tick02Icon}
+                strokeWidth={2.5}
+                className="size-3.5"
+                aria-hidden="true"
+            />;
+    }
+    if look == "held" {
+        return
+            <HugeiconsIcon
+                icon={Clock01Icon}
+                strokeWidth={2}
+                className="size-3"
+                aria-hidden="true"
+            />;
+    }
+    if look == "sold" {
+        return
+            <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2.5}
+                className="size-3"
+                aria-hidden="true"
+            />;
+    }
+    return <span/>;
+}
+
+def SeatButton(
+    seat: dict[str, any],  # jac:ignore[W1037]
+    look: str,
+    focusable: bool,
+    locked: bool,
+    on_choose: any,  # jac:ignore[W1037]
+    on_focus: any,  # jac:ignore[W1037]
+    on_move: any  # jac:ignore[W1037]
+) -> JsxElement {
+    label: str = seat["label"];
+    return
+        <button
+            type="button"
+            data-testid="seat"
+            data-seat={label}
+            data-state={look}
+            aria-label={seat_words(seat, look == "chosen")}
+            aria-pressed={look == "chosen" if look in ["available", "chosen"] else None}
+            aria-disabled={"true"
+                if locked or look not in ["available", "chosen"]
+                else None}
+            tabIndex={0 if focusable else -1}
+            style={{"gridRow": seat["row"] + 2, "gridColumn": seat["col"] + 2}}
+            className={f"{SEAT_BASE} {LOOKS[look]}"}
+            onClick={lambda { on_choose(seat); }}
+            onFocus={lambda { on_focus(label); }}
+            onKeyDown={lambda (e: any) { on_move(label, e); }}  # jac:ignore[W1037]
+        >
+            {seat_number(label) if look == "available" else <SeatIcon look={look}/>}
+        </button>;
+}
+
+def:pub SeatLegend -> JsxElement {
+    return
+        <ul
+            data-testid="seat-legend"
+            className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground"
+        >
+            {[
+                <li key={look} className="flex items-center gap-2 whitespace-nowrap">
+                    <span aria-hidden="true" className={f"{SWATCH_BASE} {LOOKS[look]}"}>
+                        <SeatIcon look={look}/>
+                    </span>
+                    {words}
+                </li>
+                for (look, words) in [
+                    ("available", "Available"),
+                    ("chosen", "Your seats"),
+                    ("held", "Held"),
+                    ("sold", "Sold"),
+                    ("not_for_sale", "Not for sale")
+                ]
+            ]}
+        </ul>;
+}
+
+def:pub SeatMap(
+    seat_map: dict[str, any],  # jac:ignore[W1037]
+    chosen: list[str],
+    on_toggle: any,  # jac:ignore[W1037]
+    locked: bool = False
+) -> JsxElement {
+    seats: list[dict[str, any]] = seat_map["seats"];  # jac:ignore[W1037]
+    rows: int = seat_map["rows"];
+    cols: int = seat_map["cols"];
+    [zoom, set_zoom] = useState(0);
+    [cursor, set_cursor] = useState("");
+    first: str = seats[0]["label"] if seats else "";
+    at: str = cursor or first;
+
+    def move(label: str, e: any) {  # jac:ignore[W1037]
+        target = next_seat(seats, label, e.key, rows, cols);
+        if target == label {
+            return;
+        }
+        e.preventDefault();
+        set_cursor(target);
+        el: any = document.querySelector(  # jac:ignore[W1037,W2001]
+            f'[data-testid="seat-map"] [data-seat="{target}"]'
+        );
+        if el {
+            el.focus();
+        }
+    }
+
+    def choose(seat: dict[str, any]) {  # jac:ignore[W1037]
+        set_cursor(seat["label"]);
+        look = _look(seat, chosen);
+        if locked or (look != "available" and look != "chosen") {
+            return;
+        }
+        on_toggle(seat["label"]);
+    }
+
+    cells: list[any] = [];  # jac:ignore[W1037]
+    taken: list[str] = [];
+    for s in seats {
+        taken.append(f"{s['row']}:{s['col']}");
+    }
+    for r in range(rows) {
+        for c in range(cols) {
+            if not listed(f"{r}:{c}", taken) {
+                cells.append(
+                    <span
+                        key={f"gap-{r}-{c}"}
+                        aria-hidden="true"
+                        style={{"gridRow": r + 2, "gridColumn": c + 2}}
+                    />
+                );
+            }
+        }
+    }
+    names = row_names(seats, rows);
+    labels = [
+        <span
+            key={f"row-{r}"}
+            aria-hidden="true"
+            className="flex items-center justify-center text-xs text-muted-foreground"
+            style={{"gridRow": r + 2, "gridColumn": 1}}
+        >
+            {names[r]}
+        </span> for r in range(rows)
+    ];
+    # One component per seat, so each seat's handlers keep their own seat (handlers
+    # made in a plain loop all saw the last seat).
+    buttons = [
+        <SeatButton
+            key={seat["label"]}
+            seat={seat}
+            look={_look(seat, chosen)}
+            focusable={seat["label"] == at}
+            locked={locked}
+            on_choose={choose}
+            on_focus={set_cursor}
+            on_move={move}
+        /> for seat in seats
+    ];
+    return
+        <div data-testid="seat-map" className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold">Choose your seats</h3>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        data-testid="zoom-out"
+                        aria-label="Smaller seats"
+                        disabled={zoom == 0}
+                        onClick={lambda { set_zoom(max(0, zoom - 1)); }}
+                        className="size-11"
+                    >
+                        <HugeiconsIcon
+                            icon={MinusSignIcon}
+                            strokeWidth={2}
+                            aria-hidden="true"
+                        />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        data-testid="zoom-in"
+                        aria-label="Bigger seats"
+                        disabled={zoom == len(ZOOMS) - 1}
+                        onClick={lambda { set_zoom(min(len(ZOOMS) - 1, zoom + 1)); }}
+                        className="size-11"
+                    >
+                        <HugeiconsIcon
+                            icon={PlusSignIcon}
+                            strokeWidth={2}
+                            aria-hidden="true"
+                        />
+                    </Button>
+                </div>
+            </div>
+            <div
+                data-testid="seat-scroller"
+                className="overflow-x-auto overscroll-x-contain rounded-lg border bg-card px-3 pt-4 pb-5"
+            >
+                <div
+                    className={"mx-auto flex flex-col items-center gap-5 "
+                        + ("w-full" if zoom == 0 else "w-max")}
+                >
+                    <div
+                        role="group"
+                        aria-label="Seats. Use the arrow keys to move between seats."
+                        data-zoom={zoom}
+                        className={"grid "
+                            + ("w-full gap-1" if zoom == 0 else "gap-1.5")}
+                        style={{
+                            "gridTemplateColumns": f"1.25rem repeat({cols}, {ZOOMS[
+                                zoom
+                            ]})",
+                            "gridTemplateRows": f"auto repeat({rows}, auto)",
+                            "maxWidth": f"calc(1.25rem + {cols} * 2.75rem + {cols} * 0.25rem)"
+                                if zoom == 0
+                                else "none"
+                        }}
+                    >
+                        <div
+                            aria-hidden="true"
+                            className="mb-3 rounded-sm bg-muted py-1 text-center text-xs font-medium tracking-widest text-muted-foreground uppercase"
+                            style={{"gridRow": 1, "gridColumn": "2 / -1"}}
+                        >
+                            Screen
+                        </div>
+                        {labels}
+                        {cells}
+                        {buttons}
+                    </div>
+                </div>
+            </div>
+            <SeatLegend/>
+        </div>;
+}

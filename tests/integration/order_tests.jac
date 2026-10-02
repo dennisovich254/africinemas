@@ -236,3 +236,33 @@ test "an order can't be placed once the hold's time is up" {
         app.close();
     }
 }
+
+test "checkout lists the tickets, and quotes the held seats as the order will price them" {
+    (app, nova, screening) = _setup();
+    try {
+        types = browse(app, "public_ticket_types", {"slug": "nova"});
+        assert types["ok"] and types["currency"] == "KES";
+        assert types["ticket_types"]
+            == [{"code": "ADULT", "name": "Adult"}, {"code": "CHILD", "name": "Child"}];
+        assert _hold(app, screening, ANNA, ["A1", "A2"])["ok"];
+        body = {
+            "slug": "nova",
+            "screening_id": screening,
+            "holder": ANNA,
+            "items": [ADULT_A1, CHILD_A2]
+        };
+        quote = browse(app, "quote_hold", body);
+        assert quote["ok"] , quote;
+        assert quote["quote"]["total_cents"] == 156000;
+        # A quote saves nothing: the seats are still held, and no order exists.
+        assert code_of(_mine(app, screening)) == "no_order";
+        order = _order(app, screening, [ADULT_A1, CHILD_A2])["order"];
+        assert quote["quote"]["lines"] == order["lines"];
+        body["holder"] = BEN;
+        assert code_of(browse(app, "quote_hold", body)) == "no_hold";
+        assert code_of(browse(app, "public_ticket_types", {"slug": "nowhere"}))
+            == "not_found";
+    } finally {
+        app.close();
+    }
+}

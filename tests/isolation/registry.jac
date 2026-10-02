@@ -332,6 +332,16 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "items": [{"seat_label": "A1", "ticket_type": "ADULT"}]
              }
          },
+         "quote_hold": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef",
+                 "items": [{"seat_label": "A1", "ticket_type": "ADULT"}]
+             }
+         },
+         "public_ticket_types": {"scope": "storefront", "probe": {"slug": "{tenant}"}},
          "my_order": {
              "scope": "storefront",
              "probe": {

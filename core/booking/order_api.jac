@@ -17,6 +17,9 @@ with a different request is refused ("key_reused"). The hold is claimed by its o
 too, so different keys for one hold still make one order ("already_ordered").
 Claims are provisional until the request commits; a failed request releases them.
 
+For checkout (P4.6): public_ticket_types lists the tickets to choose from and
+quote_hold prices the holder's seats exactly as place_order would, saving nothing.
+
 Still to come (Phase 5): payment, and ending an order not paid by pay_by.
 """
 
@@ -26,6 +29,8 @@ import from datetime { datetime, timedelta }
 import from core.clock { now }
 import from core.claims { claim, release, renew, holder as claim_holder }
 import from core.tenancy.models { Tenant }
+import from core.tenancy.open_cinema { open_cinema }
+import from core.authz.context { NotFound }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.principal {
     node_id,
@@ -36,11 +41,11 @@ import from core.tenancy.principal {
     assign_id
 }
 import from core.catalog.answers { Refused, answer }
-import from core.catalog.models { SeatSlot }
+import from core.catalog.models { Screening, SeatSlot, PriceList }
 import from core.catalog.venues { slots_of }
 import from core.catalog.pricing { PriceTable, parse_price_list }
 import from core.catalog.pricing_api { cinema_prices, price_seats }
-import from core.booking.models { Order }
+import from core.booking.models { Order, SeatHold }
 import from core.booking.availability { SeatState }
 import from core.booking.hold_api {
     MAX_SEATS,
@@ -159,22 +164,11 @@ def _settle(
     }
 }
 
-def _place_order(
-    slug: str,
-    screening_id: str,
-    holder: str,
-    idempotency_key: str,
-    items: list[any]  # jac:ignore[W1037]
-) -> dict[str, any] {  # jac:ignore[W1037]
-    (cinema, screening) = showtime_on_sale(slug, screening_id);
-    check_holder(holder);
-    _check_key(idempotency_key);
-    wanted = request_lines(items);
-    key_name = f"{node_id(cinema)}:{holder}:{idempotency_key}";
-    existing = claim_holder(ORDER_KEYS, key_name);
-    if existing is not None {
-        return _replay(cinema, existing, screening_id, wanted);
-    }
+def _priced(
+    cinema: Tenant, screening: Screening, holder: str, wanted: list[list[str]]
+) -> tuple[SeatHold, PriceList, PriceTable, list[SeatSlot], list[dict[str, any]]] {  # jac:ignore[W1037]
+    # The holder's live hold, priced for `wanted`: a ticket for each of its seats, and
+    # only those. The server's prices, never the client's.
     hold = current_hold(cinema, screening, holder);
     if hold is None {
         raise Refused("no_hold", "Your seats are no longer held. Choose them again.");
@@ -200,6 +194,29 @@ def _place_order(
         lambda (slot: SeatSlot) -> bool { return slot.hold_id == hold_id
             and slot.state == SeatState.HELD.value; }
     );
+    return (hold, price_list, table, slots, lines);
+}
+
+def _place_order(
+    slug: str,
+    screening_id: str,
+    holder: str,
+    idempotency_key: str,
+    items: list[any]  # jac:ignore[W1037]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    (cinema, screening) = showtime_on_sale(slug, screening_id);
+    check_holder(holder);
+    _check_key(idempotency_key);
+    wanted = request_lines(items);
+    key_name = f"{node_id(cinema)}:{holder}:{idempotency_key}";
+    existing = claim_holder(ORDER_KEYS, key_name);
+    if existing is not None {
+        return _replay(cinema, existing, screening_id, wanted);
+    }
+    (hold, price_list, table, slots, lines) = _priced(
+        cinema, screening, holder, wanted
+    );
+    hold_id = node_id(hold);
     order_ref = fresh_node_id();
     won = claim(ORDER_KEYS, key_name, order_ref, PROVISIONAL_SECONDS);
     if won != order_ref {
@@ -279,6 +296,65 @@ def _my_order(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # 
         raise Refused("no_order", "You haven't placed an order for this showtime.");
     }
     return {"ok": True, "order": _view(found[-1])};
+}
+
+def _quote_hold(
+    slug: str,
+    screening_id: str,
+    holder: str,
+    items: list[any]  # jac:ignore[W1037]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # What the order would cost, priced exactly as place_order would: nothing is saved.
+    (cinema, screening) = showtime_on_sale(slug, screening_id);
+    check_holder(holder);
+    wanted = request_lines(items);
+    (_, price_list, table, _, lines) = _priced(cinema, screening, holder, wanted);
+    return {
+        "ok": True,
+        "quote": {
+            "currency": table.currency,
+            "price_list_version": price_list.version,
+            "lines": lines,
+            "total_cents": sum([l["total_cents"] for l in lines])
+        }
+    };
+}
+
+def _public_ticket_types(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The tickets a visitor can choose from, in the cinema's order; prices come with
+    # quote_hold, since they depend on the seat and the time.
+    cinema = open_cinema(slug);
+    if cinema is None {
+        raise NotFound();
+    }
+    price_list = cinema_prices(cinema);
+    if price_list is None {
+        return {"ok": True, "currency": "", "ticket_types": []};
+    }
+    (parsed, _) = parse_price_list(price_list.data);
+    table = parsed as PriceTable;
+    return {
+        "ok": True,
+        "currency": table.currency,
+        "ticket_types": [
+            {"code": code, "name": name} for (code, name) in table.ticket_types.items()
+        ]
+    };
+}
+
+def:pub quote_hold(
+    slug: str,
+    screening_id: str,
+    holder: str,
+    items: list[any]  # jac:ignore[W1037]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(
+        lambda -> any { return _quote_hold(slug, screening_id, holder, items); }  # jac:ignore[W1037]
+    );
+}
+
+def:pub public_ticket_types(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _public_ticket_types(slug); });  # jac:ignore[W1037]
 }
 
 def:pub place_order(
