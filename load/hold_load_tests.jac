@@ -184,6 +184,17 @@ def _report(name: str, results: list[dict[str, any]]) -> dict[str, any] {  # jac
     return summary;
 }
 
+def _errors(server: RealServer) -> str {
+    # The server log's error lines (the project, log and all, is deleted afterwards).
+    lines = server.log().splitlines();
+    found = [
+        l
+        for l in lines
+        if "Error" in l or "error" in l or "Traceback" in l or "40001" in l
+    ];
+    return "\n".join(found[-40:]);
+}
+
 def _within_targets(summary: dict[str, any]) {  # jac:ignore[W1037]
     for (key, limit) in TARGETS.items() {
         assert summary[key] <= limit , f"{summary['scenario']}: {key} {summary[key]} > {limit}";
@@ -205,11 +216,12 @@ test "hot seat: two hundred visitors want one seat; one gets it, nothing fails" 
         screening = published_showtime(server, ROWS, COLS);
         results = _race(server, screening, [["E10"] for _ in range(VISITORS)]);
         summary = _report("hot-seat", results);
-        assert summary["failed"] == 0 , [
+        failures = [
             r
             for r in results
             if r.get("status") != 200
-        ][:3];
+        ];
+        assert not failures , (failures[:3], _errors(server));
         assert summary["won"] == 1 , summary;
         assert summary["codes"] == ["seats_taken"] , summary;
         assert _states(server, screening)["E10"] == "held";
@@ -235,11 +247,12 @@ test "opening night: two hundred visitors, two seats each; no seat held twice" {
         }
         results = _race(server, screening, wants);
         summary = _report("opening-night", results);
-        assert summary["failed"] == 0 , [
+        failures = [
             r
             for r in results
             if r.get("status") != 200
-        ][:3];
+        ];
+        assert not failures , (failures[:3], _errors(server));
         assert set(summary["codes"]) <= {"seats_taken"} , summary;
         # Winners hold all they asked for, and no seat is in two winners' holds.
         owners: dict[str, str] = {};
