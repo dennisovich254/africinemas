@@ -99,9 +99,9 @@ def _open(page: any, slug: str) -> list[str] {  # jac:ignore[W1037]
 glob ORDERS: dict[str, list[str]] = {
          "marquee": [
              "hero",
+             "today",
              "now_showing",
              "coming_soon",
-             "today",
              "about",
              "location",
              "contact",
@@ -141,7 +141,7 @@ test "a cinema that hasn't published a page shows the default Marquee page" {
         page = browser.new_context(
             **context_options(pw, "desktop", "light")
         ).new_page();
-        assert _open(page, owner["slug"]) == ["hero", "now_showing", "today"];
+        assert _open(page, owner["slug"]) == ["hero", "today", "now_showing"];
         assert page.get_attribute(HOME, "data-template") == "marquee";
         assert "Rafiki" in page.inner_text('[data-testid="section-hero"]');
         page.click('[data-testid="hero-cta"]');
@@ -173,7 +173,7 @@ test "switching template changes the storefront's layout, and hiding a section r
             _sections(owner, ORDERS["marquee"], hidden=["about", "faq"])
         );
         assert _open(page, owner["slug"])
-            == ["hero", "now_showing", "coming_soon", "today", "location", "contact"];
+            == ["hero", "today", "now_showing", "coming_soon", "location", "contact"];
     } finally {
         close_contexts(browser);
     }

@@ -209,7 +209,11 @@ def _day_showtime(e: StorefrontScreening) -> dict[str, any] {  # jac:ignore[W103
         showtime(e),
         movie_key=e.movie.get("movie_key", ""),
         title=e.movie.get("title", ""),
-        has_poster=e.movie.get("has_poster", False)
+        has_poster=e.movie.get("has_poster", False),
+        # For What's on's genre chips and rows (P4.1d).
+        genres=list(e.movie.get("genres", [])),
+        age_rating=e.movie.get("age_rating", ""),
+        runtime_minutes=e.movie.get("runtime_minutes", 0)
     );
 }
 

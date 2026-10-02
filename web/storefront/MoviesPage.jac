@@ -1,6 +1,6 @@
 """`/c/:slug/movies`: every movie on a cinema's storefront (P4.1d).
 
-Now showing (with filters and sort, narrowed to the visitor's chosen venue) and Coming
+Now showing (with genre chips, narrowed to the visitor's chosen venue) and Coming
 soon (the home page's list, with release dates), whatever sections the home page
 shows. Loading, empty and error states as on the home page.
 """
@@ -96,6 +96,7 @@ def:pub MoviesPage -> JsxElement {
                         }}
                         tz={tz}
                         template="marquee"
+                        chips={True}
                     />}
                 {len(soon) > 0
                     and <ComingSoon

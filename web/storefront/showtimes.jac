@@ -121,6 +121,9 @@ def:pub by_movie(showtimes: list[dict[str, any]]) -> list[dict[str, any]] {  # j
                     "movie_key": s["movie_key"],
                     "title": s["title"],
                     "has_poster": s["has_poster"],
+                    "genres": s.get("genres") or [],
+                    "age_rating": s.get("age_rating") or "",
+                    "runtime_minutes": s.get("runtime_minutes") or 0,
                     "showtimes": [s]
                 }
             );
