@@ -15,7 +15,7 @@ import from react { useState, useEffect }
 import from ...components.ui.button { Button }
 import from ..shell.AppLink { AppLink }
 import from core.catalog.storefront_api { public_home_photo }
-import from .StorefrontParts { Poster, Backdrop, ShowtimeLink }
+import from .StorefrontParts { Poster, Backdrop, Thumb, ShowtimeLink }
 import from .showtimes {
     details_line,
     where_label,
@@ -27,7 +27,8 @@ import from .showtimes {
     release_label,
     sorted_unique,
     cinema_date,
-    listed
+    listed,
+    runtime_label
 }
 import from .venue_choice { choose_venue }
 
@@ -295,7 +296,8 @@ def:pub NowShowing(
     slug: str,
     section: dict[str, any],  # jac:ignore[W1037]
     tz: str,
-    template: str
+    template: str,
+    view_all: bool = False
 ) -> JsxElement {
     # The movies on sale as poster cards, with filters (genre, age rating, language)
     # and a sort when there's more than one movie.
@@ -346,7 +348,17 @@ def:pub NowShowing(
             data-testid="section-now_showing"
             className="flex scroll-mt-24 flex-col gap-4"
         >
-            <SectionHeading text={heading_of(section)}/>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+                <SectionHeading text={heading_of(section)}/>
+                {view_all
+                    and <AppLink
+                        to={f"/c/{slug}/movies"}
+                        testid="view-all-movies"
+                        className="inline-flex min-h-11 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                        View all
+                    </AppLink>}
+            </div>
             {len(movies) > 1
                 and <div
                     role="group"
@@ -639,7 +651,14 @@ def:pub HomeSection(
         return <Today slug={slug} section={section} tz={tz}/>;
     }
     if kind == "now_showing" {
-        return <NowShowing slug={slug} section={section} tz={tz} template={template}/>;
+        return
+            <NowShowing
+                slug={slug}
+                section={section}
+                tz={tz}
+                template={template}
+                view_all={True}
+            />;
     }
     if kind == "coming_soon" {
         return <ComingSoon slug={slug} section={section}/>;
@@ -969,4 +988,234 @@ def:pub QuickBook(  # jac:ignore[W3030] quick book: cinema, showtimes, time zone
                         </Button>}
                 </div>}
         </section>;
+}
+
+def:pub FeaturedHero(
+    slug: str,
+    section: dict[str, any],  # jac:ignore[W1037]
+    movies: list[dict[str, any]],  # jac:ignore[W1037]
+    under_header: bool = True
+) -> JsxElement {
+    # The Marquee template's hero (P4.1d): full width, under the see-through header,
+    # always in the theme's dark colours so the words read over the picture. The
+    # featured movie first, then the others on sale, chosen with the picker on the right
+    # (or under the words on phones). It never moves by itself.
+    fields: dict[str, str] = section["fields"];
+    featured: dict[str, any] | None = section["movie"];  # jac:ignore[W1037]
+    choices: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    if featured is not None {
+        choices.append(featured);
+    }
+    for m in movies {
+        if len(choices) < 8
+            and not any(c["movie_key"] == m["movie_key"] for c in choices) {
+            choices.append(m);
+        }
+    }
+    [index, set_index] = useState(0);
+    current: int = index if index < len(choices) else 0;
+    movie: dict[str, any] | None = choices[current] if len(choices) > 0 else None;  # jac:ignore[W1037]
+    on_sale: bool = movie is not None and "next" in movie;
+    count: int = len(choices);
+
+    def step(delta: int) {
+        set_index((current + delta + count) % count);
+    }
+
+    year: str = "";
+    if movie is not None and movie.get("release_date") {
+        year = movie["release_date"][:4];
+    }
+    pill = "inline-flex min-h-11 items-center rounded-full px-6 font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+    return
+        <div className="dark">
+            <section
+                data-surface="storefront"
+                data-testid="section-hero"
+                data-movie={movie["movie_key"] if movie is not None else ""}
+                aria-roledescription="featured movies"
+                className={"@container relative isolate overflow-hidden bg-background text-foreground "
+                    + ("-mt-[3.75rem]" if under_header else "rounded-xl")}
+            >
+                {movie is not None
+                    and <Backdrop key={movie["movie_key"]} slug={slug} movie={movie}/>}
+                <div
+                    aria-hidden="true"
+                    className="absolute inset-0 -z-10 bg-linear-to-r from-background via-background/75 to-background/10"
+                />
+                <div
+                    aria-hidden="true"
+                    className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-linear-to-t from-background to-transparent"
+                />
+                <div
+                    className={"mx-auto grid w-full max-w-5xl items-end gap-8 px-4 pb-10 @4xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] "
+                        + (
+                            "min-h-[34rem] pt-28 md:min-h-[38rem]"
+                                if under_header
+                                else "min-h-[28rem] pt-10"
+                        )}
+                >
+                    <div
+                        key={movie["movie_key"] if movie is not None else "none"}
+                        className="landing-rise flex min-w-0 flex-col gap-4"
+                    >
+                        {fields["headline"]
+                            and <p
+                                className="text-sm font-semibold uppercase tracking-wide text-primary"
+                            >
+                                {fields["headline"]}
+                            </p>}
+                        <h2
+                            className="font-display text-5xl leading-none text-balance md:text-7xl"
+                        >
+                            {movie["title"]
+                                if movie is not None
+                                else fields["headline"]}
+                        </h2>
+                        {movie is not None
+                            and <p
+                                data-testid="hero-details"
+                                className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
+                            >
+                                {movie["age_rating"]
+                                    and <span
+                                        className="rounded border border-current px-1.5 text-xs font-semibold text-foreground"
+                                    >
+                                        {movie["age_rating"]}
+                                    </span>}{year and <span>{year}</span>}{movie[
+                                    "runtime_minutes"
+                                ]
+                                    and <span>
+                                        {runtime_label(movie["runtime_minutes"])}
+                                    </span>}{len(movie["genres"] or []) > 0
+                                    and <span>{", ".join(movie["genres"])}</span>}{movie.get(
+                                    "language"
+                                )
+                                    and <span>{movie["language"]}</span>}
+                            </p>}
+                        {movie is not None
+                            and movie.get("synopsis")
+                            and <p className="max-w-prose text-pretty line-clamp-4">
+                                {movie["synopsis"]}
+                            </p>}
+                        {fields["text"]
+                            and <p className="max-w-prose text-pretty">
+                                {fields["text"]}
+                            </p>}
+                        {on_sale
+                            and <div className="flex flex-wrap gap-3 pt-2">
+                                <AppLink
+                                    to={f"/c/{slug}/m/{movie['movie_key']}"}
+                                    testid="hero-cta"
+                                    className={f"{pill} bg-primary text-primary-foreground hover:bg-primary/90"}
+                                >
+                                    Book tickets
+                                </AppLink>
+                                <a
+                                    href="#showtimes"
+                                    data-testid="hero-showtimes"
+                                    className={f"{pill} bg-card/80 text-foreground hover:bg-card"}
+                                >
+                                    View showtimes
+                                </a>
+                            </div>}
+                        {movie is not None
+                            and not on_sale
+                            and <p
+                                className="w-fit rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-secondary-foreground"
+                            >
+                                {release_label(movie["release_date"])
+                                    if movie.get("release_date")
+                                    else "Coming soon"}
+                            </p>}
+                    </div>
+                    {count > 1
+                        and <div
+                            data-testid="hero-picker"
+                            className="flex min-w-0 flex-col gap-3"
+                        >
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="text-sm font-semibold">Now showing</h3>
+                                <div className="flex gap-1">
+                                    <button
+                                        type="button"
+                                        aria-label="Previous movie"
+                                        onClick={lambda { step(-1); }}
+                                        className="grid size-11 place-items-center rounded-full border bg-card/60 hover:bg-card"
+                                    >
+                                        <span aria-hidden="true">‹</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        aria-label="Next movie"
+                                        onClick={lambda { step(1); }}
+                                        className="grid size-11 place-items-center rounded-full border bg-card/60 hover:bg-card"
+                                    >
+                                        <span aria-hidden="true">›</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <ul
+                                className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1"
+                            >
+                                {[
+                                    <li
+                                        key={c["movie_key"]}
+                                        className="w-40 shrink-0 snap-start md:w-44"
+                                    >
+                                        <button
+                                            type="button"
+                                            data-testid="hero-choice"
+                                            aria-pressed={"true"
+                                                if i == current
+                                                else "false"}
+                                            aria-label={f"Feature {c['title']}"}
+                                            onClick={lambda { set_index(i); }}
+                                            className={"flex w-full flex-col gap-1.5 rounded-xl p-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring "
+                                                + (
+                                                    "ring-2 ring-primary"
+                                                        if i == current
+                                                        else "opacity-80 hover:opacity-100"
+                                                )}
+                                        >
+                                            <Thumb slug={slug} movie={c}/>
+                                            <span
+                                                className="truncate px-1 text-sm font-medium"
+                                            >
+                                                {c["title"]}
+                                            </span>
+                                        </button>
+                                    </li> for (i, c) in enumerate(choices)
+                                ]}
+                            </ul>
+                            <div
+                                className="flex justify-center"
+                                role="group"
+                                aria-label="Featured movie"
+                            >
+                                {[
+                                    <button
+                                        key={c["movie_key"]}
+                                        type="button"
+                                        aria-label={f"Show {c['title']}"}
+                                        aria-current={"true" if i == current else None}
+                                        onClick={lambda { set_index(i); }}
+                                        className="grid size-11 place-items-center"
+                                    >
+                                        <span
+                                            aria-hidden="true"
+                                            className={"block h-1.5 rounded-full transition-all motion-reduce:transition-none "
+                                                + (
+                                                    "w-5 bg-primary"
+                                                        if i == current
+                                                        else "w-1.5 bg-muted-foreground/60"
+                                                )}
+                                        />
+                                    </button> for (i, c) in enumerate(choices)
+                                ]}
+                            </div>
+                        </div>}
+                </div>
+            </section>
+        </div>;
 }

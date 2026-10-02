@@ -24,7 +24,7 @@ import from core.homepage.home_api {
     remove_home_photo  # jac:ignore[W2037]
 }
 import from core.theming.branding_api { public_branding }
-import from ..storefront.HomeSections { HomeBlock, home_blocks }
+import from ..storefront.HomeSections { HomeBlock, home_blocks, FeaturedHero }
 import from .home_page_model {
     SECTION_LABELS,
     TEMPLATE_INFO,
@@ -44,6 +44,16 @@ glob PREVIEW_DELAY_MS: int = 500;
 def published_on(stamp: str) -> str {
     moment: any = new(Date, stamp);  # jac:ignore[W1037,W2001]
     return moment.toLocaleString();
+}
+
+def preview_movies(sections: list[dict[str, any]]) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # The movies on sale in a previewed page, for the hero's picker.
+    for s in sections {
+        if s["type"] == "now_showing" {
+            return s["movies"];
+        }
+    }
+    return [];
 }
 
 def TemplateCard(
@@ -661,13 +671,25 @@ def:pub HomePageSection(slug: str) -> JsxElement {
                         )}
                 >
                     {[
-                        <HomeBlock
-                            key={f"{n}"}
-                            slug={slug}
-                            block={b}
-                            tz={tz}
-                            template={shown_template}
-                        /> for (n, b) in enumerate(home_blocks(shown["sections"]))
+                        (
+                            <FeaturedHero
+                                key={f"{n}"}
+                                slug={slug}
+                                section={b[0]}
+                                movies={preview_movies(shown["sections"])}
+                                under_header={False}
+                            />
+                        )
+                            if shown_template == "marquee"
+                                and n == 0
+                                and b[0]["type"] == "hero"
+                            else <HomeBlock
+                                key={f"{n}"}
+                                slug={slug}
+                                block={b}
+                                tz={tz}
+                                template={shown_template}
+                            /> for (n, b) in enumerate(home_blocks(shown["sections"]))
                     ]}
                 </div>}
         </div>

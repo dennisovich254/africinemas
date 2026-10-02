@@ -159,8 +159,23 @@ def FooterColumn(title: str, links: list[list[str]]) -> JsxElement {
 
 def:pub StorefrontShell(
     slug: str,
+    hero: any = None,  # jac:ignore[W1037] a full-width hero above the page (P4.1d)
     children: any = None  # jac:ignore[W1037] pass-through children (jac-cl-organization idiom)
 ) -> JsxElement {
+    # With a `hero`, the header lies over it: see-through, in the theme's dark colours,
+    # until the visitor scrolls, then solid as on every other page.
+    [scrolled, set_scrolled] = useState(False);
+
+    def watch_scroll -> any {  # jac:ignore[W1037]
+        win: any = window;  # jac:ignore[W1037,W2001]
+        def moved {
+            set_scrolled(win.scrollY > 24);
+        }
+        moved();
+        win.addEventListener("scroll", moved, {"passive": True});
+        return lambda { win.removeEventListener("scroll", moved); };
+    }
+    useEffect(watch_scroll, []);
     [branding, set_branding] = useState(None);
     [cinema, set_cinema] = useState(None);
     [missing, set_missing] = useState(False);
@@ -239,6 +254,7 @@ def:pub StorefrontShell(
             </ThemeProvider>;
     }
     look: dict[str, any] = branding;  # jac:ignore[W1037]
+    over: bool = hero is not None and not scrolled;
     place: dict[str, str] = cinema;
     names: list[str] = venues;
     several: bool = len(names) > 1;
@@ -253,101 +269,115 @@ def:pub StorefrontShell(
     return
         <ThemeProvider surface="storefront">
             <div data-testid="storefront" className="flex min-h-svh flex-col">
-                <header
-                    className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
-                >
-                    <div
-                        className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-2"
+                <div className={"sticky top-0 z-30 " + ("dark" if over else "")}>
+                    <header
+                        data-surface="storefront"
+                        data-testid="storefront-header"
+                        data-over-hero={"true" if over else "false"}
+                        className={"text-foreground transition-colors duration-200 motion-reduce:transition-none "
+                            + (
+                                "border-b border-transparent bg-linear-to-b from-background/80 to-transparent"
+                                    if over
+                                    else "border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+                            )}
                     >
-                        <h1
-                            data-testid="storefront-name"
-                            className="mr-auto min-w-0 font-display text-2xl leading-none sm:text-3xl"
+                        <div
+                            className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-2"
                         >
-                            <AppLink
-                                to={f"/c/{slug}"}
-                                className="flex min-h-11 min-w-0 items-center"
+                            <h1
+                                data-testid="storefront-name"
+                                className="mr-auto min-w-0 font-display text-2xl leading-none sm:text-3xl"
                             >
-                                {look["logo"]
-                                    and <img
-                                        src={look["logo"]}
-                                        alt={place["name"]}
-                                        className="h-10 w-auto max-w-[45vw]"
-                                    />}{not look["logo"]
-                                    and <span className="truncate">
-                                        {place["name"]}
-                                    </span>}
-                            </AppLink>
-                        </h1>
-                        <nav aria-label="Storefront" className="hidden md:block">
-                            <NavItems slug={slug}/>
-                        </nav>
-                        {several
-                            and <div className="hidden lg:block">
-                                <VenuePicker
-                                    slug={slug}
-                                    venues={names}
-                                    testid="venue-picker"
-                                />
-                            </div>}
-                        <StorefrontSearch slug={slug} compact={True}/>
-                        {book}
-                        <Sheet open={menu_open} onOpenChange={set_menu_open}>
-                            <SheetTrigger asChild={True}>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={"size-11 "
-                                        + ("lg:hidden" if several else "md:hidden")}
-                                    aria-label="Open menu"
-                                    data-testid="storefront-menu"
+                                <AppLink
+                                    to={f"/c/{slug}"}
+                                    className="flex min-h-11 min-w-0 items-center"
                                 >
-                                    <HugeiconsIcon icon={Menu01Icon} strokeWidth={2}/>
-                                </Button>
-                            </SheetTrigger>
-                            <SheetContent
-                                side="right"
-                                showCloseButton={False}
-                                className="w-72 gap-4 bg-card p-4"
-                                data-testid="storefront-menu-sheet"
-                            >
-                                <SheetHeader
-                                    className="flex-row items-center justify-between p-0"
-                                >
-                                    <SheetTitle
-                                        className="font-display text-2xl leading-none"
-                                    >
-                                        {place["name"]}
-                                    </SheetTitle>
-                                    <SheetClose asChild={True}>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="size-11"
-                                            aria-label="Close menu"
-                                        >
-                                            <HugeiconsIcon
-                                                icon={Cancel01Icon}
-                                                strokeWidth={2}
-                                            />
-                                        </Button>
-                                    </SheetClose>
-                                </SheetHeader>
-                                <SheetDescription className="sr-only">
-                                    The storefront's pages
-                                </SheetDescription>
-                                <nav aria-label="Storefront menu">
-                                    <NavItems slug={slug} block={True}/>
-                                </nav>
-                                {several
-                                    and <VenuePicker
+                                    {look["logo"]
+                                        and <img
+                                            src={look["logo"]}
+                                            alt={place["name"]}
+                                            className="h-10 w-auto max-w-[45vw]"
+                                        />}{not look["logo"]
+                                        and <span className="truncate">
+                                            {place["name"]}
+                                        </span>}
+                                </AppLink>
+                            </h1>
+                            <nav aria-label="Storefront" className="hidden md:block">
+                                <NavItems slug={slug}/>
+                            </nav>
+                            {several
+                                and <div className="hidden lg:block">
+                                    <VenuePicker
                                         slug={slug}
                                         venues={names}
-                                        testid="venue-picker-menu"
-                                    />}
-                            </SheetContent>
-                        </Sheet>
-                    </div>
-                </header>
+                                        testid="venue-picker"
+                                    />
+                                </div>}
+                            <StorefrontSearch slug={slug} compact={True}/>
+                            {book}
+                            <Sheet open={menu_open} onOpenChange={set_menu_open}>
+                                <SheetTrigger asChild={True}>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className={"size-11 "
+                                            + ("lg:hidden" if several else "md:hidden")}
+                                        aria-label="Open menu"
+                                        data-testid="storefront-menu"
+                                    >
+                                        <HugeiconsIcon
+                                            icon={Menu01Icon}
+                                            strokeWidth={2}
+                                        />
+                                    </Button>
+                                </SheetTrigger>
+                                <SheetContent
+                                    side="right"
+                                    showCloseButton={False}
+                                    className="w-72 gap-4 bg-card p-4"
+                                    data-testid="storefront-menu-sheet"
+                                >
+                                    <SheetHeader
+                                        className="flex-row items-center justify-between p-0"
+                                    >
+                                        <SheetTitle
+                                            className="font-display text-2xl leading-none"
+                                        >
+                                            {place["name"]}
+                                        </SheetTitle>
+                                        <SheetClose asChild={True}>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-11"
+                                                aria-label="Close menu"
+                                            >
+                                                <HugeiconsIcon
+                                                    icon={Cancel01Icon}
+                                                    strokeWidth={2}
+                                                />
+                                            </Button>
+                                        </SheetClose>
+                                    </SheetHeader>
+                                    <SheetDescription className="sr-only">
+                                        The storefront's pages
+                                    </SheetDescription>
+                                    <nav aria-label="Storefront menu">
+                                        <NavItems slug={slug} block={True}/>
+                                    </nav>
+                                    {several
+                                        and <VenuePicker
+                                            slug={slug}
+                                            venues={names}
+                                            testid="venue-picker-menu"
+                                        />}
+                                </SheetContent>
+                            </Sheet>
+                        </div>
+                    </header>
+                </div>
+                {hero}
                 <main
                     className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8"
                 >

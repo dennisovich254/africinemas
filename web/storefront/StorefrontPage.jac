@@ -11,7 +11,7 @@ import from react { useState, useEffect }
 import from "@jac/runtime" { useParams }
 import from core.catalog.storefront_api { public_home }
 import from .StorefrontShell { StorefrontShell, HomeSkeleton, LoadError }
-import from .HomeSections { HomeBlock, home_blocks, for_venue, QuickBook }
+import from .HomeSections { HomeBlock, home_blocks, for_venue, QuickBook, FeaturedHero }
 import from .venue_choice { use_venue, use_title, scroll_to_hash }
 
 def:pub StorefrontPage -> JsxElement {
@@ -81,6 +81,16 @@ def:pub StorefrontPage -> JsxElement {
         }
     }
     blocks = home_blocks(sections);
+    # Marquee draws its hero full width, above the page (P4.1d).
+    hero: any = None;  # jac:ignore[W1037]
+    if template == "marquee" and len(blocks) > 0 and blocks[0][0]["type"] == "hero" {
+        hero = <FeaturedHero
+            slug={slug}
+            section={blocks[0][0]}
+            movies={found["movies"]}
+        />;
+        blocks = blocks[1:];
+    }
     # Quick book comes right after the hero, or first when there's no hero.
     after: int = 1 if len(blocks) > 0 and blocks[0][0]["type"] == "hero" else 0;
     quick = <QuickBook
@@ -104,7 +114,7 @@ def:pub StorefrontPage -> JsxElement {
         parts.append(quick);
     }
     return
-        <StorefrontShell slug={slug}>
+        <StorefrontShell slug={slug} hero={hero}>
             <div
                 data-testid="home-page"
                 data-template={template}

@@ -84,6 +84,8 @@ def _movie_card(entries: list[StorefrontScreening]) -> dict[str, any] {  # jac:i
     return {
         "movie_key": movie["movie_key"],
         "title": movie["title"],
+        # For the full-width hero, where any movie on sale can be shown (P4.1d).
+        "synopsis": movie.get("synopsis", ""),
         "age_rating": movie["age_rating"],
         "runtime_minutes": movie["runtime_minutes"],
         "genres": movie["genres"],

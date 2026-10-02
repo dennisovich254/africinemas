@@ -305,3 +305,37 @@ test "review screenshots of the storefront structure" {
         close_contexts(browser);
     }
 }
+
+test "the full-width hero switches movie from its picker, under a see-through header" {
+    owner = cinema_with_programme();
+    (pw, browser) = shared_browser();
+    try {
+        for project in PROJECTS {
+            page = _page(browser, pw, project);
+            _home(page, owner["slug"]);
+            hero = page.locator('[data-testid="section-hero"]');
+            header = page.locator('[data-testid="storefront-header"]');
+            assert header.get_attribute("data-over-hero") == "true";
+            first = hero.get_attribute("data-movie");
+            choices = page.locator('[data-testid="hero-choice"]');
+            assert choices.count() == 2;
+            assert choices.nth(0).get_attribute("aria-pressed") == "true";
+            choices.nth(1).click();
+            page.wait_for_function(
+                f"document.querySelector('[data-testid=section-hero]').dataset.movie !== {first!r}"
+            );
+            assert "Supa Modo" in hero.locator("h2").inner_text();
+            page.click('[aria-label="Next movie"]');
+            page.wait_for_function(
+                f"document.querySelector('[data-testid=section-hero]').dataset.movie === {first!r}"
+            );
+            page.mouse.wheel(0, 600);
+            page.wait_for_function(
+                "document.querySelector('[data-testid=storefront-header]').dataset.overHero === 'false'"
+            );
+            page.context.close();
+        }
+    } finally {
+        close_contexts(browser);
+    }
+}
