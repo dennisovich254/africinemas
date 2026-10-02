@@ -418,16 +418,16 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
                     and <BottomBar>
                         <p data-testid="chosen-seats" className="min-w-0 text-sm">
                             {(
-                                f"{len(chosen)} seat{'' if len(chosen) == 1 else 's'}: {', '.join(
+                                f"{len(picked)} seat{'' if len(picked) == 1 else 's'}: {', '.join(
                                     chosen
                                 )}"
-                                    if chosen
+                                    if len(picked) > 0
                                     else "Tap the seats you'd like."
                             )}
                         </p>
                         <Button
                             data-testid="hold-seats"
-                            disabled={busy or not chosen}
+                            disabled={busy or len(picked) == 0}
                             onClick={hold_chosen}
                             className="min-h-11 shrink-0 px-5"
                         >
