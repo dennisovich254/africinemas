@@ -77,11 +77,7 @@ def:pub StorefrontPage -> JsxElement {
     # Marquee draws its hero full width, above the page (P4.1d).
     hero: any = None;  # jac:ignore[W1037]
     if template == "marquee" and len(blocks) > 0 and blocks[0][0]["type"] == "hero" {
-        hero = <FeaturedHero
-            slug={slug}
-            section={blocks[0][0]}
-            movies={found["movies"]}
-        />;
+        hero = <FeaturedHero slug={slug} section={blocks[0][0]}/>;
         blocks = blocks[1:];
     }
     return

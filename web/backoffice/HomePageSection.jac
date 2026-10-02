@@ -46,16 +46,6 @@ def published_on(stamp: str) -> str {
     return moment.toLocaleString();
 }
 
-def preview_movies(sections: list[dict[str, any]]) -> list[dict[str, any]] {  # jac:ignore[W1037]
-    # The movies on sale in a previewed page, for the hero's picker.
-    for s in sections {
-        if s["type"] == "now_showing" {
-            return s["movies"];
-        }
-    }
-    return [];
-}
-
 def TemplateCard(
     info: dict[str, str],
     checked: bool,
@@ -676,7 +666,6 @@ def:pub HomePageSection(slug: str) -> JsxElement {
                                 key={f"{n}"}
                                 slug={slug}
                                 section={b[0]}
-                                movies={preview_movies(shown["sections"])}
                                 under_header={False}
                             />
                         )

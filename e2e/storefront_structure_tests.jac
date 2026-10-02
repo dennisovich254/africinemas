@@ -307,7 +307,7 @@ test "review screenshots of the storefront structure" {
     }
 }
 
-test "the full-width hero switches movie from its picker, under a see-through header" {
+test "the full-width hero shows the featured movie under a see-through header" {
     owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
@@ -317,19 +317,10 @@ test "the full-width hero switches movie from its picker, under a see-through he
             hero = page.locator('[data-testid="section-hero"]');
             header = page.locator('[data-testid="storefront-header"]');
             assert header.get_attribute("data-over-hero") == "true";
-            first = hero.get_attribute("data-movie");
-            choices = page.locator('[data-testid="hero-choice"]');
-            assert choices.count() == 2;
-            assert choices.nth(0).get_attribute("aria-pressed") == "true";
-            choices.nth(1).click();
-            page.wait_for_function(
-                f"document.querySelector('[data-testid=section-hero]').dataset.movie !== {first!r}"
-            );
-            assert "Supa Modo" in hero.locator("h2").inner_text();
-            page.click('[aria-label="Next movie"]');
-            page.wait_for_function(
-                f"document.querySelector('[data-testid=section-hero]').dataset.movie === {first!r}"
-            );
+            assert "Rafiki" in hero.locator("h2").inner_text();
+            # Nothing laid over the picture but the words: no thumbnails or arrows.
+            assert hero.locator("li, [aria-label='Next movie']").count() == 0;
+            assert hero.locator('[data-testid="hero-cta"]').is_visible();
             page.mouse.wheel(0, 600);
             page.wait_for_function(
                 "document.querySelector('[data-testid=storefront-header]').dataset.overHero === 'false'"
