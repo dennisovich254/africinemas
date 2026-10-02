@@ -166,8 +166,9 @@ test "a seat someone else holds shows as held and can't be chosen" {
         # Marked aria-disabled, so force the click: it must do nothing.
         page.click(_seat("B1"), force=True);
         assert page.get_attribute(_seat("B1"), "data-state") == "held";
-        assert page.inner_text('[data-testid="chosen-seats"]')
-            == "Tap the seats you'd like.";
+        bar = page.inner_text('[data-testid="chosen-seats"]');
+        assert page.locator('[data-state="chosen"]').count() == 0 , bar;
+        assert bar.startswith("Tap the seats") , bar;
     } finally {
         close_contexts(browser);
     }
