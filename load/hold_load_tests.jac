@@ -277,7 +277,39 @@ test "opening night: two hundred visitors, two seats each; no seat held twice" {
                 if s == "held"
             ]
         );
-        assert held == sorted(owners.keys()) , (len(held), len(owners));
+        if held != sorted(owners.keys()) {
+            time.sleep(3);
+            again = sorted(
+                [
+                    l
+                    for (l, s) in _states(server, screening).items()
+                    if s == "held"
+                ]
+            );
+            stored = server.call(
+                "slot_dump", {"slug": "nova", "screening_id": screening}
+            );
+            missing = sorted(
+                [
+                    l
+                    for l in owners.keys()
+                    if l not in again
+                ]
+            );
+            sample = {l: stored[l] for l in missing[:6]};
+            hung = len(
+                [
+                    l
+                    for l in owners.keys()
+                    if stored[l]["holds"]
+                ]
+            );
+            assert False , (
+                f"held {len(held)} then {len(again)} of {len(owners)}; "
+                + f"seats with a hold hanging on them: {hung}; "
+                + f"missing sample: {sample}"
+            );
+        }
         assert summary["won"] > 0;
         _within_targets(summary);
     } finally {
