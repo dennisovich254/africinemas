@@ -172,9 +172,10 @@ def remove_project(workdir: str) {
     shutil.rmtree(workdir, ignore_errors=True);
 }
 
-def published_showtime(server: RealServer) -> str {
-    # Cinema "nova" with a published three-seat showtime (A1-A3) in two days; returns
-    # the showtime's id. The server must serve the endpoints it calls.
+def published_showtime(server: RealServer, rows: int = 1, cols: int = 3) -> str {
+    # Cinema "nova" with a published showtime in two days on a `rows` x `cols` hall
+    # (rows A, B, ...; seats A1, A2, ...; three seats by default); returns the
+    # showtime's id. The server must serve the endpoints it calls.
     owner = server.register("owner");
     server.call("create_cinema", {"name": "Nova Cinemas", "slug": "nova"}, owner);
     server.call("start_shift", {"tenant": "nova"}, owner);
@@ -193,9 +194,12 @@ def published_showtime(server: RealServer) -> str {
         {
             "tenant": "nova",
             "auditorium_id": screen,
-            "rows": 1,
-            "cols": 3,
-            "seats": [{"label": f"A{i + 1}", "row": 0, "col": i} for i in range(3)]
+            "rows": rows,
+            "cols": cols,
+            "seats": [
+                {"label": f"{chr(65 + r)}{c + 1}", "row": r, "col": c}
+                for r in range(rows) for c in range(cols)
+            ]
         },
         owner
     );

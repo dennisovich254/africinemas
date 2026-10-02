@@ -1,4 +1,5 @@
-"""Test-only app entry for the order races (P4.5). Never imported by main.jac.
+"""Test-only app entry for the order races (P4.5) and the hold load test (P4.7, load/).
+Never imported by main.jac.
 
 The production endpoints a priced, held showtime and its orders need, without the web
 client, plus a probe counting a showtime's orders.
@@ -16,6 +17,7 @@ import from core.catalog.screening_api {
 }
 import from core.catalog.pricing_api { save_price_list }  # jac:ignore[W2037]
 import from core.booking.hold_api { hold_seats }  # jac:ignore[W2037]
+import from core.catalog.storefront_api { public_seat_availability }  # jac:ignore[W2037]
 import from core.booking.order_api { place_order, my_order }  # jac:ignore[W2037]
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.principal { node_id, act_as, restore }
