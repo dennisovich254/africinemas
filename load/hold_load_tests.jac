@@ -190,9 +190,21 @@ def _errors(server: RealServer) -> str {
     found = [
         l
         for l in lines
-        if "Error" in l or "error" in l or "Traceback" in l or "40001" in l
+        if any(
+            word in l.lower()
+            for word in [
+                "error",
+                "traceback",
+                "40001",
+                "conflict",
+                "serializ",
+                "commit",
+                "retry",
+                "warn"
+            ]
+        )
     ];
-    return "\n".join(found[-40:]);
+    return f"{len(found)} matching log lines; last 40:\n" + "\n".join(found[-40:]);
 }
 
 def _within_targets(summary: dict[str, any]) {  # jac:ignore[W1037]
@@ -307,7 +319,8 @@ test "opening night: two hundred visitors, two seats each; no seat held twice" {
             assert False , (
                 f"held {len(held)} then {len(again)} of {len(owners)}; "
                 + f"seats with a hold hanging on them: {hung}; "
-                + f"missing sample: {sample}"
+                + f"missing sample: {sample}\n"
+                + _errors(server)
             );
         }
         assert summary["won"] > 0;
