@@ -51,3 +51,57 @@ def:pub bump_as(owner: str) -> int {
     }
     return found;
 }
+
+# Variants C and D: the hold path's shape. SEATS small nodes; every request loads all
+# of them (as the hold path loads a showtime's seats) and writes a DIFFERENT one, then
+# flushes in full. C runs as one signed-in user; D switches to the owner's root.
+node Spot {
+    has number: int,
+        taken: int = 0;
+}
+
+def:priv setup_spots(count: int) -> bool {
+    if not [root-->[?:Spot]] {
+        for n in range(count) {
+            root ++> Spot(number=n);
+        }
+    }
+    return True;
+}
+
+def _take(n: int) -> bool {
+    spots = [root-->[?:Spot]];
+    for s in spots {
+        if s.number == n {
+            s.taken += 1;
+        }
+    }
+    Jac.get_context().mem.flush(full=True);
+    return True;
+}
+
+def:priv take(n: int) -> bool {
+    return _take(n);
+}
+
+def:pub take_as(owner: str, n: int) -> bool {
+    ctx = Jac.get_context();
+    me = str(ctx.user_root.id);
+    ctx.set_user_root(owner);
+    try {
+        done = _take(n);
+    } finally {
+        ctx.set_user_root(me);
+    }
+    return done;
+}
+
+def:priv taken_count -> int {
+    return len(
+        [
+            s
+            for s in [root-->[?:Spot]]
+            if s.taken > 0
+        ]
+    );
+}

@@ -8,7 +8,9 @@ increments of one counter at once, as one signed-in user. Run from the repo root
 Documented behaviour: final count == bumps answered 200 (losers replayed, or 409).
 The first test uses plain Jac (it passed, 2026-10-03: Jac handles plain conflicts). The
 second (variant B) switches the request's root to the counter's owner mid-request, as
-the app's act_as does; if it fails, that pattern is the trigger.
+the app's act_as does; it passed too. Variants C and D have the hold path's shape:
+every request loads all the nodes and writes a different one, flushing in full; D also
+switches roots.
 """
 
 import os;
@@ -22,6 +24,7 @@ import from tests.support.real_server { RealServer, http_call, remove_project }
 glob HERE: Path = Path(__file__).resolve().parent,
      REPO_ROOT: Path = Path(__file__).resolve().parents[4],
      BUMPS: int = 50,
+     SPOTS: int = 60,
      APP_TOML: str = """[project]
 name = "ji038-repro"
 version = "0.1.0"
@@ -117,4 +120,60 @@ test "variant B: bumps that switch to the owner's root, as the app does" {
         server.stop(drop=True);
         remove_project(workdir);
     }
+}
+
+def _spots_race(name: str, as_owner: bool) {  # jac:ignore[W1037]
+    # SPOTS requests at once, each taking a different spot after loading all of them.
+    workdir = _project();
+    server = RealServer(workdir=workdir, env=dict(os.environ));
+    try {
+        server.start();
+        token = server.register(f"spot_owner_{name}");
+        server.call("setup_spots", {"count": SPOTS}, token);
+        owner = server.call("owner_root", {}, token);
+        def take(n: int) -> int {
+            if as_owner {
+                return http_call(
+                    "POST",
+                    f"{server.base()}/function/take_as",
+                    {"owner": owner, "n": n}
+                )[0];
+            }
+            return http_call("POST", f"{server.base()}/function/take", {"n": n}, token)[
+                0
+            ];
+        }
+        with ThreadPoolExecutor(max_workers=SPOTS) as pool {
+            statuses = list(pool.map(take, range(SPOTS)));
+        }
+        final = server.call("taken_count", {}, token);
+        log = server.log();
+        verdict = {
+            "requests": SPOTS,
+            "answered_200": statuses.count(200),
+            "other": [
+                s
+                for s in statuses
+                if s != 200
+            ],
+            "spots_taken": final,
+            "commit_on_close_failed_lines": log.count("commit on close failed"),
+            "permission_denied_lines": log.count("Permission denied")
+        };
+        print(f"\nJI-038 variant {name} verdict: {json.dumps(verdict)}");
+        assert final == statuses.count(200) , (
+            f"lost writes behind 200 answers: {verdict}"
+        );
+    } finally {
+        server.stop(drop=True);
+        remove_project(workdir);
+    }
+}
+
+test "variant C: each request loads every spot and takes a different one" {
+    _spots_race("C", False);
+}
+
+test "variant D: as C, switching to the owner's root, as the app does" {
+    _spots_race("D", True);
 }
