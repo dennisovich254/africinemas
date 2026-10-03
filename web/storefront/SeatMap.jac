@@ -99,7 +99,8 @@ def SeatButton(
                 else None}
             tabIndex={0 if focusable else -1}
             style={{"gridRow": seat["row"] + 2, "gridColumn": seat["col"] + 2}}
-            className={f"{SEAT_BASE} {LOOKS[look]}"}
+            className={f"{SEAT_BASE} {LOOKS[look]}"
+                + (" pointer-events-none opacity-50" if locked else "")}
             onClick={lambda { on_choose(seat); }}
             onFocus={lambda { on_focus(label); }}
             onKeyDown={lambda (e: any) { on_move(label, e); }}  # jac:ignore[W1037]
@@ -216,7 +217,9 @@ def:pub SeatMap(
     return
         <div data-testid="seat-map" className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold">Choose your seats</h3>
+                <h3 className="text-lg font-semibold">
+                    {"Seats" if locked else "Choose your seats"}
+                </h3>
                 <div className="flex items-center gap-2">
                     <Button
                         variant="outline"

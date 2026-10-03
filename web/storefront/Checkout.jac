@@ -408,16 +408,20 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
         return
             <div data-testid="checkout" className="flex flex-col gap-4">
                 {status_line}
+                {not selling
+                    and <p
+                        role="status"
+                        data-testid="booking-closed"
+                        className="rounded-md border bg-muted px-3 py-2 text-sm"
+                    >
+                        Online booking isn't open for this cinema yet. You can see the seats, but not choose them here.
+                    </p>}
                 <SeatMap
                     seat_map={seat_map}
                     chosen={chosen}
                     on_toggle={toggle}
                     locked={not selling}
                 />
-                {not selling
-                    and <p className="text-muted-foreground">
-                        Online booking for this cinema opens soon.
-                    </p>}
                 {problem_box}
                 {selling
                     and <BottomBar>
