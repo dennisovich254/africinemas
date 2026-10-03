@@ -40,7 +40,7 @@ import from core.tenancy.principal {
     node_id,
     act_as,
     restore,
-    flush_now,
+    commit_now,
     fresh_node_id,
     assign_id
 }
@@ -334,7 +334,7 @@ def _hold_seats(
         hold_id = node_id(made);
         free_seats(slots, dropped, hold_id);
         _mark(slots, wanted, hold_id, until);
-        flush_now();
+        commit_now();
     } except Exception as e {
         restore(me);
         if hold_ref {
@@ -373,7 +373,7 @@ def _release_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] {
     try {
         free_seats(slots_of(cinema, screening), list(hold.seats), node_id(hold));
         hold.status = "released";
-        flush_now();
+        commit_now();
     } finally {
         restore(me);
     }
@@ -414,7 +414,7 @@ def _extend_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] { 
             node_id(hold),
             hold.expires_at
         );
-        flush_now();
+        commit_now();
     } finally {
         restore(me);
     }

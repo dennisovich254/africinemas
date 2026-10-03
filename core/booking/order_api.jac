@@ -15,7 +15,8 @@ again returns the same order, even from racing requests; one that arrives while 
 order is still being made is told to ask again ("order_in_progress"). The same key
 with a different request is refused ("key_reused"). The hold is claimed by its order
 too, so different keys for one hold still make one order ("already_ordered").
-Claims are provisional until the request commits; a failed request releases them.
+Claims are provisional until the order commits (explicitly: commit_now, JI-038); a
+failed request releases them.
 
 For checkout (P4.6): public_ticket_types lists the tickets to choose from and
 quote_hold prices the holder's seats exactly as place_order would, saving nothing.
@@ -36,7 +37,7 @@ import from core.tenancy.principal {
     node_id,
     act_as,
     restore,
-    flush_now,
+    commit_now,
     fresh_node_id,
     assign_id
 }
@@ -259,7 +260,7 @@ def _place_order(
                 x.state = SeatState.PAYMENT_PENDING.value;
             }
         }
-        flush_now();
+        commit_now();
     } except Exception as e {
         # Graph work rolls back with the request; undo the claims, which don't.
         restore(me);
@@ -268,9 +269,8 @@ def _place_order(
         raise e;
     }
     restore(me);
-    on_commit(
-        lambda { _settle(key_name, hold_id, order_ref, screening_id, holder, seats); }
-    );
+    # commit_now has committed the order (it raises otherwise), so settle the claims.
+    _settle(key_name, hold_id, order_ref, screening_id, holder, seats);
     return {"ok": True, "order": _view(order)};
 }
 
