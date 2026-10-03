@@ -12,7 +12,7 @@ For each open hold (OPEN_HOLDS, listed when the hold is made) it:
   never got made (its request failed) once they are DANGLING_SECONDS old.
 
 It leaves the seat claims alone (a holder's claim may belong to their newer hold) and
-deletes only lapsed ones, which hold nothing. Every server copy runs it, and each step
+deletes only lapsed ones (and lapsed VISITOR_HOLDS entries), which hold nothing. Every server copy runs it, and each step
 does nothing the second time, so running it twice, or at once, changes nothing more.
 """
 
@@ -31,7 +31,7 @@ import from core.tenancy.principal {
 import from core.catalog.venues { find_screening, slots_of }
 import from core.booking.models { SeatHold }
 import from core.booking.availability { SeatState }
-import from core.booking.hold_api { OPEN_HOLDS, free_seats }
+import from core.booking.hold_api { OPEN_HOLDS, VISITOR_HOLDS, free_seats }
 
 # How often it runs; tests shorten it (AFRICINEMAS_SWEEP_SECONDS).
 glob SWEEP_SECONDS: int = int(os.environ.get("AFRICINEMAS_SWEEP_SECONDS", "60")),
@@ -113,7 +113,8 @@ def sweep -> dict[str, int] {
             release(OPEN_HOLDS, hold_ref, tenant_id);
         }
     }
-    return {"expired": expired, "claims_deleted": drop_lapsed("seat")};
+    deleted = drop_lapsed("seat") + drop_lapsed(VISITOR_HOLDS);
+    return {"expired": expired, "claims_deleted": deleted};
 }
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=SWEEP_SECONDS)

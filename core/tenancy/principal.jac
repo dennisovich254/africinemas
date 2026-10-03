@@ -168,3 +168,22 @@ def flush_now {
         raise WriteConflict(anchor_id=UUID(node_id(root))) from e;
     }
 }
+
+def commit_now {
+    # Flush and COMMIT now, under the current identity, so a write conflict surfaces
+    # inside the request, where Jac replays it (WriteConflict), instead of at session
+    # close, where a failed commit is only logged and the client still gets its answer
+    # (JI-038). For write paths that run concurrently (holds, orders). Call last: the
+    # request's work after it runs in a new transaction.
+    flush_now();
+    try {
+        commit();
+    } except WriteConflict as e {
+        raise e;
+    } except Exception as e {
+        if not _serialization_failure(e) {
+            raise e;
+        }
+        raise WriteConflict(anchor_id=UUID(node_id(root))) from e;
+    }
+}

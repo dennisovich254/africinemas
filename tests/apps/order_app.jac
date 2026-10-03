@@ -1,4 +1,5 @@
-"""Test-only app entry for the order races (P4.5). Never imported by main.jac.
+"""Test-only app entry for the order races (P4.5) and the hold load test (P4.7, load/).
+Never imported by main.jac.
 
 The production endpoints a priced, held showtime and its orders need, without the web
 client, plus a probe counting a showtime's orders.
@@ -16,11 +17,12 @@ import from core.catalog.screening_api {
 }
 import from core.catalog.pricing_api { save_price_list }  # jac:ignore[W2037]
 import from core.booking.hold_api { hold_seats }  # jac:ignore[W2037]
+import from core.catalog.storefront_api { public_seat_availability }  # jac:ignore[W2037]
 import from core.booking.order_api { place_order, my_order }  # jac:ignore[W2037]
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.principal { node_id, act_as, restore }
-import from core.catalog.venues { find_screening }
-import from core.booking.models { Order }
+import from core.catalog.venues { find_screening, slots_of }
+import from core.booking.models { Order, SeatHold }
 
 def:pub count_orders(slug: str, screening_id: str) -> int {
     cinema = open_cinema(slug);
@@ -31,6 +33,33 @@ def:pub count_orders(slug: str, screening_id: str) -> int {
     act_as(cinema.principal_root_id);
     try {
         found = len([screening-->[?:Order]]);
+    } finally {
+        restore(me);
+    }
+    return found;
+}
+
+def:pub slot_dump(slug: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # What is stored for each seat (state, hold_id) and the holds hanging on it
+    # (holder, status, seats): for the load test's diagnosis (P4.7).
+    cinema = open_cinema(slug);
+    assert cinema is not None;
+    screening = find_screening(cinema, screening_id);
+    assert screening is not None;
+    seats = slots_of(cinema, screening);
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        found: dict[str, any] = {};  # jac:ignore[W1037]
+        for x in seats {
+            found[x.label] = {
+                "state": x.state,
+                "hold_id": x.hold_id,
+                "holds": [
+                    [h.holder, h.status, list(h.seats)] for h in [x-->[?:SeatHold]]
+                ]
+            };
+        }
     } finally {
         restore(me);
     }

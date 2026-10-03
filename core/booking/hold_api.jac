@@ -18,6 +18,10 @@ hold is one per (showtime, holder).
 - The seats' SeatSlots record the hold too (state "held", hold_expires_at, hold_id), so
   availability reads (P4.2) show it; a hold past its time lapses on every read.
 - Only showtimes on the cinema's storefront that haven't started can be held.
+- Under load (P4.7, ADR-0014) a hold claims its seats before reading anything else, so
+  the many who lose answer at once; a visitor's hold is found through VISITOR_HOLDS
+  (one lookup, not a walk over the showtime's holds), and a new hold hangs on its first
+  seat, not on the showtime, so concurrent holds never write the same node.
 - Each new hold is listed in OPEN_HOLDS (a claim per hold, owned by its cinema) before
   it is made, so the expiry sweeper (P4.4, core/booking/sweeper.jac) finds open holds
   without walking every showtime.
@@ -28,7 +32,7 @@ import re;
 import math;
 import from datetime { datetime, timedelta }
 import from core.clock { now }
-import from core.claims { claim, release, renew }
+import from core.claims { claim, release, renew, holder as claim_holder }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.groups { attach_to_tenant }
@@ -36,7 +40,7 @@ import from core.tenancy.principal {
     node_id,
     act_as,
     restore,
-    flush_now,
+    commit_now,
     fresh_node_id,
     assign_id
 }
@@ -54,7 +58,8 @@ glob HOLD_ENV: str = "AFRICINEMAS_HOLD_SECONDS",
      MAX_SECONDS: int = 900,
      MAX_SEATS: int = 10,
      HOLDER_PATTERN: str = "[A-Za-z0-9_-]{16,64}",
-     OPEN_HOLDS: str = "open-hold";
+     OPEN_HOLDS: str = "open-hold",
+     VISITOR_HOLDS: str = "visitor-hold";
 
 def seconds_from_env(env: str, fallback: int) -> int {
     # A duration from the environment (tests shorten holds), or the default.
@@ -100,20 +105,39 @@ def _live(hold: SeatHold) -> bool {
         and datetime.fromisoformat(hold.expires_at) > now();
 }
 
-def current_hold(cinema: Tenant, screening: Screening, holder: str) -> SeatHold | None {
-    # The holder's live hold on this showtime, if any.
+def _visitor_key(screening_id: str, holder: str) -> str {
+    return f"{screening_id}:{holder}";
+}
+
+def _stored_hold(cinema: Tenant, hold_ref: str) -> SeatHold | None {
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
-        found = [
-            h
-            for h in [screening-->[?:SeatHold]]
-            if h.holder == holder and _live(h)
-        ];
+        found: any = jobj(hold_ref);  # jac:ignore[W1037]
+    } except Exception {
+        found = None;
     } finally {
         restore(me);
     }
-    return found[0] if found else None;
+    return found as SeatHold if isinstance(found, SeatHold) else None;
+}
+
+def current_hold(cinema: Tenant, screening: Screening, holder: str) -> SeatHold | None {
+    # The holder's live hold on this showtime, if any: one lookup in VISITOR_HOLDS and
+    # one read, never a walk over the showtime's holds (P4.7).
+    screening_id = node_id(screening);
+    hold_ref = claim_holder(VISITOR_HOLDS, _visitor_key(screening_id, holder));
+    if hold_ref is None {
+        return None;
+    }
+    hold = _stored_hold(cinema, hold_ref);
+    if hold is None
+        or hold.holder != holder
+        or hold.screening_id != screening_id
+        or not _live(hold) {
+        return None;
+    }
+    return hold;
 }
 
 def _view(hold: SeatHold) -> dict[str, any] {  # jac:ignore[W1037]
@@ -169,6 +193,45 @@ def _hold_seats(
             "too_many_seats", f"You can hold up to {MAX_SEATS} seats at a time."
         );
     }
+    previous = current_hold(cinema, screening, holder);
+    kept: list[str] = list(previous.seats) if previous is not None else [];
+    seconds = seconds_from_env(HOLD_ENV, HOLD_SECONDS);
+    space = seat_namespace(screening_id);
+    # Claim first (P4.7): a seat someone else has is refused at once, before the seat
+    # map is read, so under load the many who lose answer quickly.
+    ours: list[str] = [
+        label
+        for label in wanted
+        if claim_holder(space, label) == holder
+    ];
+    claimed: list[str] = [];
+    taken: list[str] = [];
+    for label in wanted {
+        if claim(space, label, holder, seconds) == holder {
+            claimed.append(label);
+        } else {
+            taken.append(label);
+        }
+    }
+
+    def give_back {
+        # All or nothing: release what this request claimed, never a seat that was
+        # already the holder's (their hold's, or a paying order's).
+        for label in claimed {
+            if label not in ours and label not in kept {
+                release(space, label, holder);
+            }
+        }
+    }
+
+    if taken {
+        give_back();
+        raise Refused(
+            "seats_taken",
+            "Someone else has just taken some of these seats.",
+            {"seats": taken}
+        );
+    }
     slots = slots_of(cinema, screening);
     by_label = {x.label: x for x in slots};
     unknown = [
@@ -177,6 +240,7 @@ def _hold_seats(
         if label not in by_label
     ];
     if unknown {
+        give_back();
         raise Refused(
             "unknown_seats", "Some of these seats don't exist.", {"seats": unknown}
         );
@@ -187,6 +251,7 @@ def _hold_seats(
         if by_label[label].state == SeatState.NOT_FOR_SALE.value
     ];
     if unsellable {
+        give_back();
         raise Refused(
             "not_for_sale",
             "Some of these seats aren't for sale.",
@@ -201,36 +266,11 @@ def _hold_seats(
     ];
     if gone {
         # Paying or sold: taken, whatever the seat's claim says (P4.5).
+        give_back();
         raise Refused(
             "seats_taken",
             "Someone else has just taken some of these seats.",
             {"seats": gone}
-        );
-    }
-    previous = current_hold(cinema, screening, holder);
-    kept: list[str] = list(previous.seats) if previous is not None else [];
-    seconds = seconds_from_env(HOLD_ENV, HOLD_SECONDS);
-    space = seat_namespace(screening_id);
-    claimed: list[str] = [];
-    taken: list[str] = [];
-    for label in wanted {
-        if claim(space, label, holder, seconds) == holder {
-            claimed.append(label);
-        } else {
-            taken.append(label);
-        }
-    }
-    if taken {
-        # All or nothing: give back what this request claimed (not seats it already had).
-        for label in claimed {
-            if label not in kept {
-                release(space, label, holder);
-            }
-        }
-        raise Refused(
-            "seats_taken",
-            "Someone else has just taken some of these seats.",
-            {"seats": taken}
         );
     }
     for label in wanted {
@@ -247,10 +287,27 @@ def _hold_seats(
     stamp = now();
     until = (stamp + timedelta(seconds=seconds)).isoformat();
     hold_ref = "";
+    visitor = _visitor_key(screening_id, holder);
     if previous is None {
-        # Listed before it exists (ADR-0007): a hold that never commits leaves only an
-        # entry the sweeper drops.
+        # Listed before it exists (ADR-0007): in VISITOR_HOLDS, so the holder finds it,
+        # and in OPEN_HOLDS for the sweeper. A lapsed hold's entry is replaced.
+        stale = claim_holder(VISITOR_HOLDS, visitor);
+        if stale is not None {
+            release(VISITOR_HOLDS, visitor, stale);
+        }
         hold_ref = fresh_node_id();
+        if claim(
+            VISITOR_HOLDS,
+            visitor,
+            hold_ref,
+            seconds_from_env(MAX_ENV, MAX_SECONDS) + 60
+        )
+            != hold_ref {
+            raise Refused(
+                "hold_in_progress",
+                "Your seats are still being held. Try again in a moment."
+            );
+        }
         claim(OPEN_HOLDS, hold_ref, node_id(cinema));
     }
     me = node_id(root);
@@ -265,7 +322,9 @@ def _hold_seats(
                 created_at=stamp.isoformat()
             );
             assign_id(hold, hold_ref);
-            screening ++> hold;
+            # Hung on its first seat, not on the showtime: concurrent holds are of
+            # different seats, so they never write the same node (P4.7).
+            by_label[wanted[0]] ++> hold;
             attach_to_tenant(hold, cinema);
         }
         made: SeatHold = hold;
@@ -275,10 +334,16 @@ def _hold_seats(
         hold_id = node_id(made);
         free_seats(slots, dropped, hold_id);
         _mark(slots, wanted, hold_id, until);
-        flush_now();
-    } finally {
+        commit_now();
+    } except Exception as e {
         restore(me);
+        if hold_ref {
+            release(VISITOR_HOLDS, visitor, hold_ref);
+            release(OPEN_HOLDS, hold_ref, node_id(cinema));
+        }
+        raise e;
     }
+    restore(me);
     return {"ok": True, "hold": _view(made)};
 }
 
@@ -308,7 +373,7 @@ def _release_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] {
     try {
         free_seats(slots_of(cinema, screening), list(hold.seats), node_id(hold));
         hold.status = "released";
-        flush_now();
+        commit_now();
     } finally {
         restore(me);
     }
@@ -349,7 +414,7 @@ def _extend_hold(slug: str, screening_id: str, holder: str) -> dict[str, any] { 
             node_id(hold),
             hold.expires_at
         );
-        flush_now();
+        commit_now();
     } finally {
         restore(me);
     }

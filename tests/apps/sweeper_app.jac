@@ -22,7 +22,7 @@ import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 import from core.catalog.venues { find_screening, slots_of }
-import from core.catalog.models { Screening }
+import from core.catalog.models { Screening, SeatSlot }
 import from core.booking.models { SeatHold }
 import from core.booking.sweeper { sweep, open_holds, sweep_holds }  # jac:ignore[W2037]
 
@@ -32,6 +32,21 @@ def _showtime(slug: str, screening_id: str) -> tuple[Tenant, Screening] {
     screening = find_screening(cinema, screening_id);
     assert screening is not None;
     return (cinema, screening);
+}
+
+def _holds_of(slots: list[SeatSlot]) -> list[SeatHold] {
+    # A showtime's holds, oldest first. Each hangs on its first seat (P4.7). Call as
+    # the cinema's principal.
+    found: list[SeatHold] = [];
+    for x in slots {
+        for h in [x-->[?:SeatHold]] {
+            found.append(h);
+        }
+    }
+    return sorted(
+        found,
+        key=lambda (h: SeatHold) -> str { return h.created_at; }  # jac:ignore[W1037]
+    );
 }
 
 def:pub sw_sweep -> dict[str, int] {
@@ -49,15 +64,12 @@ def:pub sw_seat_claim(screening_id: str, label: str) -> str | None {
 def:pub sw_stored(slug: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The slots' stored states and the showtime's holds (holder, status), oldest first.
     (cinema, screening) = _showtime(slug, screening_id);
-    slots = {x.label: x.state for x in slots_of(cinema, screening)};
+    seat_slots = slots_of(cinema, screening);
+    slots = {x.label: x.state for x in seat_slots};
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
-        holds = sorted(
-            [screening-->[?:SeatHold]],
-            key=lambda (h: SeatHold) -> str { return h.created_at; }  # jac:ignore[W1037]
-        );
-        found = [[h.holder, h.status] for h in holds];
+        found = [[h.holder, h.status] for h in _holds_of(seat_slots)];
     } finally {
         restore(me);
     }
@@ -73,7 +85,7 @@ def:pub sw_pay(slug: str, screening_id: str, holder_id: str) -> bool {
     try {
         holds = [
             h
-            for h in [screening-->[?:SeatHold]]
+            for h in _holds_of(slots)
             if h.holder == holder_id and h.status == "held"
         ];
         for x in slots {
