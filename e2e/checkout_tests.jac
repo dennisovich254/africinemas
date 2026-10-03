@@ -17,7 +17,7 @@ import from e2e.support.web {
     artifact
 }
 import from e2e.support.api { call }
-import from e2e.support.catalog { cinema_selling_tickets }
+import from e2e.support.catalog { cinema_selling_tickets, cinema_with_programme }
 
 glob CHECKOUT: str = '[data-testid="checkout"]',
      OVERFLOW_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth",
@@ -207,6 +207,25 @@ test "review screenshots of checkout" {
                 page.context.close();
             }
         }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "a cinema without prices says booking isn't open, and its seats can't be chosen" {
+    owner = cinema_with_programme();
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        page.goto(f"{BASE_URL}/c/{owner['slug']}/s/{owner['first']}");
+        page.wait_for_selector(_seat("A1"));
+        assert "isn't open" in page.inner_text('[data-testid="booking-closed"]');
+        assert page.get_attribute(_seat("A1"), "aria-disabled") == "true";
+        page.click(_seat("A1"), force=True);
+        assert page.get_attribute(_seat("A1"), "data-state") == "available";
+        assert page.locator('[data-testid="hold-seats"]').count() == 0;
     } finally {
         close_contexts(browser);
     }
