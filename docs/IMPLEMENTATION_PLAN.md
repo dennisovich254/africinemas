@@ -237,7 +237,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 
 ### Phase 5 — M-Pesa payments via Daraja (Week 3, days 1–3)
 
-- [ ] **5.1 `PaymentProvider` interface + simulator** — **T:** the simulator scripts success/fail/cancel/timeout/late-success; the payment state machine (§32) rejects invalid transitions.
+- [x] **5.1 `PaymentProvider` interface + simulator** — **T:** the simulator scripts success/fail/cancel/timeout/late-success; the payment state machine (§32) rejects invalid transitions.
 - [ ] **5.2 Daraja adapter** (OAuth token cache, STK push, STK query, C2B registration later) — **T:** HTTP-mocked contract tests from recorded sandbox fixtures; token refresh; timeouts/retries; no secrets in logs.
 - [ ] **5.3 `initiate_payment`** (§29) — **T:** creates a `PaymentIntent` + extends the hold to `PAYMENT_PENDING`; **a forced serialization replay still produces exactly one STK call** (`on_commit`/outbox); the idempotency key prevents a double initiate.
 - [ ] **5.4 Callback → receipt → verified finalize** (§33–§35) — **T:** the callback only stores a receipt; the worker verifies via STK query; finalize makes Payment SUCCESS + Booking CONFIRMED + SeatSlots SOLD + Tickets ISSUED atomically; **3 duplicate callbacks → one ticket set**; amount mismatch → `NEEDS_ATTENTION`; late success after release → `NEEDS_ATTENTION` + refund task.
