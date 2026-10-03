@@ -20,4 +20,4 @@ Phase 5 takes M-Pesa payments through Safaricom's Daraja API (architecture ยง29โ
 ## Consequences
 - 5.3 (`initiate_payment`) and 5.4 (callbacks and verification) build against the interface and are tested with the simulator; 5.2 adds the Daraja adapter behind the same interface.
 - The simulator's state lives in one process, so tests and demos run one server worker when they use it.
-- Prices must be whole shillings to be payable by M-Pesa; the price list allows cents, so 5.3 refuses (or the price editor should prevent) fractional totals.
+- **Prices are whole shillings** (the owner's choice, 2026-10-03: cents are never used in Kenya). The price list refuses cents in prices, time-of-day extras and the service fee, and the back-office price editor accepts whole shillings only, so every quote and order is payable by M-Pesa as quoted. Amounts are still stored in cents, so nothing else changes.

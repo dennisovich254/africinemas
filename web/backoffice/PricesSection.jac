@@ -26,7 +26,8 @@ def two(n: int) -> str {
 }
 
 def:pub shillings(cents: int) -> str {
-    # 80000 -> "800", 85050 -> "850.50", -30000 -> "-300".
+    # 80000 -> "800", -30000 -> "-300" (prices are whole shillings; cents, never used
+    # in Kenya, would still show as "850.50").
     sign = "-" if cents < 0 else "";
     size = 0 - cents if cents < 0 else cents;
     whole = int(size / 100);
@@ -35,7 +36,8 @@ def:pub shillings(cents: int) -> str {
 }
 
 def:pub cents_of(text: str, allow_negative: bool) -> any {  # jac:ignore[W1037]
-    # "850.50" -> 85050; None when it isn't an amount in shillings.
+    # "1,200" -> 120000; None unless it is a whole number of shillings (Kenya doesn't
+    # use cents, and M-Pesa charges whole shillings). "800.00" is accepted as 800.
     cleaned = text.strip().replace(",", "");
     negative = False;
     if cleaned.startswith("-") {
@@ -56,14 +58,10 @@ def:pub cents_of(text: str, allow_negative: bool) -> any {  # jac:ignore[W1037]
             }
         }
     }
-    fraction = parts[1] if len(parts) == 2 else "";
-    if len(fraction) > 2 {
+    if len(parts) == 2 and parts[1].strip("0") != "" {
         return None;
     }
-    while len(fraction) < 2 {
-        fraction += "0";
-    }
-    total = int(parts[0]) * 100 + int(fraction);
+    total = int(parts[0]) * 100;
     return 0 - total if negative else total;
 }
 
@@ -377,7 +375,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                 if text.strip() {
                     cents = cents_of(text, False);
                     if cents is None {
-                        found[f"price-{zi}-{ti}"] = "Enter an amount in KES, like 800 or 850.50.";
+                        found[f"price-{zi}-{ti}"] = "Enter a whole number of shillings, like 800.";
                     } else {
                         out_prices.append(
                             {
@@ -394,7 +392,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
         for (k, x) in enumerate(extras) {
             cents = cents_of(x["amount"], True);
             if cents is None {
-                found[f"surcharge-amount-{k}"] = "Enter an amount in KES; use a minus sign for a discount, like -100.";
+                found[f"surcharge-amount-{k}"] = "Enter whole shillings; use a minus sign for a discount, like -100.";
             } else {
                 out_extras.append(
                     {
@@ -409,7 +407,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
         }
         fee = cents_of(state["fee"] or "0", False);
         if fee is None {
-            found["service-fee"] = "Enter the fee in KES, like 30.";
+            found["service-fee"] = "Enter the fee in whole shillings, like 30.";
         }
         set_errors(found);
         if len(Object.keys(found)) > 0 {  # jac:ignore[W2001]
@@ -480,7 +478,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                 <Input
                     id={field_id}
                     value={value}
-                    inputMode={"text" if negative else "decimal"}
+                    inputMode={"text" if negative else "numeric"}
                     placeholder={"-100" if negative else "Not sold"}
                     aria-invalid={"true" if problem else "false"}
                     aria-describedby={error_id(field_id) if problem else None}
