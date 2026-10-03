@@ -6,8 +6,9 @@ increments of one counter at once, as one signed-in user. Run from the repo root
     jac test docs/jac-issues/repro/JI-038/ji038_repro_tests.jac -v
 
 Documented behaviour: final count == bumps answered 200 (losers replayed, or 409).
-JI-038 confirmed in Jac itself: final count < bumps answered 200, with "commit on close
-failed" in the server log.
+The first test uses plain Jac (it passed, 2026-10-03: Jac handles plain conflicts). The
+second (variant B) switches the request's root to the counter's owner mid-request, as
+the app's act_as does; if it fails, that pattern is the trigger.
 """
 
 import os;
@@ -71,6 +72,44 @@ test "concurrent bumps: the count equals the bumps answered 200" {
             "commit_on_close_failed_lines": log.count("commit on close failed")
         };
         print(f"\nJI-038 verdict: {json.dumps(verdict)}");
+        assert final == statuses.count(200) , (
+            f"lost writes behind 200 answers: {verdict}"
+        );
+    } finally {
+        server.stop(drop=True);
+        remove_project(workdir);
+    }
+}
+
+test "variant B: bumps that switch to the owner's root, as the app does" {
+    workdir = _project();
+    server = RealServer(workdir=workdir, env=dict(os.environ));
+    try {
+        server.start();
+        token = server.register("counter_owner");
+        server.call("setup", {}, token);
+        owner = server.call("owner_root", {}, token);
+        bump = lambda (_: int) -> int { return http_call(
+            "POST", f"{server.base()}/function/bump_as", {"owner": owner}
+        )[0]; };
+        with ThreadPoolExecutor(max_workers=BUMPS) as pool {
+            statuses = list(pool.map(bump, range(BUMPS)));
+        }
+        final = server.call("hits", {}, token);
+        log = server.log();
+        verdict = {
+            "bumps": BUMPS,
+            "answered_200": statuses.count(200),
+            "answered_409": statuses.count(409),
+            "other": [
+                s
+                for s in statuses
+                if s not in [200, 409]
+            ],
+            "final_count": final,
+            "commit_on_close_failed_lines": log.count("commit on close failed")
+        };
+        print(f"\nJI-038 variant B verdict: {json.dumps(verdict)}");
         assert final == statuses.count(200) , (
             f"lost writes behind 200 answers: {verdict}"
         );

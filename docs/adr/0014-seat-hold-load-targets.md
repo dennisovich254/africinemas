@@ -11,7 +11,7 @@ Spike S5 (architecture §138) asks how holds behave when hundreds of visitors tr
 
 1. Every hold read the whole seat map before trying for its seats: 35–45 s per hold.
 2. Every new hold linked to the showtime node, so winners collided there; one ran out of retries (500).
-3. Winners' writes were lost at session close while the visitor was told the hold succeeded (JI-038).
+3. Winners' writes were lost at session close while the visitor was told the hold succeeded (JI-038). A minimal repro later showed plain Jac handles concurrent writes correctly; the trigger is the app's mid-request switch to the cinema's principal (`set_user_root`, a runtime internal, ADR-0003).
 
 ## Decision
 1. **Correctness is absolute.** One winner per seat (atomic claims, ADR-0007), no seat held by two visitors, the seat map agrees with the winners, and no request fails. The load test asserts all of it every run.
@@ -31,4 +31,4 @@ Spike S5 (architecture §138) asks how holds behave when hundreds of visitors tr
 - 200 holds in the same second is an extreme opening night for one cinema; at this rate (about 8 to 25 holds a second on one slow worker) the queue clears within half a minute, and nothing is double-sold.
 - Production runs several workers (`jac start --workers N`) on more cores, which multiplies throughput; the targets here are a floor, not the expectation.
 - Next step for speed (plan 11.1c): holds that never touch the graph. The claims already decide who holds a seat; the seat map can read holds from the claims (one query per showtime), so a hold writes no node at all. Then re-measure, including with several workers.
-- `commit_now()` is the rule for any write path that runs concurrently (Phase 5's payments included) until JI-038 is fixed in Jac.
+- `commit_now()` is the rule for any write path that switches to a principal and runs concurrently (Phase 5's payments included), while the app keeps acting as principals through `set_user_root` (ADR-0003).
