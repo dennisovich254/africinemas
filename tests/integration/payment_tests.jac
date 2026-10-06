@@ -30,7 +30,7 @@ glob APP: str = path.join(
      ANNA: str = "holder-anna-0123456789abcdef";
 
 def _setup -> tuple[Served, str] {  # jac:ignore[W1037]
-    # A priced showtime where Anna holds A1 and A2 and has ordered them (KES 1,660).
+    # A priced showtime where Anna holds A1 and A2 and has ordered them (KES 1,860: 800 + 100 evening extra + 30 fee each).
     os.environ[PAYMENTS] = "simulator";
     app = served(APP, ["owner"]);
     nova = open_cinema_for(app, "owner", "nova", "Nova Cinemas");
@@ -101,7 +101,7 @@ test "paying sends one PIN prompt, and the payment waits for the PIN" {
         assert started["ok"] , started;
         payment = started["payment"];
         assert payment["state"] == "stk_requested";
-        assert payment["amount_cents"] == 166000 and payment["currency"] == "KES";
+        assert payment["amount_cents"] == 186000 and payment["currency"] == "KES";
         assert "*" in payment["phone"] and "PIN" in payment["message"];
         assert _pushes(app, payment["reference"]) == 1;
         mine = browse(
