@@ -51,6 +51,7 @@ import from core.payments.state { PaymentState, transition, is_final }
 import from core.payments.provider { StkStatus, PaymentProvider }
 import from core.payments.choice { payment_provider, ProviderNotConfigured }
 import from core.payments.daraja { parse_callback }
+import from core.payments.ledger { record_entry }
 import from core.payments.payment_api {
     CALLBACK_TOKENS,
     ORDER_PAYMENT,
@@ -68,7 +69,7 @@ glob INBOX: str = "mpesa-inbox",
      SETTLE_SECONDS: int = int(os.environ.get("AFRICINEMAS_SETTLE_SECONDS", "5")),
      ACK: dict[str, any] = {"ResultCode": 0, "ResultDesc": "Accepted"};  # jac:ignore[W1037]
 
-def _tenant(tenant_id: str) -> Tenant | None {
+def tenant_by_id(tenant_id: str) -> Tenant | None {
     me = node_id(root);
     act_as(system_root_id());
     try {
@@ -88,7 +89,7 @@ def _intent_for(token: str) -> tuple[Tenant, PaymentIntent] | None {
         return None;
     }
     (tenant_id, ref) = named.split("|", 1);
-    cinema = _tenant(tenant_id);
+    cinema = tenant_by_id(tenant_id);
     if cinema is None {
         return None;
     }
@@ -167,6 +168,28 @@ def _attention(
         intent.paid_amount_cents = paid;
         intent.updated_at = now().isoformat();
         if refund {
+            owed = paid or intent.amount_cents;
+            order = order_of(cinema, intent);
+            if order is not None {
+                record_entry(
+                    cinema,
+                    order as Order,
+                    node_id(intent),
+                    "payment",
+                    owed,
+                    receipt,
+                    reason
+                );
+                record_entry(
+                    cinema,
+                    order as Order,
+                    node_id(intent),
+                    "refund_due",
+                    0 - owed,
+                    receipt,
+                    reason
+                );
+            }
             task = RefundTask(
                 tenant_id=node_id(cinema),
                 intent_id=node_id(intent),
@@ -229,6 +252,9 @@ def _finalize(
                 x.state = SeatState.SOLD.value;
             }
         }
+        record_entry(
+            cinema, order, node_id(intent), "payment", paid, receipt, "M-Pesa"
+        );
         for line in order.lines {
             ticket = Ticket(
                 tenant_id=node_id(cinema),
@@ -249,7 +275,7 @@ def _finalize(
     }
 }
 
-def _order_of(cinema: Tenant, intent: PaymentIntent) -> Order | None {
+def order_of(cinema: Tenant, intent: PaymentIntent) -> Order | None {
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -301,7 +327,7 @@ def settle(cinema: Tenant, intent: PaymentIntent, provider: PaymentProvider) -> 
     ref = node_id(intent);
     receipt = str(filed.get("receipt", "")) if filed is not None else "";
     paid = int(filed.get("amount_cents", 0) or 0) if filed is not None else 0;
-    order = _order_of(cinema, intent);
+    order = order_of(cinema, intent);
     if current in [PaymentState.FAILED, PaymentState.CANCELLED]
         or order is None
         or order.status != "pending_payment" {

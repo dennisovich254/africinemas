@@ -57,6 +57,8 @@ glob PAY_KEYS: str = "pay-key",
      STK_GATE: str = "stk-gate",
      STK_RESULT: str = "stk-result",
      CALLBACK_TOKENS: str = "callback-token",
+     # Payments not yet final, for the resolver job (P5.5).
+     OPEN_PAYMENTS: str = "open-payment",
      PROVISIONAL_SECONDS: int = 60,
      KEY_SECONDS: int = 24 * 60 * 60,
      CALLBACK_ENV: str = "DARAJA_CALLBACK_BASE",
@@ -278,6 +280,7 @@ def _start_payment(
     # The callback URL's token names this intent (plan 5.4: the callback finds it).
     token = secrets.token_urlsafe(24);
     claim(CALLBACK_TOKENS, token, f"{node_id(cinema)}|{ref}", PROVISIONAL_SECONDS);
+    claim(OPEN_PAYMENTS, ref, node_id(cinema), PROVISIONAL_SECONDS);
     stamp = now().isoformat();
     me = node_id(root);
     act_as(cinema.principal_root_id);
@@ -305,6 +308,7 @@ def _start_payment(
         # Graph work rolls back with the request; undo the claims, which don't.
         restore(me);
         release(CALLBACK_TOKENS, token, f"{node_id(cinema)}|{ref}");
+        release(OPEN_PAYMENTS, ref, node_id(cinema));
         release(ORDER_PAYMENT, order_id, ref);
         release(PAY_KEYS, key_name, ref);
         raise e;
@@ -313,6 +317,7 @@ def _start_payment(
     renew(PAY_KEYS, key_name, ref, KEY_SECONDS);
     renew(ORDER_PAYMENT, order_id, ref, 0);
     renew(CALLBACK_TOKENS, token, f"{node_id(cinema)}|{ref}", 0);
+    renew(OPEN_PAYMENTS, ref, node_id(cinema), 0);
     replay_point("payment_after_commit");
     ensure_pushed(cinema, intent, provider);
     return {"ok": True, "payment": payment_view(intent)};

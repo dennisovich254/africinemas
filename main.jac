@@ -103,6 +103,8 @@ import from core.booking.order_api {
 import from core.payments.payment_api { start_payment }
 # M-Pesa's callback, the payment status, and the job that settles payments (P5.4).
 import from core.payments.settlement { my_payment, mpesa_callback, settle_callbacks }  # jac:ignore[W2037]
+# Resolving stuck payments and releasing unpaid orders (P5.5).
+import from core.payments.resolver { resolve_payments }  # jac:ignore[W2037]
 # The hold expiry sweeper (P4.4) runs on a schedule; importing it registers the task.
 import from core.booking.sweeper { sweep_holds }  # jac:ignore[W2037]
 import from core.tenancy.customer_api {
