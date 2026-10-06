@@ -9,6 +9,9 @@
   returns the caller's own customer data (never staff or other customers' data).
 - "storefront": public, no login; returns a cinema's published storefront only (never
   internal ids, staff or owner data). Probed anonymously at tenant B.
+- "webhook": a public endpoint on a custom path (key "route:<path>"), called by a
+  provider (M-Pesa's callback, P5.4); it changes nothing a caller can see and only
+  acknowledges. Probed anonymously with a made-up token.
 
 isolation_tests.jac fails when the app serves an endpoint that isn't listed here, so no
 new endpoint can skip the cross-tenant checks.
@@ -367,6 +370,10 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "screening_id": "x",
                  "holder": "probe-holder-0123456789abcdef"
              }
+         },
+         "route:/hooks/mpesa/{token}": {
+             "scope": "webhook",
+             "probe": {"Body": {"stkCallback": {"ResultCode": 0}}}
          },
          "public_seat_availability": {
              "scope": "storefront",

@@ -1,4 +1,5 @@
-"""Seat holds (P4.3) and orders (P4.5): Screening -> SeatHold, Screening -> Order.
+"""Seat holds (P4.3), orders (P4.5) and tickets (P5.4): Screening -> SeatHold,
+Screening -> Order -> Ticket.
 
 Owned by the cinema's principal (ADR-0003) and granted to its access group (ADR-0004),
 like every tenant node. A hold is one visitor's seats on one showtime for a few minutes;
@@ -40,4 +41,19 @@ node Order {
         total_cents: int = 0,
         created_at: str = "",
         pay_by: str = "";
+}
+
+node Ticket {
+    # One seat of a paid order (P5.4): issued when the payment is confirmed. reference
+    # is for people; the signed QR payload comes with plan 6.1. status: "issued" until
+    # redeemed (6.2).
+    has tenant_id: str,
+        order_id: str,
+        screening_id: str,
+        seat_label: str,
+        ticket_type: str,
+        ticket_name: str,
+        reference: str,
+        status: str = "issued",
+        issued_at: str = "";
 }
