@@ -350,6 +350,24 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "holder": "probe-holder-0123456789abcdef"
              }
          },
+         "start_payment": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef",
+                 "phone": "0712345678",
+                 "idempotency_key": "probe-key-xxxxxxxxxxxxxxxx"
+             }
+         },
+         "my_payment": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
          "public_seat_availability": {
              "scope": "storefront",
              "probe": {"slug": "{tenant}", "screening_id": "x"}

@@ -93,7 +93,7 @@ def request_lines(items: list[any]) -> list[list[str]] {  # jac:ignore[W1037]
     return sorted(pairs);
 }
 
-def _check_key(key: str) {
+def check_key(key: str) {
     if not isinstance(key, str) or not re.fullmatch(KEY_PATTERN, key) {
         raise Refused(
             "invalid_key",
@@ -207,7 +207,7 @@ def _place_order(
 ) -> dict[str, any] {  # jac:ignore[W1037]
     (cinema, screening) = showtime_on_sale(slug, screening_id);
     check_holder(holder);
-    _check_key(idempotency_key);
+    check_key(idempotency_key);
     wanted = request_lines(items);
     key_name = f"{node_id(cinema)}:{holder}:{idempotency_key}";
     existing = claim_holder(ORDER_KEYS, key_name);
@@ -274,10 +274,8 @@ def _place_order(
     return {"ok": True, "order": _view(order)};
 }
 
-def _my_order(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # jac:ignore[W1037]
+def pending_order(cinema: Tenant, screening: Screening, holder: str) -> Order | None {
     # The holder's latest order for this showtime that is waiting for payment.
-    (cinema, screening) = showtime_on_sale(slug, screening_id);
-    check_holder(holder);
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -292,10 +290,21 @@ def _my_order(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # 
     } finally {
         restore(me);
     }
-    if not found {
+    return found[-1] if found else None;
+}
+
+def order_view(order: Order) -> dict[str, any] {  # jac:ignore[W1037]
+    return _view(order);
+}
+
+def _my_order(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # jac:ignore[W1037]
+    (cinema, screening) = showtime_on_sale(slug, screening_id);
+    check_holder(holder);
+    found = pending_order(cinema, screening, holder);
+    if found is None {
         raise Refused("no_order", "You haven't placed an order for this showtime.");
     }
-    return {"ok": True, "order": _view(found[-1])};
+    return {"ok": True, "order": _view(found)};
 }
 
 def _quote_hold(
