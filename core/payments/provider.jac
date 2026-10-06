@@ -13,20 +13,27 @@ a push for a fractional amount is refused before it is sent.
 import from core.payments.state { PaymentState }
 
 obj StkRequest {
-    # reference is ours (the payment's), sent to M-Pesa and echoed back.
+    # reference is ours (the payment's), sent to M-Pesa and echoed back. callback_url
+    # is where Safaricom POSTs the result (plan 5.4: it carries a per-payment token);
+    # the simulator ignores it.
     has reference: str,
         phone: str,
         amount_cents: int,
         account: str,
-        description: str;
+        description: str,
+        callback_url: str = "";
 }
 
 obj StkPushResult {
     # accepted: Daraja took the push and will answer for checkout_request_id.
+    # uncertain: no answer came back (a timeout), so the prompt may or may not have
+    # reached the phone; a push is never retried (that could prompt twice), and the
+    # callback URL's token still matches a payment the customer completes.
     has accepted: bool,
         checkout_request_id: str = "",
         error_code: str = "",
-        message: str = "";
+        message: str = "",
+        uncertain: bool = False;
 }
 
 obj StkStatus {
