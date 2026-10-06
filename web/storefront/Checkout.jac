@@ -9,8 +9,8 @@
    visitor, with a message. Each seat gets a ticket type; the server prices them
    (quote_hold) and the bar shows the total. "Change seats" gives the hold back.
 3. Pay: places the order (place_order) with an idempotency key made for this order and
-   reused if the request is sent again. Payment by M-Pesa comes in Phase 5; until then
-   the order says it is waiting for payment.
+   reused if the request is sent again, then pays it with M-Pesa (PayPanel, P5.6): a PIN
+   prompt on the phone, the status live, and the tickets once paid (Tickets).
 
 A reload comes back to the same step: the browser keeps the visitor's holder id for
 the visit, and my_order / my_hold say where they were. Changes worth hearing (held,
@@ -30,6 +30,8 @@ import from core.booking.order_api {
     public_ticket_types
 }
 import from .SeatMap { SeatMap }
+import from .PayPanel { PayPanel, Tickets }
+import from core.payments.settlement { my_payment }
 import from .showtimes { listed, time_label }
 import from .checkout_rules { money, countdown, seconds_until, visitor_id, order_key }
 
@@ -140,9 +142,9 @@ def Ordered(order: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
                 </span>
             </p>
             <p className="text-sm text-muted-foreground">
-                {f"Paying with M-Pesa opens here soon. Your seats are kept for you until {time_label(
+                {f"Your seats are kept for you until {time_label(
                     order['pay_by'], tz
-                )}."}
+                )}. Pay before then to get your tickets."}
             </p>
         </section>;
 }
@@ -157,6 +159,8 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
     [items, set_items] = useState([]);
     [quote, set_quote] = useState(None);
     [order, set_order] = useState(None);
+    [paid, set_paid] = useState(None);
+    [pay_state, set_pay_state] = useState(None);
     [key, set_key] = useState("");
     [busy, set_busy] = useState(False);
     [problem, set_problem] = useState("");
@@ -197,6 +201,15 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
     async def start {
         # Ticket types and any hold or order first, the seat map last: the map shows
         # as soon as it arrives, and before the types it would look closed to sales.
+        # A paid order shows its tickets; a payment under way picks up where it was.
+        paying = await call(my_payment, [slug, screening_id, holder]);
+        if paying is not None and paying["ok"] {
+            if paying["payment"]["state"] == "success" {
+                set_paid(paying["payment"]);
+                return;
+            }
+            set_pay_state(paying["payment"]);
+        }
         listed_types = await call(public_ticket_types, [slug]);
         codes: list[dict[str, str]] = [];
         if listed_types is not None and listed_types["ok"] {
@@ -399,11 +412,34 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
             {problem}
         </p>;
 
-    if order is not None {
+    if paid is not None {
         return
             <div data-testid="checkout" className="flex flex-col gap-4">
                 {status_line}
-                <Ordered order={order} tz={tz}/>
+                <Tickets payment={paid}/>
+            </div>;
+    }
+    if order is not None {
+        placed: dict[str, any] = order;  # jac:ignore[W1037]
+
+        def on_paid(payment: dict[str, any]) {  # jac:ignore[W1037]
+            set_paid(payment);
+            set_news("Paid. Your tickets are ready.");
+        }
+
+        return
+            <div data-testid="checkout" className="flex flex-col gap-4">
+                {status_line}
+                <Ordered order={placed} tz={tz}/>
+                <PayPanel
+                    slug={slug}
+                    screening_id={screening_id}
+                    holder={holder}
+                    total_cents={placed["total_cents"]}
+                    currency={placed["currency"]}
+                    initial={pay_state}
+                    on_paid={on_paid}
+                />
             </div>;
     }
     if seat_map is None {

@@ -170,3 +170,38 @@ def:pub row_names(seats: list[dict[str, any]], rows: int) -> list[str] {  # jac:
     }
     return names;
 }
+
+def:pub phone_digits(text: str) -> str {
+    # What a customer typed, as digits: spaces, dashes and a leading + dropped.
+    out = "";
+    for ch in text {
+        if ch in "0123456789" {
+            out += ch;
+        } elif ch not in " -+" {
+            return "";
+        }
+    }
+    return out;
+}
+
+def:pub phone_problem(text: str) -> str {
+    # Why this isn't an M-Pesa number ("" if it is), as the server checks it
+    # (core/payments/phone.jac): 07.. / 01.. (10 digits), 2547.. / 2541.. (12), or 7.. /
+    # 1.. (9).
+    wanted = "Enter your M-Pesa number, like 0712 345 678.";
+    if len(text.strip()) == 0 {
+        return wanted;
+    }
+    digits = phone_digits(text);
+    if len(digits) == 10 and digits[0] == "0" {
+        digits = "254" + digits[1:];
+    } elif len(digits) == 9 {
+        digits = "254" + digits;
+    }
+    if len(digits) != 12
+        or digits[:3] != "254"
+        or (digits[3] != "7" and digits[3] != "1") {
+        return wanted;
+    }
+    return "";
+}
