@@ -70,7 +70,7 @@ test "choose two seats, hold them, choose tickets and proceed to pay" {
             assert "Seats held for 7:" in timer or "Seats held for 8:" in timer , timer;
             page.select_option('#ticket-A2', "CHILD");
             page.wait_for_function(
-                "document.querySelector('[data-testid=checkout-total]').innerText === 'KES 1,360'"
+                "document.querySelector('[data-testid=checkout-total]')?.innerText === 'KES 1,360'"
             );
             _press(page, project, '[data-testid="pay"]');
             page.wait_for_selector('[data-testid="order-placed"]');
@@ -103,7 +103,7 @@ test "seats can be chosen and held with the keyboard alone" {
         page.keyboard.press("Space");
         assert page.evaluate("document.activeElement.dataset.seat") == "B2";
         page.wait_for_function(
-            "document.querySelector('[data-testid=chosen-seats]').innerText === '2 seats: A2, B2'",
+            "document.querySelector('[data-testid=chosen-seats]')?.innerText === '2 seats: A2, B2'",
             timeout=5000
         );
         # Only one seat is in the tab order, so Tab leaves the map.

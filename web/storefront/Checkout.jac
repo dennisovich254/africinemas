@@ -17,7 +17,7 @@ the visit, and my_order / my_hold say where they were. Changes worth hearing (he
 time nearly up, seats released, order placed) are announced politely.
 """
 
-import from react { useState, useEffect }
+import from react { useState, useEffect, useRef }
 import from "@hugeicons/react" { HugeiconsIcon }
 import from "@hugeicons/core-free-icons" { Clock01Icon }
 import from ...components.ui.button { Button }
@@ -163,6 +163,7 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
     [news, set_news] = useState("");
     [now_ms, set_now_ms] = useState(Date.now());  # jac:ignore[W2001]
     [warned, set_warned] = useState(False);
+    asked_count = useRef(0);
     picked: list[str] = chosen;
     lines: list[dict[str, str]] = items;
     tickets: list[dict[str, str]] = types;
@@ -194,7 +195,8 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
     }
 
     async def start {
-        await load_map();
+        # Ticket types and any hold or order first, the seat map last: the map shows
+        # as soon as it arrives, and before the types it would look closed to sales.
         listed_types = await call(public_ticket_types, [slug]);
         codes: list[dict[str, str]] = [];
         if listed_types is not None and listed_types["ok"] {
@@ -205,12 +207,13 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
         mine = await call(my_order, [slug, screening_id, holder]);
         if mine is not None and mine["ok"] {
             set_order(mine["order"]);
-            return;
+        } else {
+            held = await call(my_hold, [slug, screening_id, holder]);
+            if held is not None and held["ok"] {
+                begin_tickets(held["hold"], codes);
+            }
         }
-        held = await call(my_hold, [slug, screening_id, holder]);
-        if held is not None and held["ok"] {
-            begin_tickets(held["hold"], codes);
-        }
+        await load_map();
     }
 
     def kick_off {
@@ -258,7 +261,14 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
         if not wanted or not wanted[0]["ticket_type"] {
             return;
         }
+        # Only the latest request's answer counts: an earlier one can arrive after it
+        # (changing a ticket type while the last price is on its way).
+        asked = asked_count.current + 1;
+        asked_count.current = asked;
         priced = await call(quote_hold, [slug, screening_id, holder, wanted]);
+        if asked != asked_count.current {
+            return;
+        }
         if priced is not None and priced["ok"] {
             set_quote(priced["quote"]);
             set_problem("");
