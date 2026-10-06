@@ -100,6 +100,7 @@ import from core.booking.order_api {
     quote_hold,
     public_ticket_types
 }
+import from core.payments.payment_api { start_payment, my_payment }
 # The hold expiry sweeper (P4.4) runs on a schedule; importing it registers the task.
 import from core.booking.sweeper { sweep_holds }  # jac:ignore[W2037]
 import from core.tenancy.customer_api {
