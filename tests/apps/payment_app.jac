@@ -22,6 +22,8 @@ import from core.booking.hold_api { hold_seats }  # jac:ignore[W2037]
 import from core.booking.order_api { place_order, my_order }  # jac:ignore[W2037]
 import from core.payments.payment_api { start_payment }  # jac:ignore[W2037]
 import from core.payments.settlement { my_payment, mpesa_callback, process_inbox }  # jac:ignore[W2037]
+import from core.payments.resolver { resolve }
+import from core.payments.ledger { LedgerEntry }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.principal { node_id, act_as, restore, commit_now }
 import from core.tenancy.models { Tenant }
@@ -156,6 +158,10 @@ def:pub pay_late(slug: str, screening_id: str, reference: str) -> bool {
     return True;
 }
 
+def:pub pay_resolve -> dict[str, int] {
+    return resolve();
+}
+
 def:pub pay_process -> int {
     return process_inbox();
 }
@@ -188,8 +194,17 @@ def:pub pay_overview(slug: str, screening_id: str) -> dict[str, any] {  # jac:ig
         orders: list[str] = [];
         tickets: list[str] = [];
         refunds: list[str] = [];
+        ledger: list[list[any]] = [];  # jac:ignore[W1037]
+        balances: list[list[any]] = [];  # jac:ignore[W1037]
         for o in [screening-->[?:Order]] {
             orders.append(o.status);
+            entries = [o-->[?:LedgerEntry]];
+            for e in entries {
+                ledger.append([e.kind, e.amount_cents]);
+            }
+            balances.append(
+                [o.status, o.total_cents, sum([e.amount_cents for e in entries])]
+            );
             for t in [o-->[?:Ticket]] {
                 tickets.append(t.seat_label);
             }
@@ -209,6 +224,8 @@ def:pub pay_overview(slug: str, screening_id: str) -> dict[str, any] {  # jac:ig
         "orders": sorted(orders),
         "tickets": sorted(tickets),
         "refunds": sorted(refunds),
+        "ledger": sorted(ledger),
+        "balances": sorted(balances),
         "seats": states
     };
 }

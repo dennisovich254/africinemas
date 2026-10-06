@@ -60,6 +60,8 @@ import from core.booking.hold_api {
 glob KEY_PATTERN: str = "[A-Za-z0-9_-]{16,64}",
      ORDER_KEYS: str = "order-key",
      ORDER_HOLDS: str = "order-hold",
+     # Orders waiting for payment, for the job that releases unpaid ones (P5.5).
+     OPEN_ORDERS: str = "open-order",
      # How long a key keeps its order once made (§26: keys expire), and how long a
      # claim stays provisional while its request runs.
      KEY_SECONDS: int = 24 * 60 * 60,
@@ -154,12 +156,14 @@ def _settle(
     order_ref: str,
     screening_id: str,
     holder: str,
-    seats: list[str]
+    seats: list[str],
+    tenant_id: str
 ) {
     # Once the order has committed: the key keeps naming it for KEY_SECONDS, the hold
     # and its seats stay claimed until payment ends the order (Phase 5).
     renew(ORDER_KEYS, key_name, order_ref, KEY_SECONDS);
     renew(ORDER_HOLDS, hold_id, order_ref, 0);
+    renew(OPEN_ORDERS, order_ref, tenant_id, 0);
     for label in seats {
         renew(seat_namespace(screening_id), label, holder, 0);
     }
@@ -229,6 +233,7 @@ def _place_order(
             "already_ordered", "These seats are already in an order. Reload the page."
         );
     }
+    claim(OPEN_ORDERS, order_ref, node_id(cinema), PROVISIONAL_SECONDS);
     stamp = now();
     seats = list(hold.seats);
     me = node_id(root);
@@ -264,13 +269,14 @@ def _place_order(
     } except Exception as e {
         # Graph work rolls back with the request; undo the claims, which don't.
         restore(me);
+        release(OPEN_ORDERS, order_ref, node_id(cinema));
         release(ORDER_HOLDS, hold_id, order_ref);
         release(ORDER_KEYS, key_name, order_ref);
         raise e;
     }
     restore(me);
     # commit_now has committed the order (it raises otherwise), so settle the claims.
-    _settle(key_name, hold_id, order_ref, screening_id, holder, seats);
+    _settle(key_name, hold_id, order_ref, screening_id, holder, seats, node_id(cinema));
     return {"ok": True, "order": _view(order)};
 }
 
