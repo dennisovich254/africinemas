@@ -32,6 +32,7 @@ import from core.booking.order_api {
 import from .SeatMap { SeatMap }
 import from .PayPanel { PayPanel, Tickets }
 import from core.payments.settlement { my_payment }
+import from core.payments.resolver { end_my_order }
 import from .showtimes { listed, time_label }
 import from .checkout_rules { money, countdown, seconds_until, visitor_id, order_key }
 
@@ -161,6 +162,7 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
     [order, set_order] = useState(None);
     [paid, set_paid] = useState(None);
     [pay_state, set_pay_state] = useState(None);
+    [expired, set_expired] = useState(False);
     [key, set_key] = useState("");
     [busy, set_busy] = useState(False);
     [problem, set_problem] = useState("");
@@ -235,13 +237,55 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
     useEffect(kick_off, [slug, screening_id]);
 
     def tick -> any {  # jac:ignore[W1037]
-        if hold is None or order is not None {
+        # The clock runs while seats are held or an order waits for payment.
+        if (hold is None and order is None) or paid is not None {
             return lambda {};
         }
         timer = setInterval(lambda { set_now_ms(Date.now()); }, 1000);  # jac:ignore[W2001]
         return lambda { clearInterval(timer); };  # jac:ignore[W2001]
     }
-    useEffect(tick, [hold, order]);
+    useEffect(tick, [hold, order, paid]);
+
+    placed_now: dict[str, any] | None = order;  # jac:ignore[W1037]
+    pay_left: int = seconds_until(placed_now["pay_by"], now_ms)
+        if placed_now is not None
+        else 1;
+
+    async def time_up {
+        # The order's time to pay is up: end it now so its seats can be chosen again,
+        # unless its payment went through at the last moment.
+        set_expired(True);
+        ended = await call(end_my_order, [slug, screening_id, holder]);
+        if ended is not None and ended["ok"] and ended["state"] == "confirmed" {
+            paying = await call(my_payment, [slug, screening_id, holder]);
+            if paying is not None and paying["ok"] {
+                set_paid(paying["payment"]);
+                set_expired(False);
+                set_news("Paid. Your tickets are ready.");
+                return;
+            }
+        }
+        set_news("The time to pay ran out, so your seats were released.");
+    }
+
+    def watch_pay {
+        if placed_now is not None and paid is None and not expired and pay_left <= 0 {
+            time_up();
+        }
+    }
+    useEffect(watch_pay, [pay_left]);
+
+    def choose_again {
+        # Back to the seat map, with nothing chosen.
+        set_order(None);
+        set_hold(None);
+        set_pay_state(None);
+        set_quote(None);
+        set_chosen([]);
+        set_expired(False);
+        set_problem("");
+        load_map();
+    }
 
     left: int = seconds_until(current["expires_at"], now_ms)
         if current is not None
@@ -419,6 +463,31 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
                 <Tickets payment={paid}/>
             </div>;
     }
+    if order is not None and expired {
+        return
+            <div data-testid="checkout" className="flex flex-col gap-4">
+                {status_line}
+                <section
+                    data-testid="time-up"
+                    aria-labelledby="time-up-heading"
+                    className="flex flex-col gap-3 rounded-lg border bg-card p-4"
+                >
+                    <h3 id="time-up-heading" className="text-lg font-semibold">
+                        The time to pay ran out
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                        Your seats were released so others could book them. If they are still free, you can choose them again.
+                    </p>
+                    <Button
+                        data-testid="choose-again"
+                        onClick={choose_again}
+                        className="min-h-11 w-fit px-5"
+                    >
+                        Choose seats again
+                    </Button>
+                </section>
+            </div>;
+    }
     if order is not None {
         placed: dict[str, any] = order;  # jac:ignore[W1037]
 
@@ -435,10 +504,10 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
                     slug={slug}
                     screening_id={screening_id}
                     holder={holder}
-                    total_cents={placed["total_cents"]}
-                    currency={placed["currency"]}
+                    amount={money(placed["total_cents"], placed["currency"])}
                     initial={pay_state}
                     on_paid={on_paid}
+                    on_expired={time_up}
                 />
             </div>;
     }

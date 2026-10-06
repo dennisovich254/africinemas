@@ -64,10 +64,10 @@ def:pub PayPanel(
     slug: str,
     screening_id: str,
     holder: str,
-    total_cents: int,
-    currency: str,
+    amount: str,
     initial: any,  # jac:ignore[W1037]
-    on_paid: any  # jac:ignore[W1037]
+    on_paid: any,  # jac:ignore[W1037]
+    on_expired: any  # jac:ignore[W1037]
 ) -> JsxElement {
     [payment, set_payment] = useState(initial);
     [phone, set_phone] = useState("");
@@ -138,6 +138,11 @@ def:pub PayPanel(
             return;
         }
         refused: dict[str, any] = started["error"];  # jac:ignore[W1037]
+        if refused["code"] == "order_expired" {
+            # The order's time to pay is up: the page offers the seats again.
+            on_expired();
+            return;
+        }
         # listed(): a typed membership test, not JavaScript's `in` (JI-035).
         if refused["code"] == "payment_in_progress"
             and listed("payment", Object.keys(refused)) {  # jac:ignore[W2001]
@@ -216,7 +221,7 @@ def:pub PayPanel(
                         else (
                             "Try again"
                                 if listed(state, RETRYABLE)
-                                else f"Pay {money(total_cents, currency)} with M-Pesa"
+                                else f"Pay {amount} with M-Pesa"
                         )
                 )}
             </Button>

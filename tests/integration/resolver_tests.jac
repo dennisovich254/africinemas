@@ -209,3 +209,51 @@ test "money that bought nothing balances to zero: a payment and a refund due" {
         app.close();
     }
 }
+
+def _end_mine(app: Served, screening: str) -> any {  # jac:ignore[W1037]
+    return browse(
+        app, "end_my_order", {"slug": "nova", "screening_id": screening, "holder": ANNA}
+    );
+}
+
+test "the visitor ends their own overdue order, and its seats are free at once" {
+    _env({PAY_TIME: "1"});
+    (app, screening) = paying_setup();
+    try {
+        assert code_of(_end_mine(app, screening)) == "order_open";
+        time.sleep(1.5);
+        ended = _end_mine(app, screening);
+        assert ended["ok"] and ended["state"] == "expired" , ended;
+        assert _overview(app, screening)["seats"]["A1"] == "available";
+        held = browse(
+            app,
+            "hold_seats",
+            {
+                "slug": "nova",
+                "screening_id": screening,
+                "holder": ANNA,
+                "labels": ["A1", "A2"]
+            }
+        );
+        assert held["ok"] , held;
+        assert _end_mine(app, screening)["state"] == "none";
+    } finally {
+        _clear();
+        app.close();
+    }
+}
+
+test "ending an overdue order whose payment went through confirms it instead" {
+    _env({PAY_TIME: "2", STUCK: "3600"});
+    (app, screening) = paying_setup();
+    try {
+        _started(app, screening);
+        time.sleep(2.5);
+        ended = _end_mine(app, screening);
+        assert ended["ok"] and ended["state"] == "confirmed" , ended;
+        assert _overview(app, screening)["tickets"] == ["A1", "A2"];
+    } finally {
+        _clear();
+        app.close();
+    }
+}

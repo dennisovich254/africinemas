@@ -22,7 +22,7 @@ import from core.booking.hold_api { hold_seats }  # jac:ignore[W2037]
 import from core.booking.order_api { place_order, my_order }  # jac:ignore[W2037]
 import from core.payments.payment_api { start_payment }  # jac:ignore[W2037]
 import from core.payments.settlement { my_payment, mpesa_callback, process_inbox }  # jac:ignore[W2037]
-import from core.payments.resolver { resolve }
+import from core.payments.resolver { resolve, end_my_order }  # jac:ignore[W2037]
 import from core.payments.ledger { LedgerEntry }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.principal { node_id, act_as, restore, commit_now }
