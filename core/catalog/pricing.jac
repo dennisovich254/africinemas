@@ -65,9 +65,12 @@ def _clean(value: any) -> str {  # jac:ignore[W1037]
 }
 
 def _cents(value: any, low: int, high: int) -> bool {  # jac:ignore[W1037]
-    # Whole cents in [low, high]; floats and booleans aren't money.
+    # An amount in cents, in [low, high], of whole shillings: Kenya doesn't use cents
+    # and M-Pesa charges whole shillings (P5.1), so every price must be payable as
+    # quoted. Floats and booleans aren't money.
     return isinstance(value, int)
         and not isinstance(value, bool)
+        and value % 100 == 0
         and low <= value <= high;
 }
 
@@ -177,7 +180,7 @@ def parse_price_list(
             where = f" in {zone}" if zone else "";
             problem(
                 "bad_price",
-                f"{ticket_types.get(code, code)}{where}: enter a price from KES 0 to 1,000,000."
+                f"{ticket_types.get(code, code)}{where}: enter a whole number of shillings from KES 0 to 1,000,000."
             );
         } elif code not in ticket_types {
             problem("unknown_ticket_type", f"There's no ticket type coded {code}.");
@@ -211,7 +214,10 @@ def parse_price_list(
     }
     fee = data.get("service_fee_cents", 0);
     if not _cents(fee, 0, ADJUST_MAX_CENTS) {
-        problem("bad_service_fee", "Enter a service fee from KES 0 to 100,000.");
+        problem(
+            "bad_service_fee",
+            "Enter the service fee in whole shillings, from KES 0 to 100,000."
+        );
         fee = 0;
     }
     if problems {

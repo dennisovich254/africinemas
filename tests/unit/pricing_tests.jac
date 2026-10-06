@@ -212,3 +212,28 @@ test "a price list stores what it was given, tidied" {
     assert t.prices == {"Gold": {"ADULT": 100}};
     assert t.timezone == "Africa/Nairobi" and t.currency == "KES";
 }
+
+test "every amount is whole shillings: Kenya doesn't use cents, and M-Pesa charges shillings" {
+    assert _codes(_list()) == [];
+    assert _codes(
+        _list({"prices": [{"zone": "", "ticket_type": "ADULT", "price_cents": 85050}]})
+    )
+        == ["bad_price"];
+    assert _codes(_list({"service_fee_cents": 3050})) == ["bad_service_fee"];
+    assert _codes(
+        _list(
+            {
+                "surcharges": [
+                    {
+                        "name": "Evening",
+                        "days": [0],
+                        "start": "18:00",
+                        "end": "24:00",
+                        "amount_cents": 10050
+                    }
+                ]
+            }
+        )
+    )
+        == ["bad_surcharge"];
+}
