@@ -87,7 +87,9 @@ def payment_view(intent: PaymentIntent) -> dict[str, any] {  # jac:ignore[W1037]
         "currency": intent.currency,
         "phone": masked(intent.phone),
         "message": message,
-        "created_at": intent.created_at
+        "created_at": intent.created_at,
+        # A paid order's tickets (my_payment fills them in, P5.4).
+        "tickets": []
     };
 }
 
