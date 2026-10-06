@@ -1,4 +1,4 @@
-"""Payments (P5.3, architecture §29, §32): Order -> PaymentIntent.
+"""Payments (P5.3, P5.4, architecture §29, §32): Order -> PaymentIntent -> RefundTask.
 
 Owned by the cinema's principal (ADR-0003) and granted to its access group (ADR-0004),
 like every tenant node. One intent is one attempt to pay an order: one STK push, at
@@ -26,6 +26,24 @@ node PaymentIntent {
         result_code: int = -1,
         result_text: str = "",
         push_uncertain: bool = False,
+        receipt: str = "",
+        paid_amount_cents: int = 0,
+        attention_reason: str = "",
         created_at: str = "",
         updated_at: str = "";
+}
+
+node RefundTask {
+    # Money M-Pesa took that bought nothing (P5.4): a success after the order was
+    # released, a wrong amount, a receipt already used, or a second payment for an order
+    # already paid. Staff refund it (refunds are ledger entries, plan 5.5 / section 38).
+    # status: "open" until handled.
+    has tenant_id: str,
+        intent_id: str,
+        order_id: str,
+        receipt: str,
+        amount_cents: int,
+        reason: str,
+        status: str = "open",
+        created_at: str = "";
 }

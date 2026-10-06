@@ -3,7 +3,8 @@ listed in tests/isolation/registry.jac.
 
 A visitor whose order waits for payment (P4.5: its seats are already PAYMENT_PENDING)
 asks to pay from their M-Pesa number. start_payment records a PaymentIntent and sends
-one STK push (the PIN prompt on their phone). my_payment says where it stands.
+one STK push (the PIN prompt on their phone). my_payment (settlement.jac) says where
+it stands.
 
 Exactly one push per intent, however often the request runs:
 
@@ -55,6 +56,7 @@ glob PAY_KEYS: str = "pay-key",
      ORDER_PAYMENT: str = "order-payment",
      STK_GATE: str = "stk-gate",
      STK_RESULT: str = "stk-result",
+     CALLBACK_TOKENS: str = "callback-token",
      PROVISIONAL_SECONDS: int = 60,
      KEY_SECONDS: int = 24 * 60 * 60,
      CALLBACK_ENV: str = "DARAJA_CALLBACK_BASE",
@@ -71,7 +73,7 @@ glob PAY_KEYS: str = "pay-key",
      },
      UNCERTAIN: str = "We couldn't confirm the request reached your phone. If an M-Pesa prompt appears, you can pay it; otherwise try again in a few minutes.";
 
-def _view(intent: PaymentIntent) -> dict[str, any] {  # jac:ignore[W1037]
+def payment_view(intent: PaymentIntent) -> dict[str, any] {  # jac:ignore[W1037]
     message = UNCERTAIN
         if intent.push_uncertain and intent.state == PaymentState.CREATED.value
         else MESSAGES.get(intent.state, "");
@@ -89,7 +91,7 @@ def _view(intent: PaymentIntent) -> dict[str, any] {  # jac:ignore[W1037]
     };
 }
 
-def _stored(cinema: Tenant, ref: str) -> PaymentIntent | None {
+def stored_intent(cinema: Tenant, ref: str) -> PaymentIntent | None {
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -150,7 +152,7 @@ def _record(cinema: Tenant, intent: PaymentIntent, result: dict[str, any]) {  # 
     }
 }
 
-def _ensure_pushed(cinema: Tenant, intent: PaymentIntent, provider: PaymentProvider) {
+def ensure_pushed(cinema: Tenant, intent: PaymentIntent, provider: PaymentProvider) {
     # Sends the intent's one STK push if nobody has, and records its outcome.
     if intent.state != PaymentState.CREATED.value or intent.push_uncertain {
         return;
@@ -207,7 +209,7 @@ def _replay(
     cinema: Tenant, ref: str, number: str, provider: PaymentProvider
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # The answer for a key that already names an intent.
-    intent = _stored(cinema, ref);
+    intent = stored_intent(cinema, ref);
     if intent is None {
         raise Refused(
             "payment_in_progress",
@@ -219,8 +221,8 @@ def _replay(
             "key_reused", "This page sent a different payment. Reload it and try again."
         );
     }
-    _ensure_pushed(cinema, intent, provider);
-    return {"ok": True, "payment": _view(intent)};
+    ensure_pushed(cinema, intent, provider);
+    return {"ok": True, "payment": payment_view(intent)};
 }
 
 def _start_payment(
@@ -249,12 +251,12 @@ def _start_payment(
     order_id = node_id(order);
     active = claim_holder(ORDER_PAYMENT, order_id);
     if active is not None {
-        previous = _stored(cinema, active);
+        previous = stored_intent(cinema, active);
         if previous is not None and not is_final(PaymentState(previous.state)) {
             raise Refused(
                 "payment_in_progress",
                 "A payment for this order is already on its way to your phone.",
-                {"payment": _view(previous)}
+                {"payment": payment_view(previous)}
             );
         }
         release(ORDER_PAYMENT, order_id, active);
@@ -271,6 +273,9 @@ def _start_payment(
             "A payment for this order is already on its way to your phone."
         );
     }
+    # The callback URL's token names this intent (plan 5.4: the callback finds it).
+    token = secrets.token_urlsafe(24);
+    claim(CALLBACK_TOKENS, token, f"{node_id(cinema)}|{ref}", PROVISIONAL_SECONDS);
     stamp = now().isoformat();
     me = node_id(root);
     act_as(cinema.principal_root_id);
@@ -285,7 +290,7 @@ def _start_payment(
             phone=number,
             amount_cents=order.total_cents,
             currency=order.currency,
-            callback_token=secrets.token_urlsafe(24),
+            callback_token=token,
             created_at=stamp,
             updated_at=stamp
         );
@@ -297,6 +302,7 @@ def _start_payment(
     } except Exception as e {
         # Graph work rolls back with the request; undo the claims, which don't.
         restore(me);
+        release(CALLBACK_TOKENS, token, f"{node_id(cinema)}|{ref}");
         release(ORDER_PAYMENT, order_id, ref);
         release(PAY_KEYS, key_name, ref);
         raise e;
@@ -304,12 +310,13 @@ def _start_payment(
     restore(me);
     renew(PAY_KEYS, key_name, ref, KEY_SECONDS);
     renew(ORDER_PAYMENT, order_id, ref, 0);
+    renew(CALLBACK_TOKENS, token, f"{node_id(cinema)}|{ref}", 0);
     replay_point("payment_after_commit");
-    _ensure_pushed(cinema, intent, provider);
-    return {"ok": True, "payment": _view(intent)};
+    ensure_pushed(cinema, intent, provider);
+    return {"ok": True, "payment": payment_view(intent)};
 }
 
-def _latest_intent(cinema: Tenant, order: Order) -> PaymentIntent | None {
+def latest_intent(cinema: Tenant, order: Order) -> PaymentIntent | None {
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -323,31 +330,6 @@ def _latest_intent(cinema: Tenant, order: Order) -> PaymentIntent | None {
     return found[-1] if found else None;
 }
 
-def _my_payment(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # jac:ignore[W1037]
-    # The latest payment for the holder's order; completes a push a crashed request
-    # left unsent.
-    (cinema, screening) = showtime_on_sale(slug, screening_id);
-    check_holder(holder);
-    order = pending_order(cinema, screening, holder);
-    intent = _latest_intent(cinema, order) if order is not None else None;
-    if intent is None {
-        raise Refused("no_payment", "You haven't started paying for this order.");
-    }
-    if intent.state == PaymentState.CREATED.value and not intent.push_uncertain {
-        provider: PaymentProvider | None = None;
-        try {
-            provider = payment_provider();
-        } except ProviderNotConfigured {
-            # Payments switched off since: the status still reads.
-            provider = None;
-        }
-        if provider is not None {
-            _ensure_pushed(cinema, intent, provider);
-        }
-    }
-    return {"ok": True, "payment": _view(intent)};
-}
-
 def:pub start_payment(
     slug: str, screening_id: str, holder: str, phone: str, idempotency_key: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
@@ -356,8 +338,4 @@ def:pub start_payment(
             slug, screening_id, holder, phone, idempotency_key
         ); }
     );
-}
-
-def:pub my_payment(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return answer(lambda -> any { return _my_payment(slug, screening_id, holder); });  # jac:ignore[W1037]
 }
