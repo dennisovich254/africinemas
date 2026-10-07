@@ -7,6 +7,7 @@ import uuid;
 import from os { path }
 import from tests.support.served { Served, served }
 import from tests.support.storefront_setup {
+    Cinema,
     open_cinema_for,
     add_movie,
     add_screening,
@@ -24,10 +25,16 @@ glob APP: str = path.join(
 
 def paying_setup -> tuple[Served, str] {  # jac:ignore[W1037]
     # A priced showtime where Anna holds A1 and A2 and has ordered them (KES 1,860: 800 + 100 evening extra + 30 fee each).
+    (app, _, screening) = paying_cinema([]);
+    return (app, screening);
+}
+
+def paying_cinema(staff: list[str]) -> tuple[Served, Cinema, str] {  # jac:ignore[W1037]
+    # As paying_setup, with more actors (staff to hire, P6.2) and the cinema itself.
     os.environ[PAYMENTS] = "simulator";
     # Tickets are signed (P6.1); without a key payments are refused.
     os.environ.setdefault(TICKET_KEY, "test" * 10);
-    app = served(APP, ["owner"]);
+    app = served(APP, ["owner"] + staff);
     nova = open_cinema_for(app, "owner", "nova", "Nova Cinemas");
     add_movie(app, "owner", nova, "Rafiki");
     set_prices(app, "owner", nova);
@@ -58,7 +65,7 @@ def paying_setup -> tuple[Served, str] {  # jac:ignore[W1037]
         }
     );
     assert ordered["ok"] , ordered;
-    return (app, screening);
+    return (app, nova, screening);
 }
 
 def pay(app: Served, screening: str, phone: str, key: str = "") -> any {  # jac:ignore[W1037]

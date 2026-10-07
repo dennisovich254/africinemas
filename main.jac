@@ -100,6 +100,7 @@ import from core.booking.order_api {
     quote_hold,
     public_ticket_types
 }
+import from core.booking.redeem_api { redeem_ticket }  # jac:ignore[W2037]
 import from core.payments.payment_api { start_payment }
 # M-Pesa's callback, the payment status, and the job that settles payments (P5.4).
 import from core.payments.settlement { my_payment, mpesa_callback, settle_callbacks }  # jac:ignore[W2037]

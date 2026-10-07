@@ -11,6 +11,7 @@ import from core.booking.ticket_codes {
     KEY_ENV,
     TicketKeyMissing,
     new_reference,
+    typed_reference,
     qr_payload,
     read_qr,
     ticket_key
@@ -122,5 +123,28 @@ test "without a ticket key, or with a short one, signing refuses" {
         } finally {
             _restore(before);
         }
+    }
+}
+
+test "a typed reference is tidied: case, spaces and dashes don't matter (P6.2)" {
+    for typed in [
+        "7K2M-9QXR-4HJN-P3WD",
+        "7k2m9qxr4hjnp3wd",
+        " 7K2M 9QXR 4HJN P3WD ",
+        "7k2m-9qxr 4hjn-p3wd"
+    ] {
+        assert typed_reference(typed) == "7K2M-9QXR-4HJN-P3WD" , typed;
+    }
+}
+
+test "a typed reference that can't be one reads as nothing" {
+    for bad in [
+        "",
+        "7K2M-9QXR-4HJN",
+        "7K2M-9QXR-4HJN-P3WD-AAAA",
+        "0O1I-0O1I-0O1I-0O1I",
+        "7K2M_9QXR_4HJN_P3WD"
+    ] {
+        assert typed_reference(bad) is None , bad;
     }
 }
