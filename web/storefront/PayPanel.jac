@@ -9,7 +9,8 @@ key). The visitor's PIN never touches the app (architecture §39).
 """
 
 import from react { useState, useEffect }
-import from "qrcode.react" { QRCodeSVG }
+# The checker reads the dot as a module separator (docs/jac-issues/JI-039).
+import from "qrcode.react" { QRCodeSVG }  # jac:ignore[W1101]
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
@@ -39,7 +40,7 @@ def:pub TicketCard(ticket: dict[str, str]) -> JsxElement {
             </p>
             {len(qr) > 0
                 and <div className="rounded-md bg-white p-2">
-                    <QRCodeSVG
+                    <QRCodeSVG  # jac:ignore[W1051]
                         value={qr}
                         size={192}
                         level="M"
