@@ -8,7 +8,9 @@ secrets.
 
 It checks what the contract tests (tests/unit/daraja_tests.jac) can only assume: the
 OAuth login works, Safaricom accepts our STK push (KES 1) and answers the status query
-in a form the adapter understands. With DARAJA_RECORD=1 it writes Safaricom's real
+in a form the adapter understands, asking until Safaricom has a final answer, which it
+writes to sandbox/artifacts/last_run.txt (scripts/sandbox.sh prints it). With
+DARAJA_RECORD=1 it writes Safaricom's real
 responses, with tokens, passwords and phone numbers removed, to
 tests/fixtures/daraja/recorded/ to replace the documented-format fixtures.
 
@@ -38,6 +40,7 @@ glob NEEDED: list[str] = [
          "DARAJA_CALLBACK_BASE",
          "DARAJA_TEST_PHONE"
      ],
+     LAST_RUN: Path = Path(__file__).resolve().parent / "artifacts" / "last_run.txt",
      RECORDED: Path = Path(__file__).resolve().parent.parent
          / "tests"
          / "fixtures"
@@ -146,19 +149,27 @@ test "sandbox: login, an STK push and its status query work against Safaricom" {
     try {
         assert pushed.accepted , f"Safaricom refused the push: {pushed.error_code} {pushed.message}";
         assert pushed.checkout_request_id.startswith("ws_CO_") , pushed.checkout_request_id;
-        # Give Safaricom a moment, then ask: processing, or already an answer.
-        time.sleep(5);
+        # Ask a few times, 8 seconds apart (Daraja allows about one call every 2
+        # seconds), until Safaricom has a final answer: paid, failed or cancelled.
         asked = daraja.query(pushed.checkout_request_id);
+        for _ in range(5) {
+            if asked.state != PaymentState.STK_REQUESTED {
+                break;
+            }
+            time.sleep(8);
+            asked = daraja.query(pushed.checkout_request_id);
+        }
+        outcome = f"push {pushed.checkout_request_id} accepted; M-Pesa says: {asked.state.value}, ResultCode {asked.result_code}, {asked.result_text}";
+        LAST_RUN.parent.mkdir(parents=True, exist_ok=True);
+        LAST_RUN.write_text(outcome + "\n");
+        print(outcome);
         assert asked.state
             in [
                 PaymentState.STK_REQUESTED,
                 PaymentState.SUCCESS,
                 PaymentState.FAILED,
                 PaymentState.CANCELLED
-            ] , f"unexpected status: {asked.state} {asked.result_text}";
-        print(
-            f"sandbox push {pushed.checkout_request_id}: {asked.state.value} ({asked.result_text})"
-        );
+            ] , f"unexpected status: {outcome}";
     } finally {
         _record(http);
     }

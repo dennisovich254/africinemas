@@ -10,6 +10,9 @@ A PaymentProvider over Daraja's REST API:
   shillings, the customer's 2547/2541 number and an https callback URL. A push is
   never retried: Daraja has no idempotency key, so a retry could prompt the customer
   twice. A push that gets no answer is reported as uncertain.
+- Rate limit: Daraja refuses calls that come too fast (HTTP 429, "spike arrest") before
+  doing anything, so a 429 is waited out and the call repeated once; a status query
+  still refused is "no answer yet" (STK_REQUESTED), which changes nothing.
 - STK query (/mpesa/stkpushquery/v1/query): ResultCode to state; "being processed" is
   still waiting (STK_REQUESTED); an unknown CheckoutRequestID, or no answer after
   `retries` repeats, is UNKNOWN. Reads are safe to repeat, so they are retried.
@@ -180,6 +183,7 @@ obj DarajaProvider(PaymentProvider) {
         timeout_s: float = 15.0,
         retries: int = 2,
         backoff_s: float = 1.0,
+        rate_wait_s: float = 2.0,
         token: str = "",
         token_until: datetime | None = None;
 
@@ -266,6 +270,20 @@ obj DarajaProvider(PaymentProvider) {
                 self.timeout_s
             );
         }
+        if status == 429 {
+            # Daraja's rate limit ("spike arrest", about one call every 2 seconds)
+            # refuses the call before doing anything, so waiting and repeating it once
+            # is safe, for a push too.
+            LOG.info("Daraja asked us to slow down (HTTP 429); waiting");
+            time.sleep(self.rate_wait_s);
+            (status, reply) = self._transport().send(
+                "POST",
+                url,
+                {"Authorization": f"Bearer {self._bearer()}"},
+                body,
+                self.timeout_s
+            );
+        }
         return (status, reply);
     }
 
@@ -331,7 +349,9 @@ obj DarajaProvider(PaymentProvider) {
                 message=str(reply.get("CustomerMessage", ""))
             );
         }
-        code = str(reply.get("errorCode") or reply.get("ResponseCode") or status);
+        code = "rate_limited"
+            if status == 429
+            else str(reply.get("errorCode") or reply.get("ResponseCode") or status);
         LOG.warning(
             "STK push for %s refused: HTTP %d, %s", request.reference, status, code
         );
@@ -361,6 +381,15 @@ obj DarajaProvider(PaymentProvider) {
                     time.sleep(self.backoff_s * (attempt + 1));
                 }
                 continue;
+            }
+            if status == 429 {
+                # Still rate-limited: no answer yet, so nothing about the payment
+                # changes; the next check asks again.
+                return StkStatus(
+                    checkout_request_id=checkout_request_id,
+                    state=PaymentState.STK_REQUESTED,
+                    result_text="M-Pesa asked us to slow down; we'll ask again shortly."
+                );
             }
             return _query_status(checkout_request_id, status, reply);
         }

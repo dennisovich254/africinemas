@@ -15,4 +15,10 @@ if [[ -f .env ]]; then
     source .env
     set +a
 fi
-JAC_TEST_STRICT=1 jac test sandbox/daraja_sandbox_tests.jac -v "$@"
+status=0
+rm -f sandbox/artifacts/last_run.txt
+JAC_TEST_STRICT=1 jac test sandbox/daraja_sandbox_tests.jac -v "$@" || status=$?
+if [[ -f sandbox/artifacts/last_run.txt ]]; then
+    echo "Safaricom's answer: $(cat sandbox/artifacts/last_run.txt)"
+fi
+exit "$status"
