@@ -42,6 +42,7 @@ import from core.tenancy.principal {
     assign_id
 }
 import from core.catalog.answers { Refused, answer }
+import from core.notify.addresses { email_problem, clean_email }
 import from core.booking.models { Order }
 import from core.booking.hold_api { showtime_on_sale, check_holder }
 import from core.booking.order_api { pending_order, check_key }
@@ -91,7 +92,10 @@ def payment_view(intent: PaymentIntent) -> dict[str, any] {  # jac:ignore[W1037]
         "message": message,
         "created_at": intent.created_at,
         # A paid order's tickets (my_payment fills them in, P5.4).
-        "tickets": []
+        "tickets": [],
+        # The ticket link and where the tickets were emailed, once paid (P6.3).
+        "link": "",
+        "email": ""
     };
 }
 
@@ -230,12 +234,21 @@ def _replay(
 }
 
 def _start_payment(
-    slug: str, screening_id: str, holder: str, phone: str, idempotency_key: str
+    slug: str,
+    screening_id: str,
+    holder: str,
+    phone: str,
+    email: str,
+    idempotency_key: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     (cinema, screening) = showtime_on_sale(slug, screening_id);
     check_holder(holder);
     check_key(idempotency_key);
     number = _number(phone);
+    if email_problem(email) {
+        raise Refused("invalid_email", email_problem(email));
+    }
+    address = clean_email(email);
     provider = _provider();
     key_name = f"{node_id(cinema)}:{holder}:{idempotency_key}";
     existing = claim_holder(PAY_KEYS, key_name);
@@ -300,6 +313,7 @@ def _start_payment(
             updated_at=stamp
         );
         assign_id(intent, ref);
+        order.email = address;
         order ++> intent;
         attach_to_tenant(intent, cinema);
         replay_point("payment_before_commit");
@@ -338,11 +352,16 @@ def latest_intent(cinema: Tenant, order: Order) -> PaymentIntent | None {
 }
 
 def:pub start_payment(
-    slug: str, screening_id: str, holder: str, phone: str, idempotency_key: str
+    slug: str,
+    screening_id: str,
+    holder: str,
+    phone: str,
+    email: str,
+    idempotency_key: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _start_payment(  # jac:ignore[W1037]
-            slug, screening_id, holder, phone, idempotency_key
+            slug, screening_id, holder, phone, email, idempotency_key
         ); }
     );
 }

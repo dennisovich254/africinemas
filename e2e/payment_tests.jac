@@ -4,7 +4,9 @@ The e2e server runs the simulator, and the resolver settles payments every 2 sec
 (scripts/e2e.sh). After placing an order the visitor enters their M-Pesa number (a tel
 keypad, checked inline), pays, is told to check their phone, and sees their tickets
 once the payment settles, also after a reload. A failed payment says so and lets them
-try again. Each ticket shows its QR code (P6.1). Review screenshots of each step.
+try again. Each ticket shows its QR code (P6.1). The tickets are emailed, and their page
+opens from "You're booked" and the link, where they can be resent (P6.3). Review
+screenshots of each step.
 """
 
 import from e2e.support.web {
@@ -19,6 +21,8 @@ import from e2e.support.catalog { cinema_selling_tickets }
 import from core.booking.ticket_codes { read_qr }
 
 glob PHONE: str = '#mpesa-phone',
+     EMAIL: str = '#tickets-email',
+     ANNA_EMAIL: str = "anna@example.com",
      SETTLE_MS: int = 30000;
 
 def _check_qr_codes(page: any) {  # jac:ignore[W1037]
@@ -82,7 +86,10 @@ test "pay with M-Pesa: check your phone, then the tickets, also after a reload" 
             assert page.get_attribute(PHONE, "inputmode") == "tel";
             assert page.get_attribute(PHONE, "type") == "tel";
             assert "KES 1,660" in page.inner_text('[data-testid="pay-mpesa"]');
+            assert page.get_attribute(EMAIL, "type") == "email";
+            assert page.get_attribute(EMAIL, "inputmode") == "email";
             _type(page, PHONE, "0712 345 678");
+            _type(page, EMAIL, ANNA_EMAIL);
             _press(page, project, '[data-testid="pay-mpesa"]');
             page.wait_for_selector(
                 '[data-testid="payment-status"], [data-testid="booked"]'
@@ -92,9 +99,20 @@ test "pay with M-Pesa: check your phone, then the tickets, also after a reload" 
             first = page.inner_text('[data-testid="ticket"] >> nth=0');
             assert "Seat A1" in first , first;
             _check_qr_codes(page);
+            assert "a***@example.com" in page.inner_text('[data-testid="sent-to"]');
             page.reload();
             page.wait_for_selector('[data-testid="booked"]');
             assert page.locator('[data-testid="ticket"]').count() == 2;
+            # The tickets page, from "You're booked" (P6.3).
+            _press(page, project, '[data-testid="open-tickets"]');
+            page.wait_for_selector('[data-testid="tickets-page"]');
+            assert "/tickets/" in page.url;
+            assert "Rafiki" in page.inner_text('[data-testid="tickets-page"]');
+            _check_qr_codes(page);
+            _press(page, project, '[data-testid="resend"]');
+            page.wait_for_function(
+                "document.querySelector('[data-testid=delivery-note]')?.innerText.startsWith('Sent again')"
+            );
             page.context.close();
         }
     } finally {
@@ -120,6 +138,17 @@ test "the M-Pesa number is checked inline, next to the field" {
         page.locator(PHONE).blur();
         page.wait_for_selector('[data-testid="phone-error"]', state="detached");
         assert page.get_attribute(PHONE, "aria-invalid") == "false";
+        # The email address too (P6.3).
+        _type(page, EMAIL, "anna@");
+        page.locator(EMAIL).blur();
+        page.wait_for_selector('[data-testid="email-error"]');
+        assert page.get_attribute(EMAIL, "aria-invalid") == "true";
+        assert page.get_attribute(EMAIL, "aria-describedby") == "tickets-email-error";
+        page.locator('[data-testid="pay-mpesa"]').tap();
+        assert page.locator('[data-testid="payment-status"]').count() == 0;
+        _type(page, EMAIL, ANNA_EMAIL);
+        page.locator(EMAIL).blur();
+        page.wait_for_selector('[data-testid="email-error"]', state="detached");
     } finally {
         close_contexts(browser);
     }
@@ -135,6 +164,7 @@ test "a failed payment says so, and paying again works" {
         _ordered(page, "desktop", owner);
         # The simulator's test number for a payment that fails.
         _type(page, PHONE, "0700 000 001");
+        _type(page, EMAIL, ANNA_EMAIL);
         page.click('[data-testid="pay-mpesa"]');
         page.wait_for_selector(
             '[data-testid="payment-status"][data-state="failed"]', timeout=SETTLE_MS
@@ -167,14 +197,41 @@ test "review screenshots of paying" {
                     path=artifact(f"pay-form-{project}-{scheme}.png"), full_page=True
                 );
                 _type(page, PHONE, "0712 345 678");
+                _type(page, EMAIL, ANNA_EMAIL);
                 _press(page, project, '[data-testid="pay-mpesa"]');
                 page.wait_for_selector('[data-testid="booked"]', timeout=SETTLE_MS);
                 page.screenshot(
                     path=artifact(f"pay-booked-{project}-{scheme}.png"), full_page=True
                 );
+                _press(page, project, '[data-testid="open-tickets"]');
+                page.wait_for_selector('[data-testid="tickets-page"]');
+                _press(page, project, '[data-testid="change-email"]');
+                page.wait_for_selector('#resend-email');
+                page.evaluate("document.fonts.ready");
+                page.screenshot(
+                    path=artifact(f"tickets-page-{project}-{scheme}.png"),
+                    full_page=True
+                );
+                # Cancel closes the form without sending.
+                _press(page, project, '[data-testid="resend-cancel"]');
+                page.wait_for_selector('#resend-email', state="detached");
                 page.context.close();
             }
         }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "a wrong ticket link says the tickets weren't found" {
+    owner = cinema_selling_tickets();
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(**context_options(pw, "mobile", "light")).new_page();
+        page.goto(f"{BASE_URL}/c/{owner['slug']}/tickets/nosuchtokenxxxxxxxxxxxxxxx");
+        page.wait_for_selector('[data-testid="tickets-missing"]');
+        assert "Tickets not found"
+            in page.inner_text('[data-testid="tickets-missing"]');
     } finally {
         close_contexts(browser);
     }

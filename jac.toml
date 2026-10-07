@@ -157,3 +157,5 @@ playwright = "~=1.63"
 
 [dependencies]
 pillow = "~=12.3"
+# Ticket QR codes as PNG images in the ticket email (P6.3); pure Python, no deps.
+segno = "~=1.6"

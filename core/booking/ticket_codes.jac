@@ -89,6 +89,23 @@ def typed_reference(text: str) -> str | None {
     return "-".join([compact[i:i + 4] for i in range(0, REFERENCE_LENGTH, 4)]);
 }
 
+def link_token(tenant_id: str, order_id: str) -> str {
+    # The secret in an order's ticket link (P6.3, ADR-0022): an HMAC over the order with
+    # the ticket key, so it can be made again for the email and the paying visitor's
+    # page and is never stored. 128 bits, lower-case base32.
+    mac = hmac.new(
+        ticket_key(),
+        f"order-link|{tenant_id}|{order_id}".encode("utf-8"),
+        hashlib.sha256
+    ).digest();
+    return base64.b32encode(mac[:16]).decode("ascii").rstrip("=").lower();
+}
+
+def link_key(token: str) -> str {
+    # What a link token is looked up by (ADR-0010: the secret is stored only as a hash).
+    return hashlib.sha256(token.encode("utf-8")).hexdigest();
+}
+
 def reserve_reference(
     owner: str, ttl_seconds: int, draw: Callable[[], str] = new_reference
 ) -> str {

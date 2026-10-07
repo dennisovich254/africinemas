@@ -364,7 +364,20 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "screening_id": "x",
                  "holder": "probe-holder-0123456789abcdef",
                  "phone": "0712345678",
+                 "email": "probe@example.com",
                  "idempotency_key": "probe-key-xxxxxxxxxxxxxxxx"
+             }
+         },
+         "tickets_by_link": {
+             "scope": "storefront",
+             "probe": {"slug": "{tenant}", "token": "probetokenxxxxxxxxxxxxxxxx"}
+         },
+         "resend_tickets": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "token": "probetokenxxxxxxxxxxxxxxxx",
+                 "email": ""
              }
          },
          "end_my_order": {

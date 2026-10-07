@@ -205,3 +205,29 @@ def:pub phone_problem(text: str) -> str {
     }
     return "";
 }
+
+def:pub email_problem(text: str) -> str {
+    # Why this isn't an address for the tickets ("" if it is), as the server checks it
+    # (core/notify/addresses.jac): a local part and a dotted domain, no spaces.
+    wanted = "Enter the email address for your tickets, like name@example.com.";
+    address = text.strip();
+    parts: list[str] = address.split("@");
+    if len(address) == 0 or len(address) > 254 or len(parts) != 2 or " " in address {
+        return wanted;
+    }
+    labels: list[str] = parts[1].lower().split(".");
+    if len(parts[0]) == 0 or len(labels) < 2 or len(labels[len(labels) - 1]) < 2 {
+        return wanted;
+    }
+    for label in labels {
+        if len(label) == 0 {
+            return wanted;
+        }
+        for ch in label {
+            if ch not in "abcdefghijklmnopqrstuvwxyz0123456789-" {
+                return wanted;
+            }
+        }
+    }
+    return "";
+}

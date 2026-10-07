@@ -26,7 +26,8 @@ node Order {
     # status is "pending_payment" until Phase 5 pays (or ends) it, by pay_by. request
     # is what was asked ([seat, ticket type] pairs, sorted), to tell a replay of the
     # same request from a different one under the same idempotency key. reference is
-    # for people (receipts, the box office), never an internal id.
+    # for people (receipts, the box office), never an internal id. email is where the
+    # tickets go (P6.3), set when the visitor starts paying.
     has tenant_id: str,
         screening_id: str,
         holder: str,
@@ -40,7 +41,8 @@ node Order {
         lines: list[dict[str, any]] = [],  # jac:ignore[W1037]
         total_cents: int = 0,
         created_at: str = "",
-        pay_by: str = "";
+        pay_by: str = "",
+        email: str = "";
 }
 
 node Ticket {
