@@ -8,6 +8,8 @@ AFRICINEMAS_PAYMENTS=simulator.
 
 import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
 import from core.tenancy.tenant_api { start_shift }  # jac:ignore[W2037]
+import from core.tenancy.staff_api { invite_staff, accept_invite }  # jac:ignore[W2037]
+import from core.booking.redeem_api { redeem_ticket }  # jac:ignore[W2037]
 import from core.catalog.venue_api { create_venue, create_auditorium }  # jac:ignore[W2037]
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
 import from core.catalog.movie_api { create_movie }  # jac:ignore[W2037]
@@ -21,7 +23,12 @@ import from core.catalog.storefront_api { public_seat_availability }  # jac:igno
 import from core.booking.hold_api { hold_seats }  # jac:ignore[W2037]
 import from core.booking.order_api { place_order, my_order }  # jac:ignore[W2037]
 import from core.payments.payment_api { start_payment }  # jac:ignore[W2037]
-import from core.payments.settlement { my_payment, mpesa_callback, process_inbox }  # jac:ignore[W2037]
+import from core.payments.settlement {
+    my_payment,  # jac:ignore[W2037]
+    mpesa_callback,  # jac:ignore[W2037]
+    process_inbox,  # jac:ignore[W2037]
+    tenant_by_id
+}
 import from core.payments.resolver { resolve, end_my_order }  # jac:ignore[W2037]
 import from core.payments.ledger { LedgerEntry }
 import from core.tenancy.open_cinema { open_cinema }
@@ -35,6 +42,8 @@ import from core.payments.choice { payment_provider }
 import from core.payments.simulator { SimulatedProvider }
 import from core.claims { claim, holder }
 import from core.booking.ticket_codes { REFS, reserve_reference }
+import from datetime { datetime, timedelta }
+import from core.clock { freeze, reset }
 
 def _simulator -> SimulatedProvider {
     made = payment_provider();
@@ -271,4 +280,60 @@ def:pub pay_reserve_collision(taken: str, fresh: str) -> list[str] {
     drawn = iter([taken, fresh]);
     got = reserve_reference("me", 60, lambda -> str { return next(drawn); });
     return [got, holder(REFS, taken) or "", holder(REFS, fresh) or ""];
+}
+
+def:pub rd_freeze(slug: str, screening_id: str, minutes: int) -> str {
+    # Freezes the clock `minutes` after the showtime starts (negative: before it), for
+    # the door's time window (P6.2). Needs AFRICINEMAS_CLOCK_CONTROL=1.
+    (_, screening) = _showtime(slug, screening_id);
+    at = datetime.fromisoformat(screening.starts_at) + timedelta(minutes=minutes);
+    freeze(at);
+    return at.isoformat();
+}
+
+def:pub rd_unfreeze -> bool {
+    reset();
+    return True;
+}
+
+def _ticket_by_reference(reference: str) -> tuple[Tenant, Ticket] {
+    owner = holder(REFS, reference);
+    assert owner is not None , reference;
+    (tenant_id, ticket_id) = owner.split("|");
+    cinema = tenant_by_id(tenant_id);
+    assert cinema is not None;
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        found: any = jobj(ticket_id);  # jac:ignore[W1037]
+    } finally {
+        restore(me);
+    }
+    assert isinstance(found, Ticket);
+    return (cinema, found as Ticket);
+}
+
+def:pub rd_ticket(reference: str) -> dict[str, str] {
+    # A ticket's stored status and who used it when (P6.2).
+    (_, t) = _ticket_by_reference(reference);
+    return {"status": t.status, "used_at": t.used_at, "used_by": t.used_by};
+}
+
+def:pub rd_set_status(reference: str, status: str) -> bool {
+    # Stands in for voiding and refunds, which come later.
+    (cinema, t) = _ticket_by_reference(reference);
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        t.status = status;
+        commit_now();
+    } finally {
+        restore(me);
+    }
+    return True;
+}
+
+def:pub rd_foreign_reference(reference: str) -> bool {
+    # A reference claimed for another cinema's ticket.
+    return claim(REFS, reference, "another-tenant-id|another-ticket-id") != "";
 }

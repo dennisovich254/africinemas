@@ -78,6 +78,17 @@ def read_qr(payload: str) -> str | None {
     return "-".join([compact[i:i + 4] for i in range(0, REFERENCE_LENGTH, 4)]);
 }
 
+def typed_reference(text: str) -> str | None {
+    # A reference as staff type it (6.4's manual entry), tidied: case, spaces and
+    # dashes don't matter. None if it can't be one.
+    compact = text.upper().replace(" ", "").replace("-", "");
+    if len(compact) != REFERENCE_LENGTH
+        or any([ch not in ALPHABET for ch in compact]) {
+        return None;
+    }
+    return "-".join([compact[i:i + 4] for i in range(0, REFERENCE_LENGTH, 4)]);
+}
+
 def reserve_reference(
     owner: str, ttl_seconds: int, draw: Callable[[], str] = new_reference
 ) -> str {

@@ -46,7 +46,8 @@ node Order {
 node Ticket {
     # One seat of a paid order (P5.4): issued when the payment is confirmed. reference
     # is unique and claimed (core/booking/ticket_codes.jac); qr is its signed payload
-    # (P6.1). status: "issued" until redeemed (6.2).
+    # (P6.1). status: "issued", then "used" at the door (6.2: used_at, and used_by, the
+    # staff member who scanned it); "voided" and "refunded" come later.
     has tenant_id: str,
         order_id: str,
         screening_id: str,
@@ -56,5 +57,7 @@ node Ticket {
         reference: str,
         qr: str = "",
         status: str = "issued",
-        issued_at: str = "";
+        issued_at: str = "",
+        used_at: str = "",
+        used_by: str = "";
 }
