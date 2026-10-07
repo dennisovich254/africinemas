@@ -58,7 +58,12 @@ def _sign_in(page: any, email: str, back_to: str) {  # jac:ignore[W1037]
     _type(page, "#email", email);
     _type(page, "#password", PASSWORD);
     page.click('button[type="submit"]');
-    page.wait_for_url(f"**{back_to}");
+    # Not a glob on `back_to`: the sign-in page's own URL (?next=...) matches one.
+    page.wait_for_function("!!localStorage.getItem('jac_token')");
+    page.wait_for_url(
+        lambda (url: str) -> bool { return "/login" not in url
+            and url.endswith(back_to); }
+    );
 }
 
 def _book_and_pay(page: any, project: str, owner: dict[str, str]) {  # jac:ignore[W1037]
