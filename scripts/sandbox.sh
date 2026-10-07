@@ -9,12 +9,8 @@
 # docs/runbooks/daraja-sandbox.md.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-if [[ -f .env ]]; then
-    set -a
-    # shellcheck disable=SC1091
-    source .env
-    set +a
-fi
+# shellcheck disable=SC1091
+. scripts/load_env.sh   # the filled-in settings only (an empty line never blanks one)
 status=0
 rm -f sandbox/artifacts/last_run.txt
 JAC_TEST_STRICT=1 jac test sandbox/daraja_sandbox_tests.jac -v "$@" || status=$?
