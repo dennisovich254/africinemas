@@ -92,7 +92,10 @@ def payment_view(intent: PaymentIntent) -> dict[str, any] {  # jac:ignore[W1037]
         "message": message,
         "created_at": intent.created_at,
         # A paid order's tickets (my_payment fills them in, P5.4).
-        "tickets": []
+        "tickets": [],
+        # The ticket link and where the tickets were emailed, once paid (P6.3).
+        "link": "",
+        "email": ""
     };
 }
 

@@ -29,10 +29,12 @@ test "a paid order's tickets have unique, claimed references and QR payloads tha
         for c in codes {
             assert c["claimed_by"] == f"{c['tenant_id']}|{c['ticket_id']}" , c;
             assert read_qr(c["qr"]) == c["reference"] , c;
-            # Nothing personal or descriptive in the QR (§46).
-            for word in ["A1", "A2", "nova", "Rafiki", "254", ANNA] {
-                assert word not in c["qr"] , (word, c["qr"]);
-            }
+            # Nothing personal or descriptive in the QR (§46): only the version, the
+            # reference and a 26-character signature. (Searching it for words like "A2"
+            # can't work: the base32 signature contains such pairs by chance.)
+            (version, compact, signature) = c["qr"].split(".");
+            assert version == "TKT1" and compact == c["reference"].replace("-", "");
+            assert len(signature) == 26 and signature.isalnum() , c["qr"];
         }
         mine = browse(
             app,
