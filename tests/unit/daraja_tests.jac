@@ -284,3 +284,37 @@ test "no secret reaches the logs or the config's printed form" {
         assert secret not in text , secret;
     }
 }
+
+test "a token refused as 404.001.03 (HTTP 404) is replaced once, for a push too" {
+    http = FakeHttp(
+        replies=[
+            (200, "oauth_ok"),
+            (404, "token_invalid"),
+            (200, "oauth_second"),
+            (200, "stk_push_ok")
+        ]
+    );
+    pushed = _provider(http).stk_push(_request());
+    assert pushed.accepted , pushed.error_code;
+    assert http.calls[-1]["headers"]["Authorization"]
+        == "Bearer TOKEN-TWO-0Rxa3zN8hBqkF6wYtLp2";
+    # A token refused again is reported, not retried forever.
+    again = FakeHttp(
+        replies=[
+            (200, "oauth_ok"),
+            (404, "token_invalid"),
+            (200, "oauth_second"),
+            (404, "token_invalid")
+        ]
+    );
+    refused = _provider(again).stk_push(_request());
+    assert not refused.accepted and refused.error_code == "404.001.03";
+    assert len(
+        [
+            c
+            for c in again.calls
+            if "stkpush" in c["url"]
+        ]
+    )
+        == 2;
+}

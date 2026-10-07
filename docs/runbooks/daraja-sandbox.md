@@ -109,7 +109,8 @@ The **Daraja sandbox** workflow then runs the quick check every night at 04:30 N
 
 | What you see | Likely cause |
 | --- | --- |
-| `Daraja refused the credentials` / `Invalid Access Token` | Wrong consumer key or secret, or the app lacks the M-Pesa Express product. |
+| `Daraja refused the credentials` | Wrong consumer key or secret. |
+| Login ok, then `404.001.03 Invalid Access Token` on the push | The Daraja app doesn't include the **M-Pesa Express** sandbox product: add it, or create an app with it, and use that app's key and secret. |
 | `invalid_request: … https callback URL` | `DARAJA_CALLBACK_BASE` isn't an `https://` address. |
 | `Bad Request - Invalid PhoneNumber` | The number isn't a Safaricom 07…/01… number. |
 | `500.001.1001 Unable to lock subscriber` | A prompt is already open on that phone; wait a minute and try again. |

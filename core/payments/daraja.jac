@@ -4,7 +4,7 @@ A PaymentProvider over Daraja's REST API:
 
 - OAuth: a client-credentials token (Basic key:secret), reused until shortly before it
   expires (expires_in, less TOKEN_MARGIN_S) and fetched again when Safaricom refuses it
-  early (401: one new token, one repeat of the call).
+  early (HTTP 401, or errorCode 404.001.03: one new token, one repeat of the call).
 - STK push (/mpesa/stkpush/v1/processrequest): the shortcode, a password of
   base64(shortcode + passkey + timestamp) with the timestamp in Nairobi time, whole
   shillings, the customer's 2547/2541 number and an https callback URL. A push is
@@ -46,6 +46,7 @@ glob SANDBOX_URL: str = "https://sandbox.safaricom.co.ke",
      NAIROBI: ZoneInfo = ZoneInfo("Africa/Nairobi"),
      TOKEN_MARGIN_S: int = 60,
      PROCESSING: str = "500.001.1001",
+     INVALID_TOKEN: str = "404.001.03",
      LOG: logging.Logger = logging.getLogger("africinemas.payments.daraja");
 
 class DarajaUnavailable(ConnectionError) {}
@@ -251,8 +252,11 @@ obj DarajaProvider(PaymentProvider) {
             body,
             self.timeout_s
         );
-        if status == 401 {
-            LOG.info("Daraja refused the token; logging in again");
+        if status == 401 or reply.get("errorCode") == INVALID_TOKEN {
+            # Daraja reports a refused token as HTTP 401 or as errorCode 404.001.03
+            # (with HTTP 404); either way nothing was done, so a new token and one
+            # repeat are safe, for a push too.
+            LOG.info("Daraja refused the token (HTTP %d); logging in again", status);
             self.token = "";
             (status, reply) = self._transport().send(
                 "POST",
@@ -328,7 +332,9 @@ obj DarajaProvider(PaymentProvider) {
             );
         }
         code = str(reply.get("errorCode") or reply.get("ResponseCode") or status);
-        LOG.warning("STK push for %s refused: %s", request.reference, code);
+        LOG.warning(
+            "STK push for %s refused: HTTP %d, %s", request.reference, status, code
+        );
         return StkPushResult(
             accepted=False,
             error_code=code,
