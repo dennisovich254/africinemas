@@ -108,6 +108,18 @@ def:pub TicketDelivery(link: str, email: str, show_open: bool) -> JsxElement {
                 >
                     {busy and <Spinner aria-hidden="true"/>}Send
                 </Button>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    data-testid="resend-cancel"
+                    onClick={lambda {
+                        set_changing(False);
+                        set_address_error("");
+                    }}
+                    className="min-h-11"
+                >
+                    Cancel
+                </Button>
             </div>
             {len(wrong) > 0
                 and <p
@@ -130,13 +142,11 @@ def:pub TicketDelivery(link: str, email: str, show_open: bool) -> JsxElement {
                 </p>}
             <div className="flex flex-wrap gap-2">
                 {show_open
-                    and <AppLink
-                        to={link}
-                        testid="open-tickets"
-                        className="inline-flex min-h-11 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
-                    >
-                        Open your tickets page
-                    </AppLink>}
+                    and <Button asChild={True} variant="outline" className="min-h-11">
+                        <AppLink to={link} testid="open-tickets">
+                            Open your tickets page
+                        </AppLink>
+                    </Button>}
                 <Button
                     variant="outline"
                     data-testid="copy-link"
