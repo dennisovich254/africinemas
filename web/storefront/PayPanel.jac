@@ -18,7 +18,8 @@ import from ...components.ui.spinner { Spinner }
 import from core.payments.payment_api { start_payment }
 import from core.payments.settlement { my_payment }
 import from .showtimes { listed }
-import from .checkout_rules { money, phone_problem, order_key }
+import from .checkout_rules { money, phone_problem, email_problem, order_key }
+import from .TicketDelivery { TicketDelivery }
 
 glob WAITING: list[str] = ["created", "stk_requested", "timeout", "unknown"],
      RETRYABLE: list[str] = ["failed", "cancelled"],
@@ -67,6 +68,7 @@ def:pub TicketCard(ticket: dict[str, str]) -> JsxElement {
 def:pub Tickets(payment: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     # A paid order's tickets: one card per seat, with its QR code and reference.
     tickets: list[dict[str, str]] = payment["tickets"];
+    link: str = payment["link"] or "";
     return
         <section
             data-testid="booked"
@@ -86,6 +88,12 @@ def:pub Tickets(payment: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
             <ul className="grid gap-3 sm:grid-cols-2">
                 {[<TicketCard key={t["reference"]} ticket={t}/> for t in tickets]}
             </ul>
+            {len(link) > 0
+                and <TicketDelivery
+                    link={link}
+                    email={payment["email"]}
+                    show_open={True}
+                />}
         </section>;
 }
 
@@ -101,6 +109,9 @@ def:pub PayPanel(
     [payment, set_payment] = useState(initial);
     [phone, set_phone] = useState("");
     [phone_error, set_phone_error] = useState("");
+    [email, set_email] = useState("");
+    [email_error, set_email_error] = useState("");
+    email_wrong: str = email_error;
     [busy, set_busy] = useState(False);
     [problem, set_problem] = useState("");
     current: dict[str, any] | None = payment;  # jac:ignore[W1037]
@@ -147,13 +158,15 @@ def:pub PayPanel(
         e.preventDefault();
         wrong = phone_problem(phone);
         set_phone_error(wrong);
-        if len(wrong) > 0 {
+        address_wrong = email_problem(email);
+        set_email_error(address_wrong);
+        if len(wrong) > 0 or len(address_wrong) > 0 {
             return;
         }
         set_busy(True);
         set_problem("");
         started = await call(
-            start_payment, [slug, screening_id, holder, phone, order_key()]
+            start_payment, [slug, screening_id, holder, phone, email, order_key()]
         );
         set_busy(False);
         if started is None {
@@ -167,6 +180,10 @@ def:pub PayPanel(
             return;
         }
         refused: dict[str, any] = started["error"];  # jac:ignore[W1037]
+        if refused["code"] == "invalid_email" {
+            set_email_error(refused["message"]);
+            return;
+        }
         if refused["code"] == "order_expired" {
             # The order's time to pay is up: the page offers the seats again.
             on_expired();
@@ -236,6 +253,45 @@ def:pub PayPanel(
                         className="text-sm text-muted-foreground"
                     >
                         You'll get a prompt on this phone to enter your M-Pesa PIN.
+                    </p>}
+            </div>
+            <div className="flex flex-col gap-1.5">
+                <Label htmlFor="tickets-email">Email for your tickets</Label>
+                <Input
+                    id="tickets-email"
+                    name="email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder="name@example.com"
+                    value={email}
+                    aria-invalid={"true" if len(email_wrong) > 0 else "false"}
+                    aria-describedby={"tickets-email-error"
+                        if len(email_wrong) > 0
+                        else "tickets-email-help"}
+                    onChange={lambda (e: any) { set_email(e.target.value); }}  # jac:ignore[W1037]
+                    onBlur={lambda (e: any) { set_email_error(  # jac:ignore[W1037]
+                        email_problem(e.target.value)
+                            if len(e.target.value.strip()) > 0
+                            else ""
+                    ); }}
+                    className="h-11 max-w-xs text-base"
+                />
+                {(
+                    <p
+                        id="tickets-email-error"
+                        data-testid="email-error"
+                        className="text-sm text-destructive"
+                    >
+                        {email_wrong}
+                    </p>
+                )
+                    if len(email_wrong) > 0
+                    else <p
+                        id="tickets-email-help"
+                        className="text-sm text-muted-foreground"
+                    >
+                        We'll email your tickets here, with a link to open them again.
                     </p>}
             </div>
             <Button

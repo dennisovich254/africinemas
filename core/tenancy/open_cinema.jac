@@ -29,3 +29,17 @@ def open_cinema(selector: str) -> Tenant | None {
     }
     return found as Tenant;
 }
+
+def tenant_by_id(tenant_id: str) -> Tenant | None {
+    # The cinema with this id whatever its state, for system jobs (payments, mail).
+    me = node_id(root);
+    act_as(system_root_id());
+    try {
+        found: any = jobj(tenant_id);  # jac:ignore[W1037]
+    } except Exception {
+        found = None;
+    } finally {
+        restore(me);
+    }
+    return found as Tenant if isinstance(found, Tenant) else None;
+}

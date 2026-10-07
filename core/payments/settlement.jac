@@ -37,6 +37,7 @@ import from core.claims {
     holder as claim_holder
 }
 import from core.tenancy.models { Tenant }
+import from core.tenancy.open_cinema { tenant_by_id }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.principal {
     node_id,
@@ -51,6 +52,13 @@ import from core.catalog.answers { Refused, answer }
 import from core.catalog.models { Screening, SeatSlot }
 import from core.catalog.venues { find_screening, slots_of }
 import from core.booking.models { Order, SeatHold, Ticket }
+import from core.booking.ticket_delivery {
+    claim_link,
+    keep_link,
+    queue_mail,
+    link_path
+}
+import from core.notify.addresses { masked_email }
 import from core.booking.ticket_codes { REFS, reserve_reference, qr_payload }
 import from core.booking.availability { SeatState }
 import from core.booking.hold_api { showtime_on_sale, check_holder }
@@ -76,19 +84,6 @@ glob INBOX: str = "mpesa-inbox",
      TOKEN_PATTERN: str = "[A-Za-z0-9_-]{16,64}",
      SETTLE_SECONDS: int = int(os.environ.get("AFRICINEMAS_SETTLE_SECONDS", "5")),
      ACK: dict[str, any] = {"ResultCode": 0, "ResultDesc": "Accepted"};  # jac:ignore[W1037]
-
-def tenant_by_id(tenant_id: str) -> Tenant | None {
-    me = node_id(root);
-    act_as(system_root_id());
-    try {
-        found: any = jobj(tenant_id);  # jac:ignore[W1037]
-    } except Exception {
-        found = None;
-    } finally {
-        restore(me);
-    }
-    return found as Tenant if isinstance(found, Tenant) else None;
-}
 
 def _intent_for(token: str) -> tuple[Tenant, PaymentIntent] | None {
     # The payment a callback token names, if any.
@@ -250,6 +245,7 @@ def _finalize(
         reference = reserve_reference(owner, PROVISIONAL_SECONDS);
         codes.append([ticket_id, owner, reference, qr_payload(reference)]);
     }
+    claim_link(cinema, order, PROVISIONAL_SECONDS);
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -295,6 +291,11 @@ def _finalize(
     }
     for code in codes {
         make_permanent(REFS, code[2], code[1]);
+    }
+    # The ticket link for good, and the tickets on their way by email (P6.3).
+    keep_link(cinema, order);
+    if order.email {
+        queue_mail(cinema, order, order.email);
     }
 }
 
@@ -481,7 +482,11 @@ def _my_payment(slug: str, screening_id: str, holder: str) -> dict[str, any] {  
         }
     }
     view = payment_view(intent);
-    view["tickets"] = _tickets(cinema, order) if intent.state == "success" else [];
+    paid = intent.state == "success";
+    view["tickets"] = _tickets(cinema, order) if paid else [];
+    # Where the tickets live, and where they were emailed (P6.3).
+    view["link"] = link_path(cinema, order) if paid else "";
+    view["email"] = masked_email(order.email) if paid and order.email else "";
     return {"ok": True, "payment": view};
 }
 

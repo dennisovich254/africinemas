@@ -47,7 +47,7 @@ glob NEXT_SHOWTIMES: int = 6,
      # How many days ahead quick book offers showtimes (P4.1d).
      SHOWTIME_DAYS: int = 14;
 
-def _timezone(tenant: Tenant) -> str {
+def cinema_timezone(tenant: Tenant) -> str {
     # The cinema's time zone, from its price list (P3.6), for showing showtimes in the
     # cinema's local time wherever the visitor is.
     if not tenant.price_list_id {
@@ -69,7 +69,11 @@ def _timezone(tenant: Tenant) -> str {
 }
 
 def _cinema(tenant: Tenant) -> dict[str, str] {
-    return {"name": tenant.name, "slug": tenant.slug, "timezone": _timezone(tenant)};
+    return {
+        "name": tenant.name,
+        "slug": tenant.slug,
+        "timezone": cinema_timezone(tenant)
+    };
 }
 
 def _showing(tenant: Tenant, movie_key: str) -> list[StorefrontScreening] {

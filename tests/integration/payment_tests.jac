@@ -122,6 +122,9 @@ test "bad numbers, missing orders, bad keys and switched-off payments are refuse
     try {
         assert code_of(pay(app, screening, "0202345678")) == "invalid_phone";
         assert code_of(pay(app, screening, fresh_phone(), "short")) == "invalid_key";
+        # The tickets' email address is checked too (P6.3).
+        assert code_of(pay(app, screening, fresh_phone(), email="anna@"))
+            == "invalid_email";
         nobody = browse(
             app,
             "start_payment",
@@ -130,6 +133,7 @@ test "bad numbers, missing orders, bad keys and switched-off payments are refuse
                 "screening_id": screening,
                 "holder": "holder-ben-0123456789abcdefgh",
                 "phone": fresh_phone(),
+                "email": "ben@example.com",
                 "idempotency_key": "pay-key-ben-00000000001"
             }
         );

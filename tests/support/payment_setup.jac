@@ -21,7 +21,8 @@ glob APP: str = path.join(
      PAYMENTS: str = "AFRICINEMAS_PAYMENTS",
      TICKET_KEY: str = "AFRICINEMAS_TICKET_KEY",
      FAULTS: str = "AFRICINEMAS_FAULTS",
-     ANNA: str = "holder-anna-0123456789abcdef";
+     ANNA: str = "holder-anna-0123456789abcdef",
+     ANNA_EMAIL: str = "anna@example.com";
 
 def paying_setup -> tuple[Served, str] {  # jac:ignore[W1037]
     # A priced showtime where Anna holds A1 and A2 and has ordered them (KES 1,860: 800 + 100 evening extra + 30 fee each).
@@ -68,7 +69,9 @@ def paying_cinema(staff: list[str]) -> tuple[Served, Cinema, str] {  # jac:ignor
     return (app, nova, screening);
 }
 
-def pay(app: Served, screening: str, phone: str, key: str = "") -> any {  # jac:ignore[W1037]
+def pay(
+    app: Served, screening: str, phone: str, key: str = "", email: str = ANNA_EMAIL
+) -> any {  # jac:ignore[W1037]
     return browse(
         app,
         "start_payment",
@@ -77,6 +80,7 @@ def pay(app: Served, screening: str, phone: str, key: str = "") -> any {  # jac:
             "screening_id": screening,
             "holder": ANNA,
             "phone": phone,
+            "email": email,
             "idempotency_key": key or f"pay-{uuid.uuid4().hex}"
         }
     );

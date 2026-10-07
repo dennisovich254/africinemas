@@ -10,6 +10,12 @@ import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
 import from core.tenancy.tenant_api { start_shift }  # jac:ignore[W2037]
 import from core.tenancy.staff_api { invite_staff, accept_invite }  # jac:ignore[W2037]
 import from core.booking.redeem_api { redeem_ticket }  # jac:ignore[W2037]
+import from core.booking.ticket_delivery {
+    tickets_by_link,  # jac:ignore[W2037]
+    resend_tickets,  # jac:ignore[W2037]
+    send_due
+}
+import from core.notify.mailer { OUTBOX }
 import from core.catalog.venue_api { create_venue, create_auditorium }  # jac:ignore[W2037]
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
 import from core.catalog.movie_api { create_movie }  # jac:ignore[W2037]
@@ -336,4 +342,22 @@ def:pub rd_set_status(reference: str, status: str) -> bool {
 def:pub rd_foreign_reference(reference: str) -> bool {
     # A reference claimed for another cinema's ticket.
     return claim(REFS, reference, "another-tenant-id|another-ticket-id") != "";
+}
+
+def:pub tm_send_mail -> int {
+    # Runs the ticket mail job once (P6.3); returns how many emails it sent.
+    return send_due();
+}
+
+def:pub tm_outbox -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # The development outbox: every email "sent", oldest first.
+    return [
+        {"to": m.to, "subject": m.subject, "text": m.text, "images": len(m.images)}
+        for m in OUTBOX
+    ];
+}
+
+def:pub tm_clear_outbox -> bool {
+    OUTBOX.clear();
+    return True;
 }

@@ -12,6 +12,8 @@ import from core.booking.ticket_codes {
     TicketKeyMissing,
     new_reference,
     typed_reference,
+    link_token,
+    link_key,
     qr_payload,
     read_qr,
     ticket_key
@@ -147,4 +149,25 @@ test "a typed reference that can't be one reads as nothing" {
     ] {
         assert typed_reference(bad) is None , bad;
     }
+}
+
+test "an order's link token is the same every time, different per order and per key (P6.3)" {
+    before = _with_key(KEY);
+    try {
+        token = link_token("tenant-1", "order-1");
+        assert token == link_token("tenant-1", "order-1");
+        assert token != link_token("tenant-1", "order-2");
+        assert token != link_token("tenant-2", "order-1");
+        assert len(token) == 26 and token.isalnum() and token == token.lower() , token;
+        os.environ[KEY_ENV] = OTHER;
+        assert link_token("tenant-1", "order-1") != token;
+    } finally {
+        _restore(before);
+    }
+}
+
+test "a link token is looked up by its hash, never stored as itself" {
+    key = link_key("abc123");
+    assert key != "abc123" and len(key) == 64;
+    assert link_key("abc123") == key and link_key("abc124") != key;
 }
