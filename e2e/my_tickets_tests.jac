@@ -17,7 +17,27 @@ import from e2e.support.web {
 import from e2e.support.api { register, unique, email_for, PASSWORD }
 import from e2e.support.catalog { cinema_selling_tickets }
 
-glob SETTLE_MS: int = 30000;
+glob CONSOLE: list[str] = [],
+     SETTLE_MS: int = 30000,
+     ACCOUNT_STATES: str = '[data-testid="saved-to-account"], [data-testid="save-booking"], [data-testid="sign-in-to-save"]';
+
+def _saved(page: any) {  # jac:ignore[W1037]
+    # Waits for the tickets to be saved to the account; if they aren't, says what the
+    # page shows instead (the Save button, the sign-in link, or "Saving..." stuck) and
+    # what the browser logged.
+    waited = "";
+    try {
+        page.wait_for_selector(ACCOUNT_STATES, timeout=SETTLE_MS);
+    } except Exception as e {
+        waited = str(e)[:200];
+    }
+    shown = page.inner_text('[data-testid="ticket-delivery"]');
+    assert page.locator('[data-testid="saved-to-account"]').count() == 1 , (
+        shown,
+        waited,
+        CONSOLE[-10:]
+    );
+}
 
 def _press(page: any, project: str, selector: str) {  # jac:ignore[W1037]
     if project == "mobile" {
@@ -43,6 +63,7 @@ def _sign_in(page: any, email: str, back_to: str) {  # jac:ignore[W1037]
 
 def _book_and_pay(page: any, project: str, owner: dict[str, str]) {  # jac:ignore[W1037]
     # Holds A1 and A2, orders them, pays and waits for "You're booked".
+    page.on("console", lambda (m: any) { CONSOLE.append(f"{m.type}: {m.text}"); });  # jac:ignore[W1037]
     page.goto(f"{BASE_URL}/c/{owner['slug']}/s/{owner['show']}");
     page.wait_for_selector('[data-testid="seat"][data-seat="A1"]');
     _press(page, project, '[data-testid="seat"][data-seat="A1"]');
@@ -71,7 +92,7 @@ test "a signed-in customer's booking is in My tickets without a click" {
             ).new_page();
             _sign_in(page, email, f"/c/{owner['slug']}/s/{owner['show']}");
             _book_and_pay(page, project, owner);
-            page.wait_for_selector('[data-testid="saved-to-account"]');
+            _saved(page);
             _press(page, project, '[data-testid="my-tickets-link"]');
             page.wait_for_selector('[data-testid="my-tickets"]');
             rows = page.locator('[data-testid="saved-booking"]');
@@ -100,12 +121,12 @@ test "a guest signs in from the tickets, and they're saved on the way back" {
         page.wait_for_selector('[data-testid="tickets-page"]');
         tickets_path = page.url.replace(BASE_URL, "");
         page.locator('[data-testid="sign-in-to-save"]').tap();
-        page.wait_for_url("**/login?next=*");
+        page.wait_for_url(lambda (url: str) -> bool { return "/login?next=" in url; });
         _type(page, "#email", email);
         _type(page, "#password", PASSWORD);
         page.click('button[type="submit"]');
         page.wait_for_url(f"**{tickets_path}");
-        page.wait_for_selector('[data-testid="saved-to-account"]');
+        _saved(page);
         page.goto(f"{BASE_URL}/c/{owner['slug']}/my-tickets");
         page.wait_for_selector('[data-testid="saved-booking"]');
         assert page.locator('[data-testid="saved-booking"]').count() == 1;
@@ -143,7 +164,7 @@ test "review screenshots of My tickets" {
                 ).new_page();
                 _sign_in(page, email, f"/c/{owner['slug']}/s/{owner['show']}");
                 _book_and_pay(page, project, owner);
-                page.wait_for_selector('[data-testid="saved-to-account"]');
+                _saved(page);
                 page.screenshot(
                     path=artifact(f"booked-saved-{project}-{scheme}.png"),
                     full_page=True
