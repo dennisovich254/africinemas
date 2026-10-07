@@ -1,0 +1,30 @@
+# Nightly check of the Daraja adapter against Safaricom's sandbox (plan P5.7), and on
+# demand. Not a required check: it depends on Safaricom being up. Without the sandbox
+# secrets in the repository, the test skips itself.
+name: Daraja sandbox
+
+on:
+  schedule:
+    - cron: "30 1 * * *"   # 04:30 in Nairobi
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox:
+    name: sandbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-jac
+      - name: STK push and status query against the sandbox
+        env:
+          DARAJA_CONSUMER_KEY: ${{ secrets.DARAJA_CONSUMER_KEY }}
+          DARAJA_CONSUMER_SECRET: ${{ secrets.DARAJA_CONSUMER_SECRET }}
+          DARAJA_SHORTCODE: ${{ secrets.DARAJA_SHORTCODE }}
+          DARAJA_PASSKEY: ${{ secrets.DARAJA_PASSKEY }}
+          DARAJA_CALLBACK_BASE: ${{ secrets.DARAJA_CALLBACK_BASE }}
+          DARAJA_TEST_PHONE: ${{ secrets.DARAJA_TEST_PHONE }}
+        run: scripts/sandbox.sh

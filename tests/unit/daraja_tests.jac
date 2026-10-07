@@ -79,7 +79,8 @@ def _provider(http: FakeHttp, clock: FakeClock | None = None) -> DarajaProvider 
         ),
         http=http,
         clock=clock or FakeClock(),
-        backoff_s=0.0
+        backoff_s=0.0,
+        rate_wait_s=0.0
     );
 }
 
@@ -283,4 +284,83 @@ test "no secret reaches the logs or the config's printed form" {
     ] {
         assert secret not in text , secret;
     }
+}
+
+test "a token refused as 404.001.03 (HTTP 404) is replaced once, for a push too" {
+    http = FakeHttp(
+        replies=[
+            (200, "oauth_ok"),
+            (404, "token_invalid"),
+            (200, "oauth_second"),
+            (200, "stk_push_ok")
+        ]
+    );
+    pushed = _provider(http).stk_push(_request());
+    assert pushed.accepted , pushed.error_code;
+    assert http.calls[-1]["headers"]["Authorization"]
+        == "Bearer TOKEN-TWO-0Rxa3zN8hBqkF6wYtLp2";
+    # A token refused again is reported, not retried forever.
+    again = FakeHttp(
+        replies=[
+            (200, "oauth_ok"),
+            (404, "token_invalid"),
+            (200, "oauth_second"),
+            (404, "token_invalid")
+        ]
+    );
+    refused = _provider(again).stk_push(_request());
+    assert not refused.accepted and refused.error_code == "404.001.03";
+    assert len(
+        [
+            c
+            for c in again.calls
+            if "stkpush" in c["url"]
+        ]
+    )
+        == 2;
+}
+
+test "Daraja's rate limit (429) is waited out once; a status query still refused changes nothing" {
+    asked = _provider(
+        FakeHttp(
+            replies=[
+                (200, "oauth_ok"),
+                (429, "rate_limited"),
+                (200, "stk_query_success")
+            ]
+        )
+    ).query(
+        "ws_CO_1"
+    );
+    assert asked.state == PaymentState.SUCCESS;
+    still = FakeHttp(
+        replies=[(200, "oauth_ok"), (429, "rate_limited"), (429, "rate_limited")]
+    );
+    waiting = _provider(still).query("ws_CO_1");
+    assert waiting.state == PaymentState.STK_REQUESTED , waiting.state;
+    assert len(
+        [
+            c
+            for c in still.calls
+            if "stkpushquery" in c["url"]
+        ]
+    )
+        == 2;
+    pushed = _provider(
+        FakeHttp(
+            replies=[(200, "oauth_ok"), (429, "rate_limited"), (200, "stk_push_ok")]
+        )
+    ).stk_push(
+        _request()
+    );
+    assert pushed.accepted;
+    refused = _provider(
+        FakeHttp(
+            replies=[(200, "oauth_ok"), (429, "rate_limited"), (429, "rate_limited")]
+        )
+    ).stk_push(
+        _request()
+    );
+    assert not refused.accepted and refused.error_code == "rate_limited";
+    assert not refused.uncertain;
 }

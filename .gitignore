@@ -16,3 +16,4 @@ e2e/artifacts/
 # Uploaded media in local development (AFRICINEMAS_MEDIA_DIR; object storage in production)
 storage/
 load/artifacts/
+sandbox/artifacts/
