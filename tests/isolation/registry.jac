@@ -420,5 +420,14 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "customer",
              "probe": {"tenant": "{tenant}", "display_name": "Probe"}
          },
-         "my_customer_profile": {"scope": "customer", "probe": {"tenant": "{tenant}"}}
+         "my_customer_profile": {"scope": "customer", "probe": {"tenant": "{tenant}"}},
+         "save_booking": {
+             "scope": "customer",
+             "probe": {
+                 "slug": "{tenant}",
+                 "token": "probetokenxxxxxxxxxxxxxxxx",
+                 "display_name": "Probe"
+             }
+         },
+         "my_tickets": {"scope": "customer", "probe": {"slug": "{tenant}"}}
      };

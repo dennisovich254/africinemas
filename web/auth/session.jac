@@ -7,14 +7,15 @@ this a copied token would keep working until the shift expired.
 The signed-in email is remembered in this browser (P3.7c) so it can be offered to the
 server when creating a cinema or accepting an invitation; the server keeps it only after
 checking it is the caller's own (core/tenancy/identity.jac). `next_path` is where to go
-after signing in: only an invitation link, never an outside address.
+after signing in: an invitation link, or a page of a cinema's storefront (P6.3b: back to
+the tickets, to save them), never an outside address.
 """
 
 import from "@jac/runtime" { jacLogin, jacSignup, jacLogout, SignupResult }
 import from core.tenancy.tenant_api { end_shift }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 
 glob EMAIL_KEY: str = "africinemas_email",
-     NEXT_PREFIX: str = "/invite/";
+     NEXT_PREFIXES: list[str] = ["/invite/", "/c/"];
 
 def:pub email_identity(email: str) -> dict[str, str] {
     return {"type": "email", "value": email.strip().lower()};
@@ -48,12 +49,15 @@ def:pub signed_in_email -> str {
 }
 
 def:pub next_path -> str {
-    # The ?next= page to return to after signing in, if it is an invitation link.
+    # The ?next= page to return to after signing in: an invitation link or a storefront
+    # page, never another site.
     win: any = window;  # jac:ignore[W1037,W2001]
     params_class: any = win.URLSearchParams;  # jac:ignore[W1037]
     query: any = new(params_class, win.location.search);  # jac:ignore[W1037]
     wanted: str = query.get("next") or "";
-    if wanted.startswith(NEXT_PREFIX) and "//" not in wanted {
+    if (wanted.startswith(NEXT_PREFIXES[0]) or wanted.startswith(NEXT_PREFIXES[1]))
+        and "//" not in wanted
+        and "\\" not in wanted {
         return wanted;
     }
     return "";

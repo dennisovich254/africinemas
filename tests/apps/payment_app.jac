@@ -16,6 +16,10 @@ import from core.booking.ticket_delivery {
     send_due
 }
 import from core.notify.mailer { OUTBOX }
+import from core.booking.customer_tickets {
+    save_booking,  # jac:ignore[W2037]
+    my_tickets  # jac:ignore[W2037]
+}
 import from core.catalog.venue_api { create_venue, create_auditorium }  # jac:ignore[W2037]
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
 import from core.catalog.movie_api { create_movie }  # jac:ignore[W2037]

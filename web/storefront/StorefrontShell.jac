@@ -398,7 +398,8 @@ def:pub StorefrontShell(
                             title="Tickets"
                             links={[
                                 ["Showtimes", f"/c/{slug}#showtimes"],
-                                ["Book tickets", f"/c/{slug}#showtimes"]
+                                ["Book tickets", f"/c/{slug}#showtimes"],
+                                ["My tickets", f"/c/{slug}/my-tickets"]
                             ]}
                         />
                         <FooterColumn

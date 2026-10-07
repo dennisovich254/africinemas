@@ -53,7 +53,9 @@ def _read_own(profile_id: str) -> CustomerProfile | None {
     return found as CustomerProfile if found is not None else None;
 }
 
-def:priv join_as_customer(tenant: str, display_name: str) -> dict[str, any] {  # jac:ignore[W1037]
+def join_customer(tenant: str, display_name: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The caller's profile at `tenant`, made if they have none (join_as_customer, and
+    # saving a booking to an account, P6.3b).
     shop = _storefront(tenant);
     if shop is None {
         return NOT_FOUND;
@@ -101,6 +103,10 @@ def:priv join_as_customer(tenant: str, display_name: str) -> dict[str, any] {  #
     }
     on_commit(lambda { make_permanent(PROFILE_CLAIMS, key, profile_id); });
     return _view(shop, profile, True);
+}
+
+def:priv join_as_customer(tenant: str, display_name: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return join_customer(tenant, display_name);
 }
 
 def:priv my_customer_profile(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
