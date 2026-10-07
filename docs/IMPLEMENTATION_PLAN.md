@@ -247,7 +247,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 
 ### Phase 6 — Tickets, scanning, box office (Week 3, days 3–4)
 
-- [ ] **6.1 Ticket issuance & QR** (§46) — **T:** the QR payload is an opaque HMAC-signed reference with no PII; a tampered signature is rejected; references are unique.
+- [ ] **6.1 Ticket issuance & QR** (§46) — **T:** the QR payload is an opaque HMAC-signed reference with no PII; a tampered signature is rejected; references are unique. **Built (ADR-0020):** references are 16 readable random characters, claimed for their ticket (the scanner's index in 6.2); the QR payload is `TKT1.<reference>.<HMAC>` with `AFRICINEMAS_TICKET_KEY`, and payments are refused without the key. The booked panel shows each ticket's QR code (`qrcode.react`), covered by the payment E2E.
 - [ ] **6.2 Redemption** (§47) — **T:** valid → USED; second scan → `ALREADY_REDEEMED`; **concurrent double-scan → exactly one success**; wrong screening/tenant/voided/refunded are rejected; only usher-capable roles may scan.
 - [ ] **6.3 Customer tickets** (view, resend via `on_commit` email) — **T:** a customer sees only their own tickets; resend is rate-limited.
 - [ ] **6.4 Web scanner page** (camera QR via an npm lib; manual entry fallback) — **T (E2E):** manual-entry redeem flow; the camera component is unit-tested with an injected decoder.

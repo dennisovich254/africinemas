@@ -18,12 +18,15 @@ glob APP: str = path.join(
          path.dirname(path.dirname(path.abspath(__file__))), "apps", "payment_app.jac"
      ),
      PAYMENTS: str = "AFRICINEMAS_PAYMENTS",
+     TICKET_KEY: str = "AFRICINEMAS_TICKET_KEY",
      FAULTS: str = "AFRICINEMAS_FAULTS",
      ANNA: str = "holder-anna-0123456789abcdef";
 
 def paying_setup -> tuple[Served, str] {  # jac:ignore[W1037]
     # A priced showtime where Anna holds A1 and A2 and has ordered them (KES 1,860: 800 + 100 evening extra + 30 fee each).
     os.environ[PAYMENTS] = "simulator";
+    # Tickets are signed (P6.1); without a key payments are refused.
+    os.environ.setdefault(TICKET_KEY, "test" * 10);
     app = served(APP, ["owner"]);
     nova = open_cinema_for(app, "owner", "nova", "Nova Cinemas");
     add_movie(app, "owner", nova, "Rafiki");
@@ -83,4 +86,23 @@ def stored_payments(app: Served, screening: str) -> list[list[str]] {
 def fresh_phone -> str {
     # A fresh number per test: the simulator scripts outcomes by number.
     return f"2547{uuid.uuid4().int % 100000000:08d}";
+}
+
+def paid(app: Served, screening: str) -> str {
+    # Anna pays, Safaricom's callback arrives and the job settles it: the order is
+    # confirmed with its tickets. Returns the payment's reference.
+    started = pay(app, screening, fresh_phone());
+    assert started["ok"] and started["payment"]["state"] == "stk_requested" , started;
+    reference = started["payment"]["reference"];
+    sent = app.call(
+        "owner",
+        "pay_callback",
+        {"slug": "nova", "screening_id": screening, "reference": reference}
+    );
+    assert sent["body"] is not None , sent;
+    app.client.set_auth_token("");
+    resp = app.client.post(f"/hooks/mpesa/{sent['token']}", json=sent["body"]);
+    assert resp.status_code == 200 , resp.text;
+    assert app.call("owner", "pay_process") == 1;
+    return reference;
 }

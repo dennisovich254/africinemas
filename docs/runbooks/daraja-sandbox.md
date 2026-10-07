@@ -22,6 +22,7 @@ DARAJA_SHORTCODE=174379
 DARAJA_PASSKEY=<passkey>
 DARAJA_TEST_PHONE=07XX XXX XXX        # your phone, for the quick check
 DARAJA_CALLBACK_BASE=https://example.invalid   # replaced in step 3
+AFRICINEMAS_TICKET_KEY=<output of: openssl rand -hex 32>   # signs ticket QR codes
 ```
 
 ## 2. Quick check: login, a push, a status query
@@ -116,4 +117,5 @@ The **Daraja sandbox** workflow then runs the quick check every night at 04:30 N
 | `500.001.1001 Unable to lock subscriber` | A prompt is already open on that phone; wait a minute and try again. |
 | Paid on the phone but the page keeps waiting | The callback can't reach you (tunnel or URL); the resolver settles it within about a minute. |
 | `Set AFRICINEMAS_PAYMENTS…` on the pay button | The server was started without `AFRICINEMAS_PAYMENTS=daraja` (use `scripts/dev_daraja.sh`). |
+| `Set AFRICINEMAS_TICKET_KEY…` on the pay button | The ticket signing key is missing or shorter than 32 characters; add it to `.env` (step 1). |
 | `Vite dev server failed to start`; the page doesn't load | An empty `.env` line blanked a shell setting (often `JAC_BUN`). Start with `scripts/dev_daraja.sh`, which skips empty lines. |
