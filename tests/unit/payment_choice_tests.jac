@@ -13,6 +13,9 @@ import from core.payments.choice {
 }
 import from core.payments.daraja { DarajaProvider }
 import from core.payments.simulator { SimulatedProvider }
+import from core.booking.ticket_codes { KEY_ENV }
+
+glob TICKET_KEY: str = "unit-test-ticket-key-0123456789abcdef";
 
 def _refused -> bool {
     try {
@@ -37,9 +40,33 @@ test "without a choice, or with an unknown one, payments are refused" {
     }
 }
 
+test "without a ticket key, payments are refused: nobody pays for no ticket (P6.1)" {
+    before = os.environ.get(PAYMENTS_ENV);
+    key_before = os.environ.pop(KEY_ENV, None);
+    os.environ[PAYMENTS_ENV] = "simulator";
+    try {
+        message = "";
+        try {
+            payment_provider();
+        } except ProviderNotConfigured as e {
+            message = str(e);
+        }
+        assert KEY_ENV in message , message;
+    } finally {
+        os.environ.pop(PAYMENTS_ENV, None);
+        if before is not None {
+            os.environ[PAYMENTS_ENV] = before;
+        }
+        if key_before is not None {
+            os.environ[KEY_ENV] = key_before;
+        }
+    }
+}
+
 test "the simulator is one instance for the whole process" {
     before = os.environ.get(PAYMENTS_ENV);
     os.environ[PAYMENTS_ENV] = "Simulator";
+    os.environ[KEY_ENV] = TICKET_KEY;
     try {
         first = payment_provider();
         assert isinstance(first, SimulatedProvider);
@@ -67,6 +94,7 @@ test "daraja needs all its settings, says which are missing, and never echoes va
             os.environ.pop(n, None);
         }
         os.environ[PAYMENTS_ENV] = "daraja";
+        os.environ[KEY_ENV] = TICKET_KEY;
         os.environ["DARAJA_CONSUMER_KEY"] = "key-SECRETISH-1";
         os.environ["DARAJA_SHORTCODE"] = "174379";
         message = "";

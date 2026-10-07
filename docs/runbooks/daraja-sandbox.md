@@ -22,6 +22,7 @@ DARAJA_SHORTCODE=174379
 DARAJA_PASSKEY=<passkey>
 DARAJA_TEST_PHONE=07XX XXX XXX        # your phone, for the quick check
 DARAJA_CALLBACK_BASE=https://example.invalid   # replaced in step 3
+AFRICINEMAS_TICKET_KEY=<output of: openssl rand -hex 32>   # signs ticket QR codes
 ```
 
 ## 2. Quick check: login, a push, a status query
@@ -62,10 +63,10 @@ It prints a URL like `https://random-words.trycloudflare.com`. Put it in `.env` 
 In a second terminal:
 
 ```bash
-cd ~/africinemas
-set -a; source .env; set +a
-AFRICINEMAS_PAYMENTS=daraja jac run --dev main.jac 2>&1 | tee ~/out.txt
+cd ~/africinemas && scripts/dev_daraja.sh 2>&1 | tee ~/out.txt
 ```
+
+It loads only the settings in `.env` that have a value. Don't `source .env` directly: its empty lines (copied from `.env.example`) would blank settings your shell already has, such as `JAC_BUN`, and the web server then fails to start ("Vite dev server failed to start").
 
 Check it's reachable through the tunnel: opening `https://<tunnel>/healthz` in a browser should answer.
 
@@ -115,4 +116,6 @@ The **Daraja sandbox** workflow then runs the quick check every night at 04:30 N
 | `Bad Request - Invalid PhoneNumber` | The number isn't a Safaricom 07…/01… number. |
 | `500.001.1001 Unable to lock subscriber` | A prompt is already open on that phone; wait a minute and try again. |
 | Paid on the phone but the page keeps waiting | The callback can't reach you (tunnel or URL); the resolver settles it within about a minute. |
-| `Set AFRICINEMAS_PAYMENTS…` on the pay button | The server was started without `AFRICINEMAS_PAYMENTS=daraja`. |
+| `Set AFRICINEMAS_PAYMENTS…` on the pay button | The server was started without `AFRICINEMAS_PAYMENTS=daraja` (use `scripts/dev_daraja.sh`). |
+| `Set AFRICINEMAS_TICKET_KEY…` on the pay button | The ticket signing key is missing or shorter than 32 characters; add it to `.env` (step 1). |
+| `Vite dev server failed to start`; the page doesn't load | An empty `.env` line blanked a shell setting (often `JAC_BUN`). Start with `scripts/dev_daraja.sh`, which skips empty lines. |

@@ -33,6 +33,8 @@ import from core.booking.models { Order, Ticket }
 import from core.payments.models { PaymentIntent, RefundTask }
 import from core.payments.choice { payment_provider }
 import from core.payments.simulator { SimulatedProvider }
+import from core.claims { claim, holder }
+import from core.booking.ticket_codes { REFS, reserve_reference }
 
 def _simulator -> SimulatedProvider {
     made = payment_provider();
@@ -228,4 +230,45 @@ def:pub pay_overview(slug: str, screening_id: str) -> dict[str, any] {  # jac:ig
         "balances": sorted(balances),
         "seats": states
     };
+}
+
+def:pub pay_ticket_codes(slug: str, screening_id: str) -> list[dict[str, str]] {
+    # Each stored ticket of the showtime: its seat, reference, QR payload, ids, and who
+    # holds its reference's claim (P6.1).
+    (cinema, screening) = _showtime(slug, screening_id);
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        found: list[dict[str, str]] = [];
+        for o in [screening-->[?:Order]] {
+            for t in [o-->[?:Ticket]] {
+                found.append(
+                    {
+                        "seat_label": t.seat_label,
+                        "reference": t.reference,
+                        "qr": t.qr,
+                        "ticket_id": node_id(t),
+                        "tenant_id": t.tenant_id
+                    }
+                );
+            }
+        }
+    } finally {
+        restore(me);
+    }
+    for f in found {
+        f["claimed_by"] = holder(REFS, f["reference"]) or "";
+    }
+    return sorted(
+        found, key=lambda (f: dict[str, str]) -> str { return f["seat_label"]; }
+    );
+}
+
+def:pub pay_reserve_collision(taken: str, fresh: str) -> list[str] {
+    # Someone holds `taken`; reserving draws it first, then `fresh`. Returns the
+    # reference reserved and who holds each (P6.1).
+    claim(REFS, taken, "someone-else");
+    drawn = iter([taken, fresh]);
+    got = reserve_reference("me", 60, lambda -> str { return next(drawn); });
+    return [got, holder(REFS, taken) or "", holder(REFS, fresh) or ""];
 }

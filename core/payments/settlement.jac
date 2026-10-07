@@ -26,10 +26,16 @@ waiting for the job.
 import os;
 import re;
 import json;
-import secrets;
 import from http { HTTPMethod }
 import from core.clock { now }
-import from core.claims { claim, release, renew, claims_in, holder as claim_holder }
+import from core.claims {
+    claim,
+    release,
+    renew,
+    make_permanent,
+    claims_in,
+    holder as claim_holder
+}
 import from core.tenancy.models { Tenant }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.principal {
@@ -38,12 +44,14 @@ import from core.tenancy.principal {
     restore,
     commit_now,
     fresh_node_id,
+    assign_id,
     system_root_id
 }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.models { Screening, SeatSlot }
 import from core.catalog.venues { find_screening, slots_of }
 import from core.booking.models { Order, SeatHold, Ticket }
+import from core.booking.ticket_codes { REFS, reserve_reference, qr_payload }
 import from core.booking.availability { SeatState }
 import from core.booking.hold_api { showtime_on_sale, check_holder }
 import from core.payments.models { PaymentIntent, RefundTask }
@@ -232,6 +240,16 @@ def _finalize(
         if screening is not None
         else [];
     stamp = now().isoformat();
+    # Each ticket's id and reference first: the reference is claimed for its ticket
+    # (provisionally, until the commit) and signed into the QR (P6.1).
+    tenant_id = node_id(cinema);
+    codes: list[list[str]] = [];
+    for _ in order.lines {
+        ticket_id = fresh_node_id();
+        owner = f"{tenant_id}|{ticket_id}";
+        reference = reserve_reference(owner, PROVISIONAL_SECONDS);
+        codes.append([ticket_id, owner, reference, qr_payload(reference)]);
+    }
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -255,23 +273,28 @@ def _finalize(
         record_entry(
             cinema, order, node_id(intent), "payment", paid, receipt, "M-Pesa"
         );
-        for line in order.lines {
+        for (line, code) in zip(order.lines, codes) {
             ticket = Ticket(
-                tenant_id=node_id(cinema),
+                tenant_id=tenant_id,
                 order_id=node_id(order),
                 screening_id=intent.screening_id,
                 seat_label=str(line["seat_label"]),
                 ticket_type=str(line["ticket_type"]),
                 ticket_name=str(line.get("ticket_name", "")),
-                reference=secrets.token_hex(5).upper(),
+                reference=code[2],
+                qr=code[3],
                 issued_at=stamp
             );
+            assign_id(ticket, code[0]);
             order ++> ticket;
             attach_to_tenant(ticket, cinema);
         }
         commit_now();
     } finally {
         restore(me);
+    }
+    for code in codes {
+        make_permanent(REFS, code[2], code[1]);
     }
 }
 
@@ -422,6 +445,7 @@ def _tickets(cinema: Tenant, order: Order) -> list[dict[str, str]] {
                 "seat_label": t.seat_label,
                 "ticket_name": t.ticket_name,
                 "reference": t.reference,
+                "qr": t.qr,
                 "status": t.status
             } for t in [order-->[?:Ticket]]
         ];

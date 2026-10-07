@@ -4,7 +4,7 @@ The e2e server runs the simulator, and the resolver settles payments every 2 sec
 (scripts/e2e.sh). After placing an order the visitor enters their M-Pesa number (a tel
 keypad, checked inline), pays, is told to check their phone, and sees their tickets
 once the payment settles, also after a reload. A failed payment says so and lets them
-try again. Review screenshots of each step.
+try again. Each ticket shows its QR code (P6.1). Review screenshots of each step.
 """
 
 import from e2e.support.web {
@@ -16,9 +16,28 @@ import from e2e.support.web {
     artifact
 }
 import from e2e.support.catalog { cinema_selling_tickets }
+import from core.booking.ticket_codes { read_qr }
 
 glob PHONE: str = '#mpesa-phone',
      SETTLE_MS: int = 30000;
+
+def _check_qr_codes(page: any) {  # jac:ignore[W1037]
+    # Each ticket shows a QR code (P6.1): big enough to scan, named for screen
+    # readers, holding a payload this server signed for the reference shown under it.
+    codes = page.locator('[data-testid="ticket-qr"]');
+    assert codes.count() == 2;
+    for i in range(2) {
+        code = codes.nth(i);
+        box = code.bounding_box();
+        assert box is not None and box["width"] >= 180 , box;
+        assert code.get_attribute("role") == "img";
+        reference = page.locator('[data-testid="ticket-reference"]').nth(
+            i
+        ).inner_text();
+        assert reference in (code.get_attribute("aria-label") or "");
+        assert read_qr(code.get_attribute("data-payload") or "") == reference;
+    }
+}
 
 def _seat(label: str) -> str {
     return f'[data-testid="seat"][data-seat="{label}"]';
@@ -72,6 +91,7 @@ test "pay with M-Pesa: check your phone, then the tickets, also after a reload" 
             assert page.locator('[data-testid="ticket"]').count() == 2;
             first = page.inner_text('[data-testid="ticket"] >> nth=0');
             assert "Seat A1" in first , first;
+            _check_qr_codes(page);
             page.reload();
             page.wait_for_selector('[data-testid="booked"]');
             assert page.locator('[data-testid="ticket"]').count() == 2;

@@ -5,6 +5,8 @@ Safaricom, with the DARAJA_* settings; DARAJA_BASE_URL defaults to the sandbox).
 There is no default: a server that doesn't say refuses to take payments rather than
 quietly faking them (a forgotten setting must never mean free tickets), and "daraja"
 with a setting missing is refused too, naming the missing settings, never their values.
+Without a ticket signing key (AFRICINEMAS_TICKET_KEY, P6.1) payments are refused as well,
+so nobody pays for tickets the server can't issue.
 Each provider is one instance per process: the simulator's pushes and the Daraja login
 token are shared by every request.
 """
@@ -13,6 +15,7 @@ import os;
 import from core.payments.provider { PaymentProvider }
 import from core.payments.simulator { SimulatedProvider }
 import from core.payments.daraja { DarajaConfig, DarajaProvider, SANDBOX_URL }
+import from core.booking.ticket_codes { ticket_key, TicketKeyMissing }
 
 glob PAYMENTS_ENV: str = "AFRICINEMAS_PAYMENTS",
      DARAJA_SETTINGS: list[str] = [
@@ -55,6 +58,13 @@ def payment_provider -> PaymentProvider {
         raise ProviderNotConfigured(
             f"Set {PAYMENTS_ENV} to choose a payment provider ('simulator' or 'daraja')."
         );
+    }
+    try {
+        # A paid order gets signed tickets (P6.1): no key, no payments, so nobody pays
+        # for tickets the server can't issue.
+        ticket_key();
+    } except TicketKeyMissing as e {
+        raise ProviderNotConfigured(str(e)) from e;
     }
     if mode not in _MADE {
         _MADE[mode] = SimulatedProvider() if mode == "simulator" else _daraja();

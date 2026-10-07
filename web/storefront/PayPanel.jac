@@ -9,6 +9,8 @@ key). The visitor's PIN never touches the app (architecture §39).
 """
 
 import from react { useState, useEffect }
+# The checker reads the dot as a module separator (docs/jac-issues/JI-039).
+import from "qrcode.react" { QRCodeSVG }  # jac:ignore[W1101]
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
@@ -22,8 +24,48 @@ glob WAITING: list[str] = ["created", "stk_requested", "timeout", "unknown"],
      RETRYABLE: list[str] = ["failed", "cancelled"],
      POLL_MS: int = 3000;
 
+def:pub TicketCard(ticket: dict[str, str]) -> JsxElement {
+    # One ticket: its seat, the QR code the door scans (P6.1) and the reference under
+    # it, for reading out or typing in when a scan fails. The code is always dark on a
+    # white tile with a margin, in either theme, so scanners read it. A ticket issued
+    # before 6.1 has no QR and shows its reference only.
+    qr: str = ticket["qr"] or "";
+    return
+        <li
+            data-testid="ticket"
+            className="flex flex-col items-center gap-3 rounded-lg border p-4"
+        >
+            <p className="self-start font-medium">
+                {f"Seat {ticket['seat_label']} · {ticket['ticket_name']}"}
+            </p>
+            {len(qr) > 0
+                and <div className="rounded-md bg-white p-2">
+                    <QRCodeSVG  # jac:ignore[W1051]
+                        value={qr}
+                        size={192}
+                        level="M"
+                        marginSize={2}
+                        bgColor="#FFFFFF"
+                        fgColor="#000000"
+                        role="img"
+                        aria-label={f"QR code for seat {ticket['seat_label']}, ticket {ticket[
+                            'reference'
+                        ]}"}
+                        data-testid="ticket-qr"
+                        data-payload={qr}
+                    />
+                </div>}
+            <p
+                className="font-mono text-base tracking-wider"
+                data-testid="ticket-reference"
+            >
+                {ticket["reference"]}
+            </p>
+        </li>;
+}
+
 def:pub Tickets(payment: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
-    # A paid order's tickets: one per seat, with its reference.
+    # A paid order's tickets: one card per seat, with its QR code and reference.
     tickets: list[dict[str, str]] = payment["tickets"];
     return
         <section
@@ -38,24 +80,11 @@ def:pub Tickets(payment: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 <p className="text-sm text-muted-foreground">
                     {f"Paid {money(
                         payment['amount_cents'], payment['currency']
-                    )} with M-Pesa. Show your ticket references at the cinema."}
+                    )} with M-Pesa. Show each ticket's QR code at the door."}
                 </p>
             </div>
-            <ul className="flex flex-col divide-y">
-                {[
-                    <li
-                        key={t["reference"]}
-                        data-testid="ticket"
-                        className="flex flex-wrap items-center justify-between gap-2 py-3"
-                    >
-                        <span className="font-medium">
-                            {f"Seat {t['seat_label']} · {t['ticket_name']}"}
-                        </span>
-                        <span className="font-mono text-sm tracking-wide">
-                            {t["reference"]}
-                        </span>
-                    </li> for t in tickets
-                ]}
+            <ul className="grid gap-3 sm:grid-cols-2">
+                {[<TicketCard key={t["reference"]} ticket={t}/> for t in tickets]}
             </ul>
         </section>;
 }
