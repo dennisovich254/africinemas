@@ -212,6 +212,9 @@ test "review screenshots of paying" {
                     path=artifact(f"tickets-page-{project}-{scheme}.png"),
                     full_page=True
                 );
+                # Cancel closes the form without sending.
+                _press(page, project, '[data-testid="resend-cancel"]');
+                page.wait_for_selector('#resend-email', state="detached");
                 page.context.close();
             }
         }
