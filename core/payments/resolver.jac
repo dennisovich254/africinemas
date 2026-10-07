@@ -18,6 +18,9 @@ A scheduled job (resolve_payments) makes sure nothing waits forever:
    (PAYMENT_PENDING never sticks).
 
 Every step is safe to repeat, so the job runs on every server copy (ADR-0005).
+
+end_my_order (public) does step 2 at once for the visitor's own overdue order, so the
+checkout page can offer their seats again without waiting for the job.
 """
 
 import os;
@@ -31,7 +34,9 @@ import from core.catalog.venues { find_screening, slots_of }
 import from core.booking.models { Order, SeatHold }
 import from core.booking.availability { SeatState }
 import from core.booking.hold_api { seat_namespace }
-import from core.booking.order_api { OPEN_ORDERS, ORDER_HOLDS }
+import from core.booking.order_api { OPEN_ORDERS, ORDER_HOLDS, pending_order }
+import from core.booking.hold_api { showtime_on_sale, check_holder }
+import from core.catalog.answers { Refused, answer }
 import from core.payments.models { PaymentIntent }
 import from core.payments.state { PaymentState, transition, is_final }
 import from core.payments.provider { PaymentProvider }
@@ -245,4 +250,48 @@ def resolve -> dict[str, int] {
 def resolve_payments {
     # Runs as Jac's system identity on every server copy; every step is repeatable.
     resolve();
+}
+
+def _end_my_order(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The visitor's own order whose time to pay is up, ended now rather than at the
+    # job's next run, so its seats can be chosen again at once. A payment that went
+    # through still wins (the same last chance as the job). state: "expired",
+    # "confirmed" (it was paid after all) or "none" (no order waiting).
+    (cinema, screening) = showtime_on_sale(slug, screening_id);
+    check_holder(holder);
+    order = pending_order(cinema, screening, holder);
+    if order is None {
+        return {"ok": True, "state": "none"};
+    }
+    if _payable(order) {
+        raise Refused("order_open", "You still have time to pay for this order.");
+    }
+    provider: PaymentProvider | None = None;
+    try {
+        provider = payment_provider();
+    } except ProviderNotConfigured {
+        provider = None;
+    }
+    if provider is not None {
+        for p in _intents_of(cinema, order as Order) {
+            if not is_final(PaymentState(p.state)) and p.checkout_request_id {
+                settle(cinema, p, provider as PaymentProvider);
+            }
+        }
+    }
+    order_id = node_id(order);
+    fresh = _order(cinema, order_id);
+    if fresh is None {
+        return {"ok": True, "state": "none"};
+    }
+    if fresh.status == "pending_payment" {
+        expire_order(cinema, fresh as Order);
+        release(OPEN_ORDERS, order_id, node_id(cinema));
+        return {"ok": True, "state": "expired"};
+    }
+    return {"ok": True, "state": fresh.status};
+}
+
+def:pub end_my_order(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _end_my_order(slug, screening_id, holder); });  # jac:ignore[W1037]
 }

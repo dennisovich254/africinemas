@@ -9,6 +9,13 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 mkdir -p e2e/artifacts
 
+# Payments in the browser tests (plan P5.6): the simulated M-Pesa (its test numbers fail,
+# cancel or time out; any other number pays), and the resolver settling every 2 seconds
+# with no wait, since the simulator sends no callbacks.
+export AFRICINEMAS_PAYMENTS="${AFRICINEMAS_PAYMENTS:-simulator}"
+export AFRICINEMAS_STUCK_SECONDS="${AFRICINEMAS_STUCK_SECONDS:-0}"
+export AFRICINEMAS_RESOLVE_SECONDS="${AFRICINEMAS_RESOLVE_SECONDS:-2}"
+
 server_pid=""
 cleanup() {
     if [[ -n "$server_pid" ]]; then

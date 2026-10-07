@@ -363,6 +363,14 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "idempotency_key": "probe-key-xxxxxxxxxxxxxxxx"
              }
          },
+         "end_my_order": {
+             "scope": "storefront",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
          "my_payment": {
              "scope": "storefront",
              "probe": {

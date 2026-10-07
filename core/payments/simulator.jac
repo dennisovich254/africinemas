@@ -1,6 +1,8 @@
 """A simulated M-Pesa (P5.1; ADR-0015): the PaymentProvider for tests and demos.
 
-Each push's outcome is scripted by phone number (`outcomes`), else `default_outcome`:
+Each push's outcome is scripted by phone number (`outcomes`), else by the test numbers
+below (like Safaricom's sandbox test numbers, for demos and browser tests), else
+`default_outcome`:
 
 - "success": paid; the callback and the query carry a receipt.
 - "fail": insufficient funds (ResultCode 1).
@@ -9,6 +11,9 @@ Each push's outcome is scripted by phone number (`outcomes`), else `default_outc
 - "late_success": no callback and the query says "still waiting", until pay_late();
   then both say paid.
 - "reject": Daraja refuses the push itself.
+
+Test numbers: 0700 000 001 fails, 0700 000 002 is cancelled, 0700 000 003 times out,
+0700 000 004 is refused; any other number pays.
 
 callback() is what Safaricom would POST to our callback URL (None while nothing has
 been sent); query() is the status query. push_count() lets tests prove how many STK
@@ -25,12 +30,13 @@ import from core.payments.provider {
     state_for_result
 }
 
-glob CODES: dict[str, int] = {
-         "success": 0,
-         "fail": 1,
-         "cancel": 1032,
-         "timeout": 1037
+glob TEST_NUMBERS: dict[str, str] = {
+         "254700000001": "fail",
+         "254700000002": "cancel",
+         "254700000003": "timeout",
+         "254700000004": "reject"
      },
+     CODES: dict[str, int] = {"success": 0, "fail": 1, "cancel": 1032, "timeout": 1037},
      TEXTS: dict[str, str] = {
          "success": "The service request is processed successfully.",
          "fail": "The balance is insufficient for the transaction.",
@@ -57,7 +63,9 @@ obj SimulatedProvider(PaymentProvider) {
                 accepted=False, error_code="invalid_request", message=problem
             );
         }
-        outcome = self.outcomes.get(request.phone, self.default_outcome);
+        outcome = self.outcomes.get(
+            request.phone, TEST_NUMBERS.get(request.phone, self.default_outcome)
+        );
         if outcome == "reject" {
             return StkPushResult(
                 accepted=False,

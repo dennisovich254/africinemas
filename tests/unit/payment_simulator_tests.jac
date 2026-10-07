@@ -117,3 +117,18 @@ test "bad pushes are refused before they reach M-Pesa" {
     assert sim.push_count("ord-9") == 0;
     assert sim.query("ws_CO_unknown").state == PaymentState.UNKNOWN;
 }
+
+test "the test numbers script outcomes for demos and browser tests" {
+    sim = SimulatedProvider();
+    for (number, state) in [
+        ("254700000001", PaymentState.FAILED),
+        ("254700000002", PaymentState.CANCELLED),
+        ("254712345678", PaymentState.SUCCESS)
+    ] {
+        pushed = sim.stk_push(_request(f"ord-{number}", phone=number));
+        assert sim.query(pushed.checkout_request_id).state == state , number;
+    }
+    timed_out = sim.stk_push(_request("ord-t", phone="254700000003"));
+    assert sim.callback(timed_out.checkout_request_id) is None;
+    assert not sim.stk_push(_request("ord-r", phone="254700000004")).accepted;
+}
