@@ -48,6 +48,7 @@ import from core.catalog.venues {
     layouts_of,
     version_key
 }
+import from core.audit.log { audited }
 
 glob READ: str = "seats.read",
      CONFIGURE: str = "seats.configure",
@@ -284,7 +285,7 @@ def _get_layout(tenant: str, layout_id: str) -> dict[str, any] {  # jac:ignore[W
     return {"ok": True, "layout": _view(layout)};
 }
 
-def:priv save_layout(
+def _do_save_layout(
     tenant: str,
     auditorium_id: str,
     rows: int,
@@ -296,7 +297,7 @@ def:priv save_layout(
     );
 }
 
-def:priv publish_layout(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_publish_layout(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _publish_layout(tenant, auditorium_id); });  # jac:ignore[W1037]
 }
 
@@ -306,4 +307,32 @@ def:priv list_layouts(tenant: str, auditorium_id: str) -> dict[str, any] {  # ja
 
 def:priv get_layout(tenant: str, layout_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_layout(tenant, layout_id); });  # jac:ignore[W1037]
+}
+
+def:priv save_layout(
+    tenant: str,
+    auditorium_id: str,
+    rows: int,
+    cols: int,
+    seats: list[any]  # jac:ignore[W1037]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "layout.saved",
+        "screen",
+        auditorium_id,
+        lambda -> any { return _do_save_layout(
+            tenant, auditorium_id, rows, cols, seats
+        ); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv publish_layout(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "layout.published",
+        "screen",
+        auditorium_id,
+        lambda -> any { return _do_publish_layout(tenant, auditorium_id); }  # jac:ignore[W1037]
+    );
 }

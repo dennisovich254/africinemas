@@ -12,14 +12,29 @@ Rules (ADR-0003):
 - Never `Jac.commit()` inside a request: it COMMITs the transaction midway, so a
   replay (read-tier upgrade or write conflict) would leave half the work applied.
   `flush_now` writes into the same open transaction instead.
+- The read tier is off (`JAC_DB_RO_UNITS=0`, set here, for every app that imports this
+  module). With it on, an endpoint the process hasn't seen write for 5 minutes runs
+  read-only, and its first write re-runs the whole request: after a `commit_now`, that
+  repeats work already committed (a sale or a scan done twice, JI-042).
 """
 
+import os;
 import secrets;
 import from uuid { UUID, uuid4 }
 import from jaclang { JacRuntime as Jac }
 import from jaclang.runtime.exceptions { WriteConflict }
 
 glob PRINCIPAL_PREFIX: str = "svc-tenant-";
+
+def _read_tier_off -> bool {
+    # Every request at SERIALIZABLE from its start: no read-only tier to upgrade from
+    # by re-running a request that already committed part of its work (JI-042). The
+    # runtime reads it per request, so setting it at import is enough.
+    os.environ["JAC_DB_RO_UNITS"] = "0";
+    return True;
+}
+
+glob READ_TIER_OFF: bool = _read_tier_off();
 
 obj Principal {
     has user_id: str,

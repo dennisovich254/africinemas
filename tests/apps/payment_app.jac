@@ -8,7 +8,14 @@ AFRICINEMAS_PAYMENTS=simulator.
 
 import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
 import from core.tenancy.tenant_api { start_shift }  # jac:ignore[W2037]
-import from core.tenancy.staff_api { invite_staff, accept_invite }  # jac:ignore[W2037]
+import from core.tenancy.staff_api {
+    invite_staff,  # jac:ignore[W2037]
+    accept_invite,  # jac:ignore[W2037]
+    change_staff_roles  # jac:ignore[W2037]
+}
+import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
+import from core.audit.models { AuditEvent }
+import from jaclang { JacRuntime as Jac }
 import from core.booking.redeem_api {
     redeem_ticket,  # jac:ignore[W2037]
     door_showtimes  # jac:ignore[W2037]
@@ -389,4 +396,21 @@ def:pub bo_ledger(slug: str, screening_id: str) -> list[list[any]] {  # jac:igno
         restore(me);
     }
     return found;
+}
+
+
+def:priv audit_try_delete(event_id: str) -> str {
+    # The caller (the cinema's owner) deletes the audit event `event_id` directly in the
+    # graph, as their own root (P7.2): "denied" if refused, "kept" if it survived.
+    try {
+        found: any = jobj(event_id);  # jac:ignore[W1037]
+        if not isinstance(found, AuditEvent) {
+            return "denied";
+        }
+        Jac.destroy([found]);
+        commit_now();
+    } except Exception {
+        return "denied";
+    }
+    return "kept" if isinstance(jobj(event_id), AuditEvent) else "deleted";
 }

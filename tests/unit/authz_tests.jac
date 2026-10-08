@@ -27,7 +27,8 @@ glob READS: set[str] = {
          "bookings.read",
          "payments.read",
          "financial_reports.read",
-         "employees.read"
+         "employees.read",
+         "audit.read"
      },
      MATRIX: dict[str, set[str]] = {
          "owner": set(PERMISSIONS),

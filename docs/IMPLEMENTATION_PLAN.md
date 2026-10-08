@@ -256,7 +256,7 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 ### Phase 7 — Owner dashboard & audit (Week 3, day 5)
 
 - [x] **7.1 Reporting aggregates** (§76, §77) — **T:** against a fixture graph with known numbers: revenue, tickets sold, occupancy %, top movies, per-venue drill-down; refunds are subtracted. **Built (ADR-0026):** `sales_report` counts money on the cinema's local day it was taken (gross, refunds, net; M-Pesa and cash; online and counter) and tickets on the day of the showtime (sold, scanned, occupancy, average price), with the drill-down venue, screen, movie, showtime; owners, general managers, finance managers and auditors may read it. An M-Pesa sale at the counter is now recorded as the agent's.
-- [ ] **7.2 Audit log** (§66, §67) — **T:** every sensitive endpoint emits exactly one `AuditEvent` (a registry-driven meta-test); owners can read but not delete audit events.
+- [x] **7.2 Audit log** (§66, §67) — **T:** every sensitive endpoint emits exactly one `AuditEvent` (a registry-driven meta-test); owners can read but not delete audit events. **Built (ADR-0027):** 43 staff endpoints answer through `audited`, one event each (refused attempts too, with their code), only for the cinema's own staff; `audit_log` for owners and auditors (`audit.read`); events are granted READ, never WRITE, and nothing deletes them. Each registry entry says what it audits.
 - [ ] **7.3 Dashboard UI** (charts) — **T (E2E, mobile + desktop):** after a seeded sale the dashboard shows the matching totals. On mobile, KPI tiles stack and charts stay legible.
 
 ### Phase 8 — AI features with `by llm` (Gemini) (Week 4, days 1–2)

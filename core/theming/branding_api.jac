@@ -36,6 +36,7 @@ import from core.theming.tokens {
 import from core.theming.css { theme_css, FONT_STACKS, RADIUS_REM }
 import from core.theming.branding { PRESETS, parse_theme, repair_reporting }
 import from core.theming.models { Branding, ThemeVersion }
+import from core.audit.log { audited }
 
 glob CONFIGURE: str = "tenant.settings.update";
 
@@ -266,11 +267,11 @@ def:priv get_branding(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_branding(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv save_theme(tenant: str, theme: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_save_theme(tenant: str, theme: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _save_theme(tenant, theme); });  # jac:ignore[W1037]
 }
 
-def:priv upload_logo(
+def _do_upload_logo(
     tenant: str, content_type: str, data_base64: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
@@ -278,15 +279,15 @@ def:priv upload_logo(
     );
 }
 
-def:priv remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _remove_logo(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv publish_theme(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_publish_theme(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _publish_theme(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _rollback_theme(tenant, version); });  # jac:ignore[W1037]
 }
 
@@ -310,4 +311,57 @@ def:pub public_branding(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
             "logo": _data_url(logo)
         }
     };
+}
+
+def:priv save_theme(tenant: str, theme: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "theme.saved",
+        "theme",
+        "",
+        lambda -> any { return _do_save_theme(tenant, theme); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv upload_logo(
+    tenant: str, content_type: str, data_base64: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "theme.logo_uploaded",
+        "theme",
+        "",
+        lambda -> any { return _do_upload_logo(tenant, content_type, data_base64); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "theme.logo_removed",
+        "theme",
+        "",
+        lambda -> any { return _do_remove_logo(tenant); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv publish_theme(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "theme.published",
+        "theme",
+        "",
+        lambda -> any { return _do_publish_theme(tenant); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "theme.rolled_back",
+        "theme",
+        "",
+        lambda -> any { return _do_rollback_theme(tenant, version); },
+        detail=f"to version {version}"  # jac:ignore[W1037]
+    );
 }
