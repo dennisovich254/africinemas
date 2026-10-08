@@ -45,6 +45,8 @@ import from .ScannerSection { ScannerSection }
 import from .BoxOfficeSection { BoxOfficeSection }
 import from .PricesSection { PricesSection }
 import from .StaffSection { StaffSection }
+import from .ReportsSection { ReportsSection, TodayAtAGlance }
+import from .AuditSection { AuditSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
@@ -91,9 +93,16 @@ def role_keys(assignments: list[dict[str, any]]) -> list[str] {  # jac:ignore[W1
     return keys;
 }
 
-def Overview(access: dict[str, any], shift_open: bool) -> JsxElement {  # jac:ignore[W1037]
+def Overview(
+    access: dict[str, any],  # jac:ignore[W1037]
+    shift_open: bool,
+    slug: str,
+    reports: bool
+) -> JsxElement {
+    # reports: the member reads financial reports, so today's figures lead (P7.3).
     return
         <div className="flex flex-col gap-6">
+            {reports and <TodayAtAGlance slug={slug} shift_open={shift_open}/>}
             {shift_open
                 and <p
                     data-testid="shift-status"
@@ -309,7 +318,12 @@ def:pub BackOffice -> JsxElement {
     if not allowed {
         content = <NoAccess slug={slug}/>;
     } elif section == "" {
-        content = <Overview access={me} shift_open={shift_open}/>;
+        content = <Overview
+            access={me}
+            shift_open={shift_open}
+            slug={slug}
+            reports={"financial_reports.read" in permissions}
+        />;
     } elif auditorium_id {
         # key: a different screen gets a fresh designer, never the last one's grid.
         content = <SeatDesigner
@@ -337,6 +351,10 @@ def:pub BackOffice -> JsxElement {
         content = <PricesSection slug={slug}/>;
     } elif section == "staff" {
         content = <StaffSection slug={slug} permissions={permissions}/>;
+    } elif section == "reports" {
+        content = <ReportsSection slug={slug} shift_open={shift_open}/>;
+    } elif section == "audit" {
+        content = <AuditSection slug={slug} shift_open={shift_open}/>;
     } elif section == "settings" {
         content = <SettingsPage
             slug={slug}

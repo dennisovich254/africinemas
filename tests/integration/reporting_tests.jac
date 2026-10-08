@@ -139,6 +139,17 @@ test "the report matches the day's sales: online and counter, M-Pesa and cash" {
         today = _report(app, "owner", "", 0, 0)["report"];
         assert today["takings"]["net_cents"] == 5 * TICKET;
         assert today["attendance"]["showtimes"] == 0;
+        # No dates: today where the cinema is, and the answer names that day.
+        plain = app.call(
+            "owner",
+            "sales_report",
+            {"tenant": "nova", "date_from": "", "date_to": "", "venue_id": ""}
+        );
+        assert plain["ok"] , plain;
+        assert plain["today"] == _days(0, 0)["date_from"];
+        assert plain["currency"] == "KES";
+        assert plain["report"]["first"] == plain["today"] == plain["report"]["last"];
+        assert plain["report"]["takings"] == today["takings"];
     } finally {
         app.close();
     }

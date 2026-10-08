@@ -171,6 +171,7 @@ test "owners and auditors read the log a page at a time; agents and outsiders ca
         assert len(all_events) >= 5;
         stamps = [e["at"] for e in all_events];
         assert stamps == sorted(stamps, reverse=True) , "newest first";
+        assert _log(app, "owner")["timezone"] == "Africa/Nairobi";
         read = _log(app, "auditor");
         assert read["ok"] and read["events"] == all_events , read;
         assert code_of(_log(app, "agent")) == "forbidden";

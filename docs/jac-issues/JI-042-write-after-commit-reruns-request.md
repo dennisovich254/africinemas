@@ -21,5 +21,8 @@ So a request starts on a read-only snapshot. After `commit()` inside the unit, t
 - **Rule for this app:** in an endpoint that commits part-way (`commit_now()`), don't make a graph write after the commit.
 - **Tried and dropped:** turning the read tier off (`JAC_DB_RO_UNITS=0`). It removed the re-run, but then every read ran at SERIALIZABLE, and concurrent requests failed with Postgres serialization errors on reads, which Jac answers as 500s in function endpoints (JI-031). Writing the audit event before the work didn't help either: the cash sale was still re-run.
 
+## Checked: the M-Pesa start path
+`_start_payment` (`core/payments/payment_api.jac`) writes the graph after its commit (the push result, `ensure_pushed`). That is safe in practice: Jac keeps writer marks in a per-process table (`_unit_writers`, `jaclang/server/session.jac`), and an expired mark is removed, so "the first payment after a quiet spell" is the same state as "the first payment in a fresh app". Every payment test file starts a fresh app and its first payment passes, so that path is covered. Why the cash sale differed (its first write before the commit did not record it as a writer) is not established.
+
 ## Suggested fix
 For the Jac team: once a unit has committed (`commit()`), don't re-run it on a later write; begin the next transaction at SERIALIZABLE instead (the unit is evidently a writer). Or refuse the write with a clear error, rather than replaying work that can't be rolled back.

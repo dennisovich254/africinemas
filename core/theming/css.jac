@@ -159,6 +159,19 @@ glob BACKOFFICE_THEME: Theme = Theme(
 }
 """;
 
+# The back office's chart marks (the dashboard, P7.3): one series, in the action colour's
+# hue, checked with the dataviz palette validator against the card surface (contrast
+# >= 3:1, lightness in the mode's band). Dark uses a deeper brass than the actions
+# (#E7B03A is too light for a filled mark on #1D1813).
+glob CHART_RULES: str = """[data-surface="backoffice"] {
+  --chart-bar: #3F35C4;
+}
+
+.dark [data-surface="backoffice"] {
+  --chart-bar: #B8892A;
+}
+""";
+
 def platform_stylesheet -> str {
     header = "/* GENERATED from core/theming (tokens.jac + css.jac) by scripts/gen_brand_css.jac.\n   Do not edit by hand: change the tokens and regenerate. */\n\n";
     return (
@@ -168,5 +181,7 @@ def platform_stylesheet -> str {
         + theme_css(DEFAULT_THEME, "storefront")
         + "\n"
         + theme_css(BACKOFFICE_THEME, "backoffice")
+        + "\n"
+        + CHART_RULES
     );
 }

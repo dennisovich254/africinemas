@@ -130,6 +130,8 @@ default = "server"
 "core.booking.customer_tickets" = "server"
 "core.booking.redeem_api" = "server"
 "core.booking.counter_api" = "server"
+"core.reporting.report_api" = "server"
+"core.audit.audit_api" = "server"
 # Every web module is browser code, including pure helpers such as web.backoffice.nav
 # (under default = "server" a pure def:pub would otherwise become a server endpoint).
 "web.*" = "client"
