@@ -85,6 +85,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-jac
+      - name: Start the embedded Postgres (a fresh runner's first start is slow)
+        run: scripts/warm_postgres.sh
       - name: Test suite, shard ${{ matrix.shard }} of 3 (strict, one worker; see scripts/test.sh)
         run: scripts/shard.sh test ${{ matrix.shard }} 3 -v
 
@@ -174,6 +176,8 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('jac.toml') }}
       - name: Install headless Chromium and its system libraries
         run: .jac/venv/bin/python -m playwright install --with-deps chromium-headless-shell
+      - name: Start the embedded Postgres (a fresh runner's first start is slow)
+        run: scripts/warm_postgres.sh
       - name: Browser tests, shard ${{ matrix.shard }} of 2 (phone + desktop, light + dark)
         run: scripts/shard.sh e2e ${{ matrix.shard }} 2 -v
       - name: Upload screenshots and server log
