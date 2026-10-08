@@ -15,7 +15,7 @@ import from e2e.support.web {
     context_options,
     artifact
 }
-import from e2e.support.api { add_staff, PASSWORD }
+import from e2e.support.api { add_staff, call, PASSWORD }
 import from e2e.support.catalog { cinema_selling_tickets }
 
 glob SETTLE_MS: int = 30000;
@@ -38,6 +38,8 @@ def _agent_at_counter(page: any, project: str) -> dict[str, str] {  # jac:ignore
     # showtime chosen and A1 and A2 ordered (KES 1,660). Returns the owner.
     owner = cinema_selling_tickets();
     agent = add_staff(owner, "box_office_agent", owner["venue"]);
+    # Staff work on shift (ADR-0006): the agent starts theirs, as at the start of work.
+    assert call(agent["token"], "start_shift", {"tenant": owner["slug"]})["ok"];
     page.goto(BASE_URL + "/login");
     _type(page, "#email", agent["email"]);
     _type(page, "#password", PASSWORD);

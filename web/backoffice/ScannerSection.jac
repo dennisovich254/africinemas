@@ -266,7 +266,8 @@ def Camera(on_code: any, screening_id: str) -> JsxElement {  # jac:ignore[W1037]
         </div>;
 }
 
-def:pub ScannerSection(slug: str) -> JsxElement {
+def:pub ScannerSection(slug: str, shift_open: bool = True) -> JsxElement {
+    # shift_open: reload once the member starts their shift (the server refuses without).
     [door, set_door] = useState(None);
     [chosen, set_chosen] = useState("");
     [result, set_result] = useState(None);
@@ -298,7 +299,7 @@ def:pub ScannerSection(slug: str) -> JsxElement {
         load();
         return lambda {};
     }
-    useEffect(start_loading, [slug]);
+    useEffect(start_loading, [slug, shift_open]);
 
     async def check(code: str, from_camera: bool) {
         text = code.strip();

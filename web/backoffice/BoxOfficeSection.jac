@@ -315,7 +315,8 @@ def CounterDone(payment: dict[str, any], on_new_sale: any) -> JsxElement {  # ja
         </section>;
 }
 
-def:pub BoxOfficeSection(slug: str) -> JsxElement {
+def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
+    # shift_open: reload once the member starts their shift (the server refuses without).
     [page, set_page] = useState(None);
     [chosen, set_chosen] = useState("");
     [holder, set_holder] = useState(_counter_holder());
@@ -338,7 +339,7 @@ def:pub BoxOfficeSection(slug: str) -> JsxElement {
         load();
         return lambda {};
     }
-    useEffect(start_loading, [slug]);
+    useEffect(start_loading, [slug, shift_open]);
 
     def new_sale {
         set_holder(_counter_holder());
