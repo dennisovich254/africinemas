@@ -118,8 +118,9 @@ def paid(app: Served, screening: str) -> str {
     return reference;
 }
 
-def hire(app: Served, who: str, role: str, venue_id: str) {
-    # `who` joins Nova as `role` at `venue_id` ("" for every venue) and starts a shift.
+def hire(app: Served, who: str, role: str, venue_id: str) -> str {
+    # `who` joins Nova as `role` at `venue_id` ("" for every venue) and starts a shift;
+    # returns their member id.
     invited = app.call(
         "owner", "invite_staff", {"tenant": "nova", "role": role, "venue_id": venue_id}
     );
@@ -127,4 +128,5 @@ def hire(app: Served, who: str, role: str, venue_id: str) {
     joined = app.call(who, "accept_invite", {"token": invited["token"]});
     assert joined["ok"] , joined;
     assert app.call(who, "start_shift", {"tenant": "nova"})["ok"];
+    return joined["member_id"];
 }

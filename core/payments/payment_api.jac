@@ -239,16 +239,19 @@ def _start_payment(
     holder: str,
     phone: str,
     email: str,
-    idempotency_key: str
+    idempotency_key: str,
+    email_optional: bool = False
 ) -> dict[str, any] {  # jac:ignore[W1037]
+    # email_optional: a sale at the box office (P6.5) may go without an email address;
+    # online, the tickets always go by email.
     (cinema, screening) = showtime_on_sale(slug, screening_id);
     check_holder(holder);
     check_key(idempotency_key);
     number = _number(phone);
-    if email_problem(email) {
+    if (email.strip() or not email_optional) and email_problem(email) {
         raise Refused("invalid_email", email_problem(email));
     }
-    address = clean_email(email);
+    address = clean_email(email) if email.strip() else "";
     provider = _provider();
     key_name = f"{node_id(cinema)}:{holder}:{idempotency_key}";
     existing = claim_holder(PAY_KEYS, key_name);
@@ -349,6 +352,14 @@ def latest_intent(cinema: Tenant, order: Order) -> PaymentIntent | None {
         restore(me);
     }
     return found[-1] if found else None;
+}
+
+def counter_payment(
+    slug: str, screening_id: str, holder: str, phone: str, email: str, key: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # Starts paying an order at the box office (P6.5): as online, but the email address
+    # may be left out. The caller checks the agent may sell there.
+    return _start_payment(slug, screening_id, holder, phone, email, key, True);
 }
 
 def:pub start_payment(

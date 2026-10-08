@@ -28,14 +28,7 @@ import re;
 import json;
 import from http { HTTPMethod }
 import from core.clock { now }
-import from core.claims {
-    claim,
-    release,
-    renew,
-    make_permanent,
-    claims_in,
-    holder as claim_holder
-}
+import from core.claims { claim, release, renew, claims_in, holder as claim_holder }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { tenant_by_id }
 import from core.tenancy.groups { attach_to_tenant }
@@ -45,22 +38,14 @@ import from core.tenancy.principal {
     restore,
     commit_now,
     fresh_node_id,
-    assign_id,
     system_root_id
 }
 import from core.catalog.answers { Refused, answer }
-import from core.catalog.models { Screening, SeatSlot }
-import from core.catalog.venues { find_screening, slots_of }
-import from core.booking.models { Order, SeatHold, Ticket }
-import from core.booking.ticket_delivery {
-    claim_link,
-    keep_link,
-    queue_mail,
-    link_path
-}
+import from core.catalog.models { Screening }
+import from core.booking.models { Order, Ticket }
+import from core.booking.confirm { Takings, confirm_order }
+import from core.booking.ticket_delivery { link_path }
 import from core.notify.addresses { masked_email }
-import from core.booking.ticket_codes { REFS, reserve_reference, qr_payload }
-import from core.booking.availability { SeatState }
 import from core.booking.hold_api { showtime_on_sale, check_holder }
 import from core.payments.models { PaymentIntent, RefundTask }
 import from core.payments.state { PaymentState, transition, is_final }
@@ -229,74 +214,29 @@ def _ended(cinema: Tenant, intent: PaymentIntent, state: PaymentState, text: str
 def _finalize(
     cinema: Tenant, intent: PaymentIntent, order: Order, receipt: str, paid: int
 ) {
-    # Paid and confirmed: payment, order, seats and tickets, in one commit.
-    screening = find_screening(cinema, intent.screening_id);
-    slots: list[SeatSlot] = slots_of(cinema, screening)
-        if screening is not None
-        else [];
+    # Paid and confirmed: the payment, with the order, seats and tickets, in one commit.
     stamp = now().isoformat();
-    # Each ticket's id and reference first: the reference is claimed for its ticket
-    # (provisionally, until the commit) and signed into the QR (P6.1).
-    tenant_id = node_id(cinema);
-    codes: list[list[str]] = [];
-    for _ in order.lines {
-        ticket_id = fresh_node_id();
-        owner = f"{tenant_id}|{ticket_id}";
-        reference = reserve_reference(owner, PROVISIONAL_SECONDS);
-        codes.append([ticket_id, owner, reference, qr_payload(reference)]);
-    }
-    claim_link(cinema, order, PROVISIONAL_SECONDS);
-    me = node_id(root);
-    act_as(cinema.principal_root_id);
-    try {
+
+    def mark_paid {
         intent.state = transition(
             PaymentState(intent.state), PaymentState.SUCCESS
         ).value;
         intent.receipt = receipt;
         intent.paid_amount_cents = paid;
         intent.updated_at = stamp;
-        order.status = "confirmed";
-        hold: any = jobj(order.hold_id);  # jac:ignore[W1037]
-        if isinstance(hold, SeatHold) {
-            (hold as SeatHold).status = "paid";
-        }
-        for x in slots {
-            if x.hold_id == order.hold_id
-                and x.state == SeatState.PAYMENT_PENDING.value {
-                x.state = SeatState.SOLD.value;
-            }
-        }
-        record_entry(
-            cinema, order, node_id(intent), "payment", paid, receipt, "M-Pesa"
-        );
-        for (line, code) in zip(order.lines, codes) {
-            ticket = Ticket(
-                tenant_id=tenant_id,
-                order_id=node_id(order),
-                screening_id=intent.screening_id,
-                seat_label=str(line["seat_label"]),
-                ticket_type=str(line["ticket_type"]),
-                ticket_name=str(line.get("ticket_name", "")),
-                reference=code[2],
-                qr=code[3],
-                issued_at=stamp
-            );
-            assign_id(ticket, code[0]);
-            order ++> ticket;
-            attach_to_tenant(ticket, cinema);
-        }
-        commit_now();
-    } finally {
-        restore(me);
     }
-    for code in codes {
-        make_permanent(REFS, code[2], code[1]);
-    }
-    # The ticket link for good, and the tickets on their way by email (P6.3).
-    keep_link(cinema, order);
-    if order.email {
-        queue_mail(cinema, order, order.email);
-    }
+    confirm_order(
+        cinema,
+        order,
+        Takings(
+            payment_id=node_id(intent),
+            amount_cents=paid,
+            receipt=receipt,
+            note="M-Pesa",
+            method="mpesa"
+        ),
+        mark_paid
+    );
 }
 
 def order_of(cinema: Tenant, intent: PaymentIntent) -> Order | None {

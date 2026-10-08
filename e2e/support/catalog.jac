@@ -111,6 +111,7 @@ def cinema_selling_tickets(
     # fee and no extras. Returns the owner, with "show" the showtime's id.
     owner = owner_with_cinema();
     venue = add_venue(owner, "Westgate");
+    owner["venue"] = venue;
     owner["screen"] = add_screen(owner, venue, "Screen 1");
     seats: list[dict[str, any]] = [];  # jac:ignore[W1037]
     for (r, row) in enumerate(["A", "B"]) {

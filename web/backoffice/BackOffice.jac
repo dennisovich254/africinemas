@@ -42,6 +42,7 @@ import from .MoviesSection { MoviesSection }
 import from .VenuesSection { VenuesSection }
 import from .ScreeningsSection { ScreeningsSection }
 import from .ScannerSection { ScannerSection }
+import from .BoxOfficeSection { BoxOfficeSection }
 import from .PricesSection { PricesSection }
 import from .StaffSection { StaffSection }
 import from .MovieEditor { MovieEditor }
@@ -328,6 +329,8 @@ def:pub BackOffice -> JsxElement {
         content = <MoviesSection slug={slug} permissions={permissions}/>;
     } elif section == "screenings" {
         content = <ScreeningsSection slug={slug}/>;
+    } elif section == "box-office" {
+        content = <BoxOfficeSection slug={slug}/>;
     } elif section == "scanner" {
         content = <ScannerSection slug={slug}/>;
     } elif section == "prices" {

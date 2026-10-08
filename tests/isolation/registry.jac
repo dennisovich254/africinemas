@@ -193,6 +193,26 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"tenant": "{tenant}", "screening_id": "x"}
          },
          "door_showtimes": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "counter_showtimes": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
+         "sell_for_cash": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef",
+                 "email": ""
+             }
+         },
+         "sell_with_mpesa": {
+             "scope": "tenant",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef",
+                 "phone": "0712345678",
+                 "email": ""
+             }
+         },
          "redeem_ticket": {
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "screening_id": "x", "code": "x"}
