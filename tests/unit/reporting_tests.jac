@@ -211,6 +211,62 @@ test "one venue: everything counts that venue's showtimes and money only" {
     assert [v["name"] for v in got["venues"]] == ["Mall"];
 }
 
+test "by day: net takings on the day taken, tickets on the showtime's day, every day listed" {
+    assert _report()["by_day"]
+        == [
+            {"day": "2026-10-05", "takings_net_cents": 2790, "tickets_sold": 3},
+            {"day": "2026-10-06", "takings_net_cents": 3900, "tickets_sold": 7}
+        ] , _report()["by_day"];
+    assert _report("mall")["by_day"]
+        == [
+            {"day": "2026-10-05", "takings_net_cents": 0, "tickets_sold": 0},
+            {"day": "2026-10-06", "takings_net_cents": 3000, "tickets_sold": 5}
+        ];
+    assert sum([d["takings_net_cents"] for d in _report()["by_day"]])
+        == _report()["takings"]["net_cents"];
+}
+
+test "the chart: one point a day up to 31 days, else one a week from the first day" {
+    short = _report()["chart"];
+    assert short["unit"] == "day";
+    assert [
+        [p["start"], p["takings_net_cents"], p["tickets_sold"]] for p in short["points"]
+    ]
+        == [["2026-10-05", 2790, 3], ["2026-10-06", 3900, 7]];
+    month = sales_report(
+        period_of(NAIROBI, "2026-10-01", "2026-10-31"), _shows(), _tickets(), _money()
+    )["chart"];
+    assert month["unit"] == "day" and len(month["points"]) == 31;
+    long = sales_report(
+        period_of(NAIROBI, "2026-10-01", "2026-11-15"), _shows(), _tickets(), _money()
+    )["chart"];
+    assert long["unit"] == "week";
+    # 46 days: six whole weeks and a last week of four days.
+    assert [p["start"] for p in long["points"]]
+        == [
+            "2026-10-01",
+            "2026-10-08",
+            "2026-10-15",
+            "2026-10-22",
+            "2026-10-29",
+            "2026-11-05",
+            "2026-11-12"
+        ];
+    first = long["points"][0];
+    # The week of 1-7 October holds everything: the 5th and 6th (6,690 and 10 tickets),
+    # the payment taken just after midnight on the 7th (930) and the shows at 23:59 on
+    # the 4th and 00:30 on the 7th (a ticket each).
+    assert [first["takings_net_cents"], first["tickets_sold"]]
+        == [6690 + 930, 10 + 1 + 1];
+    assert sum([p["takings_net_cents"] for p in long["points"]])
+        == sales_report(
+            period_of(NAIROBI, "2026-10-01", "2026-11-15"),
+            _shows(),
+            _tickets(),
+            _money()
+        )["takings"]["net_cents"];
+}
+
 test "nothing sold: zeros, no division by zero, empty lists" {
     got = sales_report(period_of(NAIROBI, "2026-10-05", "2026-10-06"), [], [], []);
     assert got["takings"]["net_cents"] == 0;
@@ -219,6 +275,8 @@ test "nothing sold: zeros, no division by zero, empty lists" {
     assert shown["average_ticket_cents"] == 0 and shown["tickets_per_show"] == 0.0;
     assert shown["revenue_per_seat_cents"] == 0;
     assert got["top_movies"] == [] and got["venues"] == [];
+    assert [d["takings_net_cents"] + d["tickets_sold"] for d in got["by_day"]]
+        == [0, 0];
 }
 
 test "a period is one to 366 of the cinema's days, first to last" {

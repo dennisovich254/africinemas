@@ -12,16 +12,19 @@ its numbers are tested against fixtures with known answers.
   left out: tickets sold (issued or used; refunded and voided ones aren't), scanned
   (used), the seats on sale, and the revenue of the tickets sold (their prices,
   service fee included).
+- by_day lists every day of the period: its net takings and the tickets sold for its
+  showtimes; chart groups it by week past 31 days (the dashboard's chart, P7.3).
 - The drill-down goes venue, screen, movie, showtime, each with the attendance numbers;
   a venue also has its takings. Top movies and showtimes are by revenue.
 
 Amounts are in cents; percentages and tickets per show have one decimal.
 """
 
-import from datetime { date, datetime }
+import from datetime { date, datetime, timedelta }
 import from zoneinfo { ZoneInfo }
 
 glob MAX_DAYS: int = 366,
+     CHART_DAYS: int = 31,
      TOP: int = 5,
      SOLD: list[str] = ["issued", "used"],
      USED: str = "used",
@@ -34,10 +37,21 @@ obj Period {
         first: date,
         last: date;
 
+    def day_of(stamp: str) -> date {
+        # The cinema's local day of the UTC ISO time `stamp`.
+        return datetime.fromisoformat(stamp).astimezone(ZoneInfo(self.timezone)).date();
+    }
+
     def covers(stamp: str) -> bool {
         # Whether the UTC ISO time `stamp` falls on one of the period's local days.
-        day = datetime.fromisoformat(stamp).astimezone(ZoneInfo(self.timezone)).date();
-        return self.first <= day <= self.last;
+        return self.first <= self.day_of(stamp) <= self.last;
+    }
+
+    def days -> list[date] {
+        return [
+            self.first + timedelta(days=n)
+            for n in range((self.last - self.first).days + 1)
+        ];
     }
 }
 
@@ -258,6 +272,62 @@ def _drill_down(
     return _by_name(venues, "name");
 }
 
+def _by_day(
+    period: Period,
+    shows: list[Show],
+    sold: dict[str, list[SoldTicket]],
+    taken: list[Money]
+) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # Every day of the period, first to last: the net takings of the money taken that
+    # day, and the tickets sold for the showtimes starting that day.
+    net: dict[str, int] = {};
+    for m in taken {
+        key = period.day_of(m.taken_at).isoformat();
+        net[key] = net.get(key, 0) + m.amount_cents;
+    }
+    tickets: dict[str, int] = {};
+    for s in shows {
+        key = period.day_of(s.starts_at).isoformat();
+        tickets[key] = tickets.get(key, 0) + len(sold.get(s.screening_id, []));
+    }
+    return [
+        {
+            "day": d.isoformat(),
+            "takings_net_cents": net.get(d.isoformat(), 0),
+            "tickets_sold": tickets.get(d.isoformat(), 0)
+        } for d in period.days()
+    ];
+}
+
+def _chart(days: list[dict[str, any]]) -> dict[str, any] {  # jac:ignore[W1037]
+    # The dashboard's chart: a point a day up to CHART_DAYS days, else a point a week,
+    # weeks counted from the period's first day (the last one may be shorter).
+    if len(days) <= CHART_DAYS {
+        return {
+            "unit": "day",
+            "points": [
+                {
+                    "start": d["day"],
+                    "takings_net_cents": d["takings_net_cents"],
+                    "tickets_sold": d["tickets_sold"]
+                } for d in days
+            ]
+        };
+    }
+    points: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for at in range(0, len(days), 7) {
+        week = days[at:at + 7];
+        points.append(
+            {
+                "start": week[0]["day"],
+                "takings_net_cents": sum([d["takings_net_cents"] for d in week]),
+                "tickets_sold": sum([d["tickets_sold"] for d in week])
+            }
+        );
+    }
+    return {"unit": "week", "points": points};
+}
+
 def sales_report(
     period: Period,
     shows: list[Show],
@@ -326,6 +396,7 @@ def sales_report(
             }
         );
     }
+    days = _by_day(period, counted, sold, taken);
     return {
         "first": period.first.isoformat(),
         "last": period.last.isoformat(),
@@ -334,6 +405,8 @@ def sales_report(
         "attendance": _attendance(counted, sold),
         "top_movies": _ranked(movie_rows, "title"),
         "top_showtimes": _ranked(show_rows, "movie"),
-        "venues": _drill_down(counted, sold, net_by_venue)
+        "venues": _drill_down(counted, sold, net_by_venue),
+        "by_day": days,
+        "chart": _chart(days)
     };
 }

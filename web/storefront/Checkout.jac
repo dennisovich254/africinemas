@@ -100,7 +100,10 @@ def BottomBar(children: any) -> JsxElement {  # jac:ignore[W1037]
         </div>;
 }
 
-def Ordered(order: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
+def Ordered(order: dict[str, any], tz: str, at_counter: bool = False) -> JsxElement {  # jac:ignore[W1037]
+    # at_counter: the box office (P6.5) holds the seats for the walk-in customer, so the
+    # note speaks to the agent, not to "you".
+    until = time_label(order["pay_by"], tz);
     return
         <section
             data-testid="order-placed"
@@ -143,9 +146,9 @@ def Ordered(order: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
                 </span>
             </p>
             <p className="text-sm text-muted-foreground">
-                {f"Your seats are kept for you until {time_label(
-                    order['pay_by'], tz
-                )}. Pay before then to get your tickets."}
+                {f"The seats are held until {until}. Take payment before then to issue the tickets."
+                    if at_counter
+                    else f"Your seats are kept for you until {until}. Pay before then to get your tickets."}
             </p>
         </section>;
 }
@@ -513,7 +516,7 @@ def:pub Checkout(
         return
             <div data-testid="checkout" className="flex flex-col gap-4">
                 {status_line}
-                <Ordered order={placed} tz={tz}/>
+                <Ordered order={placed} tz={tz} at_counter={bool(counter_holder)}/>
                 {(
                     pay_panel(placed, on_paid, time_up)
                         if pay_panel is not None

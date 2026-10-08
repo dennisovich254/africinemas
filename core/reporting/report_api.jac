@@ -1,7 +1,8 @@
 """The sales report endpoint (P7.1, architecture §76, §77; ADR-0026).
 
 sales_report(tenant, date_from, date_to, venue_id) answers the cinema's takings and
-attendance for its local days date_from..date_to, of one venue when venue_id is given,
+attendance for its local days date_from..date_to (empty: today; the answer's `today` is
+the cinema's day, for the dashboard's "last 7 days"), of one venue when venue_id is given,
 with the drill-down venue, screen, movie, showtime. It needs a login, an open shift
 (ADR-0006) and financial_reports.read: owners, general managers, finance managers and
 auditors. The numbers come from core/reporting/aggregates.jac; this module collects the
@@ -14,6 +15,8 @@ records from the cinema's graph:
   office sale.
 """
 
+import from zoneinfo { ZoneInfo }
+import from core.clock { now }
 import from core.authz.context { NotFound, scoped }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.principal { node_id, act_as, restore }
@@ -21,6 +24,7 @@ import from core.catalog.answers { Refused, answer }
 import from core.catalog.models { Venue, Auditorium, Movie, Screening, SeatSlot }
 import from core.catalog.venues { find_venue }
 import from core.catalog.storefront_api { cinema_timezone }
+import from core.catalog.pricing { CURRENCY }
 import from core.booking.models { Order, Ticket }
 import from core.booking.availability { SeatState }
 import from core.payments.ledger { LedgerEntry }
@@ -123,8 +127,11 @@ def _sales_report(
     if venue_id and find_venue(scope.tenant, venue_id) is None {
         raise NotFound();
     }
+    timezone = cinema_timezone(scope.tenant);
+    today = now().astimezone(ZoneInfo(timezone)).date().isoformat();
     try {
-        period = period_of(cinema_timezone(scope.tenant), date_from, date_to);
+        # No dates: today where the cinema is (the dashboard's first request).
+        period = period_of(timezone, date_from or today, date_to or today);
     } except ValueError {
         raise Refused(
             "bad_period",
@@ -134,6 +141,8 @@ def _sales_report(
     found = _records(scope.tenant);
     return {
         "ok": True,
+        "today": today,
+        "currency": CURRENCY,
         "report": counted(period, found.shows, found.tickets, found.money, venue_id)
     };
 }

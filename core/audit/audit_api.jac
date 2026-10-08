@@ -11,6 +11,7 @@ audit.read: owners and auditors. Nothing deletes or changes an event.
 import from core.authz.context { NotFound, scoped }
 import from core.catalog.answers { Refused, answer }
 import from core.audit.log { events, has_event }
+import from core.catalog.storefront_api { cinema_timezone }
 
 glob READ: str = "audit.read",
      MAX_LIMIT: int = 100;
@@ -28,6 +29,8 @@ def _audit_log(tenant: str, before: str, limit: int, action: str) -> dict[str, a
     page = found[:limit];
     return {
         "ok": True,
+        # Times are UTC; the page shows them in the cinema's zone.
+        "timezone": cinema_timezone(scope.tenant),
         "events": page,
         "next": page[-1]["event_id"] if len(found) > limit else ""
     };

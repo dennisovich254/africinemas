@@ -207,3 +207,11 @@
   --ac-seat-held: #7A6344;
   --ac-seat-sold: #332A21;
 }
+
+[data-surface="backoffice"] {
+  --chart-bar: #3F35C4;
+}
+
+.dark [data-surface="backoffice"] {
+  --chart-bar: #B8892A;
+}

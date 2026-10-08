@@ -128,6 +128,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
             assert _nav_labels(page, project)
                 == [
                     "Overview",
+                    "Reports",
                     "Venues",
                     "Screens",
                     "Movies",
@@ -136,6 +137,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                     "Box office",
                     "Scanner",
                     "Staff",
+                    "Audit log",
                     "Settings"
                 ] , f"{project}: owner nav";
             page.goto(BASE_URL + "/app");

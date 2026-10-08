@@ -257,16 +257,23 @@ Each spike is a test file whose assertions are the pass criteria from §138. The
 
 - [x] **7.1 Reporting aggregates** (§76, §77) — **T:** against a fixture graph with known numbers: revenue, tickets sold, occupancy %, top movies, per-venue drill-down; refunds are subtracted. **Built (ADR-0026):** `sales_report` counts money on the cinema's local day it was taken (gross, refunds, net; M-Pesa and cash; online and counter) and tickets on the day of the showtime (sold, scanned, occupancy, average price), with the drill-down venue, screen, movie, showtime; owners, general managers, finance managers and auditors may read it. An M-Pesa sale at the counter is now recorded as the agent's.
 - [x] **7.2 Audit log** (§66, §67) — **T:** every sensitive endpoint emits exactly one `AuditEvent` (a registry-driven meta-test); owners can read but not delete audit events. **Built (ADR-0027):** 43 staff endpoints answer through `audited`, one event each (refused attempts too, with their code), only for the cinema's own staff; `audit_log` for owners and auditors (`audit.read`); events live in Jac's shared store, outside the graph (no shared node, no graph write after the work), and nothing changes or deletes them. Each registry entry says what it audits.
-- [ ] **7.3 Dashboard UI** (charts) — **T (E2E, mobile + desktop):** after a seeded sale the dashboard shows the matching totals. On mobile, KPI tiles stack and charts stay legible.
+- [x] **7.3 Dashboard UI** (charts) — **T (E2E, mobile + desktop):** after a seeded sale the dashboard shows the matching totals. On mobile, KPI tiles stack and charts stay legible. **Built (ADR-0028):** Reports (period presets incl. "Next 7 days", venue filter, "Money taken" and "Showtimes in this period" blocks, KPI tiles, takings chart in plain HTML with a validated `--chart-bar`, top movies, drill-down, table views) and the Audit log page (filter, "Load more"); today's figures on the Overview.
 
-### Phase 8 — AI features with `by llm` (Gemini) (Week 4, days 1–2)
+### Phase 8 — AI booking agent: MCP Apps and an in-app chat (Week 4, days 1–2)
 
-- [ ] **8.1 LLM plumbing** (adds `[byllm.model]` for Gemini with the key from the environment, never a `${VAR}` placeholder (JI-015), and confirms which env var the provider reads, `GEMINI_API_KEY` or `GOOGLE_API_KEY`) — **T:** MockLLM harness; timeout and error → graceful fallback; prompts contain tenant-scoped data only, never customer PII.
-- [ ] **8.2 Synopsis & promo-copy generator** (owner) — **T:** structured `obj` output (tagline, synopsis, social post) respects length limits.
-- [ ] **8.3 "What should I watch tonight?"** (customer) — **T:** recommendations only reference real, published, on-sale screenings of *this* tenant; hallucinated IDs are filtered out.
-- [ ] **8.4 Natural-language showtime search** — **T:** text → typed `ScreeningFilter` obj → deterministic graph query; unsafe or empty parses fall back to a keyword search.
-- [ ] **8.5 AI brand-theme generator** (replaces the dashboard narrative) — the tenant uploads logo/brand photos → dominant colours are **extracted deterministically** (clustering) → Gemini `by llm` (multimodal) returns **3 typed `ThemeProposal`s** (colour roles, allowlisted fonts, radius, mood name) → each goes through `repair_theme` + `validate_theme` → live storefront preview → choose/tweak → publish as a new theme version (3.8). **T:** MockLLM returns proposals, including deliberately bad ones → every proposal shown to the tenant passes validation; a failure or timeout falls back to the default theme; only allowlisted fonts are accepted; the images are never echoed back into prompts beyond the upload.
-- **✓** One live smoke run with a real `GOOGLE_API_KEY` (manual).
+Customers find, choose and book through an AI agent: in the chat hosts that support MCP Apps (Claude, ChatGPT, VS Code, Goose: posters, trailers and seat maps as interactive UI inside the conversation), and in a chat in our own storefront. One tool layer serves both. **Security:** the agent never has more power than its user (every tool calls our endpoints with that user's login: tenant isolation, roles, audit), customer tools only, paying always needs the customer's own tap and M-Pesa PIN, tool results and cinema text are data and never instructions, no customer PII to the LLM, rate limits per user. (User decision 2026-10-08; the promo-copy and brand-theme generators moved to "Deferred AI features" below.)
+
+- [ ] **8.1 LLM plumbing and the agent's tool layer** (adds `[byllm.model]` for Gemini with the key from the environment, never a `${VAR}` placeholder (JI-015), and confirms which env var the provider reads, `GEMINI_API_KEY` or `GOOGLE_API_KEY`). Typed tools over existing endpoints: find showtimes, movie details (poster, trailer URL: movies gain a `trailer_url`), seat map, hold seats, place order, start payment, my tickets. — **T:** MockLLM harness; timeout and error → graceful fallback; prompts contain tenant-scoped data only, never customer PII; every tool refuses what its user couldn't do directly (registry-driven, like the isolation tests); a tool result containing instructions changes nothing the agent may do.
+- [ ] **8.2 MCP spike** (Phase 1 style): our app serves MCP (JSON-RPC on a custom route, as the M-Pesa callback is served) with one tool and one `ui://` resource (`text/html;profile=mcp-app`, a poster card). — **T:** protocol tests (initialize, tools/list, tools/call, resources/read); **✓** the card renders in a real MCP Apps host. If a host blocks embedded trailers (iframe domains), record it and fall back to a "watch trailer" link.
+- [ ] **8.3 Browsing in the chat** (read-only, no sign-in): cinemas, what's on, showtimes, posters and trailers as MCP Apps UI. — **T:** only published, on-sale showtimes of the cinema asked about; hallucinated ids rejected; the UI's own tool calls go through the same checks.
+- [ ] **8.4 Booking in the chat**: sign-in for MCP (OAuth 2.1 with PKCE, per MCP's authorization spec, in front of our login), seat map UI, hold, order, M-Pesa prompt, tickets. — **T:** no booking tool works signed out; a token for one customer can't touch another's order; payment needs the customer's tap in the UI and the PIN on their phone; seats and prices are the server's, never the model's.
+- [ ] **8.5 In-app chat** in the storefront (web; mobile in Phase 10): the same tools and cards rendered by our client. — **T (E2E, mobile + desktop):** ask, see posters, pick seats, pay with the simulated M-Pesa; the agent's actions match the direct UI's.
+- **✓** One live smoke run with a real Gemini key, and one booking from a real MCP Apps host against the Daraja sandbox (manual).
+
+**Deferred AI features** (later, after the core phases):
+- **Synopsis & promo-copy generator** (owner) — **T:** structured `obj` output (tagline, synopsis, social post) respects length limits.
+- **AI brand-theme generator** — the tenant uploads logo/brand photos → dominant colours are **extracted deterministically** (clustering) → Gemini `by llm` (multimodal) returns **3 typed `ThemeProposal`s** (colour roles, allowlisted fonts, radius, mood name) → each goes through `repair_theme` + `validate_theme` → live storefront preview → choose/tweak → publish as a new theme version (3.8). **T:** MockLLM returns proposals, including deliberately bad ones → every proposal shown to the tenant passes validation; a failure or timeout falls back to the default theme; only allowlisted fonts are accepted; the images are never echoed back into prompts beyond the upload.
+- ("What should I watch tonight?" and natural-language showtime search are now part of the agent, 8.3.)
 
 ### Phase 9 — Desktop app (Week 4, day 2)
 
@@ -327,3 +334,13 @@ Buffer: each week's last half-day is reserved for catch-up and refactoring.
 - Deployment host for P11 (VM provider). Default: any small Ubuntu VM + Cloudflare Tunnel.
 - Gemini model name (`gemini-2.0-flash` vs newer): confirm at P8.
 - Team size, which sets required PR approvals (0.6).
+- **Before Phase 8 (MCP Apps and the booking agent), decide or check:**
+  - which chat first: MCP Apps hosts (Claude, ChatGPT) or our own storefront chat (the plan orders MCP first);
+  - serving MCP from our app is unproven: `jac mcp` serves the Jac language, not apps; 8.2 spikes JSON-RPC on a `@restspec` route;
+  - OAuth for booking (8.4): Jac is an OAuth client (SSO) but not a provider; build a minimal provider in Jac or use a hosted identity service; check the current MCP auth spec on client registration first;
+  - chat tokens are scoped (browse, book) and never carry the user's staff roles;
+  - trailers: add `trailer_url`; whether hosts let a YouTube embed play in their iframe must be tested (fallback: a link);
+  - hosts differ (CSP, sizing, allowed UI calls): test the target host early;
+  - prompt injection, no customer PII to the LLM, rate limits per user;
+  - JI-031 and JI-042 apply to the agent's booking tools;
+  - schedule: Phase 8 grew while week 4 already holds desktop, mobile and deploy.

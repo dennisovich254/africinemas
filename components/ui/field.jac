@@ -1,5 +1,5 @@
 import from "react" { useMemo }
-import from "class-variance-authority" { cva }
+import from "class-variance-authority" { cva }  # jac:ignore[W1102] untyped npm library
 import from ...lib.utils { cn }
 import from .label { Label }
 import from .separator { Separator }
