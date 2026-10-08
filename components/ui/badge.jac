@@ -1,4 +1,4 @@
-import from "class-variance-authority" { cva }
+import from "class-variance-authority" { cva }  # jac:ignore[W1102] untyped npm library
 import from "radix-ui" { Slot }
 import from ...lib.utils { cn }
 
