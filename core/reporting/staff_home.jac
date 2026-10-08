@@ -6,8 +6,9 @@ staff_home(tenant) answers what the caller's roles allow, for the cinema's today
   prices, movie, published showtime, published branding, a second member of staff),
   each done or not, with the back-office section that does it;
 - showtimes: today's showtimes that were put on sale and not cancelled, at the venues
-  where the caller may read showtimes, earliest first, each with seats sold and on sale
-  and whether the caller may sell (bookings.create) or scan (tickets.scan) there;
+  where the caller may read showtimes, earliest first, each with seats sold and on sale,
+  the movie's public key and whether it has a poster or backdrop, and whether the caller
+  may sell (bookings.create) or scan (tickets.scan) there;
 - figures (financial_reports.read): today's net takings, tickets for today's showtimes,
   their occupancy (the sales report's numbers, ADR-0026);
 - activity (audit.read): the last ACTIVITY audit events.
@@ -118,7 +119,7 @@ def _showtimes(scope: TenantScope, timezone: str, today: str) -> list[dict[str, 
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
-        titles = {node_id(m): m.title for m in [cinema-->[?:Movie]]};
+        movies = {node_id(m): m for m in [cinema-->[?:Movie]]};
         for venue in [cinema-->[?:Venue]] {
             venue_id = node_id(venue);
             for screen in [venue-->[?:Auditorium]] {
@@ -139,7 +140,18 @@ def _showtimes(scope: TenantScope, timezone: str, today: str) -> list[dict[str, 
                         {
                             "screening_id": node_id(s),
                             "starts_at": s.starts_at,
-                            "movie_title": titles.get(s.movie_id, ""),
+                            "movie_title": movies[s.movie_id].title
+                                if s.movie_id in movies
+                                else "",
+                            # For the page's poster and backdrop (the storefront's
+                            # public images: today's showtimes are on sale).
+                            "movie_key": movies[s.movie_id].public_key
+                                if s.movie_id in movies
+                                else "",
+                            "has_poster": s.movie_id in movies
+                                and movies[s.movie_id].poster_key != "",
+                            "has_backdrop": s.movie_id in movies
+                                and movies[s.movie_id].backdrop_key != "",
                             "venue_id": venue_id,
                             "venue": venue.name,
                             "screen": screen.name,

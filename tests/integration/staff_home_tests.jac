@@ -96,6 +96,9 @@ test "the owner's home: setup steps, today's showtimes, today's figures, recent 
         show = shows[0];
         assert show["movie_title"] == "Rafiki" and show["venue"] and show["screen"];
         assert [show["seats_sold"], show["seats_on_sale"]] == [2, 5];
+        # The page's artwork: the movie's public key; Rafiki has no images here.
+        assert show["movie_key"] and show["has_poster"] == False;
+        assert show["has_backdrop"] == False;
         assert show["can_sell"] and show["can_scan"];
         figures = home["figures"];
         assert figures["takings_net_cents"] == 2 * TICKET , figures;

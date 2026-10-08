@@ -17,7 +17,14 @@ The Overview is the first page every member of staff sees. It showed a page-wide
    - **activity** (`audit.read`): the last five audit events.
 
    A part the caller may not see is `None`. It needs an open shift, as every staff endpoint does (ADR-0006).
-2. **The page:** a header (greeting and the cinema's day, the roles, "On shift", a link to the storefront), then on desktop two columns: today's figures and showtimes (each with Sell or Scan) on the left; quick actions (at most four, from the member's permissions), the setup checklist (until every step is done) and recent activity on the right. A phone stacks them in that order. Off shift, the page says what starting one shows.
+2. **The page leads with the movies, as a cinema should** (inspired by streaming-app home pages):
+   - a header: a greeting in the display face, the cinema's day and the member's roles, an "On shift" chip and a "View storefront" chip;
+   - a **hero** for the next showtime (or the one showing now): the movie's backdrop (or its poster, blurred) behind a dark scrim, the title in the display face, time, screen, venue, seats sold, and Sell or Scan as pill buttons; "No showtimes today" with "Add a showtime" when there are none;
+   - today's figures as four compact tiles;
+   - today's showtimes as **poster cards** (time, title and screen on the artwork, seats sold, Sell or Scan), a row that scrolls within itself on a phone and a grid on desktop;
+   - a **side panel**: quick actions, the setup checklist (until every step is done) and recent activity.
+
+   Artwork is decorative (titles are always written) and comes from the storefront's public poster and backdrop endpoints, since today's showtimes are on sale; `staff_home` returns each movie's public key and whether it has a poster or backdrop. Text on artwork is white on a black scrim of at least 60 % opacity, for contrast. A phone stacks everything, the hero first. Off shift, the page says what starting one shows.
 3. **The shift banner** is one compact row above every section (it was a page-wide alert), wrapping on a phone with the button last.
 4. **"Your roles"** is no longer a section; the header names them ("Signed in as Owner").
 

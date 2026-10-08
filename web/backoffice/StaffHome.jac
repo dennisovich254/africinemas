@@ -1,11 +1,19 @@
 """The back office's Overview (P7.4): the first page every member of staff sees.
 
-One request (staff_home) brings what the member's roles allow, for the cinema's today:
-today's figures (who reads reports), today's showtimes with Sell or Scan where they may
-(everyone who reads showtimes), quick actions (from their permissions), the setup
-checklist until it's done (who sets the cinema up) and recent activity (who reads the
-audit log). Desktop: the day on the left, actions and setup on the right; a phone
-stacks them, most useful first. Off shift, the page says what starting one shows.
+One request (staff_home) brings what the member's roles allow, for the cinema's today.
+The page leads with the movies, as a cinema should:
+
+- a hero for the next showtime: its backdrop (or poster) behind a dark scrim, the title
+  in the display face, time, screen and seats sold, and Sell or Scan where allowed;
+- today's figures (who reads reports) as compact tiles;
+- today's showtimes as poster cards (a row that scrolls on its own on a phone, a grid on
+  desktop), each with Sell or Scan;
+- a side panel: quick actions (from the member's permissions), the setup checklist
+  until it's done (who sets the cinema up), recent activity (who reads the audit log).
+
+Artwork is decorative (the title is always written) and comes from the storefront's
+public images, since today's showtimes are on sale. Off shift, the page says what
+starting one shows. A phone stacks everything, the hero first.
 """
 
 import from react { useState, useEffect }
@@ -21,17 +29,16 @@ import from "@hugeicons/core-free-icons" {
     ArrowUpRight01Icon
 }
 import from ...components.ui.alert { Alert, AlertDescription }
-import from ...components.ui.badge { Badge }
-import from ...components.ui.button { Button }
 import from ...components.ui.spinner { Spinner }
 import from core.reporting.staff_home { staff_home }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 import from ..shell.AppLink { AppLink }
 import from ..storefront.showtimes { time_label }
+import from ..storefront.StorefrontParts { Poster, Backdrop }
 import from .report_view { day_label, percent, money_label, action_label, result_label }
-import from .report_parts { KpiTile }
 import from .nav { section_path }
 
-glob CARD: str = "flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:p-5";
+glob PANEL: str = "flex flex-col gap-5 rounded-3xl bg-card p-5 ring-1 ring-foreground/10",
+     PILL: str = "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2";
 
 def greeting(tz: str) -> str {
     # "Good morning" / "Good afternoon" / "Good evening", at the cinema's hour.
@@ -45,10 +52,217 @@ def greeting(tz: str) -> str {
     return "Good afternoon" if hour < 17 else "Good evening";
 }
 
+def _next_index(shows: list[dict[str, any]]) -> int {  # jac:ignore[W1037]
+    # The next showtime to start; when all have started, the last one.
+    at: float = new(Date).getTime();  # jac:ignore[W2001]
+    for (i, s) in enumerate(shows) {
+        starts: float = new(Date, s["starts_at"]).getTime();  # jac:ignore[W2001]
+        if starts >= at {
+            return i;
+        }
+    }
+    return len(shows) - 1;
+}
+
+def SeatsBar(sold: int, seats: int, light: bool, testid: str = "") -> JsxElement {
+    # "34 of 60 sold" with a thin bar; `light` on artwork (white on a dark scrim).
+    filled = (sold * 100 / seats) if seats > 0 else 0;
+    track = "bg-white/25" if light else "bg-muted";
+    fill = "bg-white" if light else "bg-(--chart-bar)";
+    return
+        <span className="flex items-center gap-2 text-xs tabular-nums">
+            <span
+                aria-hidden="true"
+                className={f"h-1.5 w-full max-w-32 overflow-hidden rounded-full {track}"}
+            >
+                <span
+                    className={f"block h-full rounded-full {fill}"}
+                    style={{"width": f"{filled}%"}}
+                />
+            </span>
+            <span data-testid={testid or None} className="whitespace-nowrap">
+                {sold} of {seats} sold
+            </span>
+        </span>;
+}
+
+def Hero(
+    show: dict[str, any],  # jac:ignore[W1037]
+    slug: str,
+    tz: str,
+    upcoming: bool
+) -> JsxElement {
+    # The next showtime, big: artwork, title, when and where, seats, Sell or Scan.
+    movie = {
+        "movie_key": show["movie_key"],
+        "has_backdrop": show["has_backdrop"],
+        "has_poster": show["has_poster"]
+    };
+    when = time_label(show["starts_at"], tz);
+    return
+        <section
+            aria-labelledby="hero-title"
+            data-testid="home-hero"
+            className="relative isolate flex min-h-72 items-end overflow-hidden rounded-3xl bg-black"
+        >
+            <Backdrop slug={slug} movie={movie}/>
+            <div
+                aria-hidden="true"
+                className="absolute inset-0 -z-10 bg-gradient-to-t from-black/90 via-black/60 to-black/20 sm:bg-gradient-to-r sm:from-black/90 sm:via-black/60 sm:to-black/10"
+            />
+            <div className="flex max-w-xl flex-col gap-3 p-5 text-white sm:p-8">
+                <span
+                    className="w-fit rounded-full bg-white/15 px-3 py-1 text-xs font-medium ring-1 ring-white/25"
+                >
+                    {f"Up next · {when}"
+                        if upcoming
+                        else f"Showing now · started {when}"}
+                </span>
+                <h2
+                    id="hero-title"
+                    className="font-display text-4xl uppercase leading-none sm:text-5xl"
+                >
+                    {show["movie_title"]}
+                </h2>
+                <p className="text-sm text-white/85">
+                    {when} · {show["screen"]} · {show["venue"]}
+                </p>
+                <SeatsBar
+                    sold={int(show["seats_sold"])}
+                    seats={int(show["seats_on_sale"])}
+                    light={True}
+                />
+                <div className="mt-1 flex flex-wrap gap-2">
+                    {show["can_sell"]
+                        and <AppLink
+                            to={section_path(slug, "box-office")}
+                            testid="hero-sell"
+                            className={f"{PILL} bg-white text-black hover:bg-white/90"}
+                        >
+                            <HugeiconsIcon
+                                icon={Ticket01Icon}
+                                strokeWidth={2}
+                                className="size-4"
+                                aria-hidden="true"
+                            />
+                            Sell tickets
+                        </AppLink>}{show["can_scan"]
+                        and <AppLink
+                            to={section_path(slug, "scanner")}
+                            testid="hero-scan"
+                            className={f"{PILL} bg-white/15 text-white ring-1 ring-white/30 hover:bg-white/25"}
+                        >
+                            <HugeiconsIcon
+                                icon={QrCodeIcon}
+                                strokeWidth={2}
+                                className="size-4"
+                                aria-hidden="true"
+                            />
+                            Scan tickets
+                        </AppLink>}
+                </div>
+            </div>
+        </section>;
+}
+
+def NoShowtimes(slug: str, can_add: bool) -> JsxElement {
+    return
+        <section
+            data-testid="home-no-showtimes"
+            className="flex min-h-48 flex-col items-start justify-end gap-3 rounded-3xl bg-card p-6 ring-1 ring-foreground/10 sm:p-8"
+        >
+            <h2 className="font-display text-3xl uppercase leading-none">
+                No showtimes today
+            </h2>
+            <p className="text-sm text-muted-foreground">
+                Today's showtimes appear here, with their seats and the way to sell or scan.
+            </p>
+            {can_add
+                and <AppLink
+                    to={section_path(slug, "screenings")}
+                    className={f"{PILL} bg-primary text-primary-foreground hover:bg-primary/90"}
+                >
+                    Add a showtime
+                </AppLink>}
+        </section>;
+}
+
+def Stat(label: str, value: str, testid: str) -> JsxElement {
+    return
+        <div
+            className="flex flex-col gap-1 rounded-2xl bg-card p-4 ring-1 ring-foreground/10"
+        >
+            <span className="text-xs text-muted-foreground">{label}</span>
+            <span
+                data-testid={testid}
+                className="text-xl font-semibold tabular-nums sm:text-2xl"
+            >
+                {value}
+            </span>
+        </div>;
+}
+
+def ShowtimeCard(
+    show: dict[str, any],  # jac:ignore[W1037]
+    slug: str,
+    tz: str
+) -> JsxElement {
+    # A poster card: time and title on the artwork, seats, then Sell or Scan.
+    return
+        <li
+            data-testid="home-showtime"
+            className="flex w-40 shrink-0 snap-start flex-col gap-2 sm:w-auto"
+        >
+            <div className="relative overflow-hidden rounded-2xl bg-black">
+                <Poster
+                    slug={slug}
+                    movie_key={show["movie_key"]}
+                    has_poster={show["has_poster"]}
+                    className="rounded-none"
+                />
+                <div
+                    className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-3 pt-10 text-white"
+                >
+                    <span className="text-lg font-semibold tabular-nums leading-none">
+                        {time_label(show["starts_at"], tz)}
+                    </span>
+                    <span className="truncate text-sm font-medium">
+                        {show["movie_title"]}
+                    </span>
+                    <span className="truncate text-xs text-white/80">
+                        {show["screen"]}
+                    </span>
+                </div>
+            </div>
+            <SeatsBar
+                sold={int(show["seats_sold"])}
+                seats={int(show["seats_on_sale"])}
+                light={False}
+                testid="home-showtime-seats"
+            />
+            <div className="flex gap-2">
+                {show["can_sell"]
+                    and <AppLink
+                        to={section_path(slug, "box-office")}
+                        testid="home-sell"
+                        className={f"{PILL} flex-1 bg-primary px-3 text-primary-foreground hover:bg-primary/90"}
+                    >
+                        Sell
+                    </AppLink>}{show["can_scan"]
+                    and <AppLink
+                        to={section_path(slug, "scanner")}
+                        testid="home-scan"
+                        className={f"{PILL} flex-1 px-3 ring-1 ring-foreground/15 hover:bg-muted"}
+                    >
+                        Scan
+                    </AppLink>}
+            </div>
+        </li>;
+}
+
 def QuickAction(
     to: str,
     label: str,
-    hint: str,
     icon: any,  # jac:ignore[W1037]
     testid: str
 ) -> JsxElement {
@@ -57,23 +271,21 @@ def QuickAction(
             <AppLink
                 to={to}
                 testid={testid}
-                className="flex min-h-14 items-center gap-3 rounded-lg p-3 ring-1 ring-foreground/10 transition-colors hover:bg-muted focus-visible:outline-2"
+                className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-2"
             >
-                <span
-                    className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
-                >
-                    <HugeiconsIcon icon={icon} strokeWidth={2} aria-hidden="true"/>
-                </span>
-                <span className="flex min-w-0 flex-col">
-                    <span className="font-medium">{label}</span>
-                    <span className="text-xs text-muted-foreground">{hint}</span>
-                </span>
+                <HugeiconsIcon
+                    icon={icon}
+                    strokeWidth={2}
+                    className="size-5 text-muted-foreground"
+                    aria-hidden="true"
+                />
+                {label}
             </AppLink>
         </li>;
 }
 
 def QuickActions(slug: str, permissions: list[str]) -> JsxElement {
-    # The jobs this member's roles allow, at most four, as large targets.
+    # The jobs this member's roles allow.
     actions = [];
     if "bookings.create" in permissions {
         actions.append(
@@ -81,7 +293,6 @@ def QuickActions(slug: str, permissions: list[str]) -> JsxElement {
                 key="sell"
                 to={section_path(slug, "box-office")}
                 label="Sell tickets"
-                hint="Box office, cash or M-Pesa"
                 icon={Ticket01Icon}
                 testid="quick-sell"
             />
@@ -93,7 +304,6 @@ def QuickActions(slug: str, permissions: list[str]) -> JsxElement {
                 key="scan"
                 to={section_path(slug, "scanner")}
                 label="Scan tickets"
-                hint="Check people in at the door"
                 icon={QrCodeIcon}
                 testid="quick-scan"
             />
@@ -105,7 +315,6 @@ def QuickActions(slug: str, permissions: list[str]) -> JsxElement {
                 key="showtime"
                 to={section_path(slug, "screenings")}
                 label="Add a showtime"
-                hint="Schedule and publish"
                 icon={Calendar03Icon}
                 testid="quick-showtime"
             />
@@ -117,7 +326,6 @@ def QuickActions(slug: str, permissions: list[str]) -> JsxElement {
                 key="reports"
                 to={section_path(slug, "reports")}
                 label="Reports"
-                hint="Takings, occupancy, top movies"
                 icon={ChartHistogramIcon}
                 testid="quick-reports"
             />
@@ -129,7 +337,6 @@ def QuickActions(slug: str, permissions: list[str]) -> JsxElement {
                 key="invite"
                 to={section_path(slug, "staff")}
                 label="Invite staff"
-                hint="Add someone to your team"
                 icon={UserAdd01Icon}
                 testid="quick-invite"
             />
@@ -139,83 +346,19 @@ def QuickActions(slug: str, permissions: list[str]) -> JsxElement {
         return <span/>;
     }
     return
-        <section aria-labelledby="quick-heading" className={CARD}>
-            <h2 id="quick-heading" className="text-base font-semibold">
+        <section aria-labelledby="quick-heading" className="flex flex-col gap-2">
+            <h2 id="quick-heading" className="px-3 text-sm font-semibold">
                 Quick actions
             </h2>
-            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                {actions[:4]}
-            </ul>
+            <ul className="flex flex-col">{actions}</ul>
         </section>;
-}
-
-def ShowtimeRow(
-    show: dict[str, any],  # jac:ignore[W1037]
-    slug: str,
-    tz: str
-) -> JsxElement {
-    sold = int(show["seats_sold"]);
-    seats = int(show["seats_on_sale"]);
-    filled = (sold * 100 / seats) if seats > 0 else 0;
-    return
-        <li
-            data-testid="home-showtime"
-            className="flex flex-col gap-3 border-b border-border/60 py-3 last:border-0 sm:flex-row sm:items-center sm:gap-4"
-        >
-            <span className="w-14 shrink-0 text-lg font-semibold tabular-nums">
-                {time_label(show["starts_at"], tz)}
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <span className="truncate font-medium">{show["movie_title"]}</span>
-                <span className="text-xs text-muted-foreground">
-                    {show["venue"]} · {show["screen"]}
-                </span>
-                <span
-                    className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums"
-                >
-                    <span
-                        aria-hidden="true"
-                        className="h-1.5 w-full max-w-40 overflow-hidden rounded-full bg-muted"
-                    >
-                        <span
-                            className="block h-full rounded-full bg-(--chart-bar)"
-                            style={{"width": f"{filled}%"}}
-                        />
-                    </span>
-                    <span data-testid="home-showtime-seats">
-                        {sold} of {seats} sold
-                    </span>
-                </span>
-            </span>
-            <span className="flex gap-2">
-                {show["can_sell"]
-                    and <Button asChild size="sm" className="min-h-11">
-                        <AppLink
-                            to={section_path(slug, "box-office")}
-                            testid="home-sell"
-                        >
-                            Sell
-                        </AppLink>
-                    </Button>}{show["can_scan"]
-                    and <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        className="min-h-11"
-                    >
-                        <AppLink to={section_path(slug, "scanner")} testid="home-scan">
-                            Scan
-                        </AppLink>
-                    </Button>}
-            </span>
-        </li>;
 }
 
 def SetupChecklist(
     setup: dict[str, any],  # jac:ignore[W1037]
     slug: str
 ) -> JsxElement {
-    # Until every step is done: what's done, and a link to do the next ones.
+    # Until every step is done: what's done, and a link to do the rest.
     done = int(setup["done"]);
     total = int(setup["total"]);
     if done >= total {
@@ -225,22 +368,22 @@ def SetupChecklist(
         <section
             aria-labelledby="setup-heading"
             data-testid="setup-checklist"
-            className={CARD}
+            className="flex flex-col gap-3 border-t pt-5"
         >
-            <div className="flex items-baseline justify-between gap-3">
-                <h2 id="setup-heading" className="text-base font-semibold">
+            <div className="flex items-baseline justify-between gap-3 px-3">
+                <h2 id="setup-heading" className="text-sm font-semibold">
                     Get your cinema ready
                 </h2>
                 <span
                     data-testid="setup-progress"
-                    className="text-sm text-muted-foreground tabular-nums"
+                    className="text-xs text-muted-foreground tabular-nums"
                 >
                     {done} of {total} done
                 </span>
             </div>
             <span
                 aria-hidden="true"
-                className="h-1.5 overflow-hidden rounded-full bg-muted"
+                className="mx-3 h-1.5 overflow-hidden rounded-full bg-muted"
             >
                 <span
                     className="block h-full rounded-full bg-primary"
@@ -253,16 +396,16 @@ def SetupChecklist(
                         <AppLink
                             to={section_path(slug, step["section"])}
                             testid={f"setup-{step['key']}"}
-                            className="flex min-h-11 items-center gap-3 rounded-md px-2 py-2 hover:bg-muted"
+                            className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-muted"
                         >
                             <HugeiconsIcon
                                 icon={CheckmarkCircle02Icon
                                     if step["done"]
                                     else CircleIcon}
                                 strokeWidth={2}
-                                className={"shrink-0 text-primary"
+                                className={"size-5 shrink-0 text-primary"
                                     if step["done"]
-                                    else "shrink-0 text-muted-foreground"}
+                                    else "size-5 shrink-0 text-muted-foreground"}
                                 aria-hidden="true"
                             />
                             <span
@@ -287,32 +430,42 @@ def RecentActivity(activity: list[dict[str, str]], slug: str, tz: str) -> JsxEle
         <section
             aria-labelledby="activity-heading"
             data-testid="recent-activity"
-            className={CARD}
+            className="flex flex-col gap-3 border-t pt-5"
         >
-            <div className="flex items-baseline justify-between gap-3">
-                <h2 id="activity-heading" className="text-base font-semibold">
+            <div className="flex items-baseline justify-between gap-3 px-3">
+                <h2 id="activity-heading" className="text-sm font-semibold">
                     Recent activity
                 </h2>
                 <AppLink
                     to={section_path(slug, "audit")}
-                    className="text-sm font-medium underline underline-offset-4"
+                    className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
                 >
-                    Audit log
+                    See all
                 </AppLink>
             </div>
             {len(activity) == 0
-                and <p className="text-sm text-muted-foreground">Nothing yet.</p>}
-            <ul className="flex flex-col gap-3">
+                and <p className="px-3 text-sm text-muted-foreground">Nothing yet.</p>}
+            <ul className="flex flex-col gap-1">
                 {[
-                    <li key={e["event_id"]} className="flex flex-col text-sm">
-                        <span className="font-medium">
-                            {action_label(e["action"])}{e["result"] != "ok"
-                                and <span className="font-normal text-muted-foreground">
-                                    {f" · {result_label(e['result'])}"}
-                                </span>}
+                    <li
+                        key={e["event_id"]}
+                        className="flex items-start gap-3 rounded-xl px-3 py-2"
+                    >
+                        <span
+                            aria-hidden="true"
+                            className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-semibold tabular-nums"
+                        >
+                            {time_label(e["at"], tz)[:2]}
                         </span>
-                        <span className="text-xs text-muted-foreground">
-                            {time_label(e["at"], tz)} · {e["actor"] or "Staff member"}
+                        <span className="flex min-w-0 flex-col">
+                            <span className="truncate text-sm font-medium">
+                                {action_label(e["action"])}
+                            </span>
+                            <span className="truncate text-xs text-muted-foreground">
+                                {time_label(e["at"], tz)} · {e["actor"]
+                                    or "Staff member"}{e["result"] != "ok"
+                                    and f" · {result_label(e['result'])}"}
+                            </span>
                         </span>
                     </li> for e in activity
                 ]}
@@ -354,36 +507,46 @@ def:pub StaffHome(
     useEffect(start_loading, [slug, shift_open]);
 
     hello = "Welcome back";
+    today_text = "";
     if home is not None {
         loaded: dict[str, any] = home;  # jac:ignore[W1037]
         place: dict[str, str] = loaded["cinema"];
-        hello = greeting(place["timezone"]) + " · " + day_label(place["today"]);
+        hello = greeting(place["timezone"]);
+        today_text = day_label(place["today"]) + " · ";
     }
-    header = <div className="flex flex-col gap-1">
-        <p data-testid="home-greeting" className="text-sm text-muted-foreground">
-            {hello}
-        </p>
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+    header = <div
+        className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+    >
+        <div className="flex flex-col gap-1">
+            <p
+                data-testid="home-greeting"
+                className="font-display text-3xl uppercase leading-none sm:text-4xl"
+            >
+                {hello}
+            </p>
+            <p className="text-sm text-muted-foreground">
+                {today_text}Signed in as {", ".join(roles)}
+            </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
             {shift_open
                 and <span
                     data-testid="shift-status"
-                    className="inline-flex items-center gap-2"
+                    className="inline-flex min-h-9 items-center gap-2 rounded-full bg-card px-3 text-sm ring-1 ring-foreground/10"
                 >
-                    <Badge>On shift</Badge>
-                    <span className="text-muted-foreground">
-                        Ends when you sign out
-                    </span>
+                    <span
+                        aria-hidden="true"
+                        className="size-2 rounded-full bg-emerald-500"
+                    />
+                    On shift
                 </span>}
-            <span className="text-muted-foreground">
-                Signed in as {", ".join(roles)}
-            </span>
             <a
                 href={f"/c/{slug}"}
                 target="_blank"
                 rel="noopener"
-                className="inline-flex min-h-11 items-center gap-1 font-medium underline underline-offset-4"
+                className="inline-flex min-h-9 items-center gap-1 rounded-full bg-card px-3 text-sm font-medium ring-1 ring-foreground/10 hover:bg-muted"
             >
-                View your storefront
+                View storefront
                 <HugeiconsIcon
                     icon={ArrowUpRight01Icon}
                     strokeWidth={2}
@@ -392,16 +555,16 @@ def:pub StaffHome(
                 />
                 <span className="sr-only">(opens in a new tab)</span>
             </a>
-        </p>
+        </div>
     </div>;
 
     if not shift_open {
         return
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
                 {header}
                 <p
                     data-testid="home-off-shift"
-                    className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground"
+                    className="rounded-3xl border border-dashed p-8 text-center text-sm text-muted-foreground"
                 >
                     Start your shift to see today's showtimes, sales and your setup steps.
                 </p>
@@ -409,7 +572,7 @@ def:pub StaffHome(
     }
     if home is None {
         return
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
                 {header}{failed
                     and <Alert variant="destructive">
                         <AlertDescription>{failed}</AlertDescription>
@@ -427,12 +590,29 @@ def:pub StaffHome(
     tz: str = got["cinema"]["timezone"];
     shows: list[dict[str, any]] = got["showtimes"];  # jac:ignore[W1037]
     figures: dict[str, any] | None = got["figures"];  # jac:ignore[W1037]
+    has_side = got["setup"] is not None or got["activity"] is not None;
+    nxt = _next_index(shows) if len(shows) > 0 else -1;
+    upcoming = False;
+    if nxt >= 0 {
+        first_start: float = new(Date, shows[nxt]["starts_at"]).getTime();  # jac:ignore[W2001]
+        upcoming = first_start >= new(Date).getTime();  # jac:ignore[W2001]
+    }
     return
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
             {header}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <div className="flex flex-col gap-6 lg:col-span-2">
-                    {figures is not None
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                <div className="flex min-w-0 flex-col gap-6">
+                    {nxt >= 0
+                        and <Hero
+                            show={shows[nxt]}
+                            slug={slug}
+                            tz={tz}
+                            upcoming={upcoming}
+                        />}{nxt < 0
+                        and <NoShowtimes
+                            slug={slug}
+                            can_add={"showtimes.create" in permissions}
+                        />}{figures is not None
                         and <section
                             aria-labelledby="today-heading"
                             className="flex flex-col gap-3"
@@ -440,73 +620,74 @@ def:pub StaffHome(
                             <div className="flex items-baseline justify-between gap-3">
                                 <h2
                                     id="today-heading"
-                                    className="text-base font-semibold"
+                                    className="text-lg font-semibold"
                                 >
-                                    Today
+                                    Today so far
                                 </h2>
                                 <AppLink
                                     to={section_path(slug, "reports")}
                                     testid="open-reports"
-                                    className="text-sm font-medium underline underline-offset-4"
+                                    className="text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
                                 >
                                     Reports
                                 </AppLink>
                             </div>
-                            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                <KpiTile
+                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                                <Stat
                                     label="Money taken"
                                     value={money_label(
                                         figures["takings_net_cents"],
                                         figures["currency"]
                                     )}
-                                    note="Net, today"
                                     testid="today-net"
                                 />
-                                <KpiTile
+                                <Stat
                                     label="Tickets"
                                     value={f"{figures['tickets_sold']}"}
-                                    note="For today's showtimes"
                                     testid="today-tickets"
                                 />
-                                <KpiTile
+                                <Stat
                                     label="Occupancy"
                                     value={percent(figures["occupancy_pct"])}
-                                    note="Today's showtimes"
                                     testid="today-occupancy"
                                 />
-                                <KpiTile
+                                <Stat
                                     label="Showtimes"
                                     value={f"{figures['showtimes']}"}
-                                    note="Today"
                                     testid="today-showtimes"
                                 />
                             </div>
-                        </section>}
-                    <section aria-labelledby="shows-heading" className={CARD}>
-                        <h2 id="shows-heading" className="text-base font-semibold">
-                            Today's showtimes
-                        </h2>
-                        {len(shows) == 0
-                            and <p
-                                data-testid="home-no-showtimes"
-                                className="text-sm text-muted-foreground"
+                        </section>}{len(shows) > 0
+                        and <section
+                            aria-labelledby="shows-heading"
+                            className="flex min-w-0 flex-col gap-3"
+                        >
+                            <div className="flex items-baseline justify-between gap-3">
+                                <h2
+                                    id="shows-heading"
+                                    className="text-lg font-semibold"
+                                >
+                                    Today's showtimes
+                                </h2>
+                                <span className="text-sm text-muted-foreground">
+                                    {len(shows)} today
+                                </span>
+                            </div>
+                            <ul
+                                className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 xl:grid-cols-4"
                             >
-                                No showtimes today.
-                            </p>}
-                        {len(shows) > 0
-                            and <ul className="flex flex-col">
                                 {[
-                                    <ShowtimeRow
+                                    <ShowtimeCard
                                         key={s["screening_id"]}
                                         show={s}
                                         slug={slug}
                                         tz={tz}
                                     /> for s in shows
                                 ]}
-                            </ul>}
-                    </section>
+                            </ul>
+                        </section>}
                 </div>
-                <div className="flex flex-col gap-6">
+                <aside className={PANEL} aria-label="Shortcuts and setup">
                     <QuickActions slug={slug} permissions={permissions}/>
                     {got["setup"] is not None
                         and <SetupChecklist setup={got["setup"]} slug={slug}/>}
@@ -516,7 +697,8 @@ def:pub StaffHome(
                             slug={slug}
                             tz={tz}
                         />}
-                </div>
+                    {not has_side and <span className="sr-only">No setup steps.</span>}
+                </aside>
             </div>
         </div>;
 }
