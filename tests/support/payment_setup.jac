@@ -105,6 +105,12 @@ def paid(app: Served, screening: str) -> str {
     started = pay(app, screening, fresh_phone());
     assert started["ok"] and started["payment"]["state"] == "stk_requested" , started;
     reference = started["payment"]["reference"];
+    settle(app, screening, reference);
+    return reference;
+}
+
+def settle(app: Served, screening: str, reference: str) {
+    # Safaricom's callback for the payment `reference` arrives and the job settles it.
     sent = app.call(
         "owner",
         "pay_callback",
@@ -115,7 +121,6 @@ def paid(app: Served, screening: str) -> str {
     resp = app.client.post(f"/hooks/mpesa/{sent['token']}", json=sent["body"]);
     assert resp.status_code == 200 , resp.text;
     assert app.call("owner", "pay_process") == 1;
-    return reference;
 }
 
 def hire(app: Served, who: str, role: str, venue_id: str) -> str {

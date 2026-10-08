@@ -240,15 +240,16 @@ def _start_payment(
     phone: str,
     email: str,
     idempotency_key: str,
-    email_optional: bool = False
+    sold_by: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    # email_optional: a sale at the box office (P6.5) may go without an email address;
-    # online, the tickets always go by email.
+    # sold_by: the member of staff selling at the box office (P6.5), "" online. At the
+    # counter the email address may be left out; online, the tickets always go by
+    # email. The intent keeps sold_by, so the ledger records who took the money (P7.1).
     (cinema, screening) = showtime_on_sale(slug, screening_id);
     check_holder(holder);
     check_key(idempotency_key);
     number = _number(phone);
-    if (email.strip() or not email_optional) and email_problem(email) {
+    if (email.strip() or not sold_by) and email_problem(email) {
         raise Refused("invalid_email", email_problem(email));
     }
     address = clean_email(email) if email.strip() else "";
@@ -312,6 +313,7 @@ def _start_payment(
             amount_cents=order.total_cents,
             currency=order.currency,
             callback_token=token,
+            sold_by=sold_by,
             created_at=stamp,
             updated_at=stamp
         );
@@ -355,11 +357,18 @@ def latest_intent(cinema: Tenant, order: Order) -> PaymentIntent | None {
 }
 
 def counter_payment(
-    slug: str, screening_id: str, holder: str, phone: str, email: str, key: str
+    slug: str,
+    screening_id: str,
+    holder: str,
+    phone: str,
+    email: str,
+    key: str,
+    sold_by: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    # Starts paying an order at the box office (P6.5): as online, but the email address
-    # may be left out. The caller checks the agent may sell there.
-    return _start_payment(slug, screening_id, holder, phone, email, key, True);
+    # Starts paying an order at the box office (P6.5) for the member of staff `sold_by`:
+    # as online, but the email address may be left out. The caller checks they may sell
+    # there.
+    return _start_payment(slug, screening_id, holder, phone, email, key, sold_by);
 }
 
 def:pub start_payment(

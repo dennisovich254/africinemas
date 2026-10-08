@@ -13,7 +13,7 @@ import os;
 import uuid;
 import from tests.support.served { Served }
 import from tests.support.storefront_setup { browse, code_of }
-import from tests.support.payment_setup { paying_cinema, hire, fresh_phone }
+import from tests.support.payment_setup { paying_cinema, hire, fresh_phone, settle }
 
 def _counter_order(app: Served, screening: str) -> str {
     # The agent holds A3 and A4 for a walk-in customer and orders two Adults; returns
@@ -123,6 +123,33 @@ test "M-Pesa at the counter: the customer's prompt, no email needed; cash then w
             and started["payment"]["state"] == "stk_requested" , started;
         # While the prompt is on the customer's phone, cash can't pay the order too.
         assert code_of(_cash(app, "agent", screening, holder)) == "payment_in_progress";
+    } finally {
+        app.close();
+    }
+}
+
+test "an M-Pesa sale at the counter is recorded as taken by the agent" {
+    (app, nova, screening) = paying_cinema(["agent"]);
+    try {
+        agent = hire(app, "agent", "box_office_agent", nova.venue);
+        holder = _counter_order(app, screening);
+        started = app.call(
+            "agent",
+            "sell_with_mpesa",
+            {
+                "tenant": "nova",
+                "screening_id": screening,
+                "holder": holder,
+                "phone": fresh_phone(),
+                "email": ""
+            }
+        );
+        assert started["ok"] , started;
+        settle(app, screening, started["payment"]["reference"]);
+        entries = app.call(
+            "owner", "bo_ledger", {"slug": "nova", "screening_id": screening}
+        );
+        assert entries == [["payment", 186000, "mpesa", agent]] , entries;
     } finally {
         app.close();
     }

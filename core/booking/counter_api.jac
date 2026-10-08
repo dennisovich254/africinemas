@@ -220,7 +220,8 @@ def _sell_with_mpesa(
         holder,
         phone,
         email,
-        f"counter-{fresh_node_id()}"
+        f"counter-{fresh_node_id()}",
+        scope.ctx.member_root_id
     );
 }
 
