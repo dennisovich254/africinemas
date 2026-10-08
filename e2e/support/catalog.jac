@@ -4,7 +4,7 @@ public API as staff would (P4.1).
 
 import io;
 import base64;
-import from datetime { datetime, timedelta }
+import from datetime { datetime, timedelta, timezone }
 import from PIL { Image }
 import from e2e.support.api { call, owner_with_cinema, add_venue, add_screen }
 
@@ -102,10 +102,13 @@ def cinema_with_programme -> dict[str, str] {
     return owner;
 }
 
-def cinema_selling_tickets(cols: int = 6) -> dict[str, str] {
-    # A cinema selling tickets for one showtime of Rafiki in two days: rows A and B of
-    # `cols` seats (B's last seat blocked), Adult KES 800 and Child KES 500, a KES 30
-    # booking fee and no extras. Returns the owner, with "show" the showtime's id.
+def cinema_selling_tickets(
+    cols: int = 6, starts_in_minutes: int = 0
+) -> dict[str, str] {
+    # A cinema selling tickets for one showtime of Rafiki in two days (or
+    # `starts_in_minutes` from now, so its door is open: P6.4): rows A and B of `cols`
+    # seats (B's last seat blocked), Adult KES 800 and Child KES 500, a KES 30 booking
+    # fee and no extras. Returns the owner, with "show" the showtime's id.
     owner = owner_with_cinema();
     venue = add_venue(owner, "Westgate");
     owner["screen"] = add_screen(owner, venue, "Screen 1");
@@ -155,6 +158,17 @@ def cinema_selling_tickets(cols: int = 6) -> dict[str, str] {
     );
     assert prices["ok"] , prices;
     rafiki = add_movie(owner, "Rafiki", "Two young women in Nairobi fall in love.");
-    owner["show"] = publish_showing(owner, rafiki, day_ahead(2), "18:15");
+    if starts_in_minutes > 0 {
+        nairobi = (
+            datetime.now(timezone.utc) + timedelta(minutes=starts_in_minutes)
+        ).astimezone(
+            timezone(timedelta(hours=3))
+        );
+        owner["show"] = publish_showing(
+            owner, rafiki, nairobi.strftime("%Y-%m-%d"), nairobi.strftime("%H:%M")
+        );
+    } else {
+        owner["show"] = publish_showing(owner, rafiki, day_ahead(2), "18:15");
+    }
     return owner;
 }

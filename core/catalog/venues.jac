@@ -84,6 +84,23 @@ def screenings_of(tenant: Tenant, auditorium: Auditorium) -> list[Screening] {
     return sorted(found, key=lambda (s: Screening) -> str { return s.starts_at; });  # jac:ignore[W1037]
 }
 
+def screenings_of_cinema(tenant: Tenant) -> list[Screening] {
+    # Every screening on any of the cinema's screens, any state (P6.4).
+    me = node_id(root);
+    act_as(tenant.principal_root_id);
+    try {
+        found: list[Screening] = [];
+        for venue in [tenant-->[?:Venue]] {
+            for screen in [venue-->[?:Auditorium]] {
+                found.extend([screen-->[?:Screening]]);
+            }
+        }
+    } finally {
+        restore(me);
+    }
+    return found;
+}
+
 def screenings_of_movie(tenant: Tenant, movie_id: str) -> list[Screening] {
     # Every screening of the movie, on any of the cinema's screens.
     me = node_id(root);

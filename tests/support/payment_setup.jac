@@ -117,3 +117,14 @@ def paid(app: Served, screening: str) -> str {
     assert app.call("owner", "pay_process") == 1;
     return reference;
 }
+
+def hire(app: Served, who: str, role: str, venue_id: str) {
+    # `who` joins Nova as `role` at `venue_id` ("" for every venue) and starts a shift.
+    invited = app.call(
+        "owner", "invite_staff", {"tenant": "nova", "role": role, "venue_id": venue_id}
+    );
+    assert invited["ok"] , invited;
+    joined = app.call(who, "accept_invite", {"token": invited["token"]});
+    assert joined["ok"] , joined;
+    assert app.call(who, "start_shift", {"tenant": "nova"})["ok"];
+}

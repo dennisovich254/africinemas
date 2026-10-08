@@ -25,7 +25,13 @@ its own claim and refusing).
 import from datetime { datetime, timedelta }
 import from core.clock { now }
 import from core.claims { claim, release, holder }
-import from core.authz.policy { Resource, require }
+import from core.authz.policy {
+    Resource,
+    Forbidden,
+    ROLE_PERMISSIONS,
+    authorize,
+    require
+}
 import from core.authz.context { NotFound, TenantScope, on_shift }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.membership { records_of }
@@ -38,7 +44,14 @@ import from core.tenancy.principal {
 }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.models { Screening, PUBLISHED }
-import from core.catalog.venues { find_screening, find_movie }
+import from core.catalog.venues {
+    find_screening,
+    find_movie,
+    find_venue,
+    find_auditorium,
+    screenings_of_cinema
+}
+import from core.catalog.storefront_api { cinema_timezone }
 import from core.booking.models { Ticket }
 import from core.booking.ticket_codes { REFS, VERSION, read_qr, typed_reference }
 
@@ -110,6 +123,19 @@ def _used(tenant: Tenant, used_at: str, used_by: str) -> Refused {
     );
 }
 
+def doors_open_at(screening: Screening) -> datetime {
+    return datetime.fromisoformat(screening.starts_at)
+        - timedelta(minutes=DOORS_OPEN_MINUTES);
+}
+
+def door_is_open(screening: Screening, at: datetime) -> bool {
+    # The door window: from DOORS_OPEN_MINUTES before the start until the showtime
+    # ends (its ends_at, cleaning buffer included).
+    return screening.state == PUBLISHED
+        and doors_open_at(screening) <= at
+        and at < datetime.fromisoformat(screening.ends_at);
+}
+
 def _check_ticket(scope: TenantScope, screening: Screening, ticket: Ticket) {
     if ticket.screening_id != node_id(screening) {
         theirs = find_screening(scope.tenant, ticket.screening_id);
@@ -129,8 +155,7 @@ def _check_ticket(scope: TenantScope, screening: Screening, ticket: Ticket) {
         raise Refused("showtime_closed", "This showtime isn't on.");
     }
     at = now();
-    opens = datetime.fromisoformat(screening.starts_at)
-        - timedelta(minutes=DOORS_OPEN_MINUTES);
+    opens = doors_open_at(screening);
     if at < opens {
         raise Refused(
             "too_early",
@@ -195,6 +220,52 @@ def _redeem(tenant: str, screening_id: str, code: str) -> dict[str, any] {  # ja
             "used_at": stamp
         }
     };
+}
+
+def _door_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = on_shift(tenant);
+    if not any([SCAN in ROLE_PERMISSIONS[a.role] for a in scope.ctx.assignments]) {
+        raise Forbidden(SCAN);
+    }
+    at = now();
+    shown: list[dict[str, str]] = [];
+    for s in screenings_of_cinema(scope.tenant) {
+        venue_ok = authorize(
+            scope.ctx,
+            SCAN,
+            Resource(tenant_id=scope.ctx.tenant_id, venue_id=s.venue_id)
+        );
+        if not venue_ok or not door_is_open(s, at) {
+            continue;
+        }
+        movie = find_movie(scope.tenant, s.movie_id);
+        venue = find_venue(scope.tenant, s.venue_id);
+        screen = find_auditorium(scope.tenant, s.auditorium_id);
+        shown.append(
+            {
+                "screening_id": node_id(s),
+                "movie_title": movie.title if movie is not None else "",
+                "starts_at": s.starts_at,
+                "ends_at": s.ends_at,
+                "venue": venue.name if venue is not None else "",
+                "screen": screen.name if screen is not None else ""
+            }
+        );
+    }
+    return {
+        "ok": True,
+        "timezone": cinema_timezone(scope.tenant),
+        "showtimes": sorted(
+            shown,
+            key=lambda (s: dict[str, str]) -> str { return s["starts_at"]; }  # jac:ignore[W1037]
+        )
+    };
+}
+
+def:priv door_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The showtimes whose door is open now, at the venues where the caller may scan
+    # tickets (P6.4): what the scanner page offers to check.
+    return answer(lambda -> any { return _door_showtimes(tenant); });  # jac:ignore[W1037]
 }
 
 def:priv redeem_ticket(tenant: str, screening_id: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
