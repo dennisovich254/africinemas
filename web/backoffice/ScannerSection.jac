@@ -16,7 +16,7 @@ still works.
 """
 
 import from react { useState, useEffect }
-import from "qr-scanner" { default as QrScanner }  # jac:ignore[W1101,W1051]
+import from "qr-scanner" { default as QrScanner }
 import from "@hugeicons/react" { HugeiconsIcon }
 import from "@hugeicons/core-free-icons" {
     CheckmarkCircle02Icon,
@@ -32,9 +32,16 @@ import from ..storefront.showtimes { time_label, long_day_label }
 
 glob REPEAT_MS: int = 4000;
 
+def _scanner_class -> any {  # jac:ignore[W1037]
+    # The QrScanner class as `any`: through a default import, the checker loses its
+    # static methods such as hasCamera (docs/jac-issues/JI-041).
+    found: any = QrScanner;  # jac:ignore[W1037]
+    return found;
+}
+
 async def _real_start(video: any, on_code: any) -> any {  # jac:ignore[W1037]
     scanner: any = new(  # jac:ignore[W1037,W2001,W1051]
-        QrScanner,  # jac:ignore[W1051] qr-scanner's types don't reach the checker
+        _scanner_class(),
         video,
         lambda (r: any) { on_code(r.data); },  # jac:ignore[W1037]
         {
@@ -57,7 +64,7 @@ def _decoder -> any {  # jac:ignore[W1037]
         return win.__africinemasDecoder;
     }
     return {
-        "available": lambda -> any { return QrScanner.hasCamera(); },  # jac:ignore[W1037,W1051]
+        "available": lambda -> any { return _scanner_class().hasCamera(); },  # jac:ignore[W1037]
         "start": _real_start
     };
 }
