@@ -138,24 +138,30 @@ def ResultCard(result: dict[str, str]) -> JsxElement {
         </div>;
 }
 
-def ShowtimeChoice(
+def:pub ShowtimeChoice(
     showtime: dict[str, str],
     tz: str,
     chosen: bool,
-    on_choose: any  # jac:ignore[W1037]
+    on_choose: any,  # jac:ignore[W1037]
+    with_day: bool = False,
+    testid: str = "door-showtime"
 ) -> JsxElement {
+    # One showtime to choose: its time (and day, for the box office, P6.5), movie and
+    # place.
+    when: str = time_label(showtime["starts_at"], tz);
+    if with_day {
+        when = f"{long_day_label(showtime['starts_at'], tz)}, {when}";
+    }
     return
         <button
             type="button"
-            data-testid="door-showtime"
+            data-testid={testid}
             aria-pressed={"true" if chosen else "false"}
             onClick={lambda { on_choose(showtime["screening_id"]); }}
             className={"flex min-h-11 flex-col items-start rounded-md border px-3 py-2 text-left "
                 + ("border-primary bg-primary/10" if chosen else "hover:bg-muted")}
         >
-            <span className="font-medium">
-                {f"{time_label(showtime['starts_at'], tz)} · {showtime['movie_title']}"}
-            </span>
+            <span className="font-medium">{f"{when} · {showtime['movie_title']}"}</span>
             <span className="text-sm text-muted-foreground">
                 {" · ".join(
                     [
@@ -260,7 +266,8 @@ def Camera(on_code: any, screening_id: str) -> JsxElement {  # jac:ignore[W1037]
         </div>;
 }
 
-def:pub ScannerSection(slug: str) -> JsxElement {
+def:pub ScannerSection(slug: str, shift_open: bool = True) -> JsxElement {
+    # shift_open: reload once the member starts their shift (the server refuses without).
     [door, set_door] = useState(None);
     [chosen, set_chosen] = useState("");
     [result, set_result] = useState(None);
@@ -292,7 +299,7 @@ def:pub ScannerSection(slug: str) -> JsxElement {
         load();
         return lambda {};
     }
-    useEffect(start_loading, [slug]);
+    useEffect(start_loading, [slug, shift_open]);
 
     async def check(code: str, from_camera: bool) {
         text = code.strip();

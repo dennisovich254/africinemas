@@ -5,7 +5,10 @@ same commit as the change that caused it, and never edited or deleted: there is 
 function here that changes an entry. Amounts are in cents, positive for money the
 cinema receives and negative for money it owes back.
 
-- "payment": M-Pesa confirmed a payment (+ the amount paid).
+- "payment": a payment was confirmed (+ the amount paid): by M-Pesa, or in cash at the
+  box office (P6.5). method says which ("mpesa", "cash"); recorded_by is the member of
+  staff who took it, for a counter sale. The caller sets both on the entry it gets back,
+  in the same commit.
 - "refund_due": money taken that bought nothing (a payment needing attention), owed back
   (- the amount). Plan 5.5's refund flow (§38) adds "refund" when it is paid out.
 
@@ -36,7 +39,9 @@ node LedgerEntry {
         currency: str,
         receipt: str = "",
         note: str = "",
-        created_at: str = "";
+        created_at: str = "",
+        method: str = "",
+        recorded_by: str = "";
 }
 
 def record_entry(

@@ -71,17 +71,35 @@ jobs:
       - name: Governance files (CONTRIBUTING, SECURITY, templates, .env.example)
         run: scripts/check_governance.sh
 
-  test:
-    name: test
+  test-shard:
+    # The suite in three shards on separate runners, each with its own Postgres (one
+    # runner took ~15 min: one worker, and every real-server test boots its own server).
+    # scripts/shard.sh deals the files out, the real-server ones first.
+    name: test (shard ${{ matrix.shard }})
     runs-on: ubuntu-latest
-    # The full suite takes ~12 min (one worker; every real-server test boots its own
-    # server and Postgres). The limit leaves headroom but still stops a hung Postgres.
-    timeout-minutes: 25
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-jac
-      - name: Test suite (strict, one worker; see scripts/test.sh)
-        run: scripts/test.sh -v
+      - name: Start the embedded Postgres (a fresh runner's first start is slow)
+        run: scripts/warm_postgres.sh
+      - name: Test suite, shard ${{ matrix.shard }} of 3 (strict, one worker; see scripts/test.sh)
+        run: scripts/shard.sh test ${{ matrix.shard }} 3 -v
+
+  test:
+    # The required check: passes only when every shard passed.
+    name: test
+    needs: test-shard
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every test shard passed
+        run: test "${{ needs.test-shard.result }}" = success
 
   build-web:
     name: build-web
@@ -137,10 +155,15 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  e2e:
-    name: e2e
+  e2e-shard:
+    # The browser tests in two shards, each building and serving its own app.
+    name: e2e (shard ${{ matrix.shard }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-jac
@@ -153,15 +176,28 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('jac.toml') }}
       - name: Install headless Chromium and its system libraries
         run: .jac/venv/bin/python -m playwright install --with-deps chromium-headless-shell
-      - name: Browser tests (phone + desktop, light + dark)
-        run: scripts/e2e.sh -v
+      - name: Start the embedded Postgres (a fresh runner's first start is slow)
+        run: scripts/warm_postgres.sh
+      - name: Browser tests, shard ${{ matrix.shard }} of 2 (phone + desktop, light + dark)
+        run: scripts/shard.sh e2e ${{ matrix.shard }} 2 -v
       - name: Upload screenshots and server log
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: e2e-artifacts
+          name: e2e-artifacts-${{ matrix.shard }}
           path: e2e/artifacts/
           retention-days: 14
+
+  e2e:
+    # The required check: passes only when every shard passed.
+    name: e2e
+    needs: e2e-shard
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every e2e shard passed
+        run: test "${{ needs.e2e-shard.result }}" = success
 
   security:
     name: security

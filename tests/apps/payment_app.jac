@@ -19,6 +19,11 @@ import from core.booking.ticket_delivery {
     send_due
 }
 import from core.notify.mailer { OUTBOX }
+import from core.booking.counter_api {
+    counter_showtimes,  # jac:ignore[W2037]
+    sell_for_cash,  # jac:ignore[W2037]
+    sell_with_mpesa  # jac:ignore[W2037]
+}
 import from core.booking.customer_tickets {
     save_booking,  # jac:ignore[W2037]
     my_tickets  # jac:ignore[W2037]
@@ -367,4 +372,20 @@ def:pub tm_outbox -> list[dict[str, any]] {  # jac:ignore[W1037]
 def:pub tm_clear_outbox -> bool {
     OUTBOX.clear();
     return True;
+}
+
+def:pub bo_ledger(slug: str, screening_id: str) -> list[list[any]] {  # jac:ignore[W1037]
+    # The showtime's ledger entries: [kind, amount, method, recorded_by] (P6.5).
+    (cinema, screening) = _showtime(slug, screening_id);
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        found = [
+            [e.kind, e.amount_cents, e.method, e.recorded_by]
+            for o in [screening-->[?:Order]] for e in [o-->[?:LedgerEntry]]
+        ];
+    } finally {
+        restore(me);
+    }
+    return found;
 }

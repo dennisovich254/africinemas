@@ -150,8 +150,19 @@ def Ordered(order: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
         </section>;
 }
 
-def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
-    holder = visitor_id();
+def:pub Checkout(
+    slug: str,
+    screening_id: str,
+    tz: str,
+    counter_holder: str = "",
+    pay_panel: any = None,  # jac:ignore[W1037]
+    done_panel: any = None  # jac:ignore[W1037]
+) -> JsxElement {
+    # At the box office (P6.5) the agent books under counter_holder, one per sale, and
+    # pay_panel(order, on_paid, on_expired) and done_panel(payment) replace the M-Pesa
+    # panel and the customer's tickets panel (which would save the tickets to the
+    # signed-in agent's own account).
+    holder = counter_holder or visitor_id();
     [seat_map, set_seat_map] = useState(None);
     [types, set_types] = useState([]);
     [currency, set_currency] = useState("");
@@ -459,8 +470,11 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
     if paid is not None {
         return
             <div data-testid="checkout" className="flex flex-col gap-4">
-                {status_line}
-                <Tickets payment={paid}/>
+                {status_line}{(
+                    done_panel(paid)
+                        if done_panel is not None
+                        else <Tickets payment={paid}/>
+                )}
             </div>;
     }
     if order is not None and expired {
@@ -500,15 +514,19 @@ def:pub Checkout(slug: str, screening_id: str, tz: str) -> JsxElement {
             <div data-testid="checkout" className="flex flex-col gap-4">
                 {status_line}
                 <Ordered order={placed} tz={tz}/>
-                <PayPanel
-                    slug={slug}
-                    screening_id={screening_id}
-                    holder={holder}
-                    amount={money(placed["total_cents"], placed["currency"])}
-                    initial={pay_state}
-                    on_paid={on_paid}
-                    on_expired={time_up}
-                />
+                {(
+                    pay_panel(placed, on_paid, time_up)
+                        if pay_panel is not None
+                        else <PayPanel
+                            slug={slug}
+                            screening_id={screening_id}
+                            holder={holder}
+                            amount={money(placed["total_cents"], placed["currency"])}
+                            initial={pay_state}
+                            on_paid={on_paid}
+                            on_expired={time_up}
+                        />
+                )}
             </div>;
     }
     if seat_map is None {
