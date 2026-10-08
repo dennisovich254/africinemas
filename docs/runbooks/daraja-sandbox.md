@@ -66,6 +66,8 @@ In a second terminal:
 cd ~/africinemas && scripts/dev_daraja.sh 2>&1 | tee ~/out.txt
 ```
 
+It builds the app and serves it on port 8000 without the dev server, so there's no hot reload (restart it after changing code). The dev server would refuse requests through the tunnel ("Blocked request. This host … is not allowed"), Safaricom's callback included.
+
 It loads only the settings in `.env` that have a value. Don't `source .env` directly: its empty lines (copied from `.env.example`) would blank settings your shell already has, such as `JAC_BUN`, and the web server then fails to start ("Vite dev server failed to start").
 
 Check it's reachable through the tunnel: opening `https://<tunnel>/healthz` in a browser should answer.
@@ -118,4 +120,5 @@ The **Daraja sandbox** workflow then runs the quick check every night at 04:30 N
 | Paid on the phone but the page keeps waiting | The callback can't reach you (tunnel or URL); the resolver settles it within about a minute. |
 | `Set AFRICINEMAS_PAYMENTS…` on the pay button | The server was started without `AFRICINEMAS_PAYMENTS=daraja` (use `scripts/dev_daraja.sh`). |
 | `Set AFRICINEMAS_TICKET_KEY…` on the pay button | The ticket signing key is missing or shorter than 32 characters; add it to `.env` (step 1). |
+| `Blocked request. This host ("….trycloudflare.com") is not allowed` | The server is the Vite dev server (`jac run --dev`), which refuses unknown hosts. Start it with `scripts/dev_daraja.sh`, which serves the built app. |
 | `Vite dev server failed to start`; the page doesn't load | An empty `.env` line blanked a shell setting (often `JAC_BUN`). Start with `scripts/dev_daraja.sh`, which skips empty lines. |
