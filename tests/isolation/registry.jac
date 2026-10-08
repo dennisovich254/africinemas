@@ -281,6 +281,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "email": ""
              }
          },
+         "staff_home": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
          "audit_log": {
              "scope": "tenant",
              "audit": "",

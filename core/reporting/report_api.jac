@@ -73,8 +73,9 @@ def _of_order(order: Order, into: Records) {
     }
 }
 
-def _records(cinema: Tenant) -> Records {
-    # Every showtime the cinema put on sale, with its tickets and money.
+def cinema_records(cinema: Tenant) -> Records {
+    # Every showtime the cinema put on sale, with its tickets and money (the sales
+    # report and the staff home page, P7.4).
     found = Records();
     titles: dict[str, str] = {};
     me = node_id(root);
@@ -138,7 +139,7 @@ def _sales_report(
             "Choose a start and an end date, the end not before the start, at most a year apart."
         );
     }
-    found = _records(scope.tenant);
+    found = cinema_records(scope.tenant);
     return {
         "ok": True,
         "today": today,
