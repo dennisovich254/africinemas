@@ -51,6 +51,7 @@ import from core.notify.addresses { email_problem, clean_email, masked_email }
 import from core.payments.payment_api { ORDER_PAYMENT, stored_intent, counter_payment }
 import from core.payments.settlement { FINALIZE, PROVISIONAL_SECONDS }
 import from core.payments.state { PaymentState, is_final }
+import from core.audit.log { audited }
 
 glob SELL: str = "bookings.create",
      SHOWTIMES_MAX: int = 30;
@@ -229,7 +230,7 @@ def:priv counter_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _counter_showtimes(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv sell_for_cash(
+def _do_sell_for_cash(
     tenant: str, screening_id: str, holder: str, email: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
@@ -237,12 +238,38 @@ def:priv sell_for_cash(
     );
 }
 
-def:priv sell_with_mpesa(
+def _do_sell_with_mpesa(
     tenant: str, screening_id: str, holder: str, phone: str, email: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _sell_with_mpesa(  # jac:ignore[W1037]
             tenant, screening_id, holder, phone, email
         ); }
+    );
+}
+
+def:priv sell_for_cash(
+    tenant: str, screening_id: str, holder: str, email: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "sale.cash",
+        "showtime",
+        screening_id,
+        lambda -> any { return _do_sell_for_cash(tenant, screening_id, holder, email); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv sell_with_mpesa(
+    tenant: str, screening_id: str, holder: str, phone: str, email: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "sale.mpesa_started",
+        "showtime",
+        screening_id,
+        lambda -> any { return _do_sell_with_mpesa(
+            tenant, screening_id, holder, phone, email
+        ); }  # jac:ignore[W1037]
     );
 }

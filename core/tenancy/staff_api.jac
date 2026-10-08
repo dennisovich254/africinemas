@@ -45,6 +45,7 @@ import from core.tenancy.principal {
     flush_now,
     system_root_id
 }
+import from core.audit.log { audited, record }
 
 glob INVITE_PURPOSE: str = "staff-invite",
      INVITE_CLAIMS: str = "staff-invite",
@@ -99,7 +100,7 @@ def _may_manage(scope: TenantScope, record: Membership) -> bool {
     return all(can_grant(scope.ctx, key.partition("@")[0]) for key in record.roles);
 }
 
-def:priv invite_staff(
+def _do_invite_staff(
     tenant: str, role: str, venue_id: str, label: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # `label` is the inviter's note on who it's for, shown in the staff list (P3.7c).
@@ -158,7 +159,7 @@ def:priv invite_staff(
     };
 }
 
-def:priv accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ignore[W1037]
+def _do_accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ignore[W1037]
     # `email` is the invitee's sign-in name, kept once verified as theirs (P3.7c).
     peeked = token_peek(INVITE_PURPOSE, token) if token else None;
     if peeked is None {
@@ -290,7 +291,7 @@ def _manage(
     return {"ok": True};
 }
 
-def:priv change_staff_roles(
+def _do_change_staff_roles(
     tenant: str, member_id: str, roles: list[str]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     def apply(scope: TenantScope, record: Membership) -> dict[str, any] | None {  # jac:ignore[W1037]
@@ -320,7 +321,7 @@ def:priv change_staff_roles(
     return _manage(tenant, member_id, "employees.assign_roles", apply);
 }
 
-def:priv set_staff_status(tenant: str, member_id: str, status: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_set_staff_status(tenant: str, member_id: str, status: str) -> dict[str, any] {  # jac:ignore[W1037]
     def apply(_scope: TenantScope, record: Membership) -> dict[str, any] | None {  # jac:ignore[W1037]
         if status not in STATUSES {
             return refused("invalid_status", "Status must be active or disabled.");
@@ -331,10 +332,75 @@ def:priv set_staff_status(tenant: str, member_id: str, status: str) -> dict[str,
     return _manage(tenant, member_id, "employees.disable", apply);
 }
 
-def:priv remove_staff(tenant: str, member_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_remove_staff(tenant: str, member_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     def apply(scope: TenantScope, record: Membership) -> dict[str, any] | None {  # jac:ignore[W1037]
         remove_member(scope.tenant, record.staff_root_id);
         return None;
     }
     return _manage(tenant, member_id, "employees.disable", apply);
+}
+
+def:priv invite_staff(
+    tenant: str, role: str, venue_id: str, label: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "staff.invited",
+        "invite",
+        "",
+        lambda -> any { return _do_invite_staff(tenant, role, venue_id, label); },
+        made="invite_id",
+        detail=f"{role} {venue_id}".strip()  # jac:ignore[W1037]
+    );
+}
+
+def:priv change_staff_roles(
+    tenant: str, member_id: str, roles: list[str]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "staff.roles_changed",
+        "member",
+        member_id,
+        lambda -> any { return _do_change_staff_roles(tenant, member_id, roles); },
+        detail=", ".join(sorted([str(r) for r in roles]))  # jac:ignore[W1037]
+    );
+}
+
+def:priv set_staff_status(tenant: str, member_id: str, status: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "staff.status_changed",
+        "member",
+        member_id,
+        lambda -> any { return _do_set_staff_status(tenant, member_id, status); },
+        detail=status  # jac:ignore[W1037]
+    );
+}
+
+def:priv remove_staff(tenant: str, member_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "staff.removed",
+        "member",
+        member_id,
+        lambda -> any { return _do_remove_staff(tenant, member_id); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ignore[W1037]
+    # Joining is recorded in the cinema joined (P7.2); a refused invitation has no
+    # cinema the caller belongs to, so it records nothing.
+    joined = _do_accept_invite(token, email);
+    if joined.get("ok") is True {
+        record(
+            str(joined["slug"]),
+            "staff.joined",
+            "member",
+            str(joined["member_id"]),
+            "ok",
+            ", ".join(sorted([str(r) for r in joined["roles"]]))
+        );
+    }
+    return joined;
 }

@@ -69,6 +69,7 @@ import from core.catalog.screening_rules {
     overlaps,
     parse_start
 }
+import from core.audit.log { audited }
 
 glob READ: str = "showtimes.read",
      CREATE: str = "showtimes.create",
@@ -314,7 +315,7 @@ def _move_to(
     return {"ok": True, "screening": _view(scope, screening)};
 }
 
-def:priv create_screening(
+def _do_create_screening(
     tenant: str, auditorium_id: str, movie_id: str, starts_at: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
@@ -332,7 +333,7 @@ def:priv get_screening(tenant: str, screening_id: str) -> dict[str, any] {  # ja
     return answer(lambda -> any { return _get_screening(tenant, screening_id); });  # jac:ignore[W1037]
 }
 
-def:priv reschedule_screening(
+def _do_reschedule_screening(
     tenant: str, screening_id: str, starts_at: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
@@ -340,7 +341,7 @@ def:priv reschedule_screening(
     );
 }
 
-def:priv schedule_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_schedule_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _move_to(  # jac:ignore[W1037]
             tenant, screening_id, UPDATE, ScreeningState.SCHEDULED
@@ -354,7 +355,7 @@ def _cancel(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1
     return done;
 }
 
-def:priv cancel_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_cancel_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _cancel(tenant, screening_id); });  # jac:ignore[W1037]
 }
 
@@ -445,11 +446,11 @@ def _list_seat_slots(tenant: str, screening_id: str) -> dict[str, any] {  # jac:
     };
 }
 
-def:priv publish_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_publish_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _publish(tenant, screening_id); });  # jac:ignore[W1037]
 }
 
-def:priv unpublish_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_unpublish_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _unpublish(tenant, screening_id); });  # jac:ignore[W1037]
 }
 
@@ -469,4 +470,74 @@ def:pub public_screenings(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
         "cinema": {"name": cinema.name, "slug": cinema.slug},
         "screenings": public_programme(cinema)
     };
+}
+
+def:priv create_screening(
+    tenant: str, auditorium_id: str, movie_id: str, starts_at: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "showtime.created",
+        "showtime",
+        "",
+        lambda -> any { return _do_create_screening(
+            tenant, auditorium_id, movie_id, starts_at
+        ); },
+        made="screening.screening_id"  # jac:ignore[W1037]
+    );
+}
+
+def:priv reschedule_screening(
+    tenant: str, screening_id: str, starts_at: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "showtime.rescheduled",
+        "showtime",
+        screening_id,
+        lambda -> any { return _do_reschedule_screening(
+            tenant, screening_id, starts_at
+        ); },
+        detail=starts_at  # jac:ignore[W1037]
+    );
+}
+
+def:priv schedule_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "showtime.scheduled",
+        "showtime",
+        screening_id,
+        lambda -> any { return _do_schedule_screening(tenant, screening_id); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv cancel_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "showtime.cancelled",
+        "showtime",
+        screening_id,
+        lambda -> any { return _do_cancel_screening(tenant, screening_id); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv publish_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "showtime.published",
+        "showtime",
+        screening_id,
+        lambda -> any { return _do_publish_screening(tenant, screening_id); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv unpublish_screening(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "showtime.unpublished",
+        "showtime",
+        screening_id,
+        lambda -> any { return _do_unpublish_screening(tenant, screening_id); }  # jac:ignore[W1037]
+    );
 }

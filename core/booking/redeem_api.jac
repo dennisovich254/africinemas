@@ -54,6 +54,7 @@ import from core.catalog.venues {
 import from core.catalog.storefront_api { cinema_timezone }
 import from core.booking.models { Ticket }
 import from core.booking.ticket_codes { REFS, VERSION, read_qr, typed_reference }
+import from core.audit.log { audited }
 
 glob SCAN: str = "tickets.scan",
      USED: str = "ticket-used",
@@ -268,6 +269,16 @@ def:priv door_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _door_showtimes(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv redeem_ticket(tenant: str, screening_id: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_redeem_ticket(tenant: str, screening_id: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _redeem(tenant, screening_id, code); });  # jac:ignore[W1037]
+}
+
+def:priv redeem_ticket(tenant: str, screening_id: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "ticket.scanned",
+        "showtime",
+        screening_id,
+        lambda -> any { return _do_redeem_ticket(tenant, screening_id, code); }  # jac:ignore[W1037]
+    );
 }

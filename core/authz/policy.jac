@@ -29,6 +29,7 @@ glob PERMISSIONS: list[str] = [
          "payments.refund",
          "payments.reconcile",
          "financial_reports.read",
+         "audit.read",
          "employees.read",
          "employees.invite",
          "employees.disable",
@@ -100,7 +101,8 @@ glob PERMISSIONS: list[str] = [
                  "bookings.read",
                  "payments.read",
                  "financial_reports.read",
-                 "employees.read"
+                 "employees.read",
+                 "audit.read"
              },
          "it_admin": _FLOOR_READ | {"employees.read", "tenant.settings.update"}
      },

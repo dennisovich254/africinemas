@@ -19,6 +19,7 @@ import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
 import from datetime { timedelta }
 import from core.clock { now }
 import from core.tenancy.shifts { open_shift, close_shift, shift_is_open }
+import from core.audit.log { audited }
 
 def:priv my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The caller's roles in `tenant` (any member may ask).
@@ -48,7 +49,7 @@ def:priv my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     };
 }
 
-def:priv rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
     try {
         scope = scoped(tenant, "tenant.settings.update");
     } except NotFound {
@@ -68,7 +69,7 @@ def:priv rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore
     return {"ok": True, "name": clean};
 }
 
-def:priv start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # Opens (or restarts) the caller's shift at `tenant` (ADR-0006). Any member may.
     try {
         scope = resolve_context(tenant);
@@ -79,7 +80,7 @@ def:priv start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"ok": True, "expires_at": (now() + timedelta(seconds=ttl)).isoformat()};
 }
 
-def:priv end_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_end_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # Ends the caller's shift at `tenant` at once; the UI calls it on logout.
     try {
         scope = resolve_context(tenant);
@@ -88,4 +89,34 @@ def:priv end_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     }
     close_shift(scope.ctx.tenant_id, scope.ctx.member_root_id);
     return {"ok": True};
+}
+
+def:priv rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "cinema.renamed",
+        "cinema",
+        tenant,
+        lambda -> any { return _do_rename_cinema(tenant, name); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "shift.started",
+        "shift",
+        "",
+        lambda -> any { return _do_start_shift(tenant); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv end_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "shift.ended",
+        "shift",
+        "",
+        lambda -> any { return _do_end_shift(tenant); }  # jac:ignore[W1037]
+    );
 }

@@ -28,6 +28,7 @@ import from core.catalog.pricing {
     price_list_data,
     price_ticket
 }
+import from core.audit.log { audited }
 
 glob READ: str = "showtimes.read",
      CONFIGURE: str = "tenant.settings.update",
@@ -223,7 +224,7 @@ def:priv get_price_list(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_price_list(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv save_price_list(
+def _do_save_price_list(
     tenant: str,
     timezone: str,
     ticket_types: list[any],  # jac:ignore[W1037]
@@ -245,5 +246,24 @@ def:priv quote_tickets(
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _quote_tickets(tenant, screening_id, items); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv save_price_list(
+    tenant: str,
+    timezone: str,
+    ticket_types: list[any],  # jac:ignore[W1037]
+    prices: list[any],  # jac:ignore[W1037]
+    surcharges: list[any],  # jac:ignore[W1037]
+    service_fee_cents: int
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "prices.saved",
+        "price_list",
+        "",
+        lambda -> any { return _do_save_price_list(
+            tenant, timezone, ticket_types, prices, surcharges, service_fee_cents
+        ); }  # jac:ignore[W1037]
     );
 }

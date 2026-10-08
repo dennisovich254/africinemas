@@ -47,6 +47,7 @@ import from core.catalog.venues {
     version_key,
     staff_at
 }
+import from core.audit.log { audited }
 
 glob VENUE_NAMES: str = "venue-name",
      AUDITORIUM_NAMES: str = "auditorium-name",
@@ -373,7 +374,7 @@ def _delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # j
     return {"ok": True};
 }
 
-def:priv create_venue(
+def _do_create_venue(
     tenant: str, name: str, city: str, address: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _create_venue(tenant, name, city, address); });  # jac:ignore[W1037]
@@ -383,7 +384,7 @@ def:priv list_venues(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _list_venues(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv update_venue(
+def _do_update_venue(
     tenant: str, venue_id: str, name: str, city: str, address: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
@@ -391,17 +392,17 @@ def:priv update_venue(
     );
 }
 
-def:priv delete_venue(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_delete_venue(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _delete_venue(tenant, venue_id); });  # jac:ignore[W1037]
 }
 
-def:priv create_auditorium(tenant: str, venue_id: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_create_auditorium(tenant: str, venue_id: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _create_auditorium(tenant, venue_id, name); }  # jac:ignore[W1037]
     );
 }
 
-def:priv rename_auditorium(
+def _do_rename_auditorium(
     tenant: str, auditorium_id: str, name: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
@@ -409,8 +410,78 @@ def:priv rename_auditorium(
     );
 }
 
-def:priv delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _do_delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _delete_auditorium(tenant, auditorium_id); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv create_venue(
+    tenant: str, name: str, city: str, address: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "venue.created",
+        "venue",
+        "",
+        lambda -> any { return _do_create_venue(tenant, name, city, address); },
+        made="venue.venue_id"  # jac:ignore[W1037]
+    );
+}
+
+def:priv update_venue(
+    tenant: str, venue_id: str, name: str, city: str, address: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "venue.updated",
+        "venue",
+        venue_id,
+        lambda -> any { return _do_update_venue(
+            tenant, venue_id, name, city, address
+        ); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv delete_venue(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "venue.deleted",
+        "venue",
+        venue_id,
+        lambda -> any { return _do_delete_venue(tenant, venue_id); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv create_auditorium(tenant: str, venue_id: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "screen.created",
+        "screen",
+        "",
+        lambda -> any { return _do_create_auditorium(tenant, venue_id, name); },
+        made="auditorium.auditorium_id"  # jac:ignore[W1037]
+    );
+}
+
+def:priv rename_auditorium(
+    tenant: str, auditorium_id: str, name: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "screen.renamed",
+        "screen",
+        auditorium_id,
+        lambda -> any { return _do_rename_auditorium(tenant, auditorium_id, name); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "screen.deleted",
+        "screen",
+        auditorium_id,
+        lambda -> any { return _do_delete_auditorium(tenant, auditorium_id); }  # jac:ignore[W1037]
     );
 }

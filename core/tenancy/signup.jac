@@ -51,6 +51,7 @@ import from core.tenancy.principal {
     restore,
     flush_now
 }
+import from core.audit.log { record }
 
 glob SLUG_HOLD_ENV: str = "AFRICINEMAS_SIGNUP_SLUG_HOLD_S",
      SLUG_HOLD_DEFAULT_S: int = 900;
@@ -105,7 +106,7 @@ def _provision(
     return tenant;
 }
 
-def:priv create_cinema(
+def _do_create_cinema(
     name: str, slug: str, email: str = ""
 ) -> dict[str, bool | str | dict[str, str]] {
     # `email` is the owner's sign-in name, kept on their staff record once verified
@@ -220,4 +221,18 @@ def:priv check_slug(slug: str) -> dict[str, str | bool] {
         "reason": "",
         "message": ""
     };
+}
+
+def:priv create_cinema(
+    name: str, slug: str, email: str = ""
+) -> dict[str, bool | str | dict[str, str]] {
+    # The new cinema's audit log starts with its creation (P7.2); a refusal has no
+    # cinema to record it in.
+    made = _do_create_cinema(name, slug, email);
+    if made.get("created") is True {
+        record(
+            str(made["slug"]), "cinema.created", "cinema", str(made["tenant_id"]), "ok"
+        );
+    }
+    return made;
 }

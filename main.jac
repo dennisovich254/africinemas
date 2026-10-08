@@ -112,6 +112,8 @@ import from core.booking.counter_api {
 }
 # The owner's sales report: takings, attendance and the drill-down (P7.1).
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037]
+# The cinema's audit log: owners and auditors read it, nobody changes it (P7.2).
+import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
 # A signed-in customer's saved bookings: "My tickets" (P6.3b).
 import from core.booking.customer_tickets {
     save_booking,  # jac:ignore[W2037]

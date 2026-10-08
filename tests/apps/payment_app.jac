@@ -8,7 +8,14 @@ AFRICINEMAS_PAYMENTS=simulator.
 
 import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
 import from core.tenancy.tenant_api { start_shift }  # jac:ignore[W2037]
-import from core.tenancy.staff_api { invite_staff, accept_invite }  # jac:ignore[W2037]
+import from core.tenancy.staff_api {
+    invite_staff,  # jac:ignore[W2037]
+    accept_invite,  # jac:ignore[W2037]
+    change_staff_roles  # jac:ignore[W2037]
+}
+import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
+import from core.audit.log { Opened, collection_of, _close }
+import from core.tenancy.registry { lookup_slug }
 import from core.booking.redeem_api {
     redeem_ticket,  # jac:ignore[W2037]
     door_showtimes  # jac:ignore[W2037]
@@ -389,4 +396,12 @@ def:pub bo_ledger(slug: str, screening_id: str) -> list[list[any]] {  # jac:igno
         restore(me);
     }
     return found;
+}
+
+def:priv audit_refinish(slug: str, event_id: str) -> bool {
+    # Tries to finish the cinema's audit event `event_id` again, as "ok" (P7.2): only
+    # a pending event is ever finished, so a finished one must not change.
+    cinema = lookup_slug(slug);
+    _close(Opened(collection=collection_of(str(cinema)), event_id=event_id), "ok", "x");
+    return True;
 }
