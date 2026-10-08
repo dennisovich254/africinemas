@@ -233,7 +233,8 @@ def _finalize(
             amount_cents=paid,
             receipt=receipt,
             note="M-Pesa",
-            method="mpesa"
+            method="mpesa",
+            recorded_by=intent.sold_by
         ),
         mark_paid
     );

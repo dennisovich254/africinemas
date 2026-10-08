@@ -10,7 +10,8 @@ node PaymentIntent {
     # (receipts, support), never an internal id; callback_token is the unguessable part
     # of the callback URL that matches Safaricom's reply to this intent (plan 5.4).
     # push_uncertain: the push got no answer, so whether the prompt reached the phone is
-    # unknown; it is never sent again (ADR-0016).
+    # unknown; it is never sent again (ADR-0016). sold_by is the member of staff who
+    # started it at the box office (P6.5), "" online; its ledger entry records them.
     has tenant_id: str,
         order_id: str,
         screening_id: str,
@@ -29,6 +30,7 @@ node PaymentIntent {
         receipt: str = "",
         paid_amount_cents: int = 0,
         attention_reason: str = "",
+        sold_by: str = "",
         created_at: str = "",
         updated_at: str = "";
 }

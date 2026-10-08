@@ -110,6 +110,8 @@ import from core.booking.counter_api {
     sell_for_cash,  # jac:ignore[W2037]
     sell_with_mpesa  # jac:ignore[W2037]
 }
+# The owner's sales report: takings, attendance and the drill-down (P7.1).
+import from core.reporting.report_api { sales_report }  # jac:ignore[W2037]
 # A signed-in customer's saved bookings: "My tickets" (P6.3b).
 import from core.booking.customer_tickets {
     save_booking,  # jac:ignore[W2037]
