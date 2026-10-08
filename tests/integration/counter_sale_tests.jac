@@ -9,6 +9,7 @@ the counter. Selling needs bookings.create at the showtime's venue: an agent lim
 another venue, or an usher, is refused. An order is paid once.
 """
 
+import os;
 import uuid;
 import from tests.support.served { Served }
 import from tests.support.storefront_setup { browse, code_of }
@@ -146,6 +147,30 @@ test "the box office lists showtimes on sale at the caller's venues only" {
         ]
             == [];
     } finally {
+        app.close();
+    }
+}
+
+test "without a ticket key, cash is refused up front and nothing changes" {
+    (app, nova, screening) = paying_cinema(["agent"]);
+    before = os.environ.pop("AFRICINEMAS_TICKET_KEY", None);
+    try {
+        hire(app, "agent", "box_office_agent", nova.venue);
+        holder = _counter_order(app, screening);
+        refused = _cash(app, "agent", screening, holder);
+        assert code_of(refused) == "tickets_unavailable" , refused;
+        stored = app.call(
+            "owner", "pay_overview", {"slug": "nova", "screening_id": screening}
+        );
+        assert stored["seats"]["A3"] == "payment_pending";
+        assert app.call(
+            "owner", "bo_ledger", {"slug": "nova", "screening_id": screening}
+        )
+            == [];
+    } finally {
+        if before is not None {
+            os.environ["AFRICINEMAS_TICKET_KEY"] = before;
+        }
         app.close();
     }
 }

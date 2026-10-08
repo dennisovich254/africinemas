@@ -88,7 +88,9 @@ def CounterPay(
         set_busy(False);
         set_confirming(False);
         if sold is None {
-            set_problem("We couldn't reach the server. Nothing was sold; try again.");
+            set_problem(
+                "The sale didn't go through: the server didn't answer as expected. Nothing was sold; try again."
+            );
         } elif sold["ok"] {
             on_paid(sold["payment"]);
         } else {
@@ -113,7 +115,9 @@ def CounterPay(
         );
         set_busy(False);
         if started is None {
-            set_problem("We couldn't reach the server. Try again.");
+            set_problem(
+                "The prompt wasn't sent: the server didn't answer as expected. Try again."
+            );
         } elif started["ok"] {
             set_problem("");
             set_waiting(True);

@@ -45,6 +45,7 @@ import from core.booking.models { Order }
 import from core.booking.hold_api { check_holder }
 import from core.booking.order_api { pending_order }
 import from core.booking.confirm { Takings, confirm_order }
+import from core.booking.ticket_codes { ticket_key, TicketKeyMissing }
 import from core.booking.ticket_delivery { booking_view, link_path }
 import from core.notify.addresses { email_problem, clean_email, masked_email }
 import from core.payments.payment_api { ORDER_PAYMENT, stored_intent, counter_payment }
@@ -138,6 +139,16 @@ def _sell_for_cash(
     tenant: str, screening_id: str, holder: str, email: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     (scope, screening) = _showtime(tenant, screening_id);
+    # Tickets are signed (P6.1): without the key none can be issued, so refuse before
+    # anything is claimed or changed, as online payments do.
+    try {
+        ticket_key();
+    } except TicketKeyMissing {
+        raise Refused(
+            "tickets_unavailable",
+            "Tickets can't be issued right now (the server has no ticket key). Ask an administrator."
+        );
+    }
     if email.strip() and email_problem(email) {
         raise Refused("invalid_email", email_problem(email));
     }
