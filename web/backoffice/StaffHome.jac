@@ -8,11 +8,13 @@ The page leads with the movies, as a cinema should:
 - today's figures (who reads reports) as compact tiles;
 - today's showtimes as poster cards (a row that scrolls on its own on a phone, a grid on
   desktop), each with Sell or Scan;
-- a side panel: quick actions (from the member's permissions), the setup checklist
-  until it's done (who sets the cinema up), recent activity (who reads the audit log).
+- a side column of separate tiles: quick actions (from the member's permissions), the
+  setup checklist until it's done (who sets the cinema up), recent activity (who reads
+  the audit log).
 
-Artwork is decorative (the title is always written) and comes from the storefront's
-public images, since today's showtimes are on sale. Off shift, the page says what
+Artwork is decorative (the title is always written) and comes from showtime_art, for
+staff, so it shows before the cinema is public too. The hero shows the poster itself
+on the right (wider screens) over the backdrop, or the poster blurred. Off shift, the page says what
 starting one shows. A phone stacks everything, the hero first.
 """
 
@@ -30,14 +32,13 @@ import from "@hugeicons/core-free-icons" {
 }
 import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.spinner { Spinner }
-import from core.reporting.staff_home { staff_home }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.reporting.staff_home { staff_home, showtime_art }  # jac:ignore[W2037] def:priv endpoints over the server pin (JI-027)
 import from ..shell.AppLink { AppLink }
 import from ..storefront.showtimes { time_label }
-import from ..storefront.StorefrontParts { Poster, Backdrop }
 import from .report_view { day_label, percent, money_label, action_label, result_label }
 import from .nav { section_path }
 
-glob PANEL: str = "flex flex-col gap-5 rounded-3xl bg-card p-5 ring-1 ring-foreground/10",
+glob TILE: str = "flex flex-col gap-3 rounded-3xl bg-card p-4 ring-1 ring-foreground/10",
      PILL: str = "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2";
 
 def greeting(tz: str) -> str {
@@ -86,6 +87,48 @@ def SeatsBar(sold: int, seats: int, light: bool, testid: str = "") -> JsxElement
         </span>;
 }
 
+def ShowtimeArt(
+    slug: str, screening_id: str, kind: str, available: bool, className: str = ""
+) -> JsxElement {
+    # A showtime's poster or backdrop from showtime_art (staff-only; the cinema needn't
+    # be public yet). Decorative: the title is always written beside it. An empty frame
+    # of the same size while it loads or when the movie has none.
+    [src, set_src] = useState("");
+
+    async def load {
+        set_src("");
+        if not available {
+            return;
+        }
+        got: any = None;  # jac:ignore[W1037]
+        try {
+            got = await showtime_art(slug, screening_id, kind);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("showtime_art failed", e);
+            return;
+        }
+        if got["ok"] {
+            set_src(got["image"]);
+        }
+    }
+
+    def start_loading {
+        load();
+    }
+    useEffect(start_loading, [slug, screening_id, kind, available]);
+
+    return
+        <div aria-hidden="true" className={f"overflow-hidden bg-white/5 {className}"}>
+            {src
+                and <img
+                    src={src}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                />}
+        </div>;
+}
+
 def Hero(
     show: dict[str, any],  # jac:ignore[W1037]
     slug: str,
@@ -93,11 +136,9 @@ def Hero(
     upcoming: bool
 ) -> JsxElement {
     # The next showtime, big: artwork, title, when and where, seats, Sell or Scan.
-    movie = {
-        "movie_key": show["movie_key"],
-        "has_backdrop": show["has_backdrop"],
-        "has_poster": show["has_poster"]
-    };
+    screening_id: str = show["screening_id"];
+    has_backdrop: bool = show["has_backdrop"];
+    has_poster: bool = show["has_poster"];
     when = time_label(show["starts_at"], tz);
     return
         <section
@@ -105,12 +146,38 @@ def Hero(
             data-testid="home-hero"
             className="relative isolate flex min-h-72 items-end overflow-hidden rounded-3xl bg-black"
         >
-            <Backdrop slug={slug} movie={movie}/>
+            {has_backdrop
+                and <ShowtimeArt
+                    slug={slug}
+                    screening_id={screening_id}
+                    kind="backdrop"
+                    available={True}
+                    className="absolute inset-0 -z-20 opacity-70"
+                />}
+            {not has_backdrop
+                and has_poster
+                and <ShowtimeArt
+                    slug={slug}
+                    screening_id={screening_id}
+                    kind="poster"
+                    available={True}
+                    className="absolute inset-0 -z-20 scale-125 opacity-50 blur-2xl"
+                />}
             <div
                 aria-hidden="true"
-                className="absolute inset-0 -z-10 bg-gradient-to-t from-black/90 via-black/60 to-black/20 sm:bg-gradient-to-r sm:from-black/90 sm:via-black/60 sm:to-black/10"
+                className="absolute inset-0 -z-10 bg-gradient-to-t from-black/90 via-black/60 to-black/20 sm:bg-gradient-to-r sm:from-black/90 sm:via-black/55 sm:to-black/10"
             />
-            <div className="flex max-w-xl flex-col gap-3 p-5 text-white sm:p-8">
+            {has_poster
+                and <ShowtimeArt
+                    slug={slug}
+                    screening_id={screening_id}
+                    kind="poster"
+                    available={True}
+                    className="absolute right-6 top-1/2 hidden aspect-[2/3] w-40 -translate-y-1/2 rounded-2xl shadow-2xl ring-1 ring-white/15 sm:block lg:w-44"
+                />}
+            <div
+                className="flex max-w-xl flex-col gap-3 p-5 text-white sm:p-8 sm:pr-56"
+            >
                 <span
                     className="w-fit rounded-full bg-white/15 px-3 py-1 text-xs font-medium ring-1 ring-white/25"
                 >
@@ -214,11 +281,12 @@ def ShowtimeCard(
             className="flex w-40 shrink-0 snap-start flex-col gap-2 sm:w-auto"
         >
             <div className="relative overflow-hidden rounded-2xl bg-black">
-                <Poster
+                <ShowtimeArt
                     slug={slug}
-                    movie_key={show["movie_key"]}
-                    has_poster={show["has_poster"]}
-                    className="rounded-none"
+                    screening_id={show["screening_id"]}
+                    kind="poster"
+                    available={show["has_poster"]}
+                    className="aspect-[2/3]"
                 />
                 <div
                     className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-3 pt-10 text-white"
@@ -346,7 +414,7 @@ def QuickActions(slug: str, permissions: list[str]) -> JsxElement {
         return <span/>;
     }
     return
-        <section aria-labelledby="quick-heading" className="flex flex-col gap-2">
+        <section aria-labelledby="quick-heading" className={TILE}>
             <h2 id="quick-heading" className="px-3 text-sm font-semibold">
                 Quick actions
             </h2>
@@ -368,7 +436,7 @@ def SetupChecklist(
         <section
             aria-labelledby="setup-heading"
             data-testid="setup-checklist"
-            className="flex flex-col gap-3 border-t pt-5"
+            className={TILE}
         >
             <div className="flex items-baseline justify-between gap-3 px-3">
                 <h2 id="setup-heading" className="text-sm font-semibold">
@@ -430,7 +498,7 @@ def RecentActivity(activity: list[dict[str, str]], slug: str, tz: str) -> JsxEle
         <section
             aria-labelledby="activity-heading"
             data-testid="recent-activity"
-            className="flex flex-col gap-3 border-t pt-5"
+            className={TILE}
         >
             <div className="flex items-baseline justify-between gap-3 px-3">
                 <h2 id="activity-heading" className="text-sm font-semibold">
@@ -687,7 +755,7 @@ def:pub StaffHome(
                             </ul>
                         </section>}
                 </div>
-                <aside className={PANEL} aria-label="Shortcuts and setup">
+                <aside className="flex flex-col gap-6" aria-label="Shortcuts and setup">
                     <QuickActions slug={slug} permissions={permissions}/>
                     {got["setup"] is not None
                         and <SetupChecklist setup={got["setup"]} slug={slug}/>}

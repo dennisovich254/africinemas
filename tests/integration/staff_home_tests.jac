@@ -13,8 +13,11 @@ the caller's roles allow:
 It needs a shift, like every staff endpoint (ADR-0006).
 """
 
+import io;
 import os;
 import uuid;
+import base64;
+import from PIL { Image }
 import from tests.support.served { Served }
 import from tests.support.storefront_setup { add_screening, browse, code_of }
 import from tests.support.payment_setup { paying_cinema, hire }
@@ -149,6 +152,55 @@ test "each role sees its part: sell or scan, figures, nothing else" {
         assert _home(app, "elsewhere")["showtimes"] == [];
     } finally {
         app.call("owner", "rd_unfreeze");
+        app.close();
+    }
+}
+
+def _poster_png -> str {
+    out = io.BytesIO();
+    Image.new("RGB", (400, 600), "#E7B03A").save(out, format="PNG");
+    return base64.b64encode(out.getvalue()).decode();
+}
+
+def _art(app: Served, who: str, screening: str, kind: str) -> any {  # jac:ignore[W1037]
+    return app.call(
+        who, "showtime_art", {"tenant": "nova", "screening_id": screening, "kind": kind}
+    );
+}
+
+test "a showtime's artwork for staff who read its showtimes, public or not" {
+    (app, nova, first) = paying_cinema(["usher", "elsewhere"]);
+    try {
+        mall = app.call(
+            "owner",
+            "create_venue",
+            {"tenant": "nova", "name": "Mall", "city": "", "address": ""}
+        )["venue"]["venue_id"];
+        hire(app, "usher", "usher", nova.venue);
+        hire(app, "elsewhere", "box_office_agent", mall);
+        # No poster yet.
+        assert code_of(_art(app, "owner", first, "poster")) == "no_poster";
+        uploaded = app.call(
+            "owner",
+            "upload_poster",
+            {
+                "tenant": "nova",
+                "movie_id": nova.movies["Rafiki"],
+                "content_type": "image/png",
+                "data_base64": _poster_png()
+            }
+        );
+        assert uploaded["ok"] , uploaded;
+        shown = _art(app, "usher", first, "poster");
+        assert shown["ok"]
+            and shown["image"].startswith("data:image/webp;base64,") , shown;
+        assert code_of(_art(app, "owner", first, "backdrop")) == "no_backdrop";
+        assert code_of(_art(app, "owner", first, "trailer")) == "bad_kind";
+        # Staff of another venue can't read this showtime, nor can anyone pick a
+        # showtime that isn't one.
+        assert code_of(_art(app, "elsewhere", first, "poster")) == "forbidden";
+        assert code_of(_art(app, "owner", "not-a-showtime", "poster")) == "not_found";
+    } finally {
         app.close();
     }
 }

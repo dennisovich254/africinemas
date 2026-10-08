@@ -14,7 +14,7 @@ import from core.tenancy.staff_api {
     change_staff_roles  # jac:ignore[W2037]
 }
 import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
-import from core.reporting.staff_home { staff_home }  # jac:ignore[W2037]
+import from core.reporting.staff_home { staff_home, showtime_art }  # jac:ignore[W2037]
 import from core.audit.log { Opened, collection_of, _close }
 import from core.tenancy.registry { lookup_slug }
 import from core.booking.redeem_api {
@@ -39,7 +39,7 @@ import from core.booking.customer_tickets {
 }
 import from core.catalog.venue_api { create_venue, create_auditorium }  # jac:ignore[W2037]
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
-import from core.catalog.movie_api { create_movie }  # jac:ignore[W2037]
+import from core.catalog.movie_api { create_movie, upload_poster }  # jac:ignore[W2037]
 import from core.catalog.screening_api {
     create_screening,  # jac:ignore[W2037]
     schedule_screening,  # jac:ignore[W2037]

@@ -14,14 +14,20 @@ staff_home(tenant) answers what the caller's roles allow, for the cinema's today
 - activity (audit.read): the last ACTIVITY audit events.
 
 A part the caller may not see is None. It needs a login and an open shift (ADR-0006).
+
+showtime_art(tenant, screening_id, kind) gives the page a showtime's poster or backdrop,
+to staff who may read showtimes at its venue, before the cinema is public too.
 """
 
+import base64;
 import from datetime { datetime }
 import from zoneinfo { ZoneInfo }
 import from core.clock { now }
-import from core.authz.context { TenantScope, on_shift }
-import from core.authz.policy { Resource, authorize }
-import from core.catalog.answers { answer }
+import from core.authz.context { NotFound, TenantScope, on_shift }
+import from core.authz.policy { Resource, authorize, require }
+import from core.catalog.answers { Refused, answer }
+import from core.catalog.venues { find_screening, find_movie }
+import from core.catalog.poster { media_store }
 import from core.catalog.models {
     Venue,
     Auditorium,
@@ -43,6 +49,7 @@ import from core.reporting.report_api { cinema_records }
 import from core.audit.log { events }
 
 glob ACTIVITY: int = 5,
+     ART_KINDS: list[str] = ["poster", "backdrop"],
      NOT_SHOWN: list[str] = ["draft", "scheduled", "cancelled"],
      # (key, label, back-office section) in the order a new cinema does them.
      STEPS: list[tuple[str, str, str]] = [
@@ -237,4 +244,42 @@ def _staff_home(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
 
 def:priv staff_home(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _staff_home(tenant); });  # jac:ignore[W1037]
+}
+
+def _showtime_art(tenant: str, screening_id: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A showtime's movie poster or backdrop as a WebP data URL, for the home page: to
+    # staff who may read showtimes at its venue, whether or not the cinema is public yet
+    # (the storefront's images are only for an open cinema's movies on sale).
+    scope = on_shift(tenant);
+    if kind not in ART_KINDS {
+        raise Refused("bad_kind", "Ask for a poster or a backdrop.");
+    }
+    screening = find_screening(scope.tenant, screening_id);
+    if screening is None {
+        raise NotFound();
+    }
+    require(
+        scope.ctx,
+        "showtimes.read",
+        Resource(tenant_id=scope.ctx.tenant_id, venue_id=screening.venue_id)
+    );
+    movie = find_movie(scope.tenant, screening.movie_id);
+    key = "";
+    if movie is not None {
+        key = movie.poster_key if kind == "poster" else movie.backdrop_key;
+    }
+    data = media_store().download(key) if key else None;
+    if not data {
+        raise Refused(f"no_{kind}", f"This movie has no {kind} yet.");
+    }
+    return {
+        "ok": True,
+        "image": f"data:image/webp;base64,{base64.b64encode(data).decode()}"
+    };
+}
+
+def:priv showtime_art(tenant: str, screening_id: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(
+        lambda -> any { return _showtime_art(tenant, screening_id, kind); }  # jac:ignore[W1037]
+    );
 }

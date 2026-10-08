@@ -17,14 +17,14 @@ The Overview is the first page every member of staff sees. It showed a page-wide
    - **activity** (`audit.read`): the last five audit events.
 
    A part the caller may not see is `None`. It needs an open shift, as every staff endpoint does (ADR-0006).
-2. **The page leads with the movies, as a cinema should** (inspired by streaming-app home pages):
+2. **The page leads with the movies, as a cinema should** (inspired by streaming-app home pages). The shell's title stays the page's `h1` but is visually hidden on the home page (`AppShell(title_hidden)`), whose greeting is its visible heading; the web address line gives way to the "View storefront" chip. The side column is three separate tiles:
    - a header: a greeting in the display face, the cinema's day and the member's roles, an "On shift" chip and a "View storefront" chip;
    - a **hero** for the next showtime (or the one showing now): the movie's backdrop (or its poster, blurred) behind a dark scrim, the title in the display face, time, screen, venue, seats sold, and Sell or Scan as pill buttons; "No showtimes today" with "Add a showtime" when there are none;
    - today's figures as four compact tiles;
    - today's showtimes as **poster cards** (time, title and screen on the artwork, seats sold, Sell or Scan), a row that scrolls within itself on a phone and a grid on desktop;
    - a **side panel**: quick actions, the setup checklist (until every step is done) and recent activity.
 
-   Artwork is decorative (titles are always written) and comes from the storefront's public poster and backdrop endpoints, since today's showtimes are on sale; `staff_home` returns each movie's public key and whether it has a poster or backdrop. Text on artwork is white on a black scrim of at least 60 % opacity, for contrast. A phone stacks everything, the hero first. Off shift, the page says what starting one shows.
+   Artwork is decorative (titles are always written). It comes from **`showtime_art(tenant, screening_id, kind)`**, a staff endpoint (shift, `showtimes.read` at the showtime's venue), not the storefront's public images: those serve only an open cinema's movies on sale, so a cinema still being set up showed no artwork. The hero shows the poster itself on the right on wider screens, over the backdrop (or the poster blurred). Text on artwork is white on a black scrim of at least 60 % opacity, for contrast. A phone stacks everything, the hero first. Off shift, the page says what starting one shows.
 3. **The shift banner** is one compact row above every section (it was a page-wide alert), wrapping on a phone with the button last.
 4. **"Your roles"** is no longer a section; the header names them ("Signed in as Owner").
 

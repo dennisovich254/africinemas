@@ -91,8 +91,11 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
     logo: str = "",
     children: any = None,  # jac:ignore[W1037]
     actions: any = None,  # jac:ignore[W1037]
-    account: any = None  # jac:ignore[W1037]
+    account: any = None,  # jac:ignore[W1037]
+    title_hidden: bool = False
 ) -> JsxElement {
+    # title_hidden: the page shows its own heading (the back office's home, P7.4); the
+    # title stays the page's h1 for screen readers.
     location = useLocation();
     [open, set_open] = useState(False);
     close_drawer = lambda { set_open(False); };
@@ -181,7 +184,9 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
                 >
                     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
                         <h1
-                            className="font-display text-4xl leading-none lg:text-5xl"
+                            className={"sr-only"
+                                if title_hidden
+                                else "font-display text-4xl leading-none lg:text-5xl"}
                             data-testid="shell-title"
                         >
                             {title}

@@ -350,18 +350,18 @@ def:pub BackOffice -> JsxElement {
                 logo={logo}
                 home={section_path(slug, "")}
                 account={<AccountActions slugs={[slug]} switch_to="/app"/>}
+                title_hidden={section == "" and allowed}
             >
-                <p className="-mt-3 text-sm text-muted-foreground">
-                    {web_address(slug)}
-                </p>
-                {not shift_open
+                {section != ""
+                    and <p className="-mt-3 text-sm text-muted-foreground">
+                        {web_address(slug)}
+                    </p>}{not shift_open
                     and allowed
                     and <ShiftBanner
                         busy={starting}
                         failed={start_failed}
                         on_start={begin_shift}
-                    />}
-                {content}
+                    />}{content}
             </AppShell>
         </ThemeProvider>;
 }
