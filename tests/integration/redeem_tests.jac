@@ -13,7 +13,7 @@ ushers limited to another venue, may not scan.
 import os;
 import from tests.support.served { Served }
 import from tests.support.storefront_setup { Cinema, add_screening, code_of }
-import from tests.support.payment_setup { paying_cinema, paid }
+import from tests.support.payment_setup { paying_cinema, paid, hire }
 
 glob CLOCK: str = "AFRICINEMAS_CLOCK_CONTROL";
 
@@ -26,15 +26,6 @@ obj Door {
         codes: list[dict[str, str]];
 }
 
-def _hire(app: Served, who: str, role: str, venue_id: str) {
-    invited = app.call(
-        "owner", "invite_staff", {"tenant": "nova", "role": role, "venue_id": venue_id}
-    );
-    assert invited["ok"] , invited;
-    joined = app.call(who, "accept_invite", {"token": invited["token"]});
-    assert joined["ok"] , joined;
-    assert app.call(who, "start_shift", {"tenant": "nova"})["ok"];
-}
 
 def _door(staff: list[str]) -> Door {
     os.environ[CLOCK] = "1";
@@ -43,7 +34,7 @@ def _door(staff: list[str]) -> Door {
     codes = app.call(
         "owner", "pay_ticket_codes", {"slug": "nova", "screening_id": screening}
     );
-    _hire(app, "usher", "usher", nova.venue);
+    hire(app, "usher", "usher", nova.venue);
     _at(app, screening, -30);
     return Door(app=app, nova=nova, screening=screening, codes=codes);
 }
@@ -147,13 +138,13 @@ test "voided and refunded tickets are refused" {
 test "only staff who may scan can redeem, and only at their venues" {
     door = _door(["agent", "elsewhere"]);
     try {
-        _hire(door.app, "agent", "box_office_agent", door.nova.venue);
+        hire(door.app, "agent", "box_office_agent", door.nova.venue);
         mall = door.app.call(
             "owner",
             "create_venue",
             {"tenant": "nova", "name": "Mall", "city": "", "address": ""}
         )["venue"]["venue_id"];
-        _hire(door.app, "elsewhere", "usher", mall);
+        hire(door.app, "elsewhere", "usher", mall);
         qr = door.codes[0]["qr"];
         assert code_of(_redeem(door, qr, who="agent")) == "forbidden";
         assert code_of(_redeem(door, qr, who="elsewhere")) == "forbidden";

@@ -9,7 +9,10 @@ AFRICINEMAS_PAYMENTS=simulator.
 import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
 import from core.tenancy.tenant_api { start_shift }  # jac:ignore[W2037]
 import from core.tenancy.staff_api { invite_staff, accept_invite }  # jac:ignore[W2037]
-import from core.booking.redeem_api { redeem_ticket }  # jac:ignore[W2037]
+import from core.booking.redeem_api {
+    redeem_ticket,  # jac:ignore[W2037]
+    door_showtimes  # jac:ignore[W2037]
+}
 import from core.booking.ticket_delivery {
     tickets_by_link,  # jac:ignore[W2037]
     resend_tickets,  # jac:ignore[W2037]

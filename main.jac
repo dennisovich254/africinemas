@@ -100,7 +100,10 @@ import from core.booking.order_api {
     quote_hold,
     public_ticket_types
 }
-import from core.booking.redeem_api { redeem_ticket }  # jac:ignore[W2037]
+import from core.booking.redeem_api {
+    redeem_ticket,  # jac:ignore[W2037]
+    door_showtimes  # jac:ignore[W2037]
+}
 # A signed-in customer's saved bookings: "My tickets" (P6.3b).
 import from core.booking.customer_tickets {
     save_booking,  # jac:ignore[W2037]

@@ -192,6 +192,7 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "screening_id": "x"}
          },
+         "door_showtimes": {"scope": "tenant", "probe": {"tenant": "{tenant}"}},
          "redeem_ticket": {
              "scope": "tenant",
              "probe": {"tenant": "{tenant}", "screening_id": "x", "code": "x"}
