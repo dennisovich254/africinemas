@@ -4,16 +4,87 @@ Under the tickets on "You're booked" and on the tickets page: where they were em
 the private ticket link (open it, or copy it to keep), and Resend, to the same address
 or a corrected one ("Use a different address"). The server allows three resends an
 hour; past that it says so. Results are announced politely.
+
+A signed-in visitor's tickets are saved to their account at the cinema by themselves
+(P6.3b, SaveToAccount), with a link to all their tickets; if that fails, a button tries
+again. A visitor who isn't signed in is offered to sign in, which brings them back here
+to save.
 """
 
-import from react { useState }
+import from react { useState, useEffect }
+import from "@jac/runtime" { jacIsLoggedIn }
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from ..shell.AppLink { AppLink }
 import from core.booking.ticket_delivery { resend_tickets }
+import from core.booking.customer_tickets { save_booking }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from ..auth.session { signed_in_email }
 import from .checkout_rules { email_problem }
+
+def:pub SaveToAccount(slug: str, token: str, link: str) -> JsxElement {
+    # Saves the tickets to a signed-in visitor's account by itself (P6.3b).
+    signed_in: bool = jacIsLoggedIn();
+    [saving, set_saving] = useState("idle");
+    state: str = saving;
+
+    async def save {
+        set_saving("saving");
+        name: str = signed_in_email().split("@")[0];
+        done: any = None;  # jac:ignore[W1037]
+        try {
+            done = await save_booking(slug, token, name);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("saving the tickets failed", e);
+        }
+        set_saving("saved" if done is not None and done["ok"] else "failed");
+    }
+
+    def save_when_signed_in -> any {  # jac:ignore[W1037]
+        if signed_in {
+            save();
+        }
+        return lambda {};
+    }
+    useEffect(save_when_signed_in, [link]);
+
+    if not signed_in {
+        return
+            <AppLink
+                to={f"/login?next={link}"}
+                testid="sign-in-to-save"
+                className="w-fit text-sm font-medium underline underline-offset-4"
+            >
+                Sign in to keep your tickets in one place
+            </AppLink>;
+    }
+    if state == "saved" {
+        return
+            <p data-testid="saved-to-account" className="text-sm">
+                {"Saved to your account. "}
+                <AppLink
+                    to={f"/c/{slug}/my-tickets"}
+                    testid="my-tickets-link"
+                    className="font-medium underline underline-offset-4"
+                >
+                    See all your tickets
+                </AppLink>
+            </p>;
+    }
+    if state == "failed" {
+        return
+            <Button
+                variant="outline"
+                data-testid="save-booking"
+                onClick={lambda { save(); }}
+                className="min-h-11 w-fit"
+            >
+                Save to my account
+            </Button>;
+    }
+    return <p className="text-sm text-muted-foreground">Saving to your account…</p>;
+}
 
 def:pub TicketDelivery(link: str, email: str, show_open: bool) -> JsxElement {
     # link: "/c/<slug>/tickets/<token>"; email: the masked address they went to.
@@ -140,6 +211,7 @@ def:pub TicketDelivery(link: str, email: str, show_open: bool) -> JsxElement {
                 and <p className="text-sm" data-testid="sent-to">
                     {f"We've emailed your tickets to {shown_to}."}
                 </p>}
+            <SaveToAccount slug={slug} token={token} link={link}/>
             <div className="flex flex-wrap gap-2">
                 {show_open
                     and <Button asChild={True} variant="outline" className="min-h-11">

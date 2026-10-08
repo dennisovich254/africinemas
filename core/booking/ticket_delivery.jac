@@ -82,7 +82,7 @@ def queue_mail(cinema: Tenant, order: Order, address: str) {
     claim(MAIL_QUEUE, fresh_node_id(), f"{node_id(cinema)}|{node_id(order)}|{address}");
 }
 
-def _order(cinema: Tenant, order_id: str) -> Order | None {
+def order_of_cinema(cinema: Tenant, order_id: str) -> Order | None {
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -191,7 +191,7 @@ def send_due -> int {
         try {
             (tenant_id, order_id, address) = queued.split("|", 2);
             cinema = tenant_by_id(tenant_id);
-            order = _order(cinema, order_id) if cinema is not None else None;
+            order = order_of_cinema(cinema, order_id) if cinema is not None else None;
             if cinema is None or order is None {
                 release(MAIL_QUEUE, key, queued);
                 continue;
@@ -213,7 +213,7 @@ def send_ticket_mail {
     send_due();
 }
 
-def _by_link(slug: str, token: str) -> tuple[Tenant, Order] {
+def order_by_link(slug: str, token: str) -> tuple[Tenant, Order] {
     # The paid order a link names, at this cinema; NotFound otherwise.
     cinema = open_cinema(slug);
     owner = holder(LINKS, link_key(token.strip())) if cinema is not None else None;
@@ -221,7 +221,7 @@ def _by_link(slug: str, token: str) -> tuple[Tenant, Order] {
         raise NotFound();
     }
     (tenant_id, _, order_id) = owner.partition("|");
-    order = _order(cinema, order_id) if tenant_id == node_id(cinema) else None;
+    order = order_of_cinema(cinema, order_id) if tenant_id == node_id(cinema) else None;
     if order is None or order.status != "confirmed" {
         raise NotFound();
     }
@@ -247,7 +247,7 @@ def _resend_slot(order: Order) -> int {
 }
 
 def _resend(slug: str, token: str, email: str) -> dict[str, any] {  # jac:ignore[W1037]
-    (cinema, order) = _by_link(slug, token);
+    (cinema, order) = order_by_link(slug, token);
     address = order.email;
     if email.strip() {
         if email_problem(email) {
@@ -280,7 +280,7 @@ def _resend(slug: str, token: str, email: str) -> dict[str, any] {  # jac:ignore
 def:pub tickets_by_link(slug: str, token: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any {  # jac:ignore[W1037]
-            (cinema, order) = _by_link(slug, token);
+            (cinema, order) = order_by_link(slug, token);
             return {"ok": True, "booking": booking_view(cinema, order)};
         }
     );

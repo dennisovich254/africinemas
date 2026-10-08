@@ -101,6 +101,11 @@ import from core.booking.order_api {
     public_ticket_types
 }
 import from core.booking.redeem_api { redeem_ticket }  # jac:ignore[W2037]
+# A signed-in customer's saved bookings: "My tickets" (P6.3b).
+import from core.booking.customer_tickets {
+    save_booking,  # jac:ignore[W2037]
+    my_tickets  # jac:ignore[W2037]
+}
 # The ticket link, resending tickets, and the job that sends ticket emails (P6.3).
 import from core.booking.ticket_delivery {
     tickets_by_link,
