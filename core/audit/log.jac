@@ -2,28 +2,54 @@
 ADR-0027).
 
 Every staff endpoint that changes something answers through `audited`, which records
-exactly one AuditEvent: who did it, what, to which resource, and the result ("ok" or the
-refusal's code). The event is written before the work and finished after it. A refused attempt is
-recorded too, but only when the caller is active staff of that cinema: someone outside
-it can't write to its log. Work that fails with an unexpected error rolls back with its
-event, unless part of it had committed: then the event stays "pending", the record of an
-action that didn't finish.
+exactly one event: who did it, what, to which resource, and the result ("ok" or the
+refusal's code). A refused attempt is recorded too, but only when the caller is active
+staff of that cinema: someone outside it can't write to its log.
+
+Events live outside the graph, in Jac's shared store (the `jac_docs` table, one document
+per event), which runs on its own connection and commits at once:
+
+- No shared node: concurrent staff actions never touch the same row, so they can't make
+  each other's requests fail (a graph "trail" node every request wrote did).
+- No graph write after the endpoint's work: some work commits part-way (a sale, a
+  scan), and a graph write after that could make Jac re-run the whole request (JI-042).
+- An event is written "pending" before the work and finished once, after it. Work that
+  fails part-way leaves it "pending": the attempt is on record either way.
+- Nobody can change or delete an event: only this module writes these documents, only
+  `audit_log` reads them, and staff never reach the store.
 
 Never recorded (§66): passwords, tokens, secrets, credentials, ticket codes or customer
 contact details. An event holds ids, an action and a short `detail` its endpoint chose.
+
+The only module besides core/claims.jac allowed to use the shared store.
 """
 
-import from uuid { UUID, uuid4 }
-import from jaclang { JacRuntime as Jac }
+import json;
+import from uuid { uuid4 }
 import from datetime { datetime, timezone }
+import from jaclang.server.shared_store { open_docs_store }
 import from core.authz.context { NotFound, resolve_context }
 import from core.catalog.answers { answer }
-import from core.tenancy.models { Tenant, StaffGroup, Membership, MemberOf }
-import from core.tenancy.principal { node_id, act_as, restore, flush_now }
-import from core.tenancy.groups { access_group }
-import from core.audit.models { AuditTrail, AuditEvent }
+import from core.tenancy.models { StaffGroup, Membership, MemberOf }
+import from core.tenancy.principal { node_id }
 
-glob DETAIL_MAX: int = 200;
+glob DETAIL_MAX: int = 200,
+     PENDING: str = "pending",
+     COLLECTION_PREFIX: str = "africinemas:audit:";
+
+class AuditStoreUnavailable(RuntimeError) {}
+
+def _store -> any {  # jac:ignore[W1037]
+    store = open_docs_store();
+    if store is None {
+        raise AuditStoreUnavailable("the shared store is not reachable");
+    }
+    return store;
+}
+
+def collection_of(tenant_id: str) -> str {
+    return f"{COLLECTION_PREFIX}{tenant_id}";
+}
 
 def outcome(response: any) -> str {  # jac:ignore[W1037]
     # "ok" for a response that did what was asked, else its refusal code.
@@ -54,14 +80,6 @@ def picked(response: any, path: str) -> str {  # jac:ignore[W1037]
     return "" if found is None else str(found);
 }
 
-def trail_of(tenant: Tenant) -> AuditTrail | None {
-    # The cinema's audit trail, if it has one. Call as the cinema's principal.
-    for t in [tenant-->[?:AuditTrail]] {
-        return t;
-    }
-    return None;
-}
-
 def _known_as(tenant_id: str) -> str {
     # How the caller is known at the cinema: their email, else the invitation's label,
     # else their role (an owner has neither until they verify their email).
@@ -82,8 +100,8 @@ def _known_as(tenant_id: str) -> str {
 
 obj Opened {
     # An event written before its endpoint's work, to finish with the result after.
-    has event: AuditEvent,
-        principal_root_id: str;
+    has collection: str,
+        event_id: str;
 }
 
 def _open(
@@ -94,61 +112,55 @@ def _open(
     result: str,
     detail: str
 ) -> Opened | None {
-    # Writes one event at the cinema `tenant` (its slug) by the caller, as the cinema's
-    # principal; None, writing nothing, if the caller isn't active staff there.
+    # Writes one event at the cinema `tenant` (its slug) by the caller; None, writing
+    # nothing, if the caller isn't active staff there.
     try {
         scope = resolve_context(tenant);
     } except NotFound {
         return None;
     }
-    cinema = scope.tenant;
-    actor = scope.ctx.member_root_id;
-    known_as = _known_as(scope.ctx.tenant_id);
-    me = node_id(root);
-    act_as(cinema.principal_root_id);
-    try {
-        trail = trail_of(cinema);
-        if trail is None {
-            trail = AuditTrail(tenant_id=node_id(cinema));
-            cinema ++> trail;
-        }
-        event = AuditEvent(
-            tenant_id=node_id(cinema),
-            # The real time, not core.clock's (which tests may freeze or move): when
-            # it happened, and the order events are read back in.
-            at=datetime.now(timezone.utc).isoformat(),
-            actor_id=actor,
-            actor=known_as,
-            action=action,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            result=result,
-            detail=detail[:DETAIL_MAX],
-            correlation_id=uuid4().hex
-        );
-        trail ++> event;
-        # Staff may read an event, never write or delete it.
-        Jac.allow_group(event, UUID(node_id(access_group(cinema))), AccessLevel.READ);  # jac:ignore[E1053]
-        # Written now, as the principal: the end-of-request flush runs as the caller,
-        # who may only read the event, and would be refused.
-        flush_now();
-    } finally {
-        restore(me);
-    }
-    return Opened(event=event, principal_root_id=cinema.principal_root_id);
+    # The real time, not core.clock's (which tests freeze and move), fixed-width so
+    # that event ids sort in time order.
+    at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ");
+    event_id = f"{at}|{uuid4().hex}";
+    collection = collection_of(scope.ctx.tenant_id);
+    doc = {
+        "at": at,
+        "actor_id": scope.ctx.member_root_id,
+        "actor": _known_as(scope.ctx.tenant_id),
+        "action": action,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "result": result,
+        "detail": detail[:DETAIL_MAX],
+        "correlation_id": uuid4().hex
+    };
+    _store().rows(
+        """
+        INSERT INTO jac_docs (collection, id, doc)
+        VALUES (:c, :i, CAST(:d AS jsonb))
+        ON CONFLICT (collection, id) DO NOTHING
+        """,
+        {"c": collection, "i": event_id, "d": json.dumps(doc)}
+    );
+    return Opened(collection=collection, event_id=event_id);
 }
 
 def _close(opened: Opened, result: str, resource_id: str) {
-    # The event's result, once its endpoint's work is done.
-    me = node_id(root);
-    act_as(opened.principal_root_id);
-    try {
-        opened.event.result = result;
-        opened.event.resource_id = resource_id;
-        flush_now();
-    } finally {
-        restore(me);
-    }
+    # The event's result, once its endpoint's work is done. Only a pending event is
+    # finished, and only once.
+    _store().rows(
+        """
+        UPDATE jac_docs SET doc = doc || CAST(:p AS jsonb)
+        WHERE collection = :c AND id = :i AND doc->>'result' = :pending
+        """,
+        {
+            "c": opened.collection,
+            "i": opened.event_id,
+            "p": json.dumps({"result": result, "resource_id": resource_id}),
+            "pending": PENDING
+        }
+    );
 }
 
 def record(
@@ -159,10 +171,44 @@ def record(
     result: str,
     detail: str = ""
 ) {
-    # One finished event at the cinema `tenant` (its slug) by the caller; nothing if
-    # the caller isn't active staff there. For work already done in this request that
-    # didn't commit part-way (creating a cinema, joining one).
+    # One finished event at the cinema `tenant` (its slug) by the caller, for work
+    # already done (creating a cinema, joining one); nothing if the caller isn't
+    # active staff there.
     _open(tenant, action, resource_type, resource_id, result, detail);
+}
+
+def events(
+    tenant_id: str, before: str, limit: int, action: str
+) -> list[dict[str, str]] {
+    # Up to `limit` of the cinema's events older than the event `before` ("" for the
+    # newest), newest first, of one `action` when given.
+    found = _store().rows(
+        """
+        SELECT id, doc FROM jac_docs
+        WHERE collection = :c
+          AND (:b = '' OR id < :b)
+          AND (:a = '' OR doc->>'action' = :a)
+        ORDER BY id DESC
+        LIMIT :n
+        """,
+        {"c": collection_of(tenant_id), "b": before, "a": action, "n": limit}
+    );
+    shown: list[dict[str, str]] = [];
+    for (event_id, doc) in found {
+        data: dict[str, any] = json.loads(doc) if isinstance(doc, str) else dict(doc);  # jac:ignore[W1037]
+        view = {k: str(v) for (k, v) in data.items()};
+        view["event_id"] = str(event_id);
+        shown.append(view);
+    }
+    return shown;
+}
+
+def has_event(tenant_id: str, event_id: str) -> bool {
+    found = _store().rows(
+        "SELECT 1 FROM jac_docs WHERE collection = :c AND id = :i",
+        {"c": collection_of(tenant_id), "i": event_id}
+    );
+    return len(found) > 0;
 }
 
 def audited(
@@ -174,14 +220,10 @@ def audited(
     made: str = "",
     detail: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    # Answers with `work` (as `answer`) and records the action. `made` is where a
-    # response names what it created ("venue.venue_id"), when resource_id can't.
-    #
-    # The event is written before the work, "pending", and given its result after, so
-    # work that commits part-way and then fails leaves a pending event. (A write after
-    # such a commit once made Jac re-run the whole request, doing a sale twice; the
-    # read tier that did it is off, JI-042.)
-    opened = _open(tenant, action, resource_type, resource_id, "pending", detail);
+    # Answers with `work` (as `answer`) and records the action: "pending" before the
+    # work, its result after. `made` is where a response names what it created
+    # ("venue.venue_id"), when resource_id can't.
+    opened = _open(tenant, action, resource_type, resource_id, PENDING, detail);
     response = answer(work);
     if opened is not None {
         _close(opened, outcome(response), picked(response, made) or resource_id);

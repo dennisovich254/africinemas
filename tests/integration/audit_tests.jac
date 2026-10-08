@@ -5,8 +5,8 @@ Nova: creating the cinema, staff joining, a role change, a cash sale and a door 
 each an event with its actor, resource and result; a refused attempt records its code.
 Owners and auditors read the log, newest first, a page at a time; a box office agent
 can't, and someone outside the cinema finds no cinema. Events hold no secrets (no invite
-token, ticket code or customer email), and the owner can't delete one, not even
-directly in the graph.
+token, ticket code or customer email), and a finished event never changes. Events live
+in Jac's shared store, outside the graph, where no staff request reaches them.
 """
 
 import json;
@@ -198,13 +198,22 @@ test "owners and auditors read the log a page at a time; agents and outsiders ca
     }
 }
 
-test "the owner can't delete an event, not even directly in the graph" {
-    (app, nova, _) = paying_cinema([]);
+test "a finished event never changes: it is finished once" {
+    (app, nova, _) = paying_cinema(["agent"]);
     try {
-        first = _events(app)[-1];
-        tried = app.call("owner", "audit_try_delete", {"event_id": first["event_id"]});
-        assert tried in ["denied", "kept"] , tried;
-        assert _events(app)[-1] == first;
+        hire(app, "agent", "box_office_agent", nova.venue);
+        tried = app.call(
+            "agent",
+            "change_staff_roles",
+            {"tenant": "nova", "member_id": "x", "roles": ["owner"]}
+        );
+        assert code_of(tried) == "forbidden";
+        refused = _events(app, "staff.roles_changed")[0];
+        assert refused["result"] == "forbidden";
+        assert app.call(
+            "owner", "audit_refinish", {"slug": "nova", "event_id": refused["event_id"]}
+        );
+        assert _events(app, "staff.roles_changed")[0] == refused;
     } finally {
         app.close();
     }

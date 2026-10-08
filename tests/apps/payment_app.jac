@@ -14,8 +14,8 @@ import from core.tenancy.staff_api {
     change_staff_roles  # jac:ignore[W2037]
 }
 import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
-import from core.audit.models { AuditEvent }
-import from jaclang { JacRuntime as Jac }
+import from core.audit.log { Opened, collection_of, _close }
+import from core.tenancy.registry { lookup_slug }
 import from core.booking.redeem_api {
     redeem_ticket,  # jac:ignore[W2037]
     door_showtimes  # jac:ignore[W2037]
@@ -398,19 +398,10 @@ def:pub bo_ledger(slug: str, screening_id: str) -> list[list[any]] {  # jac:igno
     return found;
 }
 
-
-def:priv audit_try_delete(event_id: str) -> str {
-    # The caller (the cinema's owner) deletes the audit event `event_id` directly in the
-    # graph, as their own root (P7.2): "denied" if refused, "kept" if it survived.
-    try {
-        found: any = jobj(event_id);  # jac:ignore[W1037]
-        if not isinstance(found, AuditEvent) {
-            return "denied";
-        }
-        Jac.destroy([found]);
-        commit_now();
-    } except Exception {
-        return "denied";
-    }
-    return "kept" if isinstance(jobj(event_id), AuditEvent) else "deleted";
+def:priv audit_refinish(slug: str, event_id: str) -> bool {
+    # Tries to finish the cinema's audit event `event_id` again, as "ok" (P7.2): only
+    # a pending event is ever finished, so a finished one must not change.
+    cinema = lookup_slug(slug);
+    _close(Opened(collection=collection_of(str(cinema)), event_id=event_id), "ok", "x");
+    return True;
 }
