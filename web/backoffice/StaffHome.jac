@@ -32,7 +32,8 @@ import from "@hugeicons/core-free-icons" {
 }
 import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.spinner { Spinner }
-import from core.reporting.staff_home { staff_home, showtime_art }  # jac:ignore[W2037] def:priv endpoints over the server pin (JI-027)
+import from core.reporting.staff_home { staff_home }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from .ShowtimeArt { ShowtimeArt }
 import from ..shell.AppLink { AppLink }
 import from ..storefront.showtimes { time_label }
 import from .report_view { day_label, percent, money_label, action_label, result_label }
@@ -85,48 +86,6 @@ def SeatsBar(sold: int, seats: int, light: bool, testid: str = "") -> JsxElement
                 {sold} of {seats} sold
             </span>
         </span>;
-}
-
-def ShowtimeArt(
-    slug: str, screening_id: str, kind: str, available: bool, className: str = ""
-) -> JsxElement {
-    # A showtime's poster or backdrop from showtime_art (staff-only; the cinema needn't
-    # be public yet). Decorative: the title is always written beside it. An empty frame
-    # of the same size while it loads or when the movie has none.
-    [src, set_src] = useState("");
-
-    async def load {
-        set_src("");
-        if not available {
-            return;
-        }
-        got: any = None;  # jac:ignore[W1037]
-        try {
-            got = await showtime_art(slug, screening_id, kind);  # jac:ignore[W2037]
-        } except Exception as e {
-            console.warn("showtime_art failed", e);
-            return;
-        }
-        if got["ok"] {
-            set_src(got["image"]);
-        }
-    }
-
-    def start_loading {
-        load();
-    }
-    useEffect(start_loading, [slug, screening_id, kind, available]);
-
-    return
-        <div aria-hidden="true" className={f"overflow-hidden bg-white/5 {className}"}>
-            {src
-                and <img
-                    src={src}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                />}
-        </div>;
 }
 
 def Hero(
@@ -590,7 +549,7 @@ def:pub StaffHome(
             {shift_open
                 and <span
                     data-testid="shift-status"
-                    className="inline-flex min-h-9 items-center gap-2 rounded-full bg-card px-3 text-sm ring-1 ring-foreground/10"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full bg-card px-4 text-sm ring-1 ring-foreground/10"
                 >
                     <span
                         aria-hidden="true"
@@ -602,7 +561,7 @@ def:pub StaffHome(
                 href={f"/c/{slug}"}
                 target="_blank"
                 rel="noopener"
-                className="inline-flex min-h-9 items-center gap-1 rounded-full bg-card px-3 text-sm font-medium ring-1 ring-foreground/10 hover:bg-muted"
+                className="inline-flex min-h-11 items-center gap-1 rounded-full bg-card px-4 text-sm font-medium ring-1 ring-foreground/10 hover:bg-muted"
             >
                 View storefront
                 <HugeiconsIcon

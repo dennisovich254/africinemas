@@ -32,3 +32,5 @@ The Overview is the first page every member of staff sees. It showed a page-wide
 - The 7.3 Overview summary (`TodayAtAGlance`) is replaced by the home page's figures.
 - The page reads the whole cinema (as the sales report does) on each load: fine at this size.
 - Off shift, nothing about today shows until the shift starts (consistent with ADR-0006); the checklist appears once it does.
+- **The box office's showtime picker follows the same look** (`web/backoffice/CounterPicker.jac`): day pills, then that day's showtimes as poster cards (time on the poster, title, screen and venue, seats left; a sold-out one can't be chosen); once chosen it folds into a strip with "Change showtime", so the seat map and payment get the width. `counter_showtimes` returns each showtime's seats on sale and sold and whether its movie has a poster; posters come from `showtime_art`.
+- **Header chips are at least 44 px tall** (the phone checks' tap-target rule).

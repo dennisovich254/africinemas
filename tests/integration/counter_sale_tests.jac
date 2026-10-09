@@ -169,6 +169,11 @@ test "the box office lists showtimes on sale at the caller's venues only" {
         assert mine["ok"] and mine["timezone"] , mine;
         assert [s["screening_id"] for s in mine["showtimes"]] == [screening];
         assert mine["showtimes"][0]["movie_title"] == "Rafiki";
+        # Seats left and whether there's a poster, for the box office's cards: five
+        # seats, none sold yet (Anna's two are only held), no poster uploaded.
+        first = mine["showtimes"][0];
+        assert [first["seats_on_sale"], first["seats_sold"]] == [5, 0];
+        assert first["has_poster"] == False;
         assert app.call("elsewhere", "counter_showtimes", {"tenant": "nova"})[
             "showtimes"
         ]

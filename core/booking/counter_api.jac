@@ -38,10 +38,12 @@ import from core.catalog.venues {
     find_movie,
     find_venue,
     find_auditorium,
-    screenings_of_cinema
+    screenings_of_cinema,
+    slots_of
 }
 import from core.catalog.storefront_api { cinema_timezone }
 import from core.booking.models { Order }
+import from core.booking.availability { SeatState }
 import from core.booking.hold_api { check_holder }
 import from core.booking.order_api { pending_order }
 import from core.booking.confirm { Takings, confirm_order }
@@ -81,7 +83,7 @@ def _counter_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = on_shift(tenant);
     _may_sell_somewhere(scope);
     at = now();
-    shown: list[dict[str, str]] = [];
+    shown: list[dict[str, any]] = [];  # jac:ignore[W1037]
     for s in screenings_of_cinema(scope.tenant) {
         if s.state != PUBLISHED or datetime.fromisoformat(s.starts_at) <= at {
             continue;
@@ -95,6 +97,7 @@ def _counter_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
             continue;
         }
         movie = find_movie(scope.tenant, s.movie_id);
+        seats = slots_of(scope.tenant, s);
         venue = find_venue(scope.tenant, s.venue_id);
         screen = find_auditorium(scope.tenant, s.auditorium_id);
         shown.append(
@@ -103,13 +106,29 @@ def _counter_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
                 "movie_title": movie.title if movie is not None else "",
                 "starts_at": s.starts_at,
                 "venue": venue.name if venue is not None else "",
-                "screen": screen.name if screen is not None else ""
+                "screen": screen.name if screen is not None else "",
+                # For the box office's poster cards (P7.4, showtime_art) and seats left.
+                "has_poster": movie is not None and movie.poster_key != "",
+                "seats_on_sale": len(
+                    [
+                        x
+                        for x in seats
+                        if x.state != SeatState.NOT_FOR_SALE.value
+                    ]
+                ),
+                "seats_sold": len(
+                    [
+                        x
+                        for x in seats
+                        if x.state == SeatState.SOLD.value
+                    ]
+                )
             }
         );
     }
     ordered = sorted(
         shown,
-        key=lambda (s: dict[str, str]) -> str { return s["starts_at"]; }  # jac:ignore[W1037]
+        key=lambda (s: dict[str, any]) -> str { return str(s["starts_at"]); }  # jac:ignore[W1037]
     );
     return {
         "ok": True,
