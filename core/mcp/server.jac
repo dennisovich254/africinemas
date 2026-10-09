@@ -338,7 +338,10 @@ def respond(jsonrpc: str, method: str, id: any, params: any) -> dict[str, any] {
     method=HTTPMethod.POST, path="/mcp", produces="application/json", envelope=False
 )
 def:pub mcp(
-    jsonrpc: str, method: str, id: any = None, params: any = None
+    jsonrpc: str,
+    method: str,
+    id: any = None,  # jac:ignore[W1037]
+    params: any = None  # jac:ignore[W1037]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return respond(jsonrpc, method, id, params);
 }
