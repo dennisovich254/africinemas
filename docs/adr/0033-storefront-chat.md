@@ -20,10 +20,15 @@ OAuth for Claude (now 8.6) can't be served compliantly by Jac 0.37.18: a functio
 4. **The UI.**
    - An "Ask <cinema>" button on every storefront page except a showtime's, whose seat bar is fixed to the bottom.
    - A Sheet panel (focus kept inside, Escape closes) with a polite live log, a "Thinking…" status and suggestion chips.
+   - The panel covers the whole screen on phones and PCs, as ChatGPT and Claude do (user decision 2026-10-09: posters need the room). On a PC the conversation sits in a centred, readable column (`max-w-3xl`).
    - The cards use the storefront's own pieces (posters, links to showtime and movie pages).
    - The conversation is kept in `sessionStorage` per cinema for the visit.
 5. **Trailers on the storefront at last.** `TrailerPlayer` frames only the server's checked player URLs (youtube-nocookie, Vimeo), and only after the visitor presses Play. It's used in the chat's movie card and on the movie page.
-6. **Browser tests use a scripted model.** When `AFRICINEMAS_AGENT_SCRIPT` names a JSON script (set only by `scripts/e2e_env.sh`), the storefront chat answers from it. Production never sets it, like the clock control.
+6. **Quick, bounded answers.** Found in the first live try: one message took 4 minutes.
+   - byLLM sets no timeout on a plain `Model` call (`[byllm.fallback] timeout` only applies to a `ModelPool`), so litellm's own default of minutes applied. The agent now sets `litellm.request_timeout` to 15 s for every call.
+   - The default model is Gemini 2.5 Flash-Lite, which answers without a thinking step.
+   - The cinema chat takes at most 4 model steps a message, so the worst case is about a minute and the usual answer takes seconds.
+7. **Browser tests use a scripted model.** When `AFRICINEMAS_AGENT_SCRIPT` names a JSON script (set only by `scripts/e2e_env.sh`), the storefront chat answers from it. Production never sets it, like the clock control.
 
 ## Consequences
 - **The per-minute cap is per server replica.** With several replicas the total is the cap times the replica count. A shared counter can come with deployment if needed.

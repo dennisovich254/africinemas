@@ -27,3 +27,13 @@ test "only a readable script replaces the model" {
         os.remove(path);
     }
 }
+
+test "every model call has a time limit, and the default model answers without thinking" {
+    # byLLM sets no timeout on a plain model call, so litellm's own default (minutes)
+    # applied: one chat message took 4 minutes (P8.4). The agent caps every call.
+    import litellm;
+    import core.agent.agent as agent;
+    assert 0 < float(litellm.request_timeout) <= agent.CALL_TIMEOUT <= 20;
+    # Flash-Lite answers without a thinking step: quick, for a chat.
+    assert agent.DEFAULT_MODEL == "gemini/gemini-2.5-flash-lite";
+}

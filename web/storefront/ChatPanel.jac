@@ -1,7 +1,8 @@
 """A cinema's own chat on its storefront (P8.4): "Ask <cinema>", then the conversation.
 
-A button at the bottom corner opens a panel (the whole screen on a phone, a side panel on
-a PC; a Sheet, so focus stays inside and Escape closes it). The visitor types or taps a
+A button at the bottom corner opens a panel covering the whole screen, on a phone and on
+a PC (the user's choice, as ChatGPT and Claude do), with the conversation in a centred
+column; it's a Sheet, so focus stays inside and Escape closes it. The visitor types or taps a
 suggestion; the server's cinema_chat answers with words and cards (chat_cards.jac) built
 from its tools' results. New replies are announced once (the log is a polite live
 region) and a "Thinking…" status shows while the cinema's assistant works.
@@ -32,6 +33,9 @@ import from .checkout_rules { visitor_id }
 import from .chat_cards { ChatCard }
 
 glob MESSAGE_MAX: int = 1000,
+     # The conversation's column: the whole width on a phone, centred and readable on a
+     # PC (the panel itself covers the screen, as ChatGPT's and Claude's do).
+     COLUMN: str = "mx-auto w-full max-w-3xl",
      SUGGESTIONS: list[str] = [
          "What's on tonight?",
          "What's showing this weekend?",
@@ -166,6 +170,10 @@ def:pub ChatLauncher(slug: str, cinema: str) -> JsxElement {
         _keep(slug, answered);
     }
 
+    def typed(event: any) {  # jac:ignore[W1037]
+        set_draft(event.target.value);
+    }
+
     def submit(event: any) {  # jac:ignore[W1037]
         event.preventDefault();
         send(draft);
@@ -192,106 +200,117 @@ def:pub ChatLauncher(slug: str, cinema: str) -> JsxElement {
                 side="right"
                 showCloseButton={False}
                 data-testid="chat-panel"
-                className="w-full gap-0 p-0 sm:max-w-md"
+                className={"gap-0 p-0 data-[side=right]:w-full data-[side=right]:border-l-0 data-[side=right]:sm:max-w-none "
+                    + "data-[side=right]:data-open:slide-in-from-right-0 data-[side=right]:data-closed:slide-out-to-right-0"}
             >
-                <div className="flex items-start justify-between gap-3 border-b p-4">
-                    <div className="flex flex-col gap-1">
-                        <SheetTitle className="text-base font-semibold">
-                            {f"Ask {cinema}"}
-                        </SheetTitle>
-                        <SheetDescription className="text-sm text-muted-foreground">
-                            {f"Answers come from {cinema}'s programme. Pick a time to choose your seats."}
-                        </SheetDescription>
-                    </div>
-                    <SheetClose asChild={True}>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="size-11 shrink-0"
-                            aria-label="Close the chat"
-                        >
-                            <HugeiconsIcon
-                                icon={Cancel01Icon}
-                                strokeWidth={2}
-                                aria-hidden="true"
-                            />
-                        </Button>
-                    </SheetClose>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4">
-                    {len(shown) == 0
-                        and <div className="flex flex-col gap-3">
-                            <p className="text-muted-foreground">
-                                {f"Ask about films, showtimes or seats at {cinema}."}
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                                {[
-                                    <Suggestion key={s} text={s} on_pick={send}/>
-                                    for s in SUGGESTIONS
-                                ]}
-                            </div>
-                        </div>}
-                    <ol
-                        data-testid="chat-log"
-                        role="log"
-                        aria-live="polite"
-                        aria-label="Conversation"
-                        aria-busy={"true" if busy else "false"}
-                        className="flex flex-col gap-4"
+                <div className="border-b">
+                    <div
+                        className={COLUMN
+                            + " flex items-start justify-between gap-3 p-4"}
                     >
-                        {[
-                            <Message key={i} message={m}/>
-                            for (i, m) in enumerate(shown)
-                        ]}
-                    </ol>
-                    {busy
-                        and <p
-                            role="status"
-                            data-testid="chat-thinking"
-                            className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"
-                        >
-                            <Spinner className="size-4"/>
-                            Thinking…
-                        </p>}
-                    <div ref={end}></div>
-                </div>
-                <form
-                    onSubmit={submit}
-                    className="flex flex-col gap-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
-                >
-                    {failed
-                        and <p role="alert" className="text-sm text-destructive">
-                            {failed}
-                        </p>}
-                    <Label htmlFor="chat-message" className="sr-only">
-                        Your message
-                    </Label>
-                    <div className="flex gap-2">
-                        <Input
-                            id="chat-message"
-                            data-testid="chat-input"
-                            value={draft}
-                            maxLength={MESSAGE_MAX}
-                            autoComplete="off"
-                            placeholder="Ask about films or showtimes"
-                            onChange={lambda (e: any) { set_draft(e.target.value); }}  # jac:ignore[W1037]
-                            className="min-h-11 min-w-0 flex-1"
-                        />
-                        <Button
-                            type="submit"
-                            data-testid="chat-send"
-                            disabled={busy}
-                            className="min-h-11 gap-2 px-4"
-                        >
-                            <HugeiconsIcon
-                                icon={SentIcon}
-                                strokeWidth={2}
-                                aria-hidden="true"
-                            />
-                            Send
-                        </Button>
+                        <div className="flex flex-col gap-1">
+                            <SheetTitle className="text-base font-semibold">
+                                {f"Ask {cinema}"}
+                            </SheetTitle>
+                            <SheetDescription className="text-sm text-muted-foreground">
+                                {f"Answers come from {cinema}'s programme. Pick a time to choose your seats."}
+                            </SheetDescription>
+                        </div>
+                        <SheetClose asChild={True}>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="size-11 shrink-0"
+                                aria-label="Close the chat"
+                            >
+                                <HugeiconsIcon
+                                    icon={Cancel01Icon}
+                                    strokeWidth={2}
+                                    aria-hidden="true"
+                                />
+                            </Button>
+                        </SheetClose>
                     </div>
-                </form>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    <div className={COLUMN + " p-4"}>
+                        {len(shown) == 0
+                            and <div className="flex flex-col gap-3">
+                                <p className="text-muted-foreground">
+                                    {f"Ask about films, showtimes or seats at {cinema}."}
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {[
+                                        <Suggestion key={s} text={s} on_pick={send}/>
+                                        for s in SUGGESTIONS
+                                    ]}
+                                </div>
+                            </div>}
+                        <ol
+                            data-testid="chat-log"
+                            role="log"
+                            aria-live="polite"
+                            aria-label="Conversation"
+                            aria-busy={"true" if busy else "false"}
+                            className="flex flex-col gap-4"
+                        >
+                            {[
+                                <Message key={i} message={m}/>
+                                for (i, m) in enumerate(shown)
+                            ]}
+                        </ol>
+                        {busy
+                            and <p
+                                role="status"
+                                data-testid="chat-thinking"
+                                className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"
+                            >
+                                <Spinner className="size-4"/>
+                                Thinking…
+                            </p>}
+                        <div ref={end}></div>
+                    </div>
+                </div>
+                <div className="border-t">
+                    <form
+                        onSubmit={submit}
+                        className={COLUMN
+                            + " flex flex-col gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"}
+                    >
+                        {failed
+                            and <p role="alert" className="text-sm text-destructive">
+                                {failed}
+                            </p>}
+                        <Label htmlFor="chat-message" className="sr-only">
+                            Your message
+                        </Label>
+                        <div className="flex gap-2">
+                            <Input
+                                id="chat-message"
+                                data-testid="chat-input"
+                                value={draft}
+                                maxLength={MESSAGE_MAX}
+                                autoComplete="off"
+                                placeholder="Ask about films or showtimes"
+                                onChange={typed}
+                                className="min-h-11 min-w-0 flex-1"
+                            />
+                            <Button
+                                type="submit"
+                                data-testid="chat-send"
+                                disabled={busy}
+                                className="min-h-11 gap-2 px-4"
+                            >
+                                <HugeiconsIcon
+                                    icon={SentIcon}
+                                    strokeWidth={2}
+                                    aria-hidden="true"
+                                />
+                                Send
+                            </Button>
+                        </div>
+                    </form>
+                </div>
             </SheetContent>
         </Sheet>;
 }
