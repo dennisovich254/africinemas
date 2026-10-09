@@ -36,6 +36,7 @@ import from .ScreensSection { ScreensSection }
 import from .SeatDesigner { SeatDesigner }
 import from .BrandingSection { BrandingSection }
 import from .HomePageSection { HomePageSection }
+import from .ConnectSection { ConnectSection }
 import from .MoviesSection { MoviesSection }
 import from .VenuesSection { VenuesSection }
 import from .ScreeningsSection { ScreeningsSection }
@@ -142,11 +143,13 @@ def NoAccess(slug: str) -> JsxElement {
 def SettingsPage(
     slug: str,
     tab: str,
+    cinema: str,
     branding: any  # jac:ignore[W1037] the Branding page, drawn by BackOffice
 ) -> JsxElement {
-    # Settings: Branding (/app/:slug/settings) and the home page
-    # (/app/:slug/settings/home-page, P4.1b), as tabs.
-    tabs = [("", "Branding"), ("home-page", "Home page")];
+    # Settings: Branding (/app/:slug/settings), the home page
+    # (/app/:slug/settings/home-page, P4.1b) and the AI chat connector
+    # (/app/:slug/settings/ai-chat, P8.3), as tabs.
+    tabs = [("", "Branding"), ("home-page", "Home page"), ("ai-chat", "AI chat")];
     return
         <div className="flex flex-col gap-6">
             <nav aria-label="Settings" className="flex gap-2 border-b">
@@ -172,7 +175,8 @@ def SettingsPage(
                     <h2 className="text-xl font-semibold">Home page</h2>
                     <HomePageSection slug={slug}/>
                 </div>}
-            {tab != "home-page" and branding}
+            {tab == "ai-chat" and <ConnectSection slug={slug} cinema={cinema}/>}
+            {tab != "home-page" and tab != "ai-chat" and branding}
         </div>;
 }
 
@@ -336,6 +340,7 @@ def:pub BackOffice -> JsxElement {
         content = <SettingsPage
             slug={slug}
             tab={item}
+            cinema={me["name"]}
             branding={<BrandingSection slug={slug} cinema={me["name"]}/>}
         />;
     } else {
