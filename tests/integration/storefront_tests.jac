@@ -45,6 +45,8 @@ glob MAIN: str = path.join(
          "runtime_minutes",
          "synopsis",
          "title",
+         "trailer_embed",
+         "trailer_url",
          "venues"
      ],
      # Showtimes are shown in the cinema's time zone, from its price list (P3.6).
@@ -167,11 +169,11 @@ test "a movie's trailer shows on its page, with its embed link, once it's set" {
     }
 }
 
-test "the cinema directory lists open cinemas only, by city, with no internals" {
+test "the cinema directory lists cinemas selling tickets only, by city, with no internals" {
     (app, nova) = _nova(["draft_owner"]);
     try {
         add_screening(app, "owner", nova, "Rafiki", 0);
-        # A cinema still being set up isn't open to the public.
+        # A cinema still being set up has nothing on sale, so it isn't listed.
         app.call("draft_owner", "create_cinema", {"name": "Drafty", "slug": "drafty"});
         listed = browse(app, "public_cinemas", {"city": ""});
         assert listed["ok"] , listed;

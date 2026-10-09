@@ -99,7 +99,9 @@ test "an owner creates, lists, edits and deletes movies, and they persist" {
                 "language": "English, Swahili",
                 "has_poster": False,
                 "has_backdrop": False,
-                "release_date": ""
+                "release_date": "",
+                "trailer_url": "",
+                "trailer_embed": ""
             } , rafiki;
         _movie(app, "Atlantics");
         changed = _details("Rafiki");

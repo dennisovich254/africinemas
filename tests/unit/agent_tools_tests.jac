@@ -9,6 +9,7 @@ however deep, before the model sees it.
 import re;
 import from os { path }
 import from core.agent.tools { TOOLS, clean, tool_named }
+import from tests.isolation.registry { REGISTRY }
 
 glob TOOLS_FILE: str = path.join(
          path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
@@ -34,15 +35,24 @@ test "exactly these tools, with their scopes, and none of them pays" {
             ["movie_details", "public"],
             ["seat_map", "public"],
             ["ticket_types", "public"],
-            ["hold_seats", "public"],
-            ["place_order", "public"],
-            ["my_tickets", "customer"]
+            ["hold_chosen_seats", "public"],
+            ["prepare_order", "public"],
+            ["my_bookings", "customer"]
         ];
     for (fn, _) in TOOLS {
         name = fn.__name__;
         assert "pay" not in name and "refund" not in name , name;
     }
     assert tool_named("start_payment") is None and tool_named("whats_on") is not None;
+}
+
+test "no tool has an endpoint's name (a same-named function replaces the endpoint, JI-043)" {
+    clashes = [
+        fn.__name__
+        for (fn, _) in TOOLS
+        if fn.__name__ in REGISTRY
+    ];
+    assert clashes == [] , clashes;
 }
 
 test "the tools reach only the storefront's and the customer's own code" {

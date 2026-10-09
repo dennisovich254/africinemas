@@ -17,7 +17,10 @@ Rules for every tool:
   byLLM writes every parameter of the AI function into the prompt.
 
 TOOLS lists every tool with its scope ("public": no login; "customer": the signed-in
-customer's own data); tests/integration/agent_tests.jac checks the list.
+customer's own data); tests/unit/agent_tools_tests.jac checks the list. A tool's name
+must never be an endpoint's name (hold_seats, place_order, my_tickets): Jac keys an
+app's endpoints by function name, so a same-named plain function replaces the endpoint
+(JI-043).
 """
 
 import uuid;
@@ -193,19 +196,21 @@ def ticket_types(cinema: str) -> dict[str, any] {  # jac:ignore[W1037]
     return _answer(public_ticket_types(cinema));
 }
 
-sem ticket_types = "The cinema's ticket types (for example Adult, Child) and their codes, for place_order.";
+sem ticket_types = "The cinema's ticket types (for example Adult, Child) and their codes, for prepare_order.";
 sem ticket_types.cinema = "The cinema's slug.";
 
-def hold_seats(cinema: str, showtime_id: str, seats: list[str]) -> dict[str, any] {  # jac:ignore[W1037]
+def hold_chosen_seats(
+    cinema: str, showtime_id: str, seats: list[str]
+) -> dict[str, any] {  # jac:ignore[W1037]
     return _answer(hold_endpoint(cinema, showtime_id, HOLDER.get(""), seats));
 }
 
-sem hold_seats = "Hold the customer's chosen seats for a few minutes while they decide. Holding again replaces the earlier seats.";
-sem hold_seats.cinema = "The cinema's slug.";
-sem hold_seats.showtime_id = "The showtime's id.";
-sem hold_seats.seats = "Seat labels such as A1, from seat_map.";
+sem hold_chosen_seats = "Hold the customer's chosen seats for a few minutes while they decide. Holding again replaces the earlier seats.";
+sem hold_chosen_seats.cinema = "The cinema's slug.";
+sem hold_chosen_seats.showtime_id = "The showtime's id.";
+sem hold_chosen_seats.seats = "Seat labels such as A1, from seat_map.";
 
-def place_order(
+def prepare_order(
     cinema: str, showtime_id: str, tickets: list[dict[str, str]]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     items = [
@@ -229,12 +234,12 @@ def place_order(
     );
 }
 
-sem place_order = "Prepare the order for the held seats, one ticket type per seat. It isn't paid: the customer pays themselves in the payment card.";
-sem place_order.cinema = "The cinema's slug.";
-sem place_order.showtime_id = "The showtime's id.";
-sem place_order.tickets = "One entry per held seat: {\"seat\": \"A1\", \"ticket_type\": \"ADULT\"}.";
+sem prepare_order = "Prepare the order for the held seats, one ticket type per seat. It isn't paid: the customer pays themselves in the payment card.";
+sem prepare_order.cinema = "The cinema's slug.";
+sem prepare_order.showtime_id = "The showtime's id.";
+sem prepare_order.tickets = "One entry per held seat: {\"seat\": \"A1\", \"ticket_type\": \"ADULT\"}.";
 
-def my_tickets(cinema: str) -> dict[str, any] {  # jac:ignore[W1037]
+def my_bookings(cinema: str) -> dict[str, any] {  # jac:ignore[W1037]
     # Signed out, a request runs on the shared guest graph: nobody's bookings.
     if node_id(root) == node_id(root.shared) {
         return {
@@ -245,8 +250,8 @@ def my_tickets(cinema: str) -> dict[str, any] {  # jac:ignore[W1037]
     return _answer(bookings_of_caller(cinema));
 }
 
-sem my_tickets = "The signed-in customer's own bookings at a cinema. Needs the customer to be signed in.";
-sem my_tickets.cinema = "The cinema's slug.";
+sem my_bookings = "The signed-in customer's own bookings at a cinema. Needs the customer to be signed in.";
+sem my_bookings.cinema = "The cinema's slug.";
 
 glob TOOLS: list[tuple[any, str]] = [  # jac:ignore[W1037]
          (find_cinemas, "public"),
@@ -254,9 +259,9 @@ glob TOOLS: list[tuple[any, str]] = [  # jac:ignore[W1037]
          (movie_details, "public"),
          (seat_map, "public"),
          (ticket_types, "public"),
-         (hold_seats, "public"),
-         (place_order, "public"),
-         (my_tickets, "customer")
+         (hold_chosen_seats, "public"),
+         (prepare_order, "public"),
+         (my_bookings, "customer")
      ];
 
 def tool_functions -> list[any] {  # jac:ignore[W1037]

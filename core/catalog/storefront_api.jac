@@ -492,15 +492,21 @@ def:pub public_seat_availability(slug: str, screening_id: str) -> dict[str, any]
 }
 
 def:pub public_cinemas(city: str = "") -> dict[str, any] {  # jac:ignore[W1037]
-    # The directory of cinemas open to the public (P8.1, for the AI agent's
-    # find_cinemas): name, slug, the cities of their venues and how many upcoming
-    # showtimes they have, by name; `city` keeps those with a venue in it (any case).
-    # Cinemas still being set up never show; no internal ids leave the server.
+    # The directory of cinemas selling tickets (P8.1, for the AI agent's find_cinemas):
+    # name, slug, the cities of their venues and how many upcoming showtimes they have,
+    # by name; `city` keeps those with a venue in it (any case). A cinema with nothing
+    # on sale (one still being set up, say) doesn't show; no internal ids leave the
+    # server.
     wanted = city.strip().casefold();
     found: list[dict[str, any]] = [];  # jac:ignore[W1037]
     for (slug, _, _) in claims_in(SLUG_NAMESPACE) {
         cinema = open_cinema(slug);
         if cinema is None {
+            continue;
+        }
+        # Only cinemas selling something: a cinema still being set up has nothing on.
+        on_sale = len(upcoming(cinema));
+        if on_sale == 0 {
             continue;
         }
         cities = sorted(
@@ -521,7 +527,7 @@ def:pub public_cinemas(city: str = "") -> dict[str, any] {  # jac:ignore[W1037]
                 "name": cinema.name,
                 "slug": cinema.slug,
                 "cities": cities,
-                "showtimes": len(upcoming(cinema))
+                "showtimes": on_sale
             }
         );
     }

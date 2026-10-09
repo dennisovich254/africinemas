@@ -95,14 +95,14 @@ test "the tools answer as the storefront does and refuse what it refuses" {
         held = _tool(
             app,
             "",
-            "hold_seats",
+            "hold_chosen_seats",
             {"cinema": "nova", "showtime_id": screening, "seats": ["A3"]}
         );
         assert held["ok"] , held;
         ordered = _tool(
             app,
             "",
-            "place_order",
+            "prepare_order",
             {
                 "cinema": "nova",
                 "showtime_id": screening,
@@ -117,7 +117,7 @@ test "the tools answer as the storefront does and refuse what it refuses" {
             ("seat_map", {"cinema": "nova", "showtime_id": "made-up"}),
             ("whats_on", {"cinema": "no-such-cinema", "day": ""}),
             (
-                "hold_seats",
+                "hold_chosen_seats",
                 {"cinema": "nova", "showtime_id": "made-up", "seats": ["A4"]}
             )
         ] {
@@ -125,7 +125,7 @@ test "the tools answer as the storefront does and refuse what it refuses" {
             assert got["ok"] == False and got["error"] , f"{name}: {got}";
         }
         # Signed out, nobody's bookings.
-        mine = _tool(app, "", "my_tickets", {"cinema": "nova"});
+        mine = _tool(app, "", "my_bookings", {"cinema": "nova"});
         assert mine["ok"] == False and "sign in" in mine["error"];
     } finally {
         app.close();
@@ -176,9 +176,9 @@ test "the agent offers exactly its tools, keeps the holder away and treats movie
             "movie_details",
             "seat_map",
             "ticket_types",
-            "hold_seats",
-            "place_order",
-            "my_tickets"
+            "hold_chosen_seats",
+            "prepare_order",
+            "my_bookings"
         ] {
             assert name in sent["tools"] , name;
         }
@@ -214,13 +214,13 @@ test "a signed-in customer's own bookings reach the model without private detail
             "save_booking",
             {"slug": "nova", "token": link.rsplit("/", 1)[1], "display_name": "Kim"}
         )["ok"];
-        mine = _tool(app, "kim", "my_tickets", {"cinema": "nova"});
+        mine = _tool(app, "kim", "my_bookings", {"cinema": "nova"});
         assert mine["ok"] and len(mine["bookings"]) == 1 , mine;
         _no_secrets(mine);
         _mock(
             app,
             [
-                {"tool": "my_tickets", "args": {"cinema": "nova"}},
+                {"tool": "my_bookings", "args": {"cinema": "nova"}},
                 "You have 2 tickets for Rafiki."
             ]
         );
@@ -258,7 +258,7 @@ test "the conversation a client sends back keeps plain user and assistant turns 
             {"role": "user", "content": "Hi"},
             {"role": "assistant", "content": "Hello!"},
             {"role": "tool", "content": '{"ok": true}'},
-            {"role": "assistant", "tool_calls": [{"name": "place_order"}]},
+            {"role": "assistant", "tool_calls": [{"name": "prepare_order"}]},
             "not a turn"
         ];
         got = _chat(app, "", "Hi again", history);

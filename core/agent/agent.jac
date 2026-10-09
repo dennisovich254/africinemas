@@ -23,9 +23,9 @@ import from core.agent.tools {
     movie_details,
     seat_map,
     ticket_types,
-    hold_seats,
-    place_order,
-    my_tickets
+    hold_chosen_seats,
+    prepare_order,
+    my_bookings
 }
 
 glob logger = logging.getLogger(__name__),
@@ -54,9 +54,9 @@ def _converse(message: str, history: list[dict[str, any]]) -> str by agent_model
         movie_details,
         seat_map,
         ticket_types,
-        hold_seats,
-        place_order,
-        my_tickets
+        hold_chosen_seats,
+        prepare_order,
+        my_bookings
     ],
     max_react_iterations=8
 );
