@@ -128,8 +128,9 @@ test "show_movie answers the card and the model, with nothing private" {
             assert card["title"] == "Rafiki"
                 and card["cinema"] == "Nova Cinemas" , card;
             assert [s["showtime_id"] for s in card["showtimes"]] == [screening];
-            assert card["trailer_embed"]
-                == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ";
+            # The trailer's own page, which the card opens through the host.
+            assert card["trailer_url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+            assert "trailer_embed" not in card;
             assert card["book_url"].endswith(f"/c/nova/m/{key}") , card["book_url"];
             # The poster is for the card only: in _meta, not in what the model reads.
             assert got["_meta"]["africinemas/poster"].startswith(

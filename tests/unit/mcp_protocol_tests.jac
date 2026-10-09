@@ -8,8 +8,8 @@ server's `respond` directly, without HTTP or a cinema:
 - read-only tools only (no seats held, nothing ordered, nothing paid): whats_on and
   show_movie draw cards, and movie_poster is for the cards alone (8.3);
 - a cinema's own connector (/c/{slug}/mcp, 8.3) has no cinema argument and no directory;
-- the cards: MCP Apps' HTML type, a CSP that lets only the two trailer players be
-  framed, and HTML that loads nothing from outside and never writes data as HTML;
+- the cards: MCP Apps' HTML type, a CSP that frames nothing (trailers open through the
+  host), and HTML that loads nothing from outside and never writes data as HTML;
 - JSON-RPC's errors: a bad version, an unknown method, tool or resource.
 """
 
@@ -98,7 +98,7 @@ test "a cinema's own connector has no cinema argument and no directory" {
     assert "find_cinemas" in [t["name"] for t in _ask("tools/list")["result"]["tools"]];
 }
 
-test "both cards are MCP Apps HTML that may frame only the trailer players" {
+test "both cards are MCP Apps HTML that frame nothing and load nothing outside" {
     listed = _ask("resources/list")["result"]["resources"];
     assert [(r["uri"], r["mimeType"]) for r in listed]
         == [(CARD_URI, CARD_MIME), (PROGRAMME_URI, CARD_MIME)];
@@ -108,8 +108,9 @@ test "both cards are MCP Apps HTML that may frame only the trailer players" {
         assert len(read) == 1 and read[0]["uri"] == uri;
         assert read[0]["mimeType"] == CARD_MIME and read[0]["text"] == html;
         csp = read[0]["_meta"]["ui"]["csp"];
-        assert sorted(csp["frameDomains"])
-            == ["https://player.vimeo.com", "https://www.youtube-nocookie.com"];
+        # No frames at all: claude.ai ignores frameDomains (P8.3), so trailers open
+        # through the host instead of playing in an embedded player.
+        assert csp.get("frameDomains", []) == [];
         assert csp.get("connectDomains", []) == []
             and csp.get("resourceDomains", []) == [];
     }
@@ -138,9 +139,12 @@ test "the cards speak the MCP Apps handshake and load nothing from outside" {
         # Brand colours are used only when they're plain hex colours.
         assert "#[0-9a-fa-f]{6}" in lowered;
     }
-    # The movie card: a trailer that won't play in the frame still has a way out.
+    # The movie card: the trailer opens through the host; no card embeds a player.
     movie = card_html();
-    assert "ui/open-link" in movie and "Not playing?" in movie;
+    assert "ui/open-link" in movie and "Watch trailer" in movie;
+    for html in [card_html(), programme_html()] {
+        assert "iframe" not in html.lower();
+    }
     # The programme card: lazy posters through the cards' own tool, and a tap on a
     # movie asks the chat to show it.
     programme = programme_html();

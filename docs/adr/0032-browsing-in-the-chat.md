@@ -19,11 +19,14 @@
    - The posters load one at a time through `movie_poster`, a tool marked for the cards only (`_meta.ui.visibility: ["app"]`). The model never sees the tool or the images.
    - Tapping a movie asks the chat to show it (`ui/message`), which draws its movie card.
 4. **Cinema colours on cards:** each card result carries the cinema's light and dark `accent`/`on_accent` from its published theme. The theme validator has already contrast-checked them, and the card applies them only if they're plain hex colours.
-5. **Trailers:** the movie card keeps a "Not playing? Watch on YouTube/Vimeo" link under the player, opened through the host, because Claude showed a black frame.
+5. **Trailers open through the host, with no embedded player.**
+   - claude.ai ignores MCP Apps' `frameDomains` ([anthropics/claude-code#59351](https://github.com/anthropics/claude-code/issues/59351)), so the embedded YouTube player stayed black even after the user pressed Play.
+   - The movie card's **Watch trailer** therefore opens the trailer's page (`ui/open-link`), and the cards' CSP frames nothing.
+   - The storefront website still embeds trailers on its own pages.
 6. **One card kit:** both cards share the base look and the host bridge (`card_kit.jac`). Each card supplies only its own styles and rendering.
 7. **The back office shows the link:** Settings › AI chat shows the cinema's connector link, a Copy button and the steps to add it in Claude.
 
 ## Consequences
 - **The isolation registry covers the new route:** Nova's connector is asked about the other tenant and must leak nothing.
-- **Whether Claude plays the trailer inline is still open.** The black frame suggests it blocks outside players despite `frameDomains`. The lasting fix is self-hosted trailer files played by the card itself, which needs object storage and comes with deployment.
+- **Inline trailers in chat need either Claude to honour `frameDomains`, or self-hosted trailer files** played by the card's own `<video>` from a `resourceDomains` origin. Self-hosting needs object storage (Jac can't serve video, JI-033), so it comes with deployment.
 - **Not yet:** sign-in and booking (8.4), rate limits (8.4).

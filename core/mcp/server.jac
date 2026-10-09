@@ -31,7 +31,6 @@ import from core.catalog.screening_api { public_screenings }
 import from core.catalog.storefront_api { public_poster }
 import from core.theming.branding_api { public_branding }
 import from core.tenancy.open_cinema { open_cinema }
-import from core.catalog.trailer { trailer_embed }
 import from core.booking.ticket_delivery { PUBLIC_URL_ENV, DEFAULT_PUBLIC_URL }
 import from core.mcp.movie_card { CARD_HTML }
 import from core.mcp.programme_card { PROGRAMME_HTML }
@@ -148,15 +147,13 @@ glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
              "mimeType": CARD_MIME
          }
      ],
-     # The card loads nothing and calls nothing outside; it may only frame the two
-     # trailer players that core/catalog/trailer.jac embeds.
+     # The cards load, call and frame nothing outside. Trailers open through the host
+     # (ui/open-link): claude.ai ignores frameDomains, so an embedded player stayed black
+     # (P8.3, anthropics/claude-code#59351).
      CARD_CSP: dict[str, list[str]] = {
          "connectDomains": [],
          "resourceDomains": [],
-         "frameDomains": [
-             "https://www.youtube-nocookie.com",
-             "https://player.vimeo.com"
-         ]
+         "frameDomains": []
      };
 
 def card_html -> str {
@@ -308,7 +305,6 @@ def _show_movie(cinema: str, asked: str) -> dict[str, any] {  # jac:ignore[W1037
         "genres": movie["genres"],
         "language": movie["language"],
         "trailer_url": movie["trailer_url"],
-        "trailer_embed": trailer_embed(movie["trailer_url"]),
         "book_url": f"{_site(cinema)}/m/{key}",
         "showtimes": movie["showtimes"],
         "brand": _brand(cinema)
@@ -328,7 +324,7 @@ def _show_movie(cinema: str, asked: str) -> dict[str, any] {  # jac:ignore[W1037
         f"{movie['title']} ({facts}) at {name}. Showtimes: {_when(movie['showtimes'])} "
         + f"Synopsis (the cinema's text): {movie['synopsis']} "
         + "The card in the chat shows the poster"
-        + (", the trailer" if card["trailer_embed"] else "")
+        + (", a link to the trailer" if card["trailer_url"] else "")
         + " and the showtimes; the customer books on the cinema's website."
     );
     answer = {** _text(text), "structuredContent": card};
