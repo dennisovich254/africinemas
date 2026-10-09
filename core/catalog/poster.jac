@@ -57,6 +57,19 @@ def media_store -> any {  # jac:ignore[W1037]
     return store(base_path=os.environ.get(MEDIA_ENV, "./storage"));
 }
 
+def read_media(key: str) -> bytes | None {
+    # A stored file's bytes; None for no key, or for a file that's gone (deleted, or
+    # left in another media folder), so a missing image reads as "none yet", not a crash.
+    if not key {
+        return None;
+    }
+    try {
+        return media_store().download(key);
+    } except FileNotFoundError {
+        return None;
+    }
+}
+
 def media_key(tenant_id: str, name: str) -> str {
     # Where a cinema's poster is stored: never a path from the client (§56).
     return f"tenant/{tenant_id}/media/{name}.webp";

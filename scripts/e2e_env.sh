@@ -15,3 +15,10 @@ export AFRICINEMAS_TICKET_KEY="${AFRICINEMAS_TICKET_KEY:-e2e-only-ticket-key-012
 unset AFRICINEMAS_SMTP_HOST
 export AFRICINEMAS_OUTBOX_DIR="${AFRICINEMAS_OUTBOX_DIR:-$PWD/e2e/artifacts/outbox}"
 export AFRICINEMAS_MAIL_SECONDS="${AFRICINEMAS_MAIL_SECONDS:-2}"
+# A throwaway database and media folder for each run, so test cinemas never reach the
+# project's own data (2026-10-09; 626 had piled up). Jac gives the server a scratch
+# database and drops it when the server exits; one left by a killed run is dropped at the
+# next Jac start. Test posters go to a temporary folder the scripts delete afterwards.
+export JAC_DB_SCRATCH="${JAC_DB_SCRATCH:-1}"
+E2E_MEDIA_DIR="$(mktemp -d -t africinemas-e2e-media-XXXXXX)"
+export AFRICINEMAS_MEDIA_DIR="$E2E_MEDIA_DIR"

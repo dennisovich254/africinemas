@@ -41,7 +41,7 @@ import from core.booking.availability {
     sellable
 }
 import from core.catalog.venues { find_screening, find_movie, slots_of }
-import from core.catalog.poster { media_store, media_key }
+import from core.catalog.poster { read_media, media_key }
 
 # How many of a movie's next showtimes the home page lists.
 glob NEXT_SHOWTIMES: int = 6,
@@ -354,7 +354,7 @@ def _image(cinema: Tenant, movie_key: str, kind: str) -> dict[str, any] {  # jac
     if movie is not None {
         key = movie.poster_key if kind == "poster" else movie.backdrop_key;
     }
-    data = media_store().download(key) if key else None;
+    data = read_media(key);
     if not data {
         return refused(f"no_{kind}", f"This movie has no {kind} yet.");
     }
@@ -395,7 +395,7 @@ def _shown_photos(page: dict[str, any]) -> list[str] {  # jac:ignore[W1037]
 
 def photo_data_url(cinema: Tenant, photo: str) -> str {
     # One of the cinema's home-page photos as a WebP data URL, or "" if it's gone.
-    data = media_store().download(media_key(node_id(cinema), photo)) if photo else None;
+    data = read_media(media_key(node_id(cinema), photo)) if photo else None;
     return f"data:image/webp;base64,{base64.b64encode(data).decode()}" if data else "";
 }
 
@@ -491,16 +491,26 @@ def:pub public_seat_availability(slug: str, screening_id: str) -> dict[str, any]
     };
 }
 
-def:pub public_cinemas(city: str = "") -> dict[str, any] {  # jac:ignore[W1037]
+def:pub public_cinemas(city: str = "", name: str = "") -> dict[str, any] {  # jac:ignore[W1037]
     # The directory of cinemas selling tickets (P8.1, for the AI agent's find_cinemas):
     # name, slug, the cities of their venues and how many upcoming showtimes they have,
-    # by name; `city` keeps those with a venue in it (any case). A cinema with nothing
-    # on sale (one still being set up, say) doesn't show; no internal ids leave the
-    # server.
+    # by name; `city` keeps those with a venue in it (any case), `name` those whose
+    # name or slug contains it (any case), and `total` says how many matched before
+    # the list was cut. A cinema with nothing on sale (one still being set up, say)
+    # doesn't show; no internal ids leave the server.
     wanted = city.strip().casefold();
+    called = name.strip().casefold() if isinstance(name, str) else "";
     found: list[dict[str, any]] = [];  # jac:ignore[W1037]
     for (slug, _, _) in claims_in(SLUG_NAMESPACE) {
-        cinema = open_cinema(slug);
+        # The name check first: it needs no showtimes, so a search stays quick.
+        if called and called not in slug.casefold() {
+            cinema = open_cinema(slug);
+            if cinema is None or called not in cinema.name.casefold() {
+                continue;
+            }
+        } else {
+            cinema = open_cinema(slug);
+        }
         if cinema is None {
             continue;
         }
@@ -534,5 +544,9 @@ def:pub public_cinemas(city: str = "") -> dict[str, any] {  # jac:ignore[W1037]
     def by_name(c: dict[str, any]) -> str {  # jac:ignore[W1037]
         return str(c["name"]).casefold();
     }
-    return {"ok": True, "cinemas": sorted(found, key=by_name)[:DIRECTORY_MAX]};
+    return {
+        "ok": True,
+        "total": len(found),
+        "cinemas": sorted(found, key=by_name)[:DIRECTORY_MAX]
+    };
 }

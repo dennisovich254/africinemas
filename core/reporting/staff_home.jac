@@ -27,7 +27,7 @@ import from core.authz.context { NotFound, TenantScope, on_shift }
 import from core.authz.policy { Resource, authorize, require }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.venues { find_screening, find_movie }
-import from core.catalog.poster { media_store }
+import from core.catalog.poster { read_media }
 import from core.catalog.models {
     Venue,
     Auditorium,
@@ -268,7 +268,7 @@ def _showtime_art(tenant: str, screening_id: str, kind: str) -> dict[str, any] {
     if movie is not None {
         key = movie.poster_key if kind == "poster" else movie.backdrop_key;
     }
-    data = media_store().download(key) if key else None;
+    data = read_media(key);
     if not data {
         raise Refused(f"no_{kind}", f"This movie has no {kind} yet.");
     }

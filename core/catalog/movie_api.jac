@@ -31,7 +31,8 @@ import from core.catalog.poster {
     process_poster,
     process_backdrop,
     media_key,
-    media_store
+    media_store,
+    read_media
 }
 import from core.audit.log { audited }
 import from core.catalog.trailer { TrailerRejected, clean_trailer, trailer_embed }
@@ -377,7 +378,7 @@ def _remove_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:igno
 def _get_poster(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, READ);
     movie = _find(scope, movie_id);
-    data = media_store().download(movie.poster_key) if movie.poster_key else None;
+    data = read_media(movie.poster_key);
     if not data {
         raise Refused("no_poster", "This movie has no poster yet.");
     }

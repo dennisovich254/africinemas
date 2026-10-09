@@ -26,6 +26,8 @@ cleanup() {
     if [[ -n "$server_pid" && "${JAC_KEEP_TEST_DBS:-}" != "1" ]]; then
         jac db prune -y > /dev/null 2>&1 || true
     fi
+    # The run's test posters (scripts/e2e_env.sh).
+    rm -rf "$E2E_MEDIA_DIR"
 }
 trap cleanup EXIT
 

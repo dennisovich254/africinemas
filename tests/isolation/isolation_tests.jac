@@ -38,8 +38,8 @@ def _served_endpoints(client: JacTestClient) -> set[str] {
                 names.add(name);
             }
         }
-        # Endpoints on custom paths (@restspec), such as M-Pesa's callback (P5.4).
-        if route.startswith("/hooks/") {
+        # Endpoints on custom paths (@restspec): M-Pesa's callback (P5.4), MCP (P8.2).
+        if route.startswith("/hooks/") or route == "/mcp" {
             names.add(f"route:{route}");
         }
     }
@@ -106,12 +106,15 @@ test "every tenant endpoint refuses another tenant's selector and leaks nothing"
                 for secret in [b.root_id, _norm(b.root_id), made_b["tenant_id"]] {
                     assert secret not in answer , f"{name} leaked B's internals: {answer}";
                 }
-            } elif spec["scope"] == "webhook" {
+            } elif spec["scope"] in ["webhook", "mcp"] {
                 path = name[len("route:"):].replace(
                     "{token}", "probe-token-xxxxxxxxxxxx"
                 );
+                body = json.loads(
+                    json.dumps(spec["probe"]).replace("{tenant}", "imax-rift")
+                );
                 client.set_auth_token("");
-                resp = client.post(path, json=spec["probe"]);
+                resp = client.post(path, json=body);
                 assert resp.status_code == 200 , f"{name}: {resp.status_code}";
                 for secret in [b.root_id, _norm(b.root_id), made_b["tenant_id"]] {
                     assert secret not in resp.text , f"{name} leaked B's internals";

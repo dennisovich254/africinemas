@@ -25,3 +25,6 @@ The release notes (`@restspec` ... "honoring `produces` / `envelope` by returnin
 
 ## Workaround (in place)
 `get_poster` is an ordinary JSON endpoint that returns the poster as base64 WebP; the browser shows it with a `data:` URL. Posters are re-saved at no more than 800 x 1200 px to keep that small. With S3 storage in production, `store().get_url` can hand out presigned URLs instead.
+
+## Also hit by (2026-10-09, P8.2)
+The MCP endpoint (`POST /mcp`) should answer a JSON-RPC notification with 202 Accepted and no body. It can't choose its status, so it sends 200 with `{}`; MCP clients ignore the body of a reply to a notification (ADR-0031).

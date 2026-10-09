@@ -98,12 +98,21 @@ def _timezone(cinema: str) -> str {
     return "Africa/Nairobi";
 }
 
-def find_cinemas(city: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return _answer(public_cinemas(city));
+def find_cinemas(city: str, name: str = "") -> dict[str, any] {  # jac:ignore[W1037]
+    got = _answer(public_cinemas(city, name));
+    # Lists reach the model cut to LIST_MAX: say so, and how to narrow it.
+    shown = len(got.get("cinemas", []));
+    if got.get("ok") and got.get("total", 0) > shown {
+        got["note"] = f"Showing {shown} of {got[
+            'total'
+        ]} cinemas. Search by the cinema's name or a city to find others.";
+    }
+    return got;
 }
 
-sem find_cinemas = "List the cinemas open to the public, optionally only those in one city. Use a cinema's slug in the other tools.";
+sem find_cinemas = "List the cinemas selling tickets, optionally only those in one city or whose name contains some text. Use a cinema's slug in the other tools.";
 sem find_cinemas.city = "A city name such as Nairobi, or an empty string for every city.";
+sem find_cinemas.name = "Part of the cinema's name, such as Westgate, or an empty string for every cinema.";
 
 def whats_on(cinema: str, day: str) -> dict[str, any] {  # jac:ignore[W1037]
     got = public_screenings(cinema);

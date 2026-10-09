@@ -6,7 +6,10 @@ output is always WebP, at most 800 x 1200, with no metadata carried over.
 """
 
 import io;
+import os;
 import base64;
+import shutil;
+import tempfile;
 import from PIL { Image }
 import from core.catalog.poster {
     PosterRejected,
@@ -15,7 +18,10 @@ import from core.catalog.poster {
     OUT_HEIGHT,
     decode_upload,
     process_poster,
-    media_key
+    media_key,
+    media_store,
+    read_media,
+    MEDIA_ENV
 }
 
 def _image(
@@ -112,4 +118,26 @@ test "uploads are base64 and capped before decoding" {
 
 test "posters are stored under the cinema's media folder with a random name" {
     assert media_key("t-123", "0f8e") == "tenant/t-123/media/0f8e.webp";
+}
+
+test "a stored file that's gone reads as no image, not a crash" {
+    # A poster key whose file was deleted or lives in another media folder (a changed
+    # AFRICINEMAS_MEDIA_DIR) must read as "no poster", as an empty key does.
+    media = tempfile.mkdtemp(prefix="africinemas-media-");
+    before = os.environ.get(MEDIA_ENV);
+    os.environ[MEDIA_ENV] = media;
+    try {
+        key = media_key("t-123", "kept");
+        media_store().upload(io.BytesIO(b"webp-bytes"), key);
+        assert read_media(key) == b"webp-bytes";
+        assert read_media(media_key("t-123", "gone")) is None;
+        assert read_media("") is None;
+    } finally {
+        if before is None {
+            os.environ.pop(MEDIA_ENV, None);
+        } else {
+            os.environ[MEDIA_ENV] = before;
+        }
+        shutil.rmtree(media, ignore_errors=True);
+    }
 }
