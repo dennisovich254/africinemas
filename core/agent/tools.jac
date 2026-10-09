@@ -174,12 +174,12 @@ def seat_map(cinema: str, showtime_id: str) -> dict[str, any] {  # jac:ignore[W1
     if not isinstance(got, dict) or not got.get("ok") {
         return _answer(got);
     }
-    seats: dict[str, str] = got.get("seats", {});
+    seats: list[dict[str, any]] = got.get("seats", []);  # jac:ignore[W1037]
     free = sorted(
         [
-            label
-            for (label, state) in seats.items()
-            if state == "available"
+            str(x["label"])
+            for x in seats
+            if x.get("state") == "available"
         ]
     );
     return _answer(
