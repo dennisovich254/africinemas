@@ -5,8 +5,8 @@ illustrations are invented.
 
 glob:pub HERO: dict[str, str] = {
          "eyebrow": "For cinema owners in Kenya",
-         "title": "Fill more seats",
-         "lead": "Your own booking website, M-Pesa payments, counter sales, door scanning and daily takings. One place to run your cinema's tickets.",
+         "title": "No more queues at the door",
+         "lead": "Customers choose their seats online, pay with M-Pesa and walk in with a QR ticket. No rush for seats, no crowd at the entrance, and every seat sold once.",
          "cta": "Create your cinema",
          "more": "See how it works",
          "sign_in": "Sign in",
@@ -15,6 +15,44 @@ glob:pub HERO: dict[str, str] = {
          "pause": "Pause background video",
          "play": "Play background video"
      },
+     # What a cinema gets (the value, before how it works). `icon` names an icon the page
+     # maps (LandingPage.FEATURE_ICONS). Every claim is something the product does today.
+     FEATURES_HEAD: dict[str, str] = {
+         "title": "Everything a calm, full cinema needs",
+         "text": "Your website, payments, counter, door and figures, in one place."
+     },
+     FEATURES: list[dict[str, str]] = [
+         {
+             "icon": "seat",
+             "title": "Every seat reserved",
+             "text": "Customers pick their own seats when they book, so nobody rushes in to grab one and no seat is sold twice."
+         },
+         {
+             "icon": "brand",
+             "title": "Your cinema, your website",
+             "text": "A booking site with your name, logo and colours, your films and your venues. Customers book with you."
+         },
+         {
+             "icon": "mpesa",
+             "title": "Paid with M-Pesa",
+             "text": "Customers confirm the payment on their phone. Seats are held while they pay, and tickets arrive by email."
+         },
+         {
+             "icon": "door",
+             "title": "Smooth entry at the door",
+             "text": "Ushers scan each QR ticket with a phone. Every ticket gets in once, and the line keeps moving."
+         },
+         {
+             "icon": "counter",
+             "title": "Counter sales and takings",
+             "text": "Your box office sells from the same seat map, and the dashboard shows takings and attendance by day."
+         },
+         {
+             "icon": "ai",
+             "title": "Found in AI chats",
+             "text": "Customers can ask an AI assistant such as Claude what's on, and see your posters, trailers and showtimes."
+         }
+     ],
      STEPS_HEAD: dict[str, str] = {
          "title": "From first screening to full house",
          "text": "Set it up once in the back office. Customers book from their phones, and your staff sell and scan from the same seat map."
