@@ -141,6 +141,32 @@ test "a movie page shows the movie and its published showtimes only" {
     }
 }
 
+test "a movie's trailer shows on its page, with its embed link, once it's set" {
+    (app, nova) = _nova();
+    try {
+        add_screening(app, "owner", nova, "Rafiki", 0);
+        key = _key(app, "Rafiki");
+        before = browse(app, "public_movie", {"slug": "nova", "movie_key": key});
+        assert before["movie"]["trailer_url"] == "";
+        assert app.call(
+            "owner",
+            "set_trailer",
+            {
+                "tenant": "nova",
+                "movie_id": nova.movies["Rafiki"],
+                "url": "https://youtu.be/dQw4w9WgXcQ"
+            }
+        )["ok"];
+        page = browse(app, "public_movie", {"slug": "nova", "movie_key": key});
+        assert page["movie"]["trailer_url"]
+            == "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        assert page["movie"]["trailer_embed"]
+            == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ";
+    } finally {
+        app.close();
+    }
+}
+
 test "a movie leaves the storefront when its last showtime is unpublished" {
     (app, nova) = _nova();
     try {

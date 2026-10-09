@@ -10,6 +10,7 @@ Writes run as the cinema's principal; call them from a staff request that has al
 been authorized.
 """
 
+import from core.catalog.trailer { trailer_embed }
 import from uuid { uuid4 }
 import from datetime { datetime, timedelta }
 import from zoneinfo { ZoneInfo }
@@ -77,7 +78,9 @@ def _public_fields(tenant: Tenant, screening: Screening) -> dict[str, any] {  # 
             "language": movie.language,
             "has_poster": movie.poster_key != "",
             "has_backdrop": movie.backdrop_key != "",
-            "release_date": movie.release_date
+            "release_date": movie.release_date,
+            "trailer_url": movie.trailer_url,
+            "trailer_embed": trailer_embed(movie.trailer_url)
         }
             if movie is not None
             else {},

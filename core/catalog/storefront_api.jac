@@ -14,6 +14,7 @@ featured movie is shown only if it's on sale or coming soon, else the next one o
 """
 
 import base64;
+import from core.catalog.trailer { trailer_embed }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.responses { NOT_FOUND, refused }
@@ -103,6 +104,8 @@ def _movie_card(entries: list[StorefrontScreening]) -> dict[str, any] {  # jac:i
         "has_poster": movie["has_poster"],
         "has_backdrop": movie.get("has_backdrop", False),
         "release_date": movie.get("release_date", ""),
+        "trailer_url": movie.get("trailer_url", ""),
+        "trailer_embed": movie.get("trailer_embed", ""),
         "next": [showtime(e) for e in entries[:NEXT_SHOWTIMES]],
         # The venues it's showing at, by name, for the venue picker (P4.1d).
         "venues": sorted(
@@ -200,7 +203,9 @@ def _soon_card(movie: Movie) -> dict[str, any] {  # jac:ignore[W1037]
         "language": movie.language,
         "has_poster": movie.poster_key != "",
         "has_backdrop": movie.backdrop_key != "",
-        "release_date": movie.release_date
+        "release_date": movie.release_date,
+        "trailer_url": movie.trailer_url,
+        "trailer_embed": trailer_embed(movie.trailer_url)
     };
 }
 

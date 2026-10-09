@@ -23,7 +23,8 @@ import from core.catalog.movie_api {
     delete_movie,  # jac:ignore[W2037]
     upload_poster,  # jac:ignore[W2037]
     upload_backdrop,  # jac:ignore[W2037]
-    remove_backdrop  # jac:ignore[W2037]
+    remove_backdrop,  # jac:ignore[W2037]
+    set_trailer  # jac:ignore[W2037]
 }
 import from .form_parts {
     TextField,
@@ -114,6 +115,7 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
     [confirming, set_confirming] = useState(False);
     # Bumped on each upload, so the poster preview fetches the new image.
     [poster_rev, set_poster_rev] = useState(0);
+    [trailer_text, set_trailer_text] = useState("");
 
     async def load {
         answer: any = None;  # jac:ignore[W1037]
@@ -135,6 +137,7 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
         }
         set_movie(answer["movie"]);
         set_form(form_from(answer["movie"]));
+        set_trailer_text(answer["movie"].get("trailer_url", "") or "");
     }
     def start_loading {
         load();
@@ -288,6 +291,34 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
         }
         set_movie(answer["movie"]);
         set_message("Backdrop saved.");
+    }
+
+    async def save_trailer(link: str) {
+        # The trailer link (P8.1): YouTube or Vimeo; "" removes it.
+        answer: any = None;  # jac:ignore[W1037]
+        set_busy("trailer");
+        set_message("");
+        set_error("trailer-url", "");
+        try {
+            answer = await set_trailer(slug, movie_id, link);  # jac:ignore[W2037]
+        } except Exception as err {
+            console.warn("set_trailer failed", err);
+            set_busy("");
+            set_message("We couldn't save the trailer. Try again.");
+            return;
+        }
+        set_busy("");
+        if not answer["ok"] {
+            set_error("trailer-url", answer["error"]["message"]);
+            return;
+        }
+        set_movie(answer["movie"]);
+        set_trailer_text(answer["movie"]["trailer_url"]);
+        set_message("Trailer saved." if link else "Trailer removed.");
+    }
+
+    def type_trailer(e: any) {  # jac:ignore[W1037]
+        set_trailer_text(e.target.value);
     }
 
     async def drop_backdrop {
@@ -575,6 +606,57 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                                 field_id="backdrop-file"
                                 error={field_errors["backdrop-file"]}
                             />}
+                    </div>
+                </section>}
+            {current is not None
+                and <section
+                    aria-labelledby="trailer-heading"
+                    className="flex flex-col gap-3"
+                >
+                    <h3 id="trailer-heading" className="font-semibold">Trailer</h3>
+                    <p className="text-sm text-muted-foreground">
+                        A YouTube or Vimeo link. Customers can watch it on your storefront and in the AI chat.
+                    </p>
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                        <Label htmlFor="trailer-url">Trailer link</Label>
+                        <input
+                            id="trailer-url"
+                            type="url"
+                            inputMode="url"
+                            placeholder="https://www.youtube.com/watch?v=…"
+                            value={trailer_text}
+                            disabled={busy != ""}
+                            aria-describedby={"trailer-url-error"
+                                if field_errors["trailer-url"]
+                                else None}
+                            onChange={type_trailer}
+                            className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        />
+                        {field_errors["trailer-url"]
+                            and <FieldError
+                                field_id="trailer-url"
+                                error={field_errors["trailer-url"]}
+                            />}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            className="min-h-11 px-4"
+                            data-testid="trailer-save"
+                            disabled={busy != ""}
+                            onClick={lambda { save_trailer(trailer_text); }}
+                        >
+                            {busy == "trailer"
+                                and <Spinner aria-hidden="true"/>}Save trailer
+                        </Button>
+                        {current["trailer_url"]
+                            and <Button
+                                variant="outline"
+                                className="min-h-11 px-4"
+                                disabled={busy != ""}
+                                onClick={lambda { save_trailer(""); }}
+                            >
+                                Remove trailer
+                            </Button>}
                     </div>
                 </section>}
             {current is not None

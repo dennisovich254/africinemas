@@ -181,6 +181,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "movie.deleted",
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
+         "set_trailer": {
+             "scope": "tenant",
+             "audit": "movie.trailer_set",
+             "probe": {"tenant": "{tenant}", "movie_id": "x", "url": ""}
+         },
          "upload_poster": {
              "scope": "tenant",
              "audit": "movie.poster_uploaded",

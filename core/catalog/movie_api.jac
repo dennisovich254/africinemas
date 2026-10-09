@@ -34,6 +34,7 @@ import from core.catalog.poster {
     media_store
 }
 import from core.audit.log { audited }
+import from core.catalog.trailer { TrailerRejected, clean_trailer, trailer_embed }
 
 glob READ: str = "movies.read",
      CREATE: str = "movies.create",
@@ -141,7 +142,9 @@ def _view(m: Movie) -> dict[str, any] {  # jac:ignore[W1037]
         "language": m.language,
         "has_poster": m.poster_key != "",
         "has_backdrop": m.backdrop_key != "",
-        "release_date": m.release_date
+        "release_date": m.release_date,
+        "trailer_url": m.trailer_url,
+        "trailer_embed": trailer_embed(m.trailer_url)
     };
 }
 
@@ -447,6 +450,30 @@ def _do_delete_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:igno
     return answer(lambda -> any { return _delete_movie(tenant, movie_id); });  # jac:ignore[W1037]
 }
 
+def _set_trailer(tenant: str, movie_id: str, url: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The movie's trailer link (P8.1): a YouTube or Vimeo link, kept in canonical form;
+    # "" clears it.
+    scope = scoped(tenant, UPDATE);
+    movie = _find(scope, movie_id);
+    try {
+        link = clean_trailer(url);
+    } except TrailerRejected as e {
+        raise Refused("invalid_trailer", str(e));
+    }
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        movie.trailer_url = link;
+        movie.updated_at = now().isoformat();
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    # The storefront's copy of the movie gets the trailer too.
+    _reproject(scope, movie_id);
+    return {"ok": True, "movie": _view(movie)};
+}
+
 def _do_upload_poster(
     tenant: str, movie_id: str, content_type: str, data_base64: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
@@ -579,5 +606,17 @@ def:priv remove_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:
         "movie",
         movie_id,
         lambda -> any { return _do_remove_backdrop(tenant, movie_id); }  # jac:ignore[W1037]
+    );
+}
+
+def:priv set_trailer(tenant: str, movie_id: str, url: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "movie.trailer_set",
+        "movie",
+        movie_id,
+        lambda -> any { return answer(
+            lambda -> any { return _set_trailer(tenant, movie_id, url); }
+        ); }  # jac:ignore[W1037]
     );
 }

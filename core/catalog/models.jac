@@ -68,6 +68,9 @@ node Movie {
         backdrop_key: str = "",
         # The release date ("2026-12-18", or "" for none), shown with the movie (P4.1d).
         release_date: str = "",
+        # A YouTube or Vimeo trailer link in canonical form (P8.1,
+        # core/catalog/trailer.jac), or "" for none.
+        trailer_url: str = "",
         public_key: str = "",
         created_at: str = "",
         updated_at: str = "";
