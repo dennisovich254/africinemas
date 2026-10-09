@@ -469,6 +469,16 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "movie.backdrop_removed",
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
+         "cinema_chat": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {
+                 "slug": "{tenant}",
+                 "message": "",
+                 "history": [],
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
          "agent_chat": {
              "scope": "customer",
              "audit": "",

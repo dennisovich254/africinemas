@@ -117,7 +117,7 @@ import from core.reporting.report_api { sales_report }  # jac:ignore[W2037]
 # The cinema's audit log: owners and auditors read it, nobody changes it (P7.2).
 import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
 # The AI booking agent: a customer's message in, its reply out (P8.1).
-import from core.agent.agent_api { agent_chat }
+import from core.agent.agent_api { agent_chat, cinema_chat }
 # The MCP server: AfriCinemas in Claude, with a movie card (P8.2). POST /mcp.
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]
 # The staff home page: setup, today's showtimes, figures and activity (P7.4).

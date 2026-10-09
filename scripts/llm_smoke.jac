@@ -2,7 +2,7 @@
 
     jac run scripts/llm_smoke.jac
 
-Uses the agent's model (gemini/gemini-2.5-flash unless AFRICINEMAS_LLM_MODEL says
+Uses the agent's model (gemini/gemini-3.5-flash-lite unless AFRICINEMAS_LLM_MODEL says
 otherwise) with the key from the environment (GEMINI_API_KEY). It calls the model
 without the agent's fallback, so a missing or wrong key shows as the provider's error
 rather than the polite "can't answer right now". No tools, no cinema data, no customer

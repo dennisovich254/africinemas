@@ -15,7 +15,7 @@ import from core.tenancy.staff_api {
 }
 import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
 import from core.reporting.staff_home { staff_home, showtime_art }  # jac:ignore[W2037]
-import from core.agent.agent_api { agent_chat }  # jac:ignore[W2037]
+import from core.agent.agent_api { agent_chat, cinema_chat }  # jac:ignore[W2037]
 import core.agent.agent as agent_module;
 import from core.agent.tools { HOLDER, tool_named }
 import from jaclang.byllm.lib { MockLLM, MockToolCall }
@@ -431,6 +431,16 @@ def:pub agent_sent -> dict[str, str] {
     # What the agent sent its (mock) model: the messages and the tools offered.
     model: any = agent_module.agent_model;  # jac:ignore[W1037]
     return {"messages": str(model.sent("messages")), "tools": str(model.sent("tools"))};
+}
+
+def:pub agent_offered -> list[str] {
+    # The names of the tools offered on the (mock) model's latest call (P8.4).
+    model: any = agent_module.agent_model;  # jac:ignore[W1037]
+    calls: list[any] = model.sent("tools");  # jac:ignore[W1037]
+    if not calls {
+        return [];
+    }
+    return [str(t["function"]["name"]) for t in (calls[-1] or [])];
 }
 
 def:pub agent_tool(name: str, args: dict[str, any], holder: str) -> any {  # jac:ignore[W1037]
