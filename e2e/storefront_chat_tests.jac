@@ -7,6 +7,11 @@ chat, and follows a time to its showtime page (which has no chat button: its sea
 fixed to the bottom). Back on the storefront, the conversation is still there. A reply
 naming a showtime no tool returned adds no card. Phone and PC, light and dark
 (screenshots for review); the movie page plays the trailer too.
+
+8.5: asked to book, the chat opens the booking card with the suggested seats chosen (not
+held); the visitor holds them, pays with the simulated M-Pesa there, and gets the
+tickets in the chat; the showtime page then shows the same booking, since it's the same
+checkout for the same visitor.
 """
 
 import os;
@@ -20,9 +25,11 @@ import from e2e.support.web {
     artifact
 }
 import from e2e.support.api { call }
-import from e2e.support.catalog { cinema_with_programme }
+import from e2e.support.catalog { cinema_with_programme, cinema_selling_tickets }
 
 glob SCRIPT_ENV: str = "AFRICINEMAS_AGENT_SCRIPT",
+     BOOKING: str = '[data-testid="chat-booking"]',
+     SETTLE_MS: int = 30000,
      PANEL: str = '[data-testid="chat-panel"]',
      TRAILER: str = "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
      OVERFLOW_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth",
@@ -77,7 +84,7 @@ test "a visitor asks the cinema's chat and gets the programme, a movie and its t
                 page.goto(f"{BASE_URL}/c/{slug}");
                 page.click('[data-testid="chat-open"]');
                 page.wait_for_selector(PANEL);
-                assert page.locator('[data-testid="chat-suggestion"]').count() == 3;
+                assert page.locator('[data-testid="chat-suggestion"]').count() == 4;
                 _script(
                     [
                         {"tool": "whats_on", "args": {"cinema": slug, "day": ""}},
@@ -164,6 +171,78 @@ test "the movie page plays the trailer when asked" {
         frame = page.wait_for_selector('[data-testid="trailer"] iframe');
         assert frame.get_attribute("src").startswith(TRAILER);
         page.screenshot(path=artifact("movie-trailer-desktop.png"), full_page=False);
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+def _press(page: any, project: str, selector: str) {  # jac:ignore[W1037]
+    if project == "mobile" {
+        page.locator(selector).tap();
+    } else {
+        page.locator(selector).click();
+    }
+}
+
+test "a visitor books and pays in the chat, and the showtime page shows the same booking" {
+    (pw, browser) = shared_browser();
+    try {
+        for project in PROJECTS {
+            owner = cinema_selling_tickets();
+            slug = owner["slug"];
+            page = browser.new_context(
+                **context_options(pw, project, "light")
+            ).new_page();
+            page.goto(f"{BASE_URL}/c/{slug}");
+            _press(page, project, '[data-testid="chat-open"]');
+            page.wait_for_selector(PANEL);
+            _script(
+                [
+                    {
+                        "tool": "book_showtime",
+                        "args": {
+                            "cinema": slug,
+                            "showtime_id": owner["show"],
+                            "seats": ["A1", "A2"]
+                        }
+                    },
+                    "I've chosen A1 and A2. Check them, then pay in the card."
+                ]
+            );
+            page.fill('[data-testid="chat-input"]', "Two seats for Rafiki, please");  # jac:ignore[W6002]
+            _press(page, project, '[data-testid="chat-send"]');
+            page.wait_for_selector(BOOKING);
+            # Suggested, chosen, not held: the visitor continues themselves.
+            for label in ["A1", "A2"] {
+                page.wait_for_selector(
+                    f'{BOOKING} [data-seat="{label}"][aria-pressed="true"]'
+                );
+            }
+            page.screenshot(
+                path=artifact(f"chat-booking-{project}-seats.png"), full_page=False
+            );
+            _press(page, project, f'{BOOKING} [data-testid="hold-seats"]');
+            page.wait_for_function(
+                "document.querySelector('[data-testid=chat-booking] [data-testid=checkout-total]')?.innerText === 'KES 1,660'"
+            );
+            _press(page, project, f'{BOOKING} [data-testid="pay"]');
+            page.wait_for_selector(f'{BOOKING} [data-testid="pay-panel"]');
+            page.fill("#mpesa-phone", "0712 345 678");  # jac:ignore[W6002]
+            page.fill("#tickets-email", "anna@example.com");  # jac:ignore[W6002]
+            _press(page, project, f'{BOOKING} [data-testid="pay-mpesa"]');
+            page.wait_for_selector(
+                f'{BOOKING} [data-testid="booked"]', timeout=SETTLE_MS
+            );
+            assert page.locator(f'{BOOKING} [data-testid="ticket"]').count() == 2;
+            page.screenshot(
+                path=artifact(f"chat-booking-{project}-booked.png"), full_page=False
+            );
+            # The same checkout as the showtime page: it shows the same booking.
+            page.goto(f"{BASE_URL}/c/{slug}/s/{owner['show']}");
+            page.wait_for_selector('[data-testid="booked"]');
+            assert page.locator('[data-testid="ticket"]').count() == 2;
+            page.context.close();
+        }
     } finally {
         close_contexts(browser);
     }

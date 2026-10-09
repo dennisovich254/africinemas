@@ -9,8 +9,9 @@ region) and a "Thinking…" status shows while the cinema's assistant works.
 
 The conversation lasts for the visit: it's kept in sessionStorage per cinema, so it
 survives moving between the storefront's pages, and goes when the tab closes. The server
-treats what the client sends back as untrusted (core/agent/agent_api.jac). Booking in the
-chat comes in 8.5; for now cards link to the showtime pages.
+treats what the client sends back as untrusted (core/agent/agent_api.jac). Booking (P8.5)
+happens in the booking card, the storefront's own checkout: the assistant can only open
+it and suggest seats.
 """
 
 import from react { useState, useEffect, useRef }
@@ -39,7 +40,8 @@ glob MESSAGE_MAX: int = 1000,
      SUGGESTIONS: list[str] = [
          "What's on tonight?",
          "What's showing this weekend?",
-         "Anything good for kids?"
+         "Anything good for kids?",
+         "Book two seats for tonight"
      ];
 
 def:pub chat_key(slug: str) -> str {
@@ -213,7 +215,7 @@ def:pub ChatLauncher(slug: str, cinema: str) -> JsxElement {
                                 {f"Ask {cinema}"}
                             </SheetTitle>
                             <SheetDescription className="text-sm text-muted-foreground">
-                                {f"Answers come from {cinema}'s programme. Pick a time to choose your seats."}
+                                {f"Answers come from {cinema}'s programme. Book and pay right here: you choose the seats and pay with your own M-Pesa PIN."}
                             </SheetDescription>
                         </div>
                         <SheetClose asChild={True}>
