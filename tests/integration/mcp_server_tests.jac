@@ -122,6 +122,11 @@ test "show_movie answers the card and the model, with nothing private" {
                 assert hidden not in json.dumps(got) , hidden;
             }
         }
+        # The poster's file is gone (another media folder): still a card, no poster.
+        shutil.rmtree(media, ignore_errors=True);
+        got = _call(app, "show_movie", {"cinema": "nova", "movie": "Rafiki"});
+        assert got.get("isError", False) == False and "_meta" not in got , got;
+        assert got["structuredContent"]["title"] == "Rafiki";
     } finally {
         os.environ.pop(MEDIA_ENV, None);
         app.close();

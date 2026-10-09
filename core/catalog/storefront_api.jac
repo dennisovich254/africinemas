@@ -41,7 +41,7 @@ import from core.booking.availability {
     sellable
 }
 import from core.catalog.venues { find_screening, find_movie, slots_of }
-import from core.catalog.poster { media_store, media_key }
+import from core.catalog.poster { read_media, media_key }
 
 # How many of a movie's next showtimes the home page lists.
 glob NEXT_SHOWTIMES: int = 6,
@@ -354,7 +354,7 @@ def _image(cinema: Tenant, movie_key: str, kind: str) -> dict[str, any] {  # jac
     if movie is not None {
         key = movie.poster_key if kind == "poster" else movie.backdrop_key;
     }
-    data = media_store().download(key) if key else None;
+    data = read_media(key);
     if not data {
         return refused(f"no_{kind}", f"This movie has no {kind} yet.");
     }
@@ -395,7 +395,7 @@ def _shown_photos(page: dict[str, any]) -> list[str] {  # jac:ignore[W1037]
 
 def photo_data_url(cinema: Tenant, photo: str) -> str {
     # One of the cinema's home-page photos as a WebP data URL, or "" if it's gone.
-    data = media_store().download(media_key(node_id(cinema), photo)) if photo else None;
+    data = read_media(media_key(node_id(cinema), photo)) if photo else None;
     return f"data:image/webp;base64,{base64.b64encode(data).decode()}" if data else "";
 }
 
