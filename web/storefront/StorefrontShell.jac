@@ -7,6 +7,9 @@ in <head>, removed when the visitor leaves). It overrides the platform's storefr
 defaults (styles/brand.css) for this cinema alone. An unknown or closed cinema gets
 "Cinema not found" instead of the page.
 
+Every page but a showtime's (whose seat bar is fixed to the bottom) has "Ask <cinema>",
+the cinema's own chat (P8.4, ChatPanel.jac).
+
 The header (P4.1d) has the cinema's name or logo; Movies, Showtimes and Cinemas;
 search; a venue picker when the cinema has more than one venue; and Book tickets. On
 phones the links and the picker move into a menu sheet, and search and Book stay in
@@ -33,6 +36,7 @@ import from core.theming.branding_api { public_branding }
 import from core.catalog.storefront_api { public_venues }
 import from .StorefrontSearch { StorefrontSearch }
 import from .venue_choice { use_venue, choose_venue }
+import from .ChatPanel { ChatLauncher }
 
 glob NAV_LINK: str = "inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
@@ -160,6 +164,7 @@ def FooterColumn(title: str, links: list[list[str]]) -> JsxElement {
 def:pub StorefrontShell(
     slug: str,
     hero: any = None,  # jac:ignore[W1037] a full-width hero above the page (P4.1d)
+    chat: bool = True,
     children: any = None  # jac:ignore[W1037] pass-through children (jac-cl-organization idiom)
 ) -> JsxElement {
     # With a `hero`, the header lies over it: see-through, in the theme's dark colours,
@@ -383,6 +388,7 @@ def:pub StorefrontShell(
                 >
                     {children}
                 </main>
+                {chat and <ChatLauncher slug={slug} cinema={place["name"]}/>}
                 <footer className="border-t bg-card">
                     <div
                         className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 text-sm text-muted-foreground sm:grid-cols-3"

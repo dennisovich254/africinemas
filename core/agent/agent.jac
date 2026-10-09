@@ -14,8 +14,9 @@ writes every parameter of the AI function into the prompt.
 """
 
 import os;
+import json;
 import logging;
-import from jaclang.byllm.lib { Model }
+import from jaclang.byllm.lib { Model, MockLLM, MockToolCall }
 import from core.agent.cards { cards_from }
 import from core.agent.tools {
     HOLDER,
@@ -35,6 +36,10 @@ glob logger = logging.getLogger(__name__),
      MODEL_ENV: str = "AFRICINEMAS_LLM_MODEL",
      DEFAULT_MODEL: str = "gemini/gemini-2.5-flash",
      agent_model: any = Model(model_name=os.environ.get(MODEL_ENV) or DEFAULT_MODEL),  # jac:ignore[W1037]
+     # Browser tests only (scripts/e2e_env.sh; production never sets it): a JSON file of
+     # the model's answers, each a reply text or a tool call {"tool": ..., "args": ...},
+     # which the storefront chat then uses instead of the real model.
+     SCRIPT_ENV: str = "AFRICINEMAS_AGENT_SCRIPT",
      MESSAGE_MAX: int = 1000,
      HISTORY_MAX: int = 30,
      FALLBACK: str = "Sorry, I can't answer right now. You can still browse showtimes and book on the cinema's website.",
@@ -106,6 +111,28 @@ def agent_reply(
     return {"ok": True, "reply": str(reply), "history": talk};
 }
 
+def _scripted -> any {  # jac:ignore[W1037]
+    # The browser tests' scripted model, when SCRIPT_ENV names a readable script.
+    path = os.environ.get(SCRIPT_ENV, "");
+    if not path {
+        return None;
+    }
+    try {
+        with open(path) as f {
+            steps: list[any] = json.load(f);  # jac:ignore[W1037]
+        }
+    } except Exception {
+        return None;
+    }
+    return MockLLM(
+        outputs=[
+            MockToolCall(tool=s["tool"], args=s.get("args", {}))
+                if isinstance(s, dict)
+                else str(s) for s in steps
+        ]
+    );
+}
+
 def cinema_reply(
     message: str,
     history: list[dict[str, any]],  # jac:ignore[W1037]
@@ -127,6 +154,10 @@ def cinema_reply(
         }
     ]
         + history[-HISTORY_MAX:];
+    scripted = _scripted();
+    if scripted is not None {
+        globals()["agent_model"] = scripted;
+    }
     seen: list[any] = [];  # jac:ignore[W1037]
     tokens = (HOLDER.set(holder), CINEMA.set(slug), SEEN.set(seen));
     cards: list[dict[str, any]] = [];  # jac:ignore[W1037]

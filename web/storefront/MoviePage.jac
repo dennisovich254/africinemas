@@ -12,6 +12,7 @@ import from .StorefrontShell { StorefrontShell, Loading, NotOnSale }
 import from .venue_choice { use_title }
 import from .StorefrontParts { Poster, Backdrop, ShowtimeLink }
 import from .showtimes { details_line, by_day }
+import from .TrailerPlayer { TrailerPlayer }
 
 def DayGroup(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
     # One day's showtimes, under the day's name.
@@ -126,6 +127,11 @@ def:pub MoviePage -> JsxElement {
                                 and <p className="leading-relaxed">
                                     {movie["synopsis"]}
                                 </p>}
+                            {movie["trailer_embed"]
+                                and <TrailerPlayer
+                                    embed={movie["trailer_embed"]}
+                                    title={movie["title"]}
+                                />}
                         </div>
                     </div>
                 </div>

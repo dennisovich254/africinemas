@@ -22,3 +22,6 @@ export AFRICINEMAS_MAIL_SECONDS="${AFRICINEMAS_MAIL_SECONDS:-2}"
 export JAC_DB_SCRATCH="${JAC_DB_SCRATCH:-1}"
 E2E_MEDIA_DIR="$(mktemp -d -t africinemas-e2e-media-XXXXXX)"
 export AFRICINEMAS_MEDIA_DIR="$E2E_MEDIA_DIR"
+# The storefront chat (P8.4) answers from a script the browser tests write, never the
+# real model: no key, no cost (core/agent/agent.jac, SCRIPT_ENV).
+export AFRICINEMAS_AGENT_SCRIPT="${AFRICINEMAS_AGENT_SCRIPT:-$PWD/e2e/artifacts/agent_script.json}"

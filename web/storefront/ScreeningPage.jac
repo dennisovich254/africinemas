@@ -70,8 +70,9 @@ def:pub ScreeningPage -> JsxElement {
     movie: dict[str, any] = screening["movie"];  # jac:ignore[W1037]
     starts_at: str = screening["starts_at"];
     tz: str = found["cinema"]["timezone"];
+    # No chat button here: the seat bar is fixed to the bottom of the screen.
     return
-        <StorefrontShell slug={slug}>
+        <StorefrontShell slug={slug} chat={False}>
             <div data-testid="screening-page" className="flex flex-col gap-8">
                 <AppLink
                     to={f"/c/{slug}/m/{movie['movie_key']}"}
