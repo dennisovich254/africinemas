@@ -4,9 +4,9 @@ illustrations are invented.
 """
 
 glob:pub HERO: dict[str, str] = {
-         "eyebrow": "For cinemas in Kenya",
-         "title": "Your cinema's box office, online",
-         "lead": "A booking website for your cinema. Customers choose their seats on a phone, pay with M-Pesa and show a QR ticket at the door.",
+         "eyebrow": "For cinema owners in Kenya",
+         "title": "No more queues at the door",
+         "lead": "Customers choose their seats online, pay with M-Pesa and walk in with a QR ticket. No rush for seats, no crowd at the entrance, and every seat sold once.",
          "cta": "Create your cinema",
          "more": "See how it works",
          "sign_in": "Sign in",
@@ -15,9 +15,47 @@ glob:pub HERO: dict[str, str] = {
          "pause": "Pause background video",
          "play": "Play background video"
      },
+     # What a cinema gets (the value, before how it works). `icon` names an icon the page
+     # maps (LandingPage.FEATURE_ICONS). Every claim is something the product does today.
+     FEATURES_HEAD: dict[str, str] = {
+         "title": "Everything a calm, full cinema needs",
+         "text": "Your website, payments, counter, door and figures, in one place."
+     },
+     FEATURES: list[dict[str, str]] = [
+         {
+             "icon": "seat",
+             "title": "Every seat reserved",
+             "text": "Customers pick their own seats when they book, so nobody rushes in to grab one and no seat is sold twice."
+         },
+         {
+             "icon": "brand",
+             "title": "Your cinema, your website",
+             "text": "A booking site with your name, logo and colours, your films and your venues. Customers book with you."
+         },
+         {
+             "icon": "mpesa",
+             "title": "Paid with M-Pesa",
+             "text": "Customers confirm the payment on their phone. Seats are held while they pay, and tickets arrive by email."
+         },
+         {
+             "icon": "door",
+             "title": "Smooth entry at the door",
+             "text": "Ushers scan each QR ticket with a phone. Every ticket gets in once, and the line keeps moving."
+         },
+         {
+             "icon": "counter",
+             "title": "Counter sales and takings",
+             "text": "Your box office sells from the same seat map, and the dashboard shows takings and attendance by day."
+         },
+         {
+             "icon": "ai",
+             "title": "Found in AI chats",
+             "text": "Customers can ask an AI assistant such as Claude what's on, and see your posters, trailers and showtimes."
+         }
+     ],
      STEPS_HEAD: dict[str, str] = {
-         "title": "Open for bookings in three steps",
-         "text": "Set up once in the back-office. After that, your customers do the rest from their phones."
+         "title": "From first screening to full house",
+         "text": "Set it up once in the back office. Customers book from their phones, and your staff sell and scan from the same seat map."
      },
      STEPS: list[dict[str, str]] = [
          {
@@ -53,8 +91,8 @@ glob:pub HERO: dict[str, str] = {
          "where": "Screen 1 · Seats F7, F8"
      },
      CLOSING: dict[str, str] = {
-         "title": "Open your online box office",
-         "text": "Set it up at your own pace, then put your first screening on sale.",
+         "title": "Put your cinema online today",
+         "text": "Create your cinema, set it up at your own pace, then put your first screening on sale.",
          "cta": "Create your cinema"
      },
      AUDIENCE: list[tuple[str, str]] = [
@@ -62,4 +100,4 @@ glob:pub HERO: dict[str, str] = {
          ("Multi-venue operators", "staff per venue"),
          ("Film clubs", "one-night screenings")
      ],
-     FOOTER: str = "AfriCinemas · Cinema tickets, booked in seconds.";
+     FOOTER: str = "AfriCinemas · Ticketing for cinemas in Kenya.";

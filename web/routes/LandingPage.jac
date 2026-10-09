@@ -1,7 +1,8 @@
 """`/`: the AfriCinemas landing page (P3.9).
 
 One bold moment, then calm (ui-ux-pro-max "Funnel", motion 3/10): a hero over a muted,
-looping video of an empty cinema hall, then three steps, each beside a small example of
+looping video of an empty cinema hall, then what a cinema gets (six features, the value
+first), then three steps, each beside a small example of
 the product (a screen's programme, the M-Pesa prompt, a QR ticket), then one closing
 call. The hero and the examples always wear the storefront's dark tokens (a `.dark`
 wrapper, styles/landing.css); the rest follows the device. The video stays still with
@@ -13,12 +14,23 @@ tests read the primary-cta, secondary-cta and wordmark test ids.
 import from react { useState, useEffect, useRef }
 import from "@jac/runtime" { jacIsLoggedIn }
 import from "@hugeicons/react" { HugeiconsIcon }
-import from "@hugeicons/core-free-icons" { PauseIcon, PlayIcon }
+import from "@hugeicons/core-free-icons" {
+    PauseIcon,
+    PlayIcon,
+    SeatSelectorIcon,
+    PaintBoardIcon,
+    SmartPhone01Icon,
+    QrCode01Icon,
+    ChartColumnIcon,
+    AiChat02Icon
+}
 import from ...components.ui.button { Button }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppLink { AppLink }
 import from .landing_content {
     HERO,
+    FEATURES_HEAD,
+    FEATURES,
     STEPS_HEAD,
     STEPS,
     PROGRAMME,
@@ -30,7 +42,15 @@ import from .landing_content {
 }
 
 glob WIDTH: str = "mx-auto w-full max-w-6xl px-4 sm:px-6",
-     QR_SIZE: int = 21;
+     QR_SIZE: int = 21,
+     FEATURE_ICONS: dict[str, any] = {  # jac:ignore[W1037]
+         "seat": SeatSelectorIcon,
+         "brand": PaintBoardIcon,
+         "mpesa": SmartPhone01Icon,
+         "door": QrCode01Icon,
+         "counter": ChartColumnIcon,
+         "ai": AiChat02Icon
+     };
 
 def in_finder(x: int, y: int) -> bool {
     # The three corner squares of a QR code: a ring, a gap, and a solid centre.
@@ -314,6 +334,44 @@ def:pub LandingPage -> JsxElement {
                     </header>
                 </div>
                 <main className="flex flex-1 flex-col">
+                    <section
+                        aria-labelledby="features-heading"
+                        className={WIDTH + " pt-20 sm:pt-28"}
+                    >
+                        <div className="max-w-2xl">
+                            <h2
+                                id="features-heading"
+                                className="font-display text-5xl leading-[0.95] text-balance sm:text-6xl"
+                            >
+                                {FEATURES_HEAD["title"]}
+                            </h2>
+                            <p className="mt-3 text-muted-foreground">
+                                {FEATURES_HEAD["text"]}
+                            </p>
+                        </div>
+                        <ul
+                            data-testid="features"
+                            className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                        >
+                            {[
+                                <li
+                                    key={f["title"]}
+                                    className="flex flex-col gap-3 rounded-2xl border p-6"
+                                >
+                                    <HugeiconsIcon
+                                        icon={FEATURE_ICONS[f["icon"]]}
+                                        strokeWidth={1.8}
+                                        aria-hidden="true"
+                                        className="size-6 text-[var(--ac-accent-ink)]"
+                                    />
+                                    <h3 className="text-lg font-semibold leading-snug">
+                                        {f["title"]}
+                                    </h3>
+                                    <p className="text-muted-foreground">{f["text"]}</p>
+                                </li> for f in FEATURES
+                            ]}
+                        </ul>
+                    </section>
                     <section
                         id="how"
                         aria-labelledby="how-heading"
