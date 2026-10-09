@@ -455,7 +455,7 @@ def RecentActivity(activity: list[dict[str, str]], slug: str, tz: str) -> JsxEle
                 </h2>
                 <AppLink
                     to={section_path(slug, "audit")}
-                    className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center px-2 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
                 >
                     See all
                 </AppLink>
@@ -644,7 +644,7 @@ def:pub StaffHome(
                                 <AppLink
                                     to={section_path(slug, "reports")}
                                     testid="open-reports"
-                                    className="text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                                    className="inline-flex min-h-11 min-w-11 items-center justify-center px-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
                                 >
                                     Reports
                                 </AppLink>
