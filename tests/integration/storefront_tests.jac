@@ -167,6 +167,31 @@ test "a movie's trailer shows on its page, with its embed link, once it's set" {
     }
 }
 
+test "the cinema directory lists open cinemas only, by city, with no internals" {
+    (app, nova) = _nova(["draft_owner"]);
+    try {
+        add_screening(app, "owner", nova, "Rafiki", 0);
+        # A cinema still being set up isn't open to the public.
+        app.call("draft_owner", "create_cinema", {"name": "Drafty", "slug": "drafty"});
+        listed = browse(app, "public_cinemas", {"city": ""});
+        assert listed["ok"] , listed;
+        assert [c["slug"] for c in listed["cinemas"]] == ["nova"] , listed;
+        nova_row = listed["cinemas"][0];
+        assert nova_row["name"] == "Nova Cinemas" and nova_row["cities"] == ["Nairobi"];
+        assert nova_row["showtimes"] == 1;
+        assert [
+            c["slug"]
+            for c in browse(app, "public_cinemas", {"city": "nairobi"})["cinemas"]
+        ]
+            == ["nova"];
+        assert browse(app, "public_cinemas", {"city": "Mombasa"})["cinemas"] == [];
+        # Names and places only: no internal ids.
+        assert nova.venue not in str(listed) and "tenant_id" not in str(listed);
+    } finally {
+        app.close();
+    }
+}
+
 test "a movie leaves the storefront when its last showtime is unpublished" {
     (app, nova) = _nova();
     try {

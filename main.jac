@@ -82,7 +82,8 @@ import from core.catalog.storefront_api {
     public_home_photo,
     public_backdrop,
     public_venues,
-    public_seat_availability
+    public_seat_availability,
+    public_cinemas
 }
 import from core.homepage.home_api {
     get_home_page,  # jac:ignore[W2037]
@@ -115,6 +116,8 @@ import from core.booking.counter_api {
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037]
 # The cinema's audit log: owners and auditors read it, nobody changes it (P7.2).
 import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
+# The AI booking agent: a customer's message in, its reply out (P8.1).
+import from core.agent.agent_api { agent_chat }
 # The staff home page: setup, today's showtimes, figures and activity (P7.4).
 import from core.reporting.staff_home { staff_home, showtime_art }  # jac:ignore[W2037]
 # A signed-in customer's saved bookings: "My tickets" (P6.3b).

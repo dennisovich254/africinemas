@@ -15,6 +15,10 @@ import from core.tenancy.staff_api {
 }
 import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
 import from core.reporting.staff_home { staff_home, showtime_art }  # jac:ignore[W2037]
+import from core.agent.agent_api { agent_chat }  # jac:ignore[W2037]
+import core.agent.agent as agent_module;
+import from core.agent.tools { HOLDER, tool_named }
+import from jaclang.byllm.lib { MockLLM, MockToolCall }
 import from core.audit.log { Opened, collection_of, _close }
 import from core.tenancy.registry { lookup_slug }
 import from core.booking.redeem_api {
@@ -405,4 +409,36 @@ def:priv audit_refinish(slug: str, event_id: str) -> bool {
     cinema = lookup_slug(slug);
     _close(Opened(collection=collection_of(str(cinema)), event_id=event_id), "ok", "x");
     return True;
+}
+
+def:pub agent_mock(steps: list[any]) -> bool {  # jac:ignore[W1037]
+    # The agent's model becomes a MockLLM (P8.1): each step is the model's next answer,
+    # a reply text or a tool call {"tool": name, "args": {...}}.
+    outputs: list[any] = [];  # jac:ignore[W1037]
+    for step in steps {
+        if isinstance(step, dict) {
+            outputs.append(MockToolCall(tool=step["tool"], args=step.get("args", {})));
+        } else {
+            outputs.append(str(step));
+        }
+    }
+    agent_module.agent_model = MockLLM(outputs=outputs);
+    return True;
+}
+
+def:pub agent_sent -> dict[str, str] {
+    # What the agent sent its (mock) model: the messages and the tools offered.
+    model: any = agent_module.agent_model;  # jac:ignore[W1037]
+    return {"messages": str(model.sent("messages")), "tools": str(model.sent("tools"))};
+}
+
+def:pub agent_tool(name: str, args: dict[str, any], holder: str) -> any {  # jac:ignore[W1037]
+    # Calls one agent tool directly as the caller, with the conversation's holder.
+    fn: any = tool_named(name);  # jac:ignore[W1037]
+    token = HOLDER.set(holder);
+    try {
+        return fn(**args);
+    } finally {
+        HOLDER.reset(token);
+    }
 }

@@ -14,6 +14,8 @@ featured movie is shown only if it's on sale or coming soon, else the next one o
 """
 
 import base64;
+import from core.claims { claims_in }
+import from core.tenancy.registry { SLUG_NAMESPACE }
 import from core.catalog.trailer { trailer_embed }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { open_cinema }
@@ -43,6 +45,7 @@ import from core.catalog.poster { media_store, media_key }
 
 # How many of a movie's next showtimes the home page lists.
 glob NEXT_SHOWTIMES: int = 6,
+     DIRECTORY_MAX: int = 50,
      # How many days ahead the home page's showtimes-by-day section looks (P4.1c).
      DAYS_AHEAD: int = 7,
      # How many days ahead quick book offers showtimes (P4.1d).
@@ -486,4 +489,44 @@ def:pub public_seat_availability(slug: str, screening_id: str) -> dict[str, any]
         "seats": seats,
         "counts": {"available": available, "total": len(seats)}
     };
+}
+
+def:pub public_cinemas(city: str = "") -> dict[str, any] {  # jac:ignore[W1037]
+    # The directory of cinemas open to the public (P8.1, for the AI agent's
+    # find_cinemas): name, slug, the cities of their venues and how many upcoming
+    # showtimes they have, by name; `city` keeps those with a venue in it (any case).
+    # Cinemas still being set up never show; no internal ids leave the server.
+    wanted = city.strip().casefold();
+    found: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for (slug, _, _) in claims_in(SLUG_NAMESPACE) {
+        cinema = open_cinema(slug);
+        if cinema is None {
+            continue;
+        }
+        cities = sorted(
+            set(
+                [
+                    v.city
+                    for (v, _) in venues_with_screens(cinema)
+                    if v.city
+                ]
+            ),
+            key=str.casefold
+        );
+        if wanted and wanted not in [c.casefold() for c in cities] {
+            continue;
+        }
+        found.append(
+            {
+                "name": cinema.name,
+                "slug": cinema.slug,
+                "cities": cities,
+                "showtimes": len(upcoming(cinema))
+            }
+        );
+    }
+    def by_name(c: dict[str, any]) -> str {  # jac:ignore[W1037]
+        return str(c["name"]).casefold();
+    }
+    return {"ok": True, "cinemas": sorted(found, key=by_name)[:DIRECTORY_MAX]};
 }
