@@ -106,3 +106,77 @@ test "cards come only from successful tool results, the programme first, at most
     assert cards_from([], "Nova Cinemas", "nova") == [];
     assert cards_from(seen[2:4], "Nova Cinemas", "nova") == [];
 }
+
+test "a booking card and the customer's bookings come from their tools, and always fit" {
+    showtime = {
+        "showtime_id": "s1",
+        "starts": "2026-10-10 18:00",
+        "movie": "Rafiki",
+        "movie_key": "rafiki",
+        "venue": "Westgate",
+        "screen": "Screen 1"
+    };
+    booked = {
+        "ok": True,
+        "bookings": [
+            {
+                "movie_title": "Rafiki",
+                "starts_at": "2026-10-10T15:00:00+00:00",
+                "timezone": "Africa/Nairobi",
+                "venue": "Westgate",
+                "screen": "Screen 1",
+                "tickets": [{"seat_label": "A1"}, {"seat_label": "A2"}],
+                "upcoming": True
+            }
+        ]
+    };
+    seen = [
+        (
+            "whats_on",
+            {"cinema": "nova", "day": ""},
+            {"ok": True, "showtimes": SHOWTIMES}
+        ),
+        ("movie_details", {"cinema": "nova", "movie_key": "a"}, _details("A")),
+        ("movie_details", {"cinema": "nova", "movie_key": "b"}, _details("B")),
+        (
+            "book_showtime",
+            {"cinema": "nova", "showtime_id": "s1"},
+            {
+                "ok": True,
+                "showtime": showtime,
+                "timezone": "Africa/Nairobi",
+                "suggested": ["A3"]
+            }
+        ),
+        ("my_bookings", {"cinema": "nova"}, booked)
+    ];
+    cards = cards_from(seen, "Nova Cinemas", "nova");
+    # The booking and the bookings always make it; movies give way first.
+    assert [c["type"] for c in cards] == ["programme", "booking", "bookings"];
+    booking = cards[1];
+    assert booking["showtime_id"] == "s1" and booking["suggested"] == ["A3"];
+    assert booking["timezone"] == "Africa/Nairobi" and booking["movie"] == "Rafiki";
+    mine = cards[2]["bookings"];
+    # Shown in the cinema's time, with the seats; nothing else of the order.
+    assert mine
+        == [
+            {
+                "movie": "Rafiki",
+                "starts": "2026-10-10 18:00",
+                "venue": "Westgate",
+                "screen": "Screen 1",
+                "seats": ["A1", "A2"],
+                "upcoming": True
+            }
+        ];
+    # A refused booking or bookings call makes no card.
+    refused = [
+        (
+            "book_showtime",
+            {"cinema": "nova", "showtime_id": "x"},
+            {"ok": False, "error": "No."}
+        ),
+        ("my_bookings", {"cinema": "nova"}, {"ok": False, "error": "Sign in."})
+    ];
+    assert cards_from(refused, "Nova Cinemas", "nova") == [];
+}
