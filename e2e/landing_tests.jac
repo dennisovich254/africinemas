@@ -47,7 +47,9 @@ test "the landing page says what AfriCinemas does and how it works" {
     (pw, browser) = shared_browser();
     try {
         page = _open(browser, pw, "desktop");
-        assert "box office" in page.inner_text("h1").lower();
+        # The value first: what a cinema owner gets, and who it's for.
+        assert "fill more seats" in page.inner_text("h1").lower();
+        assert "cinema owners" in page.inner_text("header").lower();
         steps = page.locator('[data-testid="how-it-works"] > li').all_inner_texts();
         assert len(steps) == 3 , steps;
         for (step, word) in zip(steps, ["screenings", "M-Pesa", "door"]) {
