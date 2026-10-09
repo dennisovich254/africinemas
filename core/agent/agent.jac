@@ -67,8 +67,8 @@ sem _converse.history = "The conversation so far.";
 
 def agent_reply(
     message: str,
-    history: list[dict[str, any]],
-    holder: str  # jac:ignore[W1037]
+    history: list[dict[str, any]],  # jac:ignore[W1037]
+    holder: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # The agent's reply to `message`, with the conversation so far (`history`, which
     # byLLM extends in place). `holder` owns the seats this conversation holds.
