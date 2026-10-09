@@ -9,6 +9,10 @@ YouTube trailer. Nobody signs in: an MCP client browses as the storefront does.
   and the model (text), with no private value anywhere.
 - What the storefront doesn't show, the tools don't either: an unknown cinema or movie
   is a tool error the model can read, not a JSON-RPC failure.
+- 8.3: a showtime that has started is no longer on sale in the chat; a cinema's own
+  connector (/c/{slug}/mcp) answers about that cinema only, whatever its arguments say,
+  and as the platform's does; whats_on draws the programme card, whose posters come
+  one at a time from movie_poster.
 """
 
 import io;
@@ -20,8 +24,16 @@ import tempfile;
 import from PIL { Image }
 import from tests.support.served { Served }
 import from tests.support.payment_setup { paying_cinema }
+import from tests.support.storefront_setup {
+    open_cinema_for,
+    add_movie,
+    add_screening,
+    set_prices
+}
 
 glob MEDIA_ENV: str = "AFRICINEMAS_MEDIA_DIR",
+     CLOCK_ENV: str = "AFRICINEMAS_CLOCK_CONTROL",
+     NOVA_MCP: str = "/c/nova/mcp",
      HIDDEN: list[str] = [
          '"email"',
          '"phone"',
@@ -32,7 +44,11 @@ glob MEDIA_ENV: str = "AFRICINEMAS_MEDIA_DIR",
      ];
 
 def _rpc(
-    app: Served, method: str, params: dict[str, any] | None = None, id: any = 1
+    app: Served,
+    method: str,
+    params: dict[str, any] | None = None,  # jac:ignore[W1037]
+    id: any = 1,  # jac:ignore[W1037]
+    path: str = "/mcp"
 ) -> any {  # jac:ignore[W1037]
     app.client.set_auth_token("");
     body: dict[str, any] = {"jsonrpc": "2.0", "method": method};  # jac:ignore[W1037]
@@ -42,13 +58,18 @@ def _rpc(
     if params is not None {
         body["params"] = params;
     }
-    resp = app.client.post("/mcp", json=body);
+    resp = app.client.post(path, json=body);
     assert resp.status_code == 200 , f"{method}: {resp.status_code} {resp.text[:300]}";
     return json.loads(resp.text);
 }
 
-def _call(app: Served, tool: str, args: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
-    got = _rpc(app, "tools/call", {"name": tool, "arguments": args});
+def _call(
+    app: Served,
+    tool: str,
+    args: dict[str, any],  # jac:ignore[W1037]
+    path: str = "/mcp"
+) -> dict[str, any] {  # jac:ignore[W1037]
+    got = _rpc(app, "tools/call", {"name": tool, "arguments": args}, 1, path);
     assert "result" in got , got;
     return got["result"];
 }
@@ -161,5 +182,114 @@ test "an unknown cinema or movie is a tool error the model can read" {
         assert "Rafiki" in on["content"][0]["text"] , on;
     } finally {
         app.close();
+    }
+}
+
+def _text_of(result: dict[str, any]) -> str {  # jac:ignore[W1037]
+    return result["content"][0]["text"];
+}
+
+test "a showtime that has started is no longer on sale in the chat" {
+    os.environ[CLOCK_ENV] = "1";
+    (app, _, screening) = paying_cinema([]);
+    try {
+        app.call(
+            "owner",
+            "rd_freeze",
+            {"slug": "nova", "screening_id": screening, "minutes": 5}
+        );
+        on = json.loads(_text_of(_call(app, "whats_on", {"cinema": "nova"})));
+        assert on["showtimes"] == [] , on;
+        assert _call(app, "show_movie", {"cinema": "nova", "movie": "Rafiki"})[
+            "isError"
+        ]
+            == True;
+        # A minute before it starts, it's on sale.
+        app.call(
+            "owner",
+            "rd_freeze",
+            {"slug": "nova", "screening_id": screening, "minutes": -1}
+        );
+        on = json.loads(_text_of(_call(app, "whats_on", {"cinema": "nova"})));
+        assert [s["showtime_id"] for s in on["showtimes"]] == [screening];
+    } finally {
+        app.call("owner", "rd_unfreeze", {});
+        os.environ.pop(CLOCK_ENV, None);
+        app.close();
+    }
+}
+
+test "a cinema's own connector answers about that cinema only, as the platform's does" {
+    (app, _, _) = paying_cinema(["kim"]);
+    try {
+        rift = open_cinema_for(app, "kim", "rift", "Rift Cinemas");
+        add_movie(app, "kim", rift, "Kesho");
+        set_prices(app, "kim", rift);
+        add_screening(app, "kim", rift, "Kesho", 0);
+        hello = _rpc(app, "initialize", {"protocolVersion": "2025-06-18"}, 1, NOVA_MCP);
+        assert hello["result"]["serverInfo"]["title"] == "Nova Cinemas" , hello;
+        # Asked about Rift, Nova's connector still answers about Nova.
+        for args in [{"cinema": "rift"}, {}] {
+            text = _text_of(_call(app, "whats_on", args, NOVA_MCP));
+            assert "Rafiki" in text and "Kesho" not in text , text;
+        }
+        kesho = _call(
+            app, "show_movie", {"cinema": "rift", "movie": "Kesho"}, NOVA_MCP
+        );
+        assert kesho["isError"] == True , kesho;
+        # The same card as the platform connector's, for the same cinema.
+        scoped = _call(app, "show_movie", {"movie": "Rafiki"}, NOVA_MCP);
+        platform = _call(app, "show_movie", {"cinema": "nova", "movie": "Rafiki"});
+        assert scoped["structuredContent"] == platform["structuredContent"];
+        # No directory on a cinema's connector.
+        assert "error"
+            in _rpc(
+                app,
+                "tools/call",
+                {"name": "find_cinemas", "arguments": {}},
+                1,
+                NOVA_MCP
+            );
+        # An unknown cinema's connector answers nothing.
+        assert _rpc(app, "initialize", {}, 1, "/c/no-such-cinema/mcp")["error"]["code"]
+            == -32602;
+    } finally {
+        app.close();
+    }
+}
+
+test "whats_on draws the programme card, and posters come from movie_poster" {
+    media = tempfile.mkdtemp(prefix="africinemas-media-");
+    os.environ[MEDIA_ENV] = media;
+    (app, nova, screening) = paying_cinema([]);
+    try {
+        _poster_and_trailer(app, nova.movies["Rafiki"]);
+        got = _call(app, "whats_on", {"cinema": "nova"});
+        card = got["structuredContent"];
+        assert card["cinema"] == "Nova Cinemas" , card;
+        assert [m["title"] for m in card["movies"]] == ["Rafiki"];
+        day = card["days"][0];
+        assert [s["showtime_id"] for s in day["showtimes"]] == [screening];
+        # The cinema's colours, as plain hex for light and dark.
+        for mode in ["light", "dark"] {
+            for role in ["accent", "on_accent"] {
+                colour = card["brand"][mode][role];
+                assert len(colour) == 7 and colour.startswith("#") , colour;
+            }
+        }
+        # The model still reads the showtimes as text; the card gets no images.
+        assert "Rafiki" in _text_of(got) and "base64" not in json.dumps(got);
+        key = card["movies"][0]["movie_key"];
+        poster = _call(app, "movie_poster", {"cinema": "nova", "movie_key": key});
+        assert poster["_meta"]["africinemas/poster"].startswith("data:image/webp");
+        assert "base64" not in _text_of(poster);
+        assert _call(app, "movie_poster", {"cinema": "nova", "movie_key": "made-up"})[
+            "isError"
+        ]
+            == True;
+    } finally {
+        os.environ.pop(MEDIA_ENV, None);
+        app.close();
+        shutil.rmtree(media, ignore_errors=True);
     }
 }

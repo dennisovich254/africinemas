@@ -119,7 +119,7 @@ import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
 # The AI booking agent: a customer's message in, its reply out (P8.1).
 import from core.agent.agent_api { agent_chat }
 # The MCP server: AfriCinemas in Claude, with a movie card (P8.2). POST /mcp.
-import from core.mcp.server { mcp }  # jac:ignore[W2037]
+import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]
 # The staff home page: setup, today's showtimes, figures and activity (P7.4).
 import from core.reporting.staff_home { staff_home, showtime_art }  # jac:ignore[W2037]
 # A signed-in customer's saved bookings: "My tickets" (P6.3b).

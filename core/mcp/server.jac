@@ -8,6 +8,12 @@ It's read-only and needs no login: anyone may ask, as on the storefront.
 - show_movie answers with a card: a ui:// resource (core/mcp/movie_card.jac) that the
   host shows in a sandboxed frame, filled from the tool's result. The poster goes in
   the result's _meta, for the card only, so the model never reads a base64 image.
+- whats_on also draws the programme card (core/mcp/programme_card.jac, P8.3), whose
+  posters come one at a time from movie_poster, a tool only the cards may call.
+
+A cinema's own connector, POST /c/{slug}/mcp (P8.3), is the same server with the cinema
+fixed: no directory, no cinema argument, and any cinema a caller names is replaced.
+Cards wear the cinema's accent colours (its published theme, contrast-checked).
 
 The movie's text is the cinema's: the model gets it as information inside a tool result,
 and the card sets it as text, never as HTML.
@@ -23,12 +29,16 @@ import from http { HTTPMethod }
 import from core.agent.tools { find_cinemas, whats_on, movie_details }
 import from core.catalog.screening_api { public_screenings }
 import from core.catalog.storefront_api { public_poster }
+import from core.theming.branding_api { public_branding }
+import from core.tenancy.open_cinema { open_cinema }
 import from core.catalog.trailer { trailer_embed }
 import from core.booking.ticket_delivery { PUBLIC_URL_ENV, DEFAULT_PUBLIC_URL }
 import from core.mcp.movie_card { CARD_HTML }
+import from core.mcp.programme_card { PROGRAMME_HTML }
 
 glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
      CARD_URI: str = "ui://africinemas/movie-card",
+     PROGRAMME_URI: str = "ui://africinemas/whats-on",
      CARD_MIME: str = "text/html;profile=mcp-app",
      POSTER_META: str = "africinemas/poster",
      INVALID_REQUEST: int = -32600,
@@ -63,7 +73,7 @@ glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
          {
              "name": "whats_on",
              "title": "What's on",
-             "description": "A cinema's showtimes on sale: local start time, movie, movie key, venue and screen.",
+             "description": "A cinema's showtimes on sale, shown as a programme card with the posters: local start time, movie, movie key, venue and screen.",
              "inputSchema": {
                  "type": "object",
                  "properties": {
@@ -78,7 +88,11 @@ glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
                  },
                  "required": ["cinema"]
              },
-             "annotations": READ_ONLY
+             "annotations": READ_ONLY,
+             "_meta": {
+                 "ui": {"resourceUri": PROGRAMME_URI},
+                 "ui/resourceUri": PROGRAMME_URI
+             }
          },
          {
              "name": "show_movie",
@@ -100,15 +114,40 @@ glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
              },
              "annotations": READ_ONLY,
              "_meta": {"ui": {"resourceUri": CARD_URI}, "ui/resourceUri": CARD_URI}
+         },
+         {
+             "name": "movie_poster",
+             "title": "Movie poster",
+             "description": "A movie's poster, for the cards to show. The model never calls it.",
+             "inputSchema": {
+                 "type": "object",
+                 "properties": {
+                     "cinema": {"type": "string", "description": "The cinema's slug."},
+                     "movie_key": {"type": "string", "description": "The movie's key."}
+                 },
+                 "required": ["cinema", "movie_key"]
+             },
+             "annotations": READ_ONLY,
+             # Only the cards call it (MCP Apps visibility): the model never sees it.
+             "_meta": {"ui": {"visibility": ["app"]}}
          }
      ],
-     CARD_RESOURCE: dict[str, str] = {
-         "uri": CARD_URI,
-         "name": "movie-card",
-         "title": "Movie card",
-         "description": "A movie's poster, trailer, details and showtimes.",
-         "mimeType": CARD_MIME
-     },
+     RESOURCES: list[dict[str, str]] = [
+         {
+             "uri": CARD_URI,
+             "name": "movie-card",
+             "title": "Movie card",
+             "description": "A movie's poster, trailer, details and showtimes.",
+             "mimeType": CARD_MIME
+         },
+         {
+             "uri": PROGRAMME_URI,
+             "name": "whats-on",
+             "title": "What's on",
+             "description": "A cinema's programme: its movies' posters and showtimes by day.",
+             "mimeType": CARD_MIME
+         }
+     ],
      # The card loads nothing and calls nothing outside; it may only frame the two
      # trailer players that core/catalog/trailer.jac embeds.
      CARD_CSP: dict[str, list[str]] = {
@@ -122,6 +161,73 @@ glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
 
 def card_html -> str {
     return CARD_HTML;
+}
+
+def programme_html -> str {
+    return PROGRAMME_HTML;
+}
+
+def _cards -> dict[str, str] {
+    return {CARD_URI: CARD_HTML, PROGRAMME_URI: PROGRAMME_HTML};
+}
+
+def _tools(cinema: str) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # The tools a connector offers. A cinema's own connector (cinema != "") has no
+    # directory, and its tools take no cinema: the server fixes it.
+    if not cinema {
+        return TOOLS;
+    }
+    kept: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for tool in TOOLS {
+        if tool["name"] == "find_cinemas" {
+            continue;
+        }
+        schema = tool["inputSchema"];
+        properties = {
+            k: v
+            for (k, v) in schema["properties"].items()
+            if k != "cinema"
+        };
+        required = [
+            r
+            for r in schema.get("required", [])
+            if r != "cinema"
+        ];
+        description = str(tool["description"]).replace(" at one cinema", "");
+        kept.append(
+            {
+                ** tool,
+                "description": description,
+                "inputSchema": {
+                    ** schema,
+                    "properties": properties,
+                    "required": required
+                }
+            }
+        );
+    }
+    return kept;
+}
+
+def _brand(cinema: str) -> dict[str, dict[str, str]] {
+    # The cinema's accent colours for the cards, light and dark: its published theme's,
+    # which the theme validator has already checked for contrast.
+    got = public_branding(cinema);
+    if not isinstance(got, dict) or not got.get("ok") {
+        return {};
+    }
+    theme = got["branding"]["theme"];
+    return {
+        mode: {
+            "accent": str(theme[mode]["accent"]),
+            "on_accent": str(theme[mode]["on_accent"])
+        } for mode in ["light", "dark"]
+    };
+}
+
+def _site(cinema: str) -> str {
+    base = os.environ.get(PUBLIC_URL_ENV, "").strip().rstrip("/") or DEFAULT_PUBLIC_URL;
+    return f"{base}/c/{cinema}";
 }
 
 def _text(text: str, failed: bool = False) -> dict[str, any] {  # jac:ignore[W1037]
@@ -193,7 +299,6 @@ def _show_movie(cinema: str, asked: str) -> dict[str, any] {  # jac:ignore[W1037
         return _text(str(movie.get("error", "That movie isn't on sale.")), True);
     }
     name = str(programme["cinema"].get("name", cinema));
-    base = os.environ.get(PUBLIC_URL_ENV, "").strip().rstrip("/") or DEFAULT_PUBLIC_URL;
     card = {
         "cinema": name,
         "title": movie["title"],
@@ -204,8 +309,9 @@ def _show_movie(cinema: str, asked: str) -> dict[str, any] {  # jac:ignore[W1037
         "language": movie["language"],
         "trailer_url": movie["trailer_url"],
         "trailer_embed": trailer_embed(movie["trailer_url"]),
-        "book_url": f"{base}/c/{cinema}/m/{key}",
-        "showtimes": movie["showtimes"]
+        "book_url": f"{_site(cinema)}/m/{key}",
+        "showtimes": movie["showtimes"],
+        "brand": _brand(cinema)
     };
     facts = ", ".join(
         [
@@ -233,13 +339,73 @@ def _show_movie(cinema: str, asked: str) -> dict[str, any] {  # jac:ignore[W1037
     return answer;
 }
 
+def _whats_on(cinema: str, day: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The showtimes as text for the model (the agent's tool), and the programme card:
+    # the movies (posters come one at a time from movie_poster) and the showtimes by day.
+    got = whats_on(cinema, day);
+    if not got.get("ok", False) {
+        return _data(got);
+    }
+    programme = public_screenings(cinema);
+    name = cinema;
+    if isinstance(programme, dict) and programme.get("ok") {
+        name = str(programme["cinema"].get("name", cinema));
+    }
+    days: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    movies: list[dict[str, str]] = [];
+    for s in got["showtimes"] {
+        when = str(s["starts"])[:10];
+        if not days or days[-1]["day"] != when {
+            days.append({"day": when, "showtimes": []});
+        }
+        days[-1]["showtimes"].append(s);
+        if s["movie_key"] not in [m["movie_key"] for m in movies] {
+            movies.append({"movie_key": s["movie_key"], "title": s["movie"]});
+        }
+    }
+    return {
+        ** _data(got),
+        "structuredContent": {
+            "cinema": name,
+            "cinema_slug": cinema,
+            "movies": movies,
+            "days": days,
+            "site_url": _site(cinema),
+            "brand": _brand(cinema)
+        }
+    };
+}
+
+def _movie_poster(cinema: str, key: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # One movie's poster, in _meta for the card; text only says whether there is one.
+    got = public_poster(cinema, key);
+    if isinstance(got, dict) and got.get("ok") {
+        return {
+            ** _text("The poster is shown in the card."),
+            "_meta": {POSTER_META: got["poster"]}
+        };
+    }
+    code = "";
+    if isinstance(got, dict) and isinstance(got.get("error"), dict) {
+        code = str(got["error"].get("code", ""));
+    }
+    if code.startswith("no_") {
+        return _text("This movie has no poster yet.");
+    }
+    return _text("There's no such movie on sale.", True);
+}
+
 def _arg(args: dict[str, any], name: str) -> str {  # jac:ignore[W1037]
     value = args.get(name, "");
     return value.strip() if isinstance(value, str) else "";
 }
 
-def _call_tool(params: dict[str, any]) -> tuple[dict[str, any] | None, str] {  # jac:ignore[W1037]
-    # (the tool's result, "") or (None, why the call is invalid).
+def _call_tool(
+    params: dict[str, any],  # jac:ignore[W1037]
+    fixed: str = ""
+) -> tuple[dict[str, any] | None, str] {  # jac:ignore[W1037]
+    # (the tool's result, "") or (None, why the call is invalid). On a cinema's own
+    # connector (`fixed`), that cinema replaces any the caller names.
     name = params.get("name");
     args = params.get("arguments", {});
     if args is None {
@@ -248,6 +414,12 @@ def _call_tool(params: dict[str, any]) -> tuple[dict[str, any] | None, str] {  #
     if not isinstance(args, dict) {
         return (None, "arguments must be an object.");
     }
+    if fixed {
+        if name == "find_cinemas" {
+            return (None, f"There's no tool called {name}.");
+        }
+        args = {** args, "cinema": fixed};
+    }
     if name == "find_cinemas" {
         return (_data(find_cinemas(_arg(args, "city"), _arg(args, "name"))), "");
     }
@@ -255,7 +427,13 @@ def _call_tool(params: dict[str, any]) -> tuple[dict[str, any] | None, str] {  #
         if not _arg(args, "cinema") {
             return (None, "whats_on needs a cinema.");
         }
-        return (_data(whats_on(_arg(args, "cinema"), _arg(args, "day"))), "");
+        return (_whats_on(_arg(args, "cinema"), _arg(args, "day")), "");
+    }
+    if name == "movie_poster" {
+        if not _arg(args, "cinema") or not _arg(args, "movie_key") {
+            return (None, "movie_poster needs a cinema and a movie_key.");
+        }
+        return (_movie_poster(_arg(args, "cinema"), _arg(args, "movie_key")), "");
     }
     if name == "show_movie" {
         if not _arg(args, "cinema") or not _arg(args, "movie") {
@@ -266,8 +444,19 @@ def _call_tool(params: dict[str, any]) -> tuple[dict[str, any] | None, str] {  #
     return (None, f"There's no tool called {name}.");
 }
 
-def _initialize(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+def _initialize(params: dict[str, any], name: str = "") -> dict[str, any] {  # jac:ignore[W1037]
     asked = params.get("protocolVersion");
+    if name {
+        return {
+            "protocolVersion": asked if asked in PROTOCOLS else PROTOCOLS[0],
+            "capabilities": {
+                "tools": {"listChanged": False},
+                "resources": {"listChanged": False}
+            },
+            "serverInfo": {"name": "africinemas", "title": name, "version": "0.8.3"},
+            "instructions": f"{name}'s programme: see what's on and show movies as cards with their poster and trailer. Booking happens on {name}'s website."
+        };
+    }
     return {
         "protocolVersion": asked if asked in PROTOCOLS else PROTOCOLS[0],
         "capabilities": {
@@ -277,7 +466,7 @@ def _initialize(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
         "serverInfo": {
             "name": "africinemas",
             "title": "AfriCinemas",
-            "version": "0.8.2"
+            "version": "0.8.3"
         },
         "instructions": "Find cinemas, see what's on and show movies as cards with their poster and trailer. Booking happens on the cinema's website."
     };
@@ -287,10 +476,18 @@ def _fail(id: any, code: int, message: str) -> dict[str, any] {  # jac:ignore[W1
     return {"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": message}};
 }
 
-def respond(jsonrpc: str, method: str, id: any, params: any) -> dict[str, any] {  # jac:ignore[W1037]
+def respond(
+    jsonrpc: str,
+    method: str,
+    id: any,  # jac:ignore[W1037]
+    params: any,  # jac:ignore[W1037]
+    cinema: str = "",
+    cinema_name: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
     # The JSON-RPC answer to one message; {} for a notification, which gets none.
     # An omitted id or params reaches the endpoint as the string "None" (JI-025), so
     # notifications are told by their method, as MCP names them all "notifications/...".
+    # `cinema` (with its name) makes this a cinema's own connector (P8.3).
     if isinstance(method, str) and method.startswith("notifications/") {
         return {};
     }
@@ -300,30 +497,32 @@ def respond(jsonrpc: str, method: str, id: any, params: any) -> dict[str, any] {
     args = params if isinstance(params, dict) else {};
     result: dict[str, any] | None = None;  # jac:ignore[W1037]
     if method == "initialize" {
-        result = _initialize(args);
+        result = _initialize(args, cinema_name);
     } elif method == "ping" {
         result = {};
     } elif method == "tools/list" {
-        result = {"tools": TOOLS};
+        result = {"tools": _tools(cinema)};
     } elif method == "tools/call" {
-        (result, why) = _call_tool(args);
+        (result, why) = _call_tool(args, cinema);
         if result is None {
             return _fail(id, INVALID_PARAMS, why);
         }
     } elif method == "resources/list" {
-        result = {"resources": [CARD_RESOURCE]};
+        result = {"resources": RESOURCES};
     } elif method == "resources/templates/list" {
         result = {"resourceTemplates": []};
     } elif method == "resources/read" {
-        if args.get("uri") != CARD_URI {
+        uri = str(args.get("uri", ""));
+        html = _cards().get(uri, "");
+        if not html {
             return _fail(id, INVALID_PARAMS, "There's no such resource.");
         }
         result = {
             "contents": [
                 {
-                    "uri": CARD_URI,
+                    "uri": uri,
                     "mimeType": CARD_MIME,
-                    "text": CARD_HTML,
+                    "text": html,
                     "_meta": {"ui": {"csp": CARD_CSP, "prefersBorder": True}}
                 }
             ]
@@ -344,4 +543,29 @@ def:pub mcp(
     params: any = None  # jac:ignore[W1037]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return respond(jsonrpc, method, id, params);
+}
+
+@restspec(
+    method=HTTPMethod.POST,
+    path="/c/{slug}/mcp",
+    produces="application/json",
+    envelope=False
+)
+def:pub cinema_mcp(
+    slug: str,
+    jsonrpc: str,
+    method: str,
+    id: any = None,  # jac:ignore[W1037]
+    params: any = None  # jac:ignore[W1037]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # A cinema's own connector (P8.3): the same server with the cinema fixed. An unknown
+    # or unopened cinema's connector answers nothing.
+    if isinstance(method, str) and method.startswith("notifications/") {
+        return {};
+    }
+    cinema = open_cinema(slug);
+    if cinema is None {
+        return _fail(id, INVALID_PARAMS, f"There's no cinema called {slug}.");
+    }
+    return respond(jsonrpc, method, id, params, cinema.slug, cinema.name);
 }

@@ -5,15 +5,24 @@ server's `respond` directly, without HTTP or a cinema:
 
 - the handshake: the client's protocol version is echoed when we speak it, else ours;
   tools and resources are offered; a notification gets nothing back;
-- exactly three read-only tools (no seats held, nothing ordered, nothing paid), and only
-  show_movie draws a card;
-- the card resource: MCP Apps' HTML type, a CSP that lets only the two trailer players
-  be framed, and HTML that loads nothing from outside and never writes data as HTML;
+- read-only tools only (no seats held, nothing ordered, nothing paid): whats_on and
+  show_movie draw cards, and movie_poster is for the cards alone (8.3);
+- a cinema's own connector (/c/{slug}/mcp, 8.3) has no cinema argument and no directory;
+- the cards: MCP Apps' HTML type, a CSP that lets only the two trailer players be
+  framed, and HTML that loads nothing from outside and never writes data as HTML;
 - JSON-RPC's errors: a bad version, an unknown method, tool or resource.
 """
 
 import from os { path }
-import from core.mcp.server { respond, PROTOCOLS, CARD_URI, CARD_MIME, card_html }
+import from core.mcp.server {
+    respond,
+    PROTOCOLS,
+    CARD_URI,
+    PROGRAMME_URI,
+    CARD_MIME,
+    card_html,
+    programme_html
+}
 
 glob ROOT: str = path.dirname(path.dirname(path.dirname(path.abspath(__file__))));
 
@@ -45,60 +54,98 @@ test "a notification gets nothing back" {
     assert respond("2.0", "notifications/cancelled", "None", {"requestId": 3}) == {};
 }
 
-test "three read-only tools, and only show_movie draws the card" {
+test "read-only tools: whats_on and show_movie draw cards, movie_poster is the cards' own" {
     tools = _ask("tools/list")["result"]["tools"];
-    assert [t["name"] for t in tools] == ["find_cinemas", "whats_on", "show_movie"];
+    assert [t["name"] for t in tools]
+        == ["find_cinemas", "whats_on", "show_movie", "movie_poster"];
     for t in tools {
         assert t["inputSchema"]["type"] == "object" , t["name"];
         assert t["annotations"]["readOnlyHint"] == True , t["name"];
         assert t["description"] , t["name"];
     }
-    card = [
-        t
-        for t in tools
-        if t["name"] == "show_movie"
-    ][0];
-    assert card["_meta"]["ui"]["resourceUri"] == CARD_URI;
-    assert sorted(card["inputSchema"]["required"]) == ["cinema", "movie"];
-    for t in tools {
-        assert t["name"] == "show_movie" or "_meta" not in t , t["name"];
-    }
+    named = {t["name"]: t for t in tools};
+    assert named["show_movie"]["_meta"]["ui"]["resourceUri"] == CARD_URI;
+    assert named["whats_on"]["_meta"]["ui"]["resourceUri"] == PROGRAMME_URI;
+    assert sorted(named["show_movie"]["inputSchema"]["required"])
+        == ["cinema", "movie"];
+    assert "_meta" not in named["find_cinemas"];
+    # Only the cards call movie_poster: the model never sees it, nor any image.
+    assert named["movie_poster"]["_meta"]["ui"]["visibility"] == ["app"];
 }
 
-test "the card resource is MCP Apps HTML that may frame only the trailer players" {
+test "a cinema's own connector has no cinema argument and no directory" {
+    tools = respond("2.0", "tools/list", 1, {}, "nova", "Nova Cinemas")["result"][
+        "tools"
+    ];
+    assert [t["name"] for t in tools] == ["whats_on", "show_movie", "movie_poster"];
+    for t in tools {
+        assert "cinema" not in t["inputSchema"]["properties"] , t["name"];
+        assert "cinema" not in t["inputSchema"].get("required", []) , t["name"];
+    }
+    hello = respond("2.0", "initialize", 1, {}, "nova", "Nova Cinemas")["result"];
+    assert hello["serverInfo"]["title"] == "Nova Cinemas";
+    assert "Nova Cinemas" in hello["instructions"];
+    refused = respond(
+        "2.0",
+        "tools/call",
+        2,
+        {"name": "find_cinemas", "arguments": {}},
+        "nova",
+        "Nova Cinemas"
+    );
+    assert _error(refused) == -32602;
+    # The platform's tool list is untouched by a cinema's.
+    assert "find_cinemas" in [t["name"] for t in _ask("tools/list")["result"]["tools"]];
+}
+
+test "both cards are MCP Apps HTML that may frame only the trailer players" {
     listed = _ask("resources/list")["result"]["resources"];
-    assert [(r["uri"], r["mimeType"]) for r in listed] == [(CARD_URI, CARD_MIME)];
+    assert [(r["uri"], r["mimeType"]) for r in listed]
+        == [(CARD_URI, CARD_MIME), (PROGRAMME_URI, CARD_MIME)];
     assert CARD_MIME == "text/html;profile=mcp-app";
-    read = _ask("resources/read", {"uri": CARD_URI})["result"]["contents"];
-    assert len(read) == 1 and read[0]["uri"] == CARD_URI;
-    assert read[0]["mimeType"] == CARD_MIME and read[0]["text"] == card_html();
-    csp = read[0]["_meta"]["ui"]["csp"];
-    assert sorted(csp["frameDomains"])
-        == ["https://player.vimeo.com", "https://www.youtube-nocookie.com"];
-    assert csp.get("connectDomains", []) == [] and csp.get("resourceDomains", []) == [];
+    for (uri, html) in [(CARD_URI, card_html()), (PROGRAMME_URI, programme_html())] {
+        read = _ask("resources/read", {"uri": uri})["result"]["contents"];
+        assert len(read) == 1 and read[0]["uri"] == uri;
+        assert read[0]["mimeType"] == CARD_MIME and read[0]["text"] == html;
+        csp = read[0]["_meta"]["ui"]["csp"];
+        assert sorted(csp["frameDomains"])
+            == ["https://player.vimeo.com", "https://www.youtube-nocookie.com"];
+        assert csp.get("connectDomains", []) == []
+            and csp.get("resourceDomains", []) == [];
+    }
     assert _error(_ask("resources/read", {"uri": "ui://africinemas/other"})) == -32602;
 }
 
-test "the card speaks the MCP Apps handshake and loads nothing from outside" {
-    html = card_html();
-    for message in [
-        "ui/initialize",
-        "ui/notifications/initialized",
-        "ui/notifications/tool-result",
-        "ui/notifications/size-changed",
-        "ui/open-link",
-        "ui/resource-teardown",
-        "2026-01-26"
-    ] {
-        assert message in html , message;
+test "the cards speak the MCP Apps handshake and load nothing from outside" {
+    for html in [card_html(), programme_html()] {
+        for message in [
+            "ui/initialize",
+            "ui/notifications/initialized",
+            "ui/notifications/tool-result",
+            "ui/notifications/size-changed",
+            "ui/resource-teardown",
+            "2026-01-26"
+        ] {
+            assert message in html , message;
+        }
+        lowered = html.lower();
+        for outside in ["<script src", "<link", "@import", "http://", "url("] {
+            assert outside not in lowered , outside;
+        }
+        # The cinema's text is set as text, never parsed as HTML.
+        assert "innerhtml" not in lowered and "insertadjacenthtml" not in lowered;
+        assert "document.write" not in lowered;
+        # Brand colours are used only when they're plain hex colours.
+        assert "#[0-9a-fa-f]{6}" in lowered;
     }
-    lowered = html.lower();
-    for outside in ["<script src", "<link", "@import", "http://", "url("] {
-        assert outside not in lowered , outside;
-    }
-    # The movie's text is the cinema's: it's set as text, never parsed as HTML.
-    assert "innerhtml" not in lowered and "insertadjacenthtml" not in lowered;
-    assert "document.write" not in lowered;
+    # The movie card: a trailer that won't play in the frame still has a way out.
+    movie = card_html();
+    assert "ui/open-link" in movie and "Not playing?" in movie;
+    # The programme card: lazy posters through the cards' own tool, and a tap on a
+    # movie asks the chat to show it.
+    programme = programme_html();
+    assert "movie_poster" in programme and "tools/call" in programme;
+    assert "ui/message" in programme;
 }
 
 test "JSON-RPC errors: a bad version, an unknown method, tool or arguments" {
