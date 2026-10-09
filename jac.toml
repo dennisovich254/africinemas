@@ -133,6 +133,7 @@ default = "server"
 "core.reporting.report_api" = "server"
 "core.audit.audit_api" = "server"
 "core.reporting.staff_home" = "server"
+"core.agent.agent_api" = "server"
 # Every web module is browser code, including pure helpers such as web.backoffice.nav
 # (under default = "server" a pure def:pub would otherwise become a server endpoint).
 "web.*" = "client"
@@ -167,3 +168,19 @@ playwright = "~=1.63"
 pillow = "~=12.3"
 # Ticket QR codes as PNG images in the ticket email (P6.3); pure Python, no deps.
 segno = "~=1.6"
+byllm = "~=0.6"
+
+# ---------------------------------------------------------------------------
+# The AI booking agent (P8.1): Gemini through byLLM. No key here: the provider reads it
+# from the environment (GEMINI_API_KEY), never an env placeholder in this file (JI-015).
+[byllm.model]
+default_model = "gemini/gemini-2.5-flash"
+
+[byllm.call_params]
+temperature = 0.3
+max_output_retries = 2
+
+[byllm.fallback]
+# A slow answer becomes the agent's polite fallback, not a stuck chat.
+timeout = 25.0
+num_retries = 0

@@ -70,6 +70,13 @@ def _mine(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     };
 }
 
+def bookings_of_caller(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The signed-in caller's bookings at `slug`, as my_tickets answers, for the AI
+    # agent's my_tickets tool (P8.1). The caller must check they're signed in: a
+    # signed-out request runs on the shared guest graph.
+    return answer(lambda -> any { return _mine(slug); });  # jac:ignore[W1037]
+}
+
 def:priv save_booking(slug: str, token: str, display_name: str = "") -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _save(slug, token, display_name); });  # jac:ignore[W1037]
 }

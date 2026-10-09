@@ -99,7 +99,9 @@ test "an owner creates, lists, edits and deletes movies, and they persist" {
                 "language": "English, Swahili",
                 "has_poster": False,
                 "has_backdrop": False,
-                "release_date": ""
+                "release_date": "",
+                "trailer_url": "",
+                "trailer_embed": ""
             } , rafiki;
         _movie(app, "Atlantics");
         changed = _details("Rafiki");
@@ -272,6 +274,53 @@ test "catalogue staff can read movies; content managers change them; ushers can'
         os.environ.pop(MEDIA_ENV, None);
         app.close();
         shutil.rmtree(media, ignore_errors=True);
+    }
+}
+
+test "a trailer link is checked, kept in canonical form and can be cleared" {
+    app = _cinema(["cara", "bob"]);
+    try {
+        movie = _movie(app)["movie_id"];
+        for (who, role) in [("cara", "content_manager"), ("bob", "box_office_agent")] {
+            token = app.call(
+                "owner", "invite_staff", {"tenant": NOVA, "role": role, "venue_id": ""}
+            )["token"];
+            app.call(who, "accept_invite", {"token": token});
+            app.call(who, "start_shift", {"tenant": NOVA});
+        }
+        trailer = {
+            "tenant": NOVA,
+            "movie_id": movie,
+            "url": "https://youtu.be/dQw4w9WgXcQ"
+        };
+        saved = app.call("owner", "set_trailer", trailer);
+        assert saved["ok"] , saved;
+        assert saved["movie"]["trailer_url"]
+            == "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        shown = app.call("owner", "get_movie", {"tenant": NOVA, "movie_id": movie});
+        assert shown["movie"]["trailer_url"]
+            == "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        assert shown["movie"]["trailer_embed"]
+            == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ";
+        # Content managers may set it; box office agents may not.
+        assert app.call(
+            "cara", "set_trailer", {** trailer, "url": "https://vimeo.com/76979871"}
+        )["ok"];
+        assert _code(app.call("bob", "set_trailer", trailer)) == "forbidden";
+        # Another site is refused and the link stays as it was.
+        assert _code(
+            app.call("owner", "set_trailer", {** trailer, "url": "javascript:alert(1)"})
+        )
+            == "invalid_trailer";
+        kept = app.call("owner", "get_movie", {"tenant": NOVA, "movie_id": movie});
+        assert kept["movie"]["trailer_url"] == "https://vimeo.com/76979871";
+        # An empty link clears it.
+        assert app.call("owner", "set_trailer", {** trailer, "url": ""})["ok"];
+        cleared = app.call("owner", "get_movie", {"tenant": NOVA, "movie_id": movie});
+        assert cleared["movie"]["trailer_url"] == "";
+        assert cleared["movie"]["trailer_embed"] == "";
+    } finally {
+        app.close();
     }
 }
 

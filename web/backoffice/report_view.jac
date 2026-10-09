@@ -154,6 +154,7 @@ glob:pub ACTIONS: list[tuple[str, str]] = [
          ("movie.poster_uploaded", "Poster uploaded"),
          ("movie.backdrop_uploaded", "Backdrop uploaded"),
          ("movie.backdrop_removed", "Backdrop removed"),
+         ("movie.trailer_set", "Trailer set"),
          ("showtime.created", "Showtime added"),
          ("showtime.rescheduled", "Showtime moved"),
          ("showtime.scheduled", "Showtime scheduled"),

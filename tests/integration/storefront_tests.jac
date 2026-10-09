@@ -45,6 +45,8 @@ glob MAIN: str = path.join(
          "runtime_minutes",
          "synopsis",
          "title",
+         "trailer_embed",
+         "trailer_url",
          "venues"
      ],
      # Showtimes are shown in the cinema's time zone, from its price list (P3.6).
@@ -136,6 +138,57 @@ test "a movie page shows the movie and its published showtimes only" {
             )
                 == "not_found" , wrong;
         }
+    } finally {
+        app.close();
+    }
+}
+
+test "a movie's trailer shows on its page, with its embed link, once it's set" {
+    (app, nova) = _nova();
+    try {
+        add_screening(app, "owner", nova, "Rafiki", 0);
+        key = _key(app, "Rafiki");
+        before = browse(app, "public_movie", {"slug": "nova", "movie_key": key});
+        assert before["movie"]["trailer_url"] == "";
+        assert app.call(
+            "owner",
+            "set_trailer",
+            {
+                "tenant": "nova",
+                "movie_id": nova.movies["Rafiki"],
+                "url": "https://youtu.be/dQw4w9WgXcQ"
+            }
+        )["ok"];
+        page = browse(app, "public_movie", {"slug": "nova", "movie_key": key});
+        assert page["movie"]["trailer_url"]
+            == "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        assert page["movie"]["trailer_embed"]
+            == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ";
+    } finally {
+        app.close();
+    }
+}
+
+test "the cinema directory lists cinemas selling tickets only, by city, with no internals" {
+    (app, nova) = _nova(["draft_owner"]);
+    try {
+        add_screening(app, "owner", nova, "Rafiki", 0);
+        # A cinema still being set up has nothing on sale, so it isn't listed.
+        app.call("draft_owner", "create_cinema", {"name": "Drafty", "slug": "drafty"});
+        listed = browse(app, "public_cinemas", {"city": ""});
+        assert listed["ok"] , listed;
+        assert [c["slug"] for c in listed["cinemas"]] == ["nova"] , listed;
+        nova_row = listed["cinemas"][0];
+        assert nova_row["name"] == "Nova Cinemas" and nova_row["cities"] == ["Nairobi"];
+        assert nova_row["showtimes"] == 1;
+        assert [
+            c["slug"]
+            for c in browse(app, "public_cinemas", {"city": "nairobi"})["cinemas"]
+        ]
+            == ["nova"];
+        assert browse(app, "public_cinemas", {"city": "Mombasa"})["cinemas"] == [];
+        # Names and places only: no internal ids.
+        assert nova.venue not in str(listed) and "tenant_id" not in str(listed);
     } finally {
         app.close();
     }
