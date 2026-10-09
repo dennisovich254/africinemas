@@ -27,7 +27,7 @@ import from core.payments.settlement { my_payment }
 import from ..storefront.Checkout { Checkout }
 import from ..storefront.PayPanel { TicketCard }
 import from ..storefront.checkout_rules { money, email_problem, phone_problem }
-import from .ScannerSection { ShowtimeChoice }
+import from .CounterPicker { CounterPicker }
 
 glob POLL_MS: int = 3000;
 
@@ -363,7 +363,7 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
                 {found["error"]["message"]}
             </p>;
     }
-    showtimes: list[dict[str, str]] = found["showtimes"];
+    showtimes: list[dict[str, any]] = found["showtimes"];  # jac:ignore[W1037]
     tz: str = found["timezone"];
     cinema_slug: str = found["slug"];
     if len(showtimes) == 0 {
@@ -385,22 +385,13 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
         <CounterDone payment={paid} on_new_sale={new_sale}/>; };
     return
         <div data-testid="box-office" className="flex flex-col gap-6">
-            <fieldset className="flex flex-col gap-2 print:hidden">
-                <legend className="mb-2 font-medium">Showtime</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
-                    {[
-                        <ShowtimeChoice
-                            key={s["screening_id"]}
-                            showtime={s}
-                            tz={tz}
-                            chosen={s["screening_id"] == screening_id}
-                            on_choose={choose}
-                            with_day={True}
-                            testid="counter-showtime"
-                        /> for s in showtimes
-                    ]}
-                </div>
-            </fieldset>
+            <CounterPicker
+                showtimes={showtimes}
+                slug={cinema_slug}
+                tz={tz}
+                chosen={screening_id}
+                on_choose={choose}
+            />
             {len(screening_id) > 0
                 and <Checkout
                     key={sale}

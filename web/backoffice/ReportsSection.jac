@@ -16,7 +16,6 @@ import from ...components.ui.spinner { Spinner }
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 import from .report_view { PRESETS, preset_range, period_label, percent, money_label }
 import from .report_parts { KpiTile, TakingsChart, TopMovies, DrillDown }
-import from ..shell.AppLink { AppLink }
 
 glob SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-auto";
 
@@ -318,60 +317,4 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                 </div>
             </section>
         </div>;
-}
-
-def:pub TodayAtAGlance(slug: str, shift_open: bool = True) -> JsxElement {
-    # The Overview's summary for staff who read reports: today's net takings and
-    # tickets for today's showtimes, with the way into Reports.
-    [got, set_got] = useState(None);
-
-    async def load {
-        answer: any = None;  # jac:ignore[W1037]
-        try {
-            answer = await sales_report(slug, "", "", "");  # jac:ignore[W2037]
-        } except Exception as e {
-            console.warn("sales_report failed", e);
-            return;
-        }
-        if answer["ok"] {
-            set_got(answer);
-        }
-    }
-
-    def start_loading {
-        load();
-    }
-    useEffect(start_loading, [slug, shift_open]);
-
-    if got is None {
-        return <span className="sr-only">Loading today's figures…</span>;
-    }
-    shown: dict[str, any] = got;  # jac:ignore[W1037]
-    sales: dict[str, any] = shown["report"];  # jac:ignore[W1037]
-    currency: str = shown["currency"];
-    return
-        <section aria-labelledby="today-heading" className="flex flex-col gap-3">
-            <h2 id="today-heading" className="text-lg font-semibold">Today</h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <KpiTile
-                    label="Money taken today"
-                    value={money_label(sales["takings"]["net_cents"], currency)}
-                    note="Net, after refunds"
-                    testid="today-net"
-                />
-                <KpiTile
-                    label="Tickets for today's showtimes"
-                    value={f"{sales['attendance']['tickets_sold']}"}
-                    note={f"{sales['attendance']['showtimes']} showtimes today"}
-                    testid="today-tickets"
-                />
-            </div>
-            <AppLink
-                to={f"/app/{slug}/reports"}
-                testid="open-reports"
-                className="min-h-11 self-start py-3 text-sm font-medium underline underline-offset-4"
-            >
-                Open reports
-            </AppLink>
-        </section>;
 }

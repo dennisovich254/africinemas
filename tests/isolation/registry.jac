@@ -281,6 +281,16 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "email": ""
              }
          },
+         "showtime_art": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "screening_id": "x", "kind": "poster"}
+         },
+         "staff_home": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
          "audit_log": {
              "scope": "tenant",
              "audit": "",

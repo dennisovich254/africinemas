@@ -18,8 +18,6 @@ import from "@jac/runtime" { useParams }
 import from ..shell.AppLink { AppLink }
 import from "@hugeicons/react" { HugeiconsIcon }
 import from "@hugeicons/core-free-icons" { Clock01Icon }
-import from ...components.ui.alert { Alert, AlertTitle, AlertDescription, AlertAction }
-import from ...components.ui.badge { Badge }
 import from ...components.ui.button { Button }
 import from ...components.ui.empty {
     Empty,
@@ -45,7 +43,8 @@ import from .ScannerSection { ScannerSection }
 import from .BoxOfficeSection { BoxOfficeSection }
 import from .PricesSection { PricesSection }
 import from .StaffSection { StaffSection }
-import from .ReportsSection { ReportsSection, TodayAtAGlance }
+import from .ReportsSection { ReportsSection }
+import from .StaffHome { StaffHome }
 import from .AuditSection { AuditSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
@@ -59,23 +58,32 @@ glob SECTION_PREVIEW: dict[str, str] = {
      };
 
 def ShiftBanner(busy: bool, failed: bool, on_start: any) -> JsxElement {  # jac:ignore[W1037]
+    # One row above every section while the member is off shift (ADR-0006); wraps on a
+    # phone, the button last.
     return
-        <Alert data-testid="shift-banner" className="pr-4">
-            <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} aria-hidden="true"/>
-            <AlertTitle>Your shift hasn't started</AlertTitle>
-            <AlertDescription>
+        <div
+            role="region"
+            aria-label="Shift"
+            data-testid="shift-banner"
+            className="flex flex-wrap items-center gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10"
+        >
+            <HugeiconsIcon
+                icon={Clock01Icon}
+                strokeWidth={2}
+                className="shrink-0 text-muted-foreground"
+                aria-hidden="true"
+            />
+            <p className="min-w-0 flex-1 text-sm">
                 {"We couldn't start your shift. Try again."
                     if failed
-                    else "Start your shift to sell tickets, check people in and change settings. It ends when you sign out."}
-            </AlertDescription>
-            <div className="col-start-2 mt-3">
-                <Button className="min-h-11 px-5" disabled={busy} onClick={on_start}>
-                    {busy and <Spinner aria-hidden="true"/>}{"Starting…"
-                        if busy
-                        else "Start shift"}
-                </Button>
-            </div>
-        </Alert>;
+                    else "You're off shift. Start it to sell, scan tickets and make changes; it ends when you sign out."}
+            </p>
+            <Button className="min-h-11 px-5" disabled={busy} onClick={on_start}>
+                {busy and <Spinner aria-hidden="true"/>}{"Starting…"
+                    if busy
+                    else "Start shift"}
+            </Button>
+        </div>;
 }
 
 def role_keys(assignments: list[dict[str, any]]) -> list[str] {  # jac:ignore[W1037]
@@ -91,37 +99,6 @@ def role_keys(assignments: list[dict[str, any]]) -> list[str] {  # jac:ignore[W1
         }
     }
     return keys;
-}
-
-def Overview(
-    access: dict[str, any],  # jac:ignore[W1037]
-    shift_open: bool,
-    slug: str,
-    reports: bool
-) -> JsxElement {
-    # reports: the member reads financial reports, so today's figures lead (P7.3).
-    return
-        <div className="flex flex-col gap-6">
-            {reports and <TodayAtAGlance slug={slug} shift_open={shift_open}/>}
-            {shift_open
-                and <p
-                    data-testid="shift-status"
-                    className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
-                >
-                    <Badge>On shift</Badge>
-                    Your shift ends when you sign out.
-                </p>}
-            <section aria-labelledby="roles-heading" className="flex flex-col gap-2">
-                <h2 id="roles-heading" className="text-lg font-semibold">Your roles</h2>
-                <ul className="flex flex-wrap gap-2">
-                    {[
-                        <li key={key}>
-                            <Badge variant="secondary">{role_label(key)}</Badge>
-                        </li> for key in role_keys(access["assignments"])
-                    ]}
-                </ul>
-            </section>
-        </div>;
 }
 
 def SectionPreview(section: str, slug: str) -> JsxElement {
@@ -318,11 +295,11 @@ def:pub BackOffice -> JsxElement {
     if not allowed {
         content = <NoAccess slug={slug}/>;
     } elif section == "" {
-        content = <Overview
-            access={me}
-            shift_open={shift_open}
+        content = <StaffHome
             slug={slug}
-            reports={"financial_reports.read" in permissions}
+            shift_open={shift_open}
+            permissions={permissions}
+            roles={[role_label(k) for k in role_keys(me["assignments"])]}
         />;
     } elif auditorium_id {
         # key: a different screen gets a fresh designer, never the last one's grid.
@@ -373,18 +350,18 @@ def:pub BackOffice -> JsxElement {
                 logo={logo}
                 home={section_path(slug, "")}
                 account={<AccountActions slugs={[slug]} switch_to="/app"/>}
+                title_hidden={section == "" and allowed}
             >
-                <p className="-mt-3 text-sm text-muted-foreground">
-                    {web_address(slug)}
-                </p>
-                {not shift_open
+                {section != ""
+                    and <p className="-mt-3 text-sm text-muted-foreground">
+                        {web_address(slug)}
+                    </p>}{not shift_open
                     and allowed
                     and <ShiftBanner
                         busy={starting}
                         failed={start_failed}
                         on_start={begin_shift}
-                    />}
-                {content}
+                    />}{content}
             </AppShell>
         </ThemeProvider>;
 }
