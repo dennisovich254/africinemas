@@ -187,6 +187,16 @@ test "the cinema directory lists cinemas selling tickets only, by city, with no 
         ]
             == ["nova"];
         assert browse(app, "public_cinemas", {"city": "Mombasa"})["cinemas"] == [];
+        assert listed["total"] == 1;
+        # A name (or slug) narrows it, in any case and in part: a chat only knows names.
+        for name in ["nova", "NOVA CIN", "Cinemas"] {
+            found = browse(app, "public_cinemas", {"city": "", "name": name});
+            assert [c["slug"] for c in found["cinemas"]] == ["nova"] , name;
+        }
+        assert browse(app, "public_cinemas", {"city": "", "name": "Westgate"})[
+            "cinemas"
+        ]
+            == [];
         # Names and places only: no internal ids.
         assert nova.venue not in str(listed) and "tenant_id" not in str(listed);
     } finally {

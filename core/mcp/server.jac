@@ -44,13 +44,17 @@ glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
          {
              "name": "find_cinemas",
              "title": "Find cinemas",
-             "description": "List the cinemas selling tickets, optionally only those in one city. Use a cinema's slug in the other tools.",
+             "description": "List the cinemas selling tickets, optionally only those in one city or whose name contains some text. When the customer names a cinema, search by its name. Use a cinema's slug in the other tools.",
              "inputSchema": {
                  "type": "object",
                  "properties": {
                      "city": {
                          "type": "string",
                          "description": "A city such as Nairobi. Leave it out for every city."
+                     },
+                     "name": {
+                         "type": "string",
+                         "description": "Part of the cinema's name, such as Westgate. Leave it out for every cinema."
                      }
                  }
              },
@@ -245,7 +249,7 @@ def _call_tool(params: dict[str, any]) -> tuple[dict[str, any] | None, str] {  #
         return (None, "arguments must be an object.");
     }
     if name == "find_cinemas" {
-        return (_data(find_cinemas(_arg(args, "city"))), "");
+        return (_data(find_cinemas(_arg(args, "city"), _arg(args, "name"))), "");
     }
     if name == "whats_on" {
         if not _arg(args, "cinema") {

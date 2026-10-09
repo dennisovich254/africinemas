@@ -148,6 +148,15 @@ test "an unknown cinema or movie is a tool error the model can read" {
         # The text tools answer as the agent's do.
         found = _call(app, "find_cinemas", {"city": ""});
         assert "nova" in found["content"][0]["text"] , found;
+        # A customer names the cinema: Claude searches by that name.
+        named = json.loads(
+            _call(app, "find_cinemas", {"name": "Nova"})["content"][0]["text"]
+        );
+        assert [c["slug"] for c in named["cinemas"]] == ["nova"] , named;
+        assert json.loads(
+            _call(app, "find_cinemas", {"name": "Westgate"})["content"][0]["text"]
+        )["cinemas"]
+            == [];
         on = _call(app, "whats_on", {"cinema": "nova", "day": ""});
         assert "Rafiki" in on["content"][0]["text"] , on;
     } finally {
