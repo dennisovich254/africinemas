@@ -35,8 +35,9 @@ import from core.agent.tools {
 
 glob logger = logging.getLogger(__name__),
      MODEL_ENV: str = "AFRICINEMAS_LLM_MODEL",
-     # Flash-Lite answers without a thinking step, so a chat reply takes seconds (P8.4).
-     DEFAULT_MODEL: str = "gemini/gemini-2.5-flash-lite",
+     # Flash-Lite thinks minimally by default, so a chat reply takes seconds (P8.4).
+     # Google retired 2.5 Flash-Lite for new keys (404, 2026-10-09): 3.5 is its successor.
+     DEFAULT_MODEL: str = "gemini/gemini-3.5-flash-lite",
      # Seconds one model call may take. byLLM passes no timeout on a plain call, so
      # litellm's own default (minutes) applied: one message took 4 minutes (P8.4).
      CALL_TIMEOUT: float = 15.0,

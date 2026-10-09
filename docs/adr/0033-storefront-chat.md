@@ -26,7 +26,7 @@ OAuth for Claude (now 8.6) can't be served compliantly by Jac 0.37.18: a functio
 5. **Trailers on the storefront at last.** `TrailerPlayer` frames only the server's checked player URLs (youtube-nocookie, Vimeo), and only after the visitor presses Play. It's used in the chat's movie card and on the movie page.
 6. **Quick, bounded answers.** Found in the first live try: one message took 4 minutes.
    - byLLM sets no timeout on a plain `Model` call (`[byllm.fallback] timeout` only applies to a `ModelPool`), so litellm's own default of minutes applied. The agent now sets `litellm.request_timeout` to 15 s for every call.
-   - The default model is Gemini 2.5 Flash-Lite, which answers without a thinking step.
+   - The default model is Gemini 3.5 Flash-Lite, which thinks minimally by default. 2.5 Flash-Lite was the first choice, but Google answers 404 for it to new keys. Minimal thinking can end multi-step tool use early; the chat needs one or two lookups a message, and `AFRICINEMAS_LLM_MODEL` can pick a stronger model.
    - The cinema chat takes at most 4 model steps a message, so the worst case is about a minute and the usual answer takes seconds.
 7. **Browser tests use a scripted model.** When `AFRICINEMAS_AGENT_SCRIPT` names a JSON script (set only by `scripts/e2e_env.sh`), the storefront chat answers from it. Production never sets it, like the clock control.
 

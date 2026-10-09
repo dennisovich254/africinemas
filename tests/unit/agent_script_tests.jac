@@ -34,6 +34,6 @@ test "every model call has a time limit, and the default model answers without t
     import litellm;
     import core.agent.agent as agent;
     assert 0 < float(litellm.request_timeout) <= agent.CALL_TIMEOUT <= 20;
-    # Flash-Lite answers without a thinking step: quick, for a chat.
-    assert agent.DEFAULT_MODEL == "gemini/gemini-2.5-flash-lite";
+    # Flash-Lite thinks minimally by default: quick, for a chat.
+    assert agent.DEFAULT_MODEL == "gemini/gemini-3.5-flash-lite";
 }
