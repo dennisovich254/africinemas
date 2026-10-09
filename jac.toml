@@ -172,7 +172,7 @@ byllm = "~=0.6"
 
 # ---------------------------------------------------------------------------
 # The AI booking agent (P8.1): Gemini through byLLM. No key here: the provider reads it
-# from the environment (GEMINI_API_KEY), never a ${VAR} placeholder (JI-015).
+# from the environment (GEMINI_API_KEY), never an env placeholder in this file (JI-015).
 [byllm.model]
 default_model = "gemini/gemini-2.5-flash"
 
