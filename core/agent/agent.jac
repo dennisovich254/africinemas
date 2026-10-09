@@ -16,8 +16,11 @@ writes every parameter of the AI function into the prompt.
 import os;
 import logging;
 import from jaclang.byllm.lib { Model }
+import from core.agent.cards { cards_from }
 import from core.agent.tools {
     HOLDER,
+    CINEMA,
+    SEEN,
     find_cinemas,
     whats_on,
     movie_details,
@@ -62,6 +65,19 @@ def _converse(message: str, history: list[dict[str, any]]) -> str by agent_model
 );
 
 sem _converse = "Reply to the customer's message, using the tools to look things up or act for them.";
+
+# A cinema's own chat on its storefront (P8.4): browsing only (booking comes in 8.5), no
+# directory of other cinemas, and every tool works on that cinema whatever it's told.
+def _converse_at(message: str, history: list[dict[str, any]]) -> str by agent_model(  # jac:ignore[W1037]
+    conversation=history,
+    system_prompt=RULES,
+    tools=[whats_on, movie_details, seat_map, ticket_types, my_bookings],
+    max_react_iterations=5
+);
+
+sem _converse_at = "Reply to the customer's message on the cinema's website, using the tools to look things up.";
+sem _converse_at.message = "What the customer just wrote.";
+sem _converse_at.history = "The conversation so far.";
 sem _converse.message = "What the customer just wrote.";
 sem _converse.history = "The conversation so far.";
 
@@ -88,4 +104,42 @@ def agent_reply(
         HOLDER.reset(token);
     }
     return {"ok": True, "reply": str(reply), "history": talk};
+}
+
+def cinema_reply(
+    message: str,
+    history: list[dict[str, any]],  # jac:ignore[W1037]
+    holder: str,
+    slug: str,
+    name: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # The reply of cinema `slug`'s own chat (P8.4), with the cards its tools' results
+    # make (core/agent/cards.jac). The server's first turn tells the model which cinema
+    # it serves; the tools are fixed to that cinema whatever the model says.
+    text = message.strip()[:MESSAGE_MAX];
+    if not text {
+        return {"ok": True, "reply": "What would you like to watch?", "cards": []};
+    }
+    talk: list[dict[str, any]] = [  # jac:ignore[W1037]
+        {
+            "role": "assistant",
+            "content": f"Hello! I'm {name}'s booking assistant. I can tell you what's on at {name}, show you movies and their trailers, and check which seats are free."
+        }
+    ]
+        + history[-HISTORY_MAX:];
+    seen: list[any] = [];  # jac:ignore[W1037]
+    tokens = (HOLDER.set(holder), CINEMA.set(slug), SEEN.set(seen));
+    cards: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    try {
+        reply = str(_converse_at(text, talk));
+        cards = cards_from(seen, name, slug);
+    } except Exception as e {
+        logger.warning("cinema chat reply failed: %s", type(e).__name__);
+        reply = FALLBACK;
+    } finally {
+        SEEN.reset(tokens[2]);
+        CINEMA.reset(tokens[1]);
+        HOLDER.reset(tokens[0]);
+    }
+    return {"ok": True, "reply": reply, "cards": cards};
 }

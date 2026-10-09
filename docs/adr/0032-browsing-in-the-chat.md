@@ -22,7 +22,7 @@
 5. **Trailers open through the host, with no embedded player.**
    - claude.ai ignores MCP Apps' `frameDomains` ([anthropics/claude-code#59351](https://github.com/anthropics/claude-code/issues/59351)), so the embedded YouTube player stayed black even after the user pressed Play.
    - The movie card's **Watch trailer** therefore opens the trailer's page (`ui/open-link`), and the cards' CSP frames nothing.
-   - The storefront website still embeds trailers on its own pages.
+   - (Correction, 2026-10-09: the storefront website doesn't play trailers yet either; 8.1 only stored the link and its player URL. A trailer player on the storefront comes with 8.4.)
 6. **One card kit:** both cards share the base look and the host bridge (`card_kit.jac`). Each card supplies only its own styles and rendering.
 7. **The back office shows the link:** Settings › AI chat shows the cinema's connector link, a Copy button and the steps to add it in Claude.
 

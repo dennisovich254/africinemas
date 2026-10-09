@@ -32,6 +32,7 @@ import from core.catalog.storefront_api { public_poster }
 import from core.theming.branding_api { public_branding }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.booking.ticket_delivery { PUBLIC_URL_ENV, DEFAULT_PUBLIC_URL }
+import from core.agent.cards { programme_card }
 import from core.mcp.movie_card { CARD_HTML }
 import from core.mcp.programme_card { PROGRAMME_HTML }
 
@@ -347,25 +348,10 @@ def _whats_on(cinema: str, day: str) -> dict[str, any] {  # jac:ignore[W1037]
     if isinstance(programme, dict) and programme.get("ok") {
         name = str(programme["cinema"].get("name", cinema));
     }
-    days: list[dict[str, any]] = [];  # jac:ignore[W1037]
-    movies: list[dict[str, str]] = [];
-    for s in got["showtimes"] {
-        when = str(s["starts"])[:10];
-        if not days or days[-1]["day"] != when {
-            days.append({"day": when, "showtimes": []});
-        }
-        days[-1]["showtimes"].append(s);
-        if s["movie_key"] not in [m["movie_key"] for m in movies] {
-            movies.append({"movie_key": s["movie_key"], "title": s["movie"]});
-        }
-    }
     return {
         ** _data(got),
         "structuredContent": {
-            "cinema": name,
-            "cinema_slug": cinema,
-            "movies": movies,
-            "days": days,
+            ** programme_card(name, cinema, got["showtimes"]),
             "site_url": _site(cinema),
             "brand": _brand(cinema)
         }
