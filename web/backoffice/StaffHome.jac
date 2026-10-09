@@ -13,8 +13,8 @@ The page leads with the movies, as a cinema should:
   the audit log).
 
 Artwork is decorative (the title is always written) and comes from showtime_art, for
-staff, so it shows before the cinema is public too. The hero shows the poster itself
-on the right (wider screens) over the backdrop, or the poster blurred. Off shift, the page says what
+staff, so it shows before the cinema is public too. The hero's background is the
+movie's backdrop, or its poster blurred when it has none. Off shift, the page says what
 starting one shows. A phone stacks everything, the hero first.
 """
 
@@ -167,17 +167,7 @@ def Hero(
                 aria-hidden="true"
                 className="absolute inset-0 -z-10 bg-gradient-to-t from-black/90 via-black/60 to-black/20 sm:bg-gradient-to-r sm:from-black/90 sm:via-black/55 sm:to-black/10"
             />
-            {has_poster
-                and <ShowtimeArt
-                    slug={slug}
-                    screening_id={screening_id}
-                    kind="poster"
-                    available={True}
-                    className="absolute right-6 top-1/2 hidden aspect-[2/3] w-40 -translate-y-1/2 rounded-2xl shadow-2xl ring-1 ring-white/15 sm:block lg:w-44"
-                />}
-            <div
-                className="flex max-w-xl flex-col gap-3 p-5 text-white sm:p-8 sm:pr-56"
-            >
+            <div className="flex max-w-xl flex-col gap-3 p-5 text-white sm:p-8">
                 <span
                     className="w-fit rounded-full bg-white/15 px-3 py-1 text-xs font-medium ring-1 ring-white/25"
                 >
