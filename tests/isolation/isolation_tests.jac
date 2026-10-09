@@ -38,8 +38,8 @@ def _served_endpoints(client: JacTestClient) -> set[str] {
                 names.add(name);
             }
         }
-        # Endpoints on custom paths (@restspec): M-Pesa's callback (P5.4), MCP (P8.2).
-        if route.startswith("/hooks/") or route == "/mcp" {
+        # Endpoints on custom paths (@restspec): M-Pesa's callback (P5.4), MCP (P8.2, P8.3).
+        if route.startswith("/hooks/") or route.endswith("/mcp") {
             names.add(f"route:{route}");
         }
     }
@@ -107,8 +107,11 @@ test "every tenant endpoint refuses another tenant's selector and leaks nothing"
                     assert secret not in answer , f"{name} leaked B's internals: {answer}";
                 }
             } elif spec["scope"] in ["webhook", "mcp"] {
+                # A cinema's own MCP connector is tenant A's ("nova"), asked about B.
                 path = name[len("route:"):].replace(
                     "{token}", "probe-token-xxxxxxxxxxxx"
+                ).replace(
+                    "{slug}", "nova"
                 );
                 body = json.loads(
                     json.dumps(spec["probe"]).replace("{tenant}", "imax-rift")

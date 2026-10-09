@@ -13,7 +13,8 @@
   provider (M-Pesa's callback, P5.4); it changes nothing a caller can see and only
   acknowledges. Probed anonymously with a made-up token.
 - "mcp": the MCP server (P8.2), a public JSON-RPC endpoint on a custom path; read-only,
-  it answers as the storefront does. Probed anonymously with a tool call at tenant B.
+  it answers as the storefront does. Probed anonymously with a tool call at tenant B;
+  a cinema's own connector (/c/{slug}/mcp, P8.3) is tenant A's, asked about tenant B.
 
 isolation_tests.jac fails when the app serves an endpoint that isn't listed here, so no
 new endpoint can skip the cross-tenant checks.
@@ -610,6 +611,16 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                      "name": "show_movie",
                      "arguments": {"cinema": "{tenant}", "movie": "x"}
                  }
+             }
+         },
+         "route:/c/{slug}/mcp": {
+             "scope": "mcp",
+             "audit": "",
+             "probe": {
+                 "jsonrpc": "2.0",
+                 "id": 1,
+                 "method": "tools/call",
+                 "params": {"name": "whats_on", "arguments": {"cinema": "{tenant}"}}
              }
          },
          "route:/hooks/mpesa/{token}": {

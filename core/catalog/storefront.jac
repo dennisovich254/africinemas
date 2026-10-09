@@ -191,16 +191,9 @@ def public_view(shown: StorefrontScreening) -> dict[str, any] {  # jac:ignore[W1
 }
 
 def public_programme(tenant: Tenant) -> list[dict[str, any]] {  # jac:ignore[W1037]
-    # The storefront's screenings, earliest first, as anyone may read them.
-    storefront = _read(tenant.storefront_id);
-    if not isinstance(storefront, Storefront) {
-        return [];
-    }
-    shown = sorted(
-        _entries(storefront as Storefront),
-        key=lambda (e: StorefrontScreening) -> str { return e.starts_at; }  # jac:ignore[W1037]
-    );
-    return [public_view(e) for e in shown];
+    # The storefront's screenings on sale, earliest first, as anyone may read them: like
+    # the storefront page, one that has started is no longer offered (P8.3).
+    return [public_view(e) for e in upcoming(tenant)];
 }
 
 def set_branding(tenant: Tenant, shown: dict[str, any]) {  # jac:ignore[W1037]
