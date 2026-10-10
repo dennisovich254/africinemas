@@ -10,5 +10,9 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # shellcheck disable=SC1091
 . scripts/load_env.sh
 export AFRICINEMAS_PAYMENTS=daraja
+# The site's public address (ticket links, Claude's sign-in documents, P8.6a) is the
+# tunnel too, unless .env says otherwise.
+export AFRICINEMAS_PUBLIC_URL="${AFRICINEMAS_PUBLIC_URL:-${DARAJA_CALLBACK_BASE:-}}"
 echo "M-Pesa callbacks go to: ${DARAJA_CALLBACK_BASE:-<not set: see the runbook, step 3>}/hooks/mpesa/..."
+echo "Public address (tickets, sign-in for Claude): ${AFRICINEMAS_PUBLIC_URL:-<not set: links will say localhost>}"
 exec jac run --no-dev --port 8000 "$@"
