@@ -30,7 +30,8 @@ import from core.agent.tools {
     ticket_types,
     hold_chosen_seats,
     prepare_order,
-    my_bookings
+    my_bookings,
+    book_showtime
 }
 
 glob logger = logging.getLogger(__name__),
@@ -82,16 +83,17 @@ def _converse(message: str, history: list[dict[str, any]]) -> str by agent_model
 
 sem _converse = "Reply to the customer's message, using the tools to look things up or act for them.";
 
-# A cinema's own chat on its storefront (P8.4): browsing only (booking comes in 8.5), no
-# directory of other cinemas, and every tool works on that cinema whatever it's told.
+# A cinema's own chat on its storefront (P8.4): browsing, and (P8.5) the booking card,
+# where the customer holds, orders and pays themselves: the chat has no hold, order or
+# pay tool. No directory of other cinemas, and every tool works on that cinema.
 def _converse_at(message: str, history: list[dict[str, any]]) -> str by agent_model(  # jac:ignore[W1037]
     conversation=history,
     system_prompt=RULES,
-    tools=[whats_on, movie_details, seat_map, ticket_types, my_bookings],
+    tools=[whats_on, movie_details, seat_map, ticket_types, my_bookings, book_showtime],
     max_react_iterations=4
 );
 
-sem _converse_at = "Reply to the customer's message on the cinema's website, using the tools to look things up.";
+sem _converse_at = "Reply to the customer's message on the cinema's website, using the tools to look things up. When they want to book, open the booking card with book_showtime; they choose seats and pay there themselves.";
 sem _converse_at.message = "What the customer just wrote.";
 sem _converse_at.history = "The conversation so far.";
 sem _converse.message = "What the customer just wrote.";
@@ -161,7 +163,7 @@ def cinema_reply(
     talk: list[dict[str, any]] = [  # jac:ignore[W1037]
         {
             "role": "assistant",
-            "content": f"Hello! I'm {name}'s booking assistant. I can tell you what's on at {name}, show you movies and their trailers, and check which seats are free."
+            "content": f"Hello! I'm {name}'s booking assistant. I can tell you what's on at {name}, show you movies and their trailers, check which seats are free, and open the booking card where you choose seats and pay."
         }
     ]
         + history[-HISTORY_MAX:];

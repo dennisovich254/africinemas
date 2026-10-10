@@ -4,7 +4,10 @@ The server builds every card from what its tools returned, never from the model'
 words, so a card only ever shows real showtimes. Two kinds:
 
 - programme: the days, each with its movies (poster, title) and their times;
-- movie: poster, details, Play trailer, and its showtimes.
+- movie: poster, details, Play trailer, and its showtimes;
+- booking (P8.5): a showtime and the storefront's own checkout, seats suggested by the
+  chat chosen (not held): the visitor holds, orders and pays there themselves;
+- bookings (P8.5): the signed-in customer's bookings, linking to My tickets.
 
 Times link to the showtime's own page, where the visitor picks seats (booking in the chat
 comes in 8.5); titles link to the movie's page. Showtimes arrive in the cinema's local
@@ -14,6 +17,7 @@ time ("2026-10-10 18:15"), so they're shown as they are.
 import from ..shell.AppLink { AppLink }
 import from .StorefrontParts { Poster }
 import from .TrailerPlayer { TrailerPlayer }
+import from .Checkout { Checkout }
 
 glob LINK: str = "underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
      TIME: str = "inline-flex min-h-11 min-w-11 flex-col justify-center rounded-md border bg-background px-3 py-1 text-left transition-colors hover:border-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -219,12 +223,96 @@ def MovieCard(card: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
         </div>;
 }
 
+def BookingCard(card: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+    # The showtime, then the storefront's own checkout (P8.5): the visitor picks or
+    # confirms seats, holds them, chooses tickets and pays with M-Pesa, themselves.
+    starts: str = card["starts"];
+    place = " · ".join(
+        [
+            p
+            for p in [card["venue"], card["screen"]]
+            if p
+        ]
+    );
+    return
+        <div
+            data-testid="chat-booking"
+            className="flex flex-col gap-4 rounded-xl border bg-card p-4"
+        >
+            <div className="flex flex-col gap-1">
+                <h3 className="font-display text-2xl leading-none">{card["movie"]}</h3>
+                <p className="text-sm text-muted-foreground">
+                    {f"{day_name(starts[:10])} · {starts[11:16]}"}{place
+                        and f" · {place}"}
+                </p>
+            </div>
+            <Checkout
+                slug={card["cinema_slug"]}
+                screening_id={card["showtime_id"]}
+                tz={card["timezone"]}
+                suggested={card["suggested"]}
+            />
+        </div>;
+}
+
+def BookedItem(booking: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+    starts: str = booking["starts"];
+    seats: list[str] = booking["seats"];
+    place = " · ".join(
+        [
+            p
+            for p in [booking["venue"], booking["screen"]]
+            if p
+        ]
+    );
+    return
+        <li className="flex flex-col gap-0.5 border-b pb-3 last:border-b-0 last:pb-0">
+            <span className="font-semibold">{booking["movie"]}</span>
+            <span className="text-sm text-muted-foreground">
+                {f"{day_name(starts[:10])} · {starts[11:16]}"}{place and f" · {place}"}
+            </span>
+            <span className="text-sm">
+                {("Seats " if len(seats) > 1 else "Seat ") + ", ".join(seats)}
+            </span>
+        </li>;
+}
+
+def BookingsCard(card: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+    # The signed-in customer's bookings at this cinema; their tickets are on My tickets.
+    mine: list[dict[str, any]] = card["bookings"];  # jac:ignore[W1037]
+    return
+        <div
+            data-testid="chat-bookings"
+            className="flex flex-col gap-3 rounded-xl border bg-card p-4"
+        >
+            <h3 className="font-semibold">Your bookings</h3>
+            {len(mine) == 0
+                and <p className="text-sm text-muted-foreground">No bookings yet.</p>}
+            <ul className="flex flex-col gap-3">
+                {[<BookedItem key={i} booking={b}/> for (i, b) in enumerate(mine)]}
+            </ul>
+            <AppLink
+                to={f"/c/{card['cinema_slug']}/my-tickets"}
+                className={"inline-flex min-h-11 w-fit items-center text-sm font-medium "
+                    + LINK}
+            >
+                See your tickets
+            </AppLink>
+        </div>;
+}
+
 def:pub ChatCard(card: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     if card["type"] == "programme" {
         return <ProgrammeCard card={card}/>;
     }
     if card["type"] == "movie" {
         return <MovieCard card={card}/>;
+    }
+    if card["type"] == "booking" {
+        return <BookingCard card={card}/>;
+    }
+    if card["type"] == "bookings" {
+        return <BookingsCard card={card}/>;
     }
     return <span hidden={True}></span>;
 }

@@ -37,7 +37,8 @@ test "exactly these tools, with their scopes, and none of them pays" {
             ["ticket_types", "public"],
             ["hold_chosen_seats", "public"],
             ["prepare_order", "public"],
-            ["my_bookings", "customer"]
+            ["my_bookings", "customer"],
+            ["book_showtime", "public"]
         ];
     for (fn, _) in TOOLS {
         name = fn.__name__;

@@ -12,7 +12,8 @@
    reused if the request is sent again, then pays it with M-Pesa (PayPanel, P5.6): a PIN
    prompt on the phone, the status live, and the tickets once paid (Tickets).
 
-A reload comes back to the same step: the browser keeps the visitor's holder id for
+In the chat (P8.5) the booking card passes `suggested` seats: they start chosen, not
+held. A reload comes back to the same step: the browser keeps the visitor's holder id for
 the visit, and my_order / my_hold say where they were. Changes worth hearing (held,
 time nearly up, seats released, order placed) are announced politely.
 """
@@ -159,7 +160,8 @@ def:pub Checkout(
     tz: str,
     counter_holder: str = "",
     pay_panel: any = None,  # jac:ignore[W1037]
-    done_panel: any = None  # jac:ignore[W1037]
+    done_panel: any = None,  # jac:ignore[W1037]
+    suggested: list[str] | None = None
 ) -> JsxElement {
     # At the box office (P6.5) the agent books under counter_holder, one per sale, and
     # pay_panel(order, on_paid, on_expired) and done_panel(payment) replace the M-Pesa
@@ -240,6 +242,11 @@ def:pub Checkout(
             held = await call(my_hold, [slug, screening_id, holder]);
             if held is not None and held["ok"] {
                 begin_tickets(held["hold"], codes);
+            } elif suggested {
+                # Seats the chat suggested (P8.5; free when suggested): chosen, not
+                # held, until the visitor continues. One taken meanwhile is dropped
+                # when they hold, with a message, as on any choice.
+                set_chosen([x for x in suggested][:MAX_SEATS]);
             }
         }
         await load_map();

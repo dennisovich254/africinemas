@@ -29,6 +29,7 @@ import from datetime { datetime }
 import from zoneinfo { ZoneInfo }
 import from core.catalog.storefront_api {
     public_cinemas,
+    public_screening,
     public_movie,
     public_venues,
     public_seat_availability
@@ -285,11 +286,71 @@ def my_bookings(cinema: str) -> dict[str, any] {  # jac:ignore[W1037]
             "error": "The customer needs to sign in to see their own tickets."
         };
     }
-    return _answer(bookings_of_caller(_at(cinema)));
+    cinema = _at(cinema);
+    return _saw("my_bookings", {"cinema": cinema}, _answer(bookings_of_caller(cinema)));
 }
 
 sem my_bookings = "The signed-in customer's own bookings at a cinema. Needs the customer to be signed in.";
 sem my_bookings.cinema = "The cinema's slug.";
+
+def book_showtime(
+    cinema: str, showtime_id: str, seats: list[str] | None = None
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # Opens the booking card for a showtime on sale (P8.5): the customer picks seats,
+    # holds them, chooses tickets and pays there, themselves. `seats` are suggestions,
+    # kept only while they're free and never held.
+    cinema = _at(cinema);
+    asked = {"cinema": cinema, "showtime_id": showtime_id};
+    got = public_screening(cinema, showtime_id);
+    if not isinstance(got, dict) or not got.get("ok") {
+        return _saw("book_showtime", asked, _answer(got));
+    }
+    shown = got["screening"];
+    tz = str(got["cinema"].get("timezone", "Africa/Nairobi"));
+    free: list[str] = [];
+    places = public_seat_availability(cinema, showtime_id);
+    if isinstance(places, dict) and places.get("ok") {
+        free = [
+            str(x["label"])
+            for x in places.get("seats", [])
+            if x.get("state") == "available"
+        ];
+    }
+    wanted = [
+        str(x)
+        for x in (seats or [])
+        if isinstance(x, str)
+    ];
+    return _saw(
+        "book_showtime",
+        asked,
+        _answer(
+            got,
+            {
+                "showtime": {
+                    "showtime_id": shown["screening_id"],
+                    "starts": _local(shown["starts_at"], tz),
+                    "movie": shown["movie"].get("title", ""),
+                    "movie_key": shown["movie"].get("movie_key", ""),
+                    "venue": shown["venue"].get("name", ""),
+                    "screen": shown["screen"].get("name", "")
+                },
+                "timezone": tz,
+                "suggested": [
+                    x
+                    for x in wanted
+                    if x in free
+                ][:10],
+                "next": "The booking card is open: the customer picks or confirms seats, chooses tickets and pays there with their own M-Pesa PIN. Nothing is held or booked until they do."
+            }
+        )
+    );
+}
+
+sem book_showtime = "Open the booking card for a showtime, where the customer chooses seats and pays themselves. Use it when the customer wants to book. You may suggest seats from seat_map; they are only suggestions, and nothing is held or booked by this.";
+sem book_showtime.cinema = "The cinema's slug.";
+sem book_showtime.showtime_id = "The showtime's id, from whats_on or movie_details.";
+sem book_showtime.seats = "Seat labels to suggest, such as A3, or an empty list.";
 
 glob TOOLS: list[tuple[any, str]] = [  # jac:ignore[W1037]
          (find_cinemas, "public"),
@@ -299,7 +360,8 @@ glob TOOLS: list[tuple[any, str]] = [  # jac:ignore[W1037]
          (ticket_types, "public"),
          (hold_chosen_seats, "public"),
          (prepare_order, "public"),
-         (my_bookings, "customer")
+         (my_bookings, "customer"),
+         (book_showtime, "public")
      ];
 
 def tool_functions -> list[any] {  # jac:ignore[W1037]

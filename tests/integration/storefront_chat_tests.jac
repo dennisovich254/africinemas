@@ -7,11 +7,14 @@ Rafiki, with a YouTube trailer; Rift shows Kesho.
   programme and a movie card. A reply that names a showtime no tool returned shows no
   card, and the cards carry nothing private.
 - A cinema's chat answers about that cinema only: any other cinema the model names is
-  replaced, it isn't offered the directory or (until 8.5) the booking tools, and the
+  replaced, it isn't offered the directory or the hold, order or pay tools, and the
   model is told which cinema it serves.
 - Limits: a long conversation and a busy cinema get a polite pointer to the website
   instead of a model call.
 - Unknown cinemas and bad holder ids are refused before the model is asked anything.
+- 8.5: book_showtime opens a booking card for a real showtime on sale at this cinema,
+  with only free seats suggested and nothing held; a signed-in customer's bookings come
+  as a card, without private details.
 """
 
 import os;
@@ -25,7 +28,7 @@ import from tests.support.storefront_setup {
     add_screening,
     set_prices
 }
-import from tests.support.payment_setup { paying_cinema }
+import from tests.support.payment_setup { ANNA, paying_cinema, paid }
 
 glob HOLDER: str = "holder-chat-0123456789abcdef",
      PER_MINUTE_ENV: str = "AFRICINEMAS_CHAT_PER_MINUTE",
@@ -138,8 +141,10 @@ test "a cinema's chat answers about that cinema only" {
                 if t != "finish_tool"
             ]
         );
+        # The customer books in the card: the chat can't hold, order or pay (8.5).
         assert offered
             == [
+                "book_showtime",
                 "movie_details",
                 "my_bookings",
                 "seat_map",
@@ -205,6 +210,106 @@ test "an unknown cinema or a bad holder id is refused before the model is asked"
             {"slug": "nova", "message": "Hi", "history": [], "holder": "x"}
         );
         assert code_of(bad) == "invalid_holder";
+    } finally {
+        app.close();
+    }
+}
+
+test "the chat opens a booking card for a real showtime, suggesting free seats only" {
+    (app, _, screening) = paying_cinema(["kim"]);
+    try {
+        # Anna holds A1 and A2: A3 to A5 are free.
+        _mock(
+            app,
+            [
+                {
+                    "tool": "book_showtime",
+                    "args": {
+                        "cinema": "nova",
+                        "showtime_id": screening,
+                        "seats": ["A2", "A3", "Z9"]
+                    }
+                },
+                "Pick your seats in the card."
+            ]
+        );
+        got = _chat(app, "Book me Rafiki");
+        assert [c["type"] for c in got["cards"]] == ["booking"] , got;
+        card = got["cards"][0];
+        assert card["showtime_id"] == screening and card["movie"] == "Rafiki";
+        assert card["cinema_slug"] == "nova" and card["timezone"];
+        assert card["suggested"] == ["A3"] , card;
+        # Suggesting holds nothing: A3 is still free for anyone.
+        seats = browse(
+            app, "public_seat_availability", {"slug": "nova", "screening_id": screening}
+        )["seats"];
+        assert [
+            x["state"]
+            for x in seats
+            if x["label"] == "A3"
+        ]
+            == ["available"];
+        # A made-up showtime, or another cinema's, opens no card.
+        rift = open_cinema_for(app, "kim", "rift", "Rift Cinemas");
+        add_movie(app, "kim", rift, "Kesho");
+        set_prices(app, "kim", rift);
+        theirs = add_screening(app, "kim", rift, "Kesho", 0);
+        for showtime in ["made-up", theirs] {
+            _mock(
+                app,
+                [
+                    {
+                        "tool": "book_showtime",
+                        "args": {"cinema": "rift", "showtime_id": showtime, "seats": []}
+                    },
+                    "Sorry."
+                ]
+            );
+            assert _chat(app, "Book it")["cards"] == [] , showtime;
+        }
+    } finally {
+        app.close();
+    }
+}
+
+test "a signed-in customer's bookings come as a card, without private details" {
+    (app, _, screening) = paying_cinema(["kim"]);
+    try {
+        paid(app, screening);
+        link = browse(
+            app,
+            "my_payment",
+            {"slug": "nova", "screening_id": screening, "holder": ANNA}
+        )["payment"]["link"];
+        assert app.call(
+            "kim",
+            "save_booking",
+            {"slug": "nova", "token": link.rsplit("/", 1)[1], "display_name": "Kim"}
+        )["ok"];
+        _mock(
+            app,
+            [
+                {"tool": "my_bookings", "args": {"cinema": "nova"}},
+                "Here are your tickets."
+            ]
+        );
+        got = app.call(
+            "kim",
+            "cinema_chat",
+            {
+                "slug": "nova",
+                "message": "What have I booked?",
+                "history": [],
+                "holder": HOLDER
+            }
+        );
+        assert [c["type"] for c in got["cards"]] == ["bookings"] , got;
+        mine = got["cards"][0]["bookings"];
+        assert len(mine) == 1 and mine[0]["movie"] == "Rafiki";
+        assert sorted(mine[0]["seats"]) == ["A1", "A2"];
+        for hidden in HIDDEN + ['"reference"', "TKT"] {
+            assert hidden not in json.dumps(got["cards"]) , hidden;
+        }
     } finally {
         app.close();
     }
