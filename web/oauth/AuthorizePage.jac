@@ -1,6 +1,9 @@
 """/oauth/authorize: the consent page an MCP client (Claude) sends the customer to (P8.6a).
 
-Signed out, it asks the customer to sign in first and comes back here. Signed in, it
+The app connects to one cinema (its `resource` is that cinema's connector,
+/c/<slug>/mcp), so only that cinema's customer accounts can allow it (P8.6c): signed
+out, or signed in with any other account, the page asks the customer to sign in with
+their account at that cinema (its own sign-in page) and comes back here. Then it
 asks the server who's asking (oauth_consent_info: a registered app, one of its exact
 redirect addresses, one of our MCP routes) and shows the app's name, what it may do and
 the address the customer will go back to (MCP's spec asks for the redirect's host to be
@@ -15,15 +18,18 @@ import from "@jac/runtime" { jacIsLoggedIn }
 import from ...components.ui.button { Button }
 import from ..auth.AuthLayout { AuthLayout, FormError }
 import from ..shell.AppLink { AppLink }
+import from ..storefront.AccountLinks { use_customer }
 import from core.oauth.provider {
     oauth_consent_info,  # jac:ignore[W2037]
     oauth_approve,  # jac:ignore[W2037]
     oauth_deny  # jac:ignore[W2037]
 }
 
-glob MAY: list[str] = [
-         "See what's on at AfriCinemas cinemas and show you movies",
-         "See your own bookings"
+glob SLUG_CHARS: str = "abcdefghijklmnopqrstuvwxyz0123456789-",
+     MAY: list[str] = [
+         "See what's on at the cinema and show you movies",
+         "Hold seats and send the M-Pesa prompt to your phone when you book",
+         "See your own bookings at the cinema"
      ];
 
 def _asked(name: str) -> str {
@@ -33,19 +39,32 @@ def _asked(name: str) -> str {
     return query.get(name) or "";
 }
 
+def _cinema_of(resource: str) -> str {
+    # The cinema a connector address names: ".../c/<slug>/mcp" -> "<slug>", else "".
+    parts = resource.split("/");
+    if len(parts) < 4 or parts[-1] != "mcp" or parts[-3] != "c" {
+        return "";
+    }
+    slug = parts[-2];
+    ok = len(slug) > 0 and all([ch in SLUG_CHARS for ch in slug]);
+    return slug if ok else "";
+}
+
 def _go(address: str) {
     win: any = window;  # jac:ignore[W1037,W2001]
     win.location.href = address;
 }
 
 def:pub AuthorizePage -> JsxElement {
-    signed_in = jacIsLoggedIn();
+    resource = _asked("resource");
+    slug = _cinema_of(resource);
+    account = use_customer(slug);
+    signed_in = account == "customer";
     [info, set_info] = useState(None);
     [problem, set_problem] = useState("");
     [busy, set_busy] = useState(False);
     client_id = _asked("client_id");
     redirect_uri = _asked("redirect_uri");
-    resource = _asked("resource");
     state = _asked("state");
 
     async def load {
@@ -74,7 +93,7 @@ def:pub AuthorizePage -> JsxElement {
     def start {
         load();
     }
-    useEffect(start, []);
+    useEffect(start, [signed_in]);
 
     async def allow {
         set_busy(True);
@@ -118,22 +137,54 @@ def:pub AuthorizePage -> JsxElement {
         set_problem("You haven't allowed anything. You can close this page.");
     }
 
+    if not slug {
+        return
+            <AuthLayout title="This request can't go ahead" description="">
+                <FormError
+                    message="This sign-in link isn't for a cinema. Start again from the app."
+                />
+            </AuthLayout>;
+    }
+    if account == "" {
+        return
+            <AuthLayout title="Checking the request…" description="">
+                <p className="text-sm text-muted-foreground" role="status">
+                    One moment.
+                </p>
+            </AuthLayout>;
+    }
     if not signed_in {
         win: any = window;  # jac:ignore[W1037,W2001]
-        here = win.location.pathname + win.location.search;
+        here = win.encodeURIComponent(win.location.pathname + win.location.search);
         return
             <AuthLayout
                 title="Sign in to continue"
-                description="An app wants to use AfriCinemas for you. Sign in first, then you can allow or refuse it."
+                description={"An app wants to book for you at this cinema. Sign in with your account at the cinema first, then you can allow or refuse it."
+                    if not jacIsLoggedIn()
+                    else "You're signed in with an account that isn't this cinema's. Sign in with your account at the cinema, then you can allow or refuse the app."}
             >
-                <Button asChild={True} className="min-h-11 w-full">
-                    <AppLink
-                        to={"/login?next=" + win.encodeURIComponent(here)}
-                        testid="consent-sign-in"
+                <div className="flex flex-col gap-2">
+                    <Button asChild={True} className="min-h-11 w-full">
+                        <AppLink
+                            to={f"/c/{slug}/sign-in?next={here}"}
+                            testid="consent-sign-in"
+                        >
+                            Sign in
+                        </AppLink>
+                    </Button>
+                    <Button
+                        asChild={True}
+                        variant="outline"
+                        className="min-h-11 w-full"
                     >
-                        Sign in
-                    </AppLink>
-                </Button>
+                        <AppLink
+                            to={f"/c/{slug}/sign-up?next={here}"}
+                            testid="consent-sign-up"
+                        >
+                            Create an account
+                        </AppLink>
+                    </Button>
+                </div>
             </AuthLayout>;
     }
     if problem {
@@ -153,8 +204,10 @@ def:pub AuthorizePage -> JsxElement {
     shown: dict[str, str] = info;
     return
         <AuthLayout
-            title={f"Allow {shown['client_name']}?"}
-            description={f"{shown['client_name']} wants to use AfriCinemas for you."}
+            title={f"Allow {shown['client_name']} to book at {shown['cinema']}?"}
+            description={f"{shown['client_name']} wants to use your {shown[
+                'cinema'
+            ]} account."}
         >
             <div data-testid="consent" className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
@@ -163,7 +216,7 @@ def:pub AuthorizePage -> JsxElement {
                         {[<li key={m}>{m}</li> for m in MAY]}
                     </ul>
                     <p className="text-sm text-muted-foreground">
-                        It can't pay for you, see your payment details or change your account. To stop it, disconnect AfriCinemas in the app.
+                        It can't pay without you: you confirm each payment with your M-Pesa PIN, on your phone. It can't see your payment details or change your account. To stop it, disconnect the cinema in the app.
                     </p>
                 </div>
                 <p

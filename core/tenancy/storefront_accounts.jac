@@ -27,6 +27,7 @@ import from core.catalog.answers { answer, Refused }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.principal { node_id, same_id }
 import from core.tenancy.responses { NOT_FOUND, refused }
+import from core.tenancy.models { NAME_MAX }
 
 glob ACCOUNTS: str = "customer-account",
      EMAIL_SHAPE: str = r"^[^@\s:]{1,64}@[^@\s:]{1,190}\.[^@\s:]{2,63}$",
@@ -43,9 +44,15 @@ def _users -> any {  # jac:ignore[W1037]
 }
 
 def account_of(root_id: str) -> dict[str, str] | None {
-    # {"slug", "email"} when `root_id` is a customer account, else None.
+    # {"slug", "email", "name"} when `root_id` is a customer account, else None.
     kept = holder(ACCOUNTS, same_id(root_id)) if root_id else None;
     return json.loads(kept) if kept else None;
+}
+
+def name_of_account(root_id: str) -> str {
+    # The name a customer account signed up with, or "".
+    found = account_of(root_id);
+    return str(found.get("name", "")) if found is not None else "";
 }
 
 def cinema_of_account(root_id: str) -> str {
@@ -81,7 +88,7 @@ def require_staff_account {
     }
 }
 
-def _sign_up(slug: str, email: str, password: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _sign_up(slug: str, email: str, password: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
     cinema = open_cinema(slug);
     if cinema is None {
         return NOT_FOUND;
@@ -99,9 +106,9 @@ def _sign_up(slug: str, email: str, password: str) -> dict[str, any] {  # jac:ig
             "weak_password", f"Use a password of at least {PASSWORD_MIN} characters."
         );
     }
-    name = sign_in_name(cinema.slug, address);
+    username = sign_in_name(cinema.slug, address);
     made: dict[str, any] = _users().create_user_with_identities(  # jac:ignore[W1037]
-        identities=[{"type": "username", "value": name}],
+        identities=[{"type": "username", "value": username}],
         credential={"type": "password", "password": password}
     );
     if made.get("code") == "IDENTITY_TAKEN" {
@@ -116,24 +123,30 @@ def _sign_up(slug: str, email: str, password: str) -> dict[str, any] {  # jac:ig
     claim(
         ACCOUNTS,
         same_id(str(made["root_id"])),
-        json.dumps({"slug": cinema.slug, "email": address})
+        json.dumps(
+            {
+                "slug": cinema.slug,
+                "email": address,
+                "name": (name.strip() if isinstance(name, str) else "")[:NAME_MAX]
+            }
+        )
     );
-    return {"ok": True, "sign_in_name": name};
+    return {"ok": True, "sign_in_name": username};
 }
 
 def:pub customer_sign_up(
-    slug: str,
-    email: str,
-    password: str,
-    name: str = ""  # jac:ignore[W2003] kept for the form
+    slug: str, email: str, password: str, name: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    # A customer account at this cinema; the page then signs in with sign_in_name.
-    return answer(lambda -> any { return _sign_up(slug, email, password); });  # jac:ignore[W1037]
+    # A customer account at this cinema, with the name its bookings are saved under;
+    # the page then signs in with sign_in_name.
+    return answer(lambda -> any { return _sign_up(slug, email, password, name); });  # jac:ignore[W1037]
 }
 
 def:pub my_storefront_account(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The storefront's view of the caller: signed in at all, and as this cinema's
-    # customer (with the email they signed up with).
+    # customer (with the email they signed up with). `account_cinema` is the cinema
+    # the caller's own account belongs to ("" for staff), so the back office's sign-in
+    # knows a customer account isn't one of its own.
     me = _caller();
     cinema = open_cinema(slug);
     found = account_of(me) if me else None;
@@ -142,6 +155,7 @@ def:pub my_storefront_account(slug: str) -> dict[str, any] {  # jac:ignore[W1037
         "ok": True,
         "signed_in": bool(me),
         "customer": mine,
-        "email": found["email"] if mine else ""
+        "email": found["email"] if mine else "",
+        "account_cinema": found["slug"] if found is not None else ""
     };
 }

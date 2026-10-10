@@ -11,7 +11,7 @@ Every page but a showtime's (whose seat bar is fixed to the bottom) has "Ask <ci
 the cinema's own chat (P8.4, ChatPanel.jac).
 
 The header (P4.1d) has the cinema's name or logo; Movies, Showtimes and Cinemas;
-search; a venue picker when the cinema has more than one venue; and Book tickets. On
+search; Sign in or My tickets (AccountLinks.jac, P8.6c); a venue picker when the cinema has more than one venue; and Book tickets. On
 phones the links and the picker move into a menu sheet, and search and Book stay in
 view. The footer links to the storefront's pages by topic.
 """
@@ -37,6 +37,7 @@ import from core.catalog.storefront_api { public_venues }
 import from .StorefrontSearch { StorefrontSearch }
 import from .venue_choice { use_venue, choose_venue }
 import from .ChatPanel { ChatLauncher }
+import from .AccountLinks { AccountLinks }
 
 glob NAV_LINK: str = "inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
@@ -319,6 +320,9 @@ def:pub StorefrontShell(
                                         testid="venue-picker"
                                     />
                                 </div>}
+                            <div className="hidden md:block">
+                                <AccountLinks slug={slug} link_class={NAV_LINK}/>
+                            </div>
                             <StorefrontSearch slug={slug} compact={True}/>
                             {book}
                             <Sheet open={menu_open} onOpenChange={set_menu_open}>
@@ -371,6 +375,13 @@ def:pub StorefrontShell(
                                     <nav aria-label="Storefront menu">
                                         <NavItems slug={slug} block={True}/>
                                     </nav>
+                                    <div className="border-t pt-4 md:hidden">
+                                        <AccountLinks
+                                            slug={slug}
+                                            link_class={NAV_LINK}
+                                            block={True}
+                                        />
+                                    </div>
                                     {several
                                         and <VenuePicker
                                             slug={slug}

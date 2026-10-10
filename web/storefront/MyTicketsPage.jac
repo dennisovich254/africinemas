@@ -3,7 +3,8 @@
 Upcoming showtimes first (soonest first), then past ones (latest first). Each says what
 and when, where, and which seats, and opens its tickets page. Tickets are saved here
 when a signed-in visitor sees them (TicketDelivery.SaveToAccount). A visitor who isn't
-signed in is asked to sign in, and comes back here.
+signed in with this cinema's customer account (P8.6c) is asked to sign in or create
+one here, and comes back to this page.
 """
 
 import from react { useState, useEffect }
@@ -80,6 +81,11 @@ def:pub MyTicketsPage -> JsxElement {
     use_title("My tickets");
     found: dict[str, any] | None = page;  # jac:ignore[W1037]
     if not signed_in or (found is not None and not found["ok"]) {
+        # Signed in, but refused: the account is staff's or another cinema's customer's.
+        other: bool = signed_in
+            and found is not None
+            and found["error"]["code"] == "not_your_cinema";
+        back: str = f"?next=/c/{slug}/my-tickets";
         return
             <StorefrontShell slug={slug}>
                 <section
@@ -88,15 +94,26 @@ def:pub MyTicketsPage -> JsxElement {
                 >
                     <h1 className="font-display text-4xl leading-none">My tickets</h1>
                     <p className="text-muted-foreground">
-                        Sign in to see the tickets saved to your account. Tickets you bought as a guest are in your ticket email.
+                        {"You're signed in with an account that isn't for this cinema. Sign in with your account here to see your tickets."
+                            if other
+                            else "Sign in to see the tickets saved to your account. Tickets you bought as a guest are in your ticket email."}
                     </p>
-                    <AppLink
-                        to={f"/login?next=/c/{slug}/my-tickets"}
-                        testid="sign-in-for-tickets"
-                        className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 font-medium text-primary-foreground"
-                    >
-                        Sign in
-                    </AppLink>
+                    <div className="flex flex-wrap gap-3">
+                        <AppLink
+                            to={f"/c/{slug}/sign-in{back}"}
+                            testid="sign-in-for-tickets"
+                            className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 font-medium text-primary-foreground"
+                        >
+                            Sign in
+                        </AppLink>
+                        <AppLink
+                            to={f"/c/{slug}/sign-up{back}"}
+                            testid="sign-up-for-tickets"
+                            className="inline-flex min-h-11 items-center rounded-md border px-4 font-medium hover:bg-muted"
+                        >
+                            Create an account
+                        </AppLink>
+                    </div>
                 </section>
             </StorefrontShell>;
     }

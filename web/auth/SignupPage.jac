@@ -3,24 +3,25 @@ wizard at `/app/new`; someone invited to a cinema's staff goes back to their inv
 (`?next=/invite/...`, P3.7c)."""
 
 import from react { useState }
-import from "@jac/runtime" { Navigate, useNavigate, jacIsLoggedIn }
+import from "@jac/runtime" { Navigate, useNavigate }
 import from ...components.ui.button { Button }
 import from ...components.ui.field { FieldGroup }
 import from ...components.ui.spinner { Spinner }
 import from .AuthLayout { AuthLayout, AuthFooter, EmailField, FormError }
 import from .PasswordField { PasswordField }
-import from .session { sign_up, next_path }
+import from .session { sign_up, next_path, use_staff_session }
 
 glob PASSWORD_MIN: int = 8;
 
 def:pub SignupPage -> JsxElement {
-    nav = useNavigate();
+    nav: any = useNavigate();  # jac:ignore[W1037,W1051]
     [email, set_email] = useState("");
     [password, set_password] = useState("");
     [busy, set_busy] = useState(False);
     [error, set_error] = useState("");
     invited = next_path();
-    if jacIsLoggedIn() {
+    # A customer account (P8.6c) isn't a back-office one: they can make one here.
+    if use_staff_session() == "staff" {
         return <Navigate to={invited or "/app"} replace={True}/>;
     }
     async def submit(e: any) {  # jac:ignore[W1037]

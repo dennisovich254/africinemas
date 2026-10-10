@@ -11,7 +11,15 @@ after signing in: an invitation link, or a page of a cinema's storefront (P6.3b:
 the tickets, to save them), never an outside address.
 """
 
-import from "@jac/runtime" { jacLogin, jacSignup, jacLogout, SignupResult }
+import from "@jac/runtime" {
+    jacLogin,
+    jacSignup,
+    jacLogout,
+    jacIsLoggedIn,
+    SignupResult
+}
+import from react { useState, useEffect }
+import from core.tenancy.storefront_accounts { my_storefront_account }
 import from core.tenancy.tenant_api { end_shift }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 
 glob EMAIL_KEY: str = "africinemas_email",
@@ -117,4 +125,32 @@ async def:pub sign_out(slugs: list[str]) {
     }
     remember_email("");
     jacLogout();
+}
+
+def:pub use_staff_session -> str {
+    # "staff" when signed in with a back-office account, "customer" when signed in
+    # with a cinema's customer account (P8.6c: never the back office's), "out" when
+    # signed out, "" while that's being checked.
+    [kind, set_kind] = useState("" if jacIsLoggedIn() else "out");
+
+    async def load {
+        if not jacIsLoggedIn() {
+            return;
+        }
+        seen: any = None;  # jac:ignore[W1037]
+        try {
+            seen = await my_storefront_account("");
+        } except Exception as e {
+            console.warn("account check failed", e);
+            set_kind("staff");
+            return;
+        }
+        set_kind("customer" if seen["account_cinema"] else "staff");
+    }
+
+    def start {
+        load();
+    }
+    useEffect(start, []);
+    return kind;
 }

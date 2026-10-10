@@ -71,8 +71,10 @@ test "a customer account works at its own cinema only" {
         token = _sign_in(app, "nova");
         home = _as(app, token, "my_storefront_account", {"slug": "nova"});
         assert home["signed_in"] and home["customer"] and home["email"] == EMAIL , home;
+        assert home["account_cinema"] == "nova" , home;
         away = _as(app, token, "my_storefront_account", {"slug": "rift"});
         assert away["signed_in"] and away["customer"] == False , away;
+        assert away["account_cinema"] == "nova" , "the caller's own cinema, wherever they are";
         assert _as(
             app, token, "join_as_customer", {"tenant": "nova", "display_name": "W"}
         )["ok"];
@@ -111,6 +113,7 @@ test "a staff account is no one's customer" {
         token = app.actors["owner"].token;
         seen = _as(app, token, "my_storefront_account", {"slug": "nova"});
         assert seen["signed_in"] and seen["customer"] == False , seen;
+        assert seen["account_cinema"] == "" , "staff accounts belong to no storefront";
         for (name, body) in [
             ("join_as_customer", {"tenant": "nova", "display_name": "Owner"}),
             ("my_tickets", {"slug": "nova"})

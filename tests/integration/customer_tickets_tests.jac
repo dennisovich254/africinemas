@@ -93,3 +93,26 @@ test "My tickets needs a signed-in customer" {
         app.close();
     }
 }
+
+test "a booking saved without a name uses the one the account signed up with" {
+    (app, _, screening) = paying_cinema([]);
+    try {
+        customer_at(app, "nova", "wanjiru");
+        paid(app, screening);
+        token = _token(_link(app, screening));
+        saved = app.call(
+            "wanjiru",
+            "save_booking",
+            {"slug": "nova", "token": token, "display_name": ""}
+        );
+        assert saved["ok"] , saved;
+        # Joining again answers the profile saving made, unchanged.
+        profile = app.call(
+            "wanjiru", "join_as_customer", {"tenant": "nova", "display_name": "Other"}
+        );
+        assert profile["ok"] and profile["created"] == False , profile;
+        assert profile["display_name"] == "wanjiru" , profile;
+    } finally {
+        app.close();
+    }
+}
