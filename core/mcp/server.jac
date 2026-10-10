@@ -8,6 +8,9 @@ It's read-only and needs no login: anyone may ask, as on the storefront.
 - show_movie answers with a card: a ui:// resource (core/mcp/movie_card.jac) that the
   host shows in a sandboxed frame, filled from the tool's result. The poster goes in
   the result's _meta, for the card only, so the model never reads a base64 image.
+- book_showtime opens the booking card (core/mcp/booking_card.jac, P8.6b), whose own tools
+  (card_*, core/mcp/booking.jac) hold, order and start the M-Pesa payment for a signed-in
+  customer; the model can't see or call them.
 - whats_on also draws the programme card (core/mcp/programme_card.jac, P8.3), whose
   posters come one at a time from movie_poster, a tool only the cards may call.
 
@@ -30,8 +33,11 @@ import from core.agent.tools {
     find_cinemas,
     whats_on,
     movie_details,
-    my_bookings as bookings_tool
+    my_bookings as bookings_tool,
+    book_showtime as open_booking
 }
+import from core.mcp.booking { card_call, CARD_TOOL_NAMES }
+import from core.mcp.booking_card { BOOKING_HTML }
 import from core.oauth.state { customer_of_chat }
 import from core.tenancy.principal { node_id, act_as, restore }
 import from core.catalog.screening_api { public_screenings }
@@ -46,6 +52,9 @@ import from core.mcp.programme_card { PROGRAMME_HTML }
 glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
      CARD_URI: str = "ui://africinemas/movie-card",
      PROGRAMME_URI: str = "ui://africinemas/whats-on",
+     BOOKING_URI: str = "ui://africinemas/booking",
+     # The booking card's tools that only read; the others hold, order or pay (P8.6b).
+     CARD_READS: list[str] = ["card_state", "card_quote", "card_status"],
      CARD_MIME: str = "text/html;profile=mcp-app",
      POSTER_META: str = "africinemas/poster",
      INVALID_REQUEST: int = -32600,
@@ -137,8 +146,59 @@ glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
              "annotations": READ_ONLY,
              # Only the cards call it (MCP Apps visibility): the model never sees it.
              "_meta": {"ui": {"visibility": ["app"]}}
+         },
+         {
+             "name": "book_showtime",
+             "title": "Book a showtime",
+             "description": "Open the booking card for a showtime, where the customer picks seats and pays with their own M-Pesa PIN. Use it when the customer wants to book. You may suggest seats; nothing is held or booked until they act in the card.",
+             "inputSchema": {
+                 "type": "object",
+                 "properties": {
+                     "cinema": {"type": "string", "description": "The cinema's slug."},
+                     "showtime_id": {
+                         "type": "string",
+                         "description": "The showtime's id, from whats_on or show_movie."
+                     },
+                     "seats": {
+                         "type": "array",
+                         "items": {"type": "string"},
+                         "description": "Seat labels to suggest, such as A3. May be empty."
+                     }
+                 },
+                 "required": ["cinema", "showtime_id"]
+             },
+             "annotations": READ_ONLY,
+             "_meta": {
+                 "ui": {"resourceUri": BOOKING_URI},
+                 "ui/resourceUri": BOOKING_URI
+             }
          }
-     ],
+     ]
+         + [
+             {
+                 "name": name,
+                 "title": "Booking card",
+                 "description": "Used by the booking card itself. The model never calls it.",
+                 "inputSchema": {
+                     "type": "object",
+                     "properties": {
+                         "cinema": {"type": "string"},
+                         "showtime_id": {"type": "string"}
+                     },
+                     "required": ["cinema", "showtime_id"]
+                 },
+                 "annotations": READ_ONLY
+                     if name in CARD_READS
+                     else {
+                         "readOnlyHint": False,
+                         "destructiveHint": False,
+                         "idempotentHint": name != "card_hold",
+                         "openWorldHint": name == "card_pay"
+                     },
+                 # The card's own: the model never sees these tools or their answers.
+                 "_meta": {"ui": {"visibility": ["app"]}}
+             } for name in CARD_TOOL_NAMES
+         ],
      # Offered only to a signed-in customer (an OAuth token for their chat account, P8.6a).
      MY_BOOKINGS: dict[str, any] = {  # jac:ignore[W1037]
          "name": "my_bookings",
@@ -159,6 +219,13 @@ glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
              "name": "movie-card",
              "title": "Movie card",
              "description": "A movie's poster, trailer, details and showtimes.",
+             "mimeType": CARD_MIME
+         },
+         {
+             "uri": BOOKING_URI,
+             "name": "booking",
+             "title": "Booking",
+             "description": "Choose seats, then pay with M-Pesa, for one showtime.",
              "mimeType": CARD_MIME
          },
          {
@@ -187,7 +254,65 @@ def programme_html -> str {
 }
 
 def _cards -> dict[str, str] {
-    return {CARD_URI: CARD_HTML, PROGRAMME_URI: PROGRAMME_HTML};
+    return {
+        CARD_URI: CARD_HTML,
+        PROGRAMME_URI: PROGRAMME_HTML,
+        BOOKING_URI: BOOKING_HTML
+    };
+}
+
+def booking_html -> str {
+    return BOOKING_HTML;
+}
+
+def _book(cinema: str, args: dict[str, any], customer: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The model opens the booking card (P8.6b): a showtime on sale, and free seats it
+    # suggests. Signed out, the card says to sign in or book on the website.
+    seats = [
+        str(x)
+        for x in args.get("seats", [])
+        if isinstance(x, str)
+    ]
+        if isinstance(args.get("seats"), list)
+        else [];
+    got = open_booking(cinema, _arg(args, "showtime_id"), seats);
+    if not got.get("ok", False) {
+        return _text(str(got.get("error", "That showtime isn't on sale.")), True);
+    }
+    shown = got["showtime"];
+    card = {
+        "cinema_slug": cinema,
+        "showtime_id": shown["showtime_id"],
+        "starts": shown["starts"],
+        "movie": shown["movie"],
+        "venue": shown["venue"],
+        "screen": shown["screen"],
+        "suggested": got["suggested"],
+        "signed_in": bool(customer),
+        "book_url": f"{_site(cinema)}/s/{shown['showtime_id']}",
+        "brand": _brand(cinema)
+    };
+    text = (
+        f"The booking card in the chat is open for {shown['movie']} on {shown[
+            'starts'
+        ]}"
+        + (
+            ": the customer picks seats and pays there with their own M-Pesa PIN. Nothing is booked until they do."
+                if customer
+                else ". The customer needs to sign in to AfriCinemas in Claude to book there, or can book on the cinema's website."
+        )
+    );
+    return {** _text(text), "structuredContent": card};
+}
+
+def _card_tool(name: str, args: dict[str, any], customer: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A booking card tool's answer: for the card (structuredContent), with a plain word
+    # in the text and nothing private.
+    answer = card_call(name, args, customer);
+    said = "Done."
+        if answer.get("ok")
+        else str(answer.get("message", "That didn't work."));
+    return {** _text(said, not answer.get("ok", False)), "structuredContent": answer};
 }
 
 def _tools(cinema: str, customer: str = "") -> list[dict[str, any]] {  # jac:ignore[W1037]
@@ -463,6 +588,15 @@ def _call_tool(
             return (None, "movie_poster needs a cinema and a movie_key.");
         }
         return (_movie_poster(_arg(args, "cinema"), _arg(args, "movie_key")), "");
+    }
+    if name == "book_showtime" {
+        if not _arg(args, "cinema") or not _arg(args, "showtime_id") {
+            return (None, "book_showtime needs a cinema and a showtime_id.");
+        }
+        return (_book(_arg(args, "cinema"), args, customer), "");
+    }
+    if name in CARD_TOOL_NAMES {
+        return (_card_tool(str(name), args, customer), "");
     }
     if name == "my_bookings" and customer {
         if not _arg(args, "cinema") {
