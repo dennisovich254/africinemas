@@ -26,6 +26,16 @@ obj Principal {
         root_id: str;
 }
 
+def same_id(root_id: str) -> str {
+    # A root id in one form: Jac's identity store writes hex, node_id dashed UUIDs
+    # (JI-044). Anything that isn't a UUID comes back as it was.
+    try {
+        return str(UUID(root_id));
+    } except (ValueError, TypeError) {
+        return root_id;
+    }
+}
+
 def node_id(node_obj: any) -> str {  # jac:ignore[W1037]
     return str(node_obj.__jac__.id);
 }

@@ -202,8 +202,10 @@ test "the phone menu opens and closes by keyboard, with the venue picker inside"
         page.keyboard.press("Enter");
         page.wait_for_selector('[data-testid="storefront-menu-sheet"]');
         sheet = page.locator('[data-testid="storefront-menu-sheet"]');
+        # The pages, then this cinema's sign-in (P8.6c) once the account check is done.
+        sheet.locator('[data-testid="account-sign-in"]').wait_for();
         assert sheet.locator("a").all_inner_texts()
-            == ["Movies", "Showtimes", "Cinemas"];
+            == ["Movies", "Showtimes", "Cinemas", "Sign in"];
         assert sheet.locator('[data-testid="venue-picker-menu"]').count() == 1;
         page.keyboard.press("Escape");
         page.wait_for_selector(

@@ -17,6 +17,8 @@ import from core.tenancy.models { Tenant, CustomerProfile, NAME_MAX }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.responses { NOT_FOUND, refused }
+import from core.catalog.answers { answer }
+import from core.tenancy.storefront_accounts { require_customer_of }
 import from core.tenancy.principal {
     node_id,
     act_as,
@@ -60,6 +62,8 @@ def join_customer(tenant: str, display_name: str) -> dict[str, any] {  # jac:ign
     if shop is None {
         return NOT_FOUND;
     }
+    # Only this cinema's own customer accounts are its customers (P8.6c).
+    require_customer_of(tenant);
     name = display_name.strip();
     if not name or len(name) > NAME_MAX {
         return refused("invalid_name", f"Enter a name of 1 to {NAME_MAX} characters.");
@@ -106,14 +110,19 @@ def join_customer(tenant: str, display_name: str) -> dict[str, any] {  # jac:ign
 }
 
 def:priv join_as_customer(tenant: str, display_name: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return join_customer(tenant, display_name);
+    return answer(lambda -> any { return join_customer(tenant, display_name); });  # jac:ignore[W1037]
 }
 
 def:priv my_customer_profile(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _my_profile(tenant); });  # jac:ignore[W1037]
+}
+
+def _my_profile(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     shop = _storefront(tenant);
     if shop is None {
         return NOT_FOUND;
     }
+    require_customer_of(tenant);
     profile_id = holder(PROFILE_CLAIMS, _profile_key(shop));
     profile = _read_own(profile_id) if profile_id is not None else None;
     if profile is None {

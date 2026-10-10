@@ -1,6 +1,6 @@
 # ADR-0009: One login, a customer profile per cinema
 
-- **Status:** Accepted
+- **Status:** Accepted; decision 1 (one platform login) superseded by ADR-0037 (customer accounts belong to one cinema)
 - **Date:** 2026-09-28
 - **Sub-phase:** P2.6
 - **Code:** `core/tenancy/customer_api.jac`

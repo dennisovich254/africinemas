@@ -22,6 +22,7 @@ import from core.tenancy.principal { node_id }
 import from core.tenancy.customer_api { join_customer }
 import from core.authz.context { NotFound }
 import from core.catalog.answers { answer }
+import from core.tenancy.storefront_accounts { require_customer_of, name_of_account }
 import from core.booking.ticket_delivery {
     order_by_link,
     order_of_cinema,
@@ -38,12 +39,18 @@ def _space(cinema: Tenant) -> str {
 
 def _save(slug: str, token: str, display_name: str) -> dict[str, any] {  # jac:ignore[W1037]
     (cinema, order) = order_by_link(slug, token);
-    join_customer(slug, display_name.strip()[:NAME_MAX] or "Customer");
+    join_customer(
+        slug,
+        (display_name.strip() or name_of_account(node_id(root)))[:NAME_MAX]
+            or "Customer"
+    );
     claim(_space(cinema), node_id(order), node_id(order));
     return {"ok": True, "link": link_path(cinema, order)};
 }
 
 def _mine(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # Only this cinema's own customer accounts have bookings here (P8.6c).
+    require_customer_of(slug);
     cinema = open_cinema(slug);
     if cinema is None {
         raise NotFound();

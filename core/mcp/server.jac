@@ -39,6 +39,7 @@ import from core.agent.tools {
 import from core.mcp.booking { card_call, CARD_TOOL_NAMES }
 import from core.mcp.booking_card { BOOKING_HTML }
 import from core.oauth.state { customer_of_chat }
+import from core.tenancy.storefront_accounts { cinema_of_account }
 import from core.tenancy.principal { node_id, act_as, restore }
 import from core.catalog.screening_api { public_screenings }
 import from core.catalog.storefront_api { public_poster }
@@ -530,14 +531,16 @@ def _arg(args: dict[str, any], name: str) -> str {  # jac:ignore[W1037]
     return value.strip() if isinstance(value, str) else "";
 }
 
-def signed_in_customer -> str {
-    # The customer an OAuth token acts for (its chat account's link), or "" when the
-    # request is signed out or signed in some other way (P8.6a).
+def signed_in_customer(slug: str) -> str {
+    # The customer an OAuth token acts for (its chat account's link), when that customer
+    # is an account of the cinema `slug` (P8.6c: accounts belong to one cinema); "" when
+    # signed out, signed in some other way, or for another cinema.
     me = node_id(root);
-    if me == node_id(root.shared) {
+    if not slug or me == node_id(root.shared) {
         return "";
     }
-    return customer_of_chat(me) or "";
+    customer = customer_of_chat(me) or "";
+    return customer if customer and cinema_of_account(customer) == slug else "";
 }
 
 def _my_bookings(cinema: str, customer: str) -> dict[str, any] {  # jac:ignore[W1037]
@@ -712,7 +715,8 @@ def:pub mcp(
     id: any = None,  # jac:ignore[W1037]
     params: any = None  # jac:ignore[W1037]
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    return respond(jsonrpc, method, id, params, "", "", signed_in_customer());
+    # The platform's connector serves every cinema, so nobody signs in on it (P8.6c).
+    return respond(jsonrpc, method, id, params, "", "", "");
 }
 
 @restspec(
@@ -738,6 +742,12 @@ def:pub cinema_mcp(
         return _fail(id, INVALID_PARAMS, f"There's no cinema called {slug}.");
     }
     return respond(
-        jsonrpc, method, id, params, cinema.slug, cinema.name, signed_in_customer()
+        jsonrpc,
+        method,
+        id,
+        params,
+        cinema.slug,
+        cinema.name,
+        signed_in_customer(cinema.slug)
     );
 }

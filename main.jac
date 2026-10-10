@@ -117,14 +117,14 @@ import from core.reporting.report_api { sales_report }  # jac:ignore[W2037]
 # The cinema's audit log: owners and auditors read it, nobody changes it (P7.2).
 import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
 # The AI booking agent: a customer's message in, its reply out (P8.1).
+# Storefront accounts: one per cinema, apart from the back office (P8.6c).
+import from core.tenancy.storefront_accounts { customer_sign_up, my_storefront_account }
 import from core.agent.agent_api { agent_chat, cinema_chat }
 # The MCP server: AfriCinemas in Claude, with a movie card (P8.2). POST /mcp.
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]
 # Sign-in for MCP clients such as Claude: OAuth 2.1 with PKCE (P8.6a).
 import from core.oauth.provider {
     oauth_server_metadata,
-    oauth_resource_metadata,
-    oauth_resource_metadata_mcp,
     oauth_resource_metadata_cinema,
     oauth_register,
     oauth_consent_info,  # jac:ignore[W2037]

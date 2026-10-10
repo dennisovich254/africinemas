@@ -47,20 +47,22 @@ import from core.oauth.accounts { chat_account, access_token, token_seconds }
 import from core.booking.ticket_delivery { PUBLIC_URL_ENV, DEFAULT_PUBLIC_URL }
 import from core.tenancy.principal { node_id }
 import from core.tenancy.responses { refused }
+import from core.tenancy.open_cinema { open_cinema }
+import from core.tenancy.storefront_accounts { cinema_of_account }
 
 def base_url -> str {
     # Our public address (the tunnel's, or production's), as ticket links use.
     return os.environ.get(PUBLIC_URL_ENV, "").strip().rstrip("/") or DEFAULT_PUBLIC_URL;
 }
 
-def our_resource(resource: str) -> bool {
-    # One of our MCP routes (or none named, which means the platform's).
-    base = base_url();
-    if resource in ["", f"{base}/mcp"] {
-        return True;
-    }
-    return re.fullmatch(re.escape(base) + r"/c/[a-z0-9-]{1,63}/mcp", resource)
-        is not None;
+def cinema_of_resource(resource: str) -> str {
+    # The cinema whose own MCP connector `resource` is, or "". Sign-in is per cinema
+    # (P8.6c): customer accounts belong to one cinema, so the platform's /mcp, which
+    # serves every cinema, has no sign-in.
+    found = re.fullmatch(
+        re.escape(base_url()) + r"/c/([a-z0-9-]{1,63})/mcp", resource or ""
+    );
+    return found.group(1) if found is not None else "";
 }
 
 def _problem(error: str, description: str) -> dict[str, str] {
@@ -69,23 +71,50 @@ def _problem(error: str, description: str) -> dict[str, str] {
 
 def _checked(
     client_id: str, redirect_uri: str, resource: str
-) -> tuple[dict[str, any] | None, dict[str, any] | None] {  # jac:ignore[W1037]
-    # (the client, None) when the request names a registered client, one of its exact
-    # redirect URIs and one of our MCP routes; else (None, the refusal).
+) -> tuple[dict[str, any] | None, any, dict[str, any] | None] {  # jac:ignore[W1037]
+    # (the client, the cinema, None) when the request names a registered client, one of
+    # its exact redirect URIs and a cinema's own MCP connector; else (None, None, the
+    # refusal).
     client = client_of(client_id);
     if client is None {
-        return (None, refused("invalid_client", "This app isn't registered here."));
+        return (
+            None,
+            None,
+            refused("invalid_client", "This app isn't registered here.")
+        );
     }
     if redirect_uri not in client["redirect_uris"] {
         return (
             None,
+            None,
             refused("invalid_redirect", "This app can't send you back to that address.")
         );
     }
-    if not our_resource(resource) {
-        return (None, refused("invalid_target", "That isn't an AfriCinemas service."));
+    cinema = open_cinema(cinema_of_resource(resource));
+    if cinema is None {
+        return (
+            None,
+            None,
+            refused(
+                "invalid_target",
+                "Sign in through a cinema's own AfriCinemas connector (its address ends in /c/<cinema>/mcp)."
+            )
+        );
     }
-    return (client, None);
+    return (client, cinema, None);
+}
+
+def _customer_here(cinema: any) -> dict[str, any] | None {  # jac:ignore[W1037]
+    # None when the caller is this cinema's customer; else the refusal.
+    me = node_id(root);
+    if me == node_id(root.shared)
+        or customer_of_chat(me) is not None
+        or cinema_of_account(me) != cinema.slug {
+        return refused(
+            "not_your_cinema", f"Sign in with your {cinema.name} account to allow this."
+        );
+    }
+    return None;
 }
 
 @restspec(
@@ -96,26 +125,6 @@ def _checked(
 )
 def:pub oauth_server_metadata -> dict[str, any] {  # jac:ignore[W1037]
     return authorization_server(base_url());
-}
-
-@restspec(
-    method=HTTPMethod.GET,
-    path="/.well-known/oauth-protected-resource",
-    produces="application/json",
-    envelope=False
-)
-def:pub oauth_resource_metadata -> dict[str, any] {  # jac:ignore[W1037]
-    return protected_resource(base_url(), "/mcp");
-}
-
-@restspec(
-    method=HTTPMethod.GET,
-    path="/.well-known/oauth-protected-resource/mcp",
-    produces="application/json",
-    envelope=False
-)
-def:pub oauth_resource_metadata_mcp -> dict[str, any] {  # jac:ignore[W1037]
-    return protected_resource(base_url(), "/mcp");
 }
 
 @restspec(
@@ -168,14 +177,21 @@ def:pub oauth_register(
 def:priv oauth_consent_info(
     client_id: str, redirect_uri: str, resource: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    # What the consent page shows: who asks, and where the customer goes back to.
-    (client, problem) = _checked(client_id, redirect_uri, resource);
+    # What the consent page shows: who asks, for which cinema, and where the customer
+    # goes back to. Only that cinema's customers get this far.
+    (client, cinema, problem) = _checked(client_id, redirect_uri, resource);
     if problem is not None {
         return problem;
+    }
+    wrong = _customer_here(cinema);
+    if wrong is not None {
+        return wrong;
     }
     return {
         "ok": True,
         "client_name": client["name"],
+        "cinema": cinema.name,
+        "slug": cinema.slug,
         "redirect_host": urlparse(redirect_uri).hostname or ""
     };
 }
@@ -189,24 +205,26 @@ def:priv oauth_approve(
     scope: str,  # jac:ignore[W2003] asked for; we grant our one scope
     state: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    # The signed-in customer allows the app: a single-use code, sent back to its redirect.
-    (client, problem) = _checked(client_id, redirect_uri, resource);
+    # The cinema's signed-in customer allows the app: a single-use code, sent back to
+    # its redirect.
+    (client, cinema, problem) = _checked(client_id, redirect_uri, resource);
     if problem is not None {
         return problem;
+    }
+    wrong = _customer_here(cinema);
+    if wrong is not None {
+        return wrong;
     }
     if not challenge_ok(code_challenge, code_challenge_method) {
         return refused("invalid_request", "This app must use PKCE with S256.");
     }
     customer = node_id(root);
-    if customer == node_id(root.shared) or customer_of_chat(customer) is not None {
-        return refused("forbidden", "Sign in with your own account to allow this.");
-    }
     code = issue_code(
         {
             "client_id": client_id,
             "redirect_uri": redirect_uri,
             "challenge": code_challenge,
-            "resource": resource or f"{base_url()}/mcp",
+            "resource": resource,
             "scope": SCOPE,
             "customer": customer
         }
@@ -222,7 +240,7 @@ def:priv oauth_deny(
     client_id: str, redirect_uri: str, resource: str, state: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # The customer said no: the app hears access_denied, at a redirect it registered.
-    (client, problem) = _checked(client_id, redirect_uri, resource);
+    (client, cinema, problem) = _checked(client_id, redirect_uri, resource);
     if problem is not None {
         return problem;
     }

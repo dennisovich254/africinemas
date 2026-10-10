@@ -1,23 +1,26 @@
 """`/login`: staff sign in with their email and password, then pick a cinema at `/app`."""
 
 import from react { useState }
-import from "@jac/runtime" { Navigate, useNavigate, jacIsLoggedIn }
+import from "@jac/runtime" { Navigate, useNavigate }
 import from ...components.ui.button { Button }
 import from ...components.ui.field { FieldGroup }
 import from ...components.ui.spinner { Spinner }
 import from .AuthLayout { AuthLayout, AuthFooter, EmailField, FormError }
 import from .PasswordField { PasswordField }
-import from .session { sign_in, next_path }
+import from .session { sign_in, next_path, use_staff_session }
 
 def:pub LoginPage -> JsxElement {
-    nav = useNavigate();
+    nav: any = useNavigate();  # jac:ignore[W1037,W1051]
     [email, set_email] = useState("");
     [password, set_password] = useState("");
     [busy, set_busy] = useState(False);
     [error, set_error] = useState("");
     # After signing in: back to the invitation that sent them here, else their cinemas.
     after = next_path() or "/app";
-    if jacIsLoggedIn() {
+    # A customer account (a cinema's storefront, P8.6c) isn't one of ours: sign in here
+    # with a staff account instead.
+    session = use_staff_session();
+    if session == "staff" {
         return <Navigate to={after} replace={True}/>;
     }
     async def submit(e: any) {  # jac:ignore[W1037]
@@ -53,7 +56,14 @@ def:pub LoginPage -> JsxElement {
         >
             <form onSubmit={submit} noValidate={True}>
                 <FieldGroup>
-                    <FormError message={error}/>
+                    <FormError
+                        message={error
+                            or (
+                                "You're signed in to a cinema's website as a customer. Sign in here with your staff account."
+                                    if session == "customer"
+                                    else ""
+                            )}
+                    />
                     <EmailField value={email} on_change={set_email}/>
                     <PasswordField
                         id="password"

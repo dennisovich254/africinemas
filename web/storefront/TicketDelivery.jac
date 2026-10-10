@@ -5,14 +5,13 @@ the private ticket link (open it, or copy it to keep), and Resend, to the same a
 or a corrected one ("Use a different address"). The server allows three resends an
 hour; past that it says so. Results are announced politely.
 
-A signed-in visitor's tickets are saved to their account at the cinema by themselves
-(P6.3b, SaveToAccount), with a link to all their tickets; if that fails, a button tries
-again. A visitor who isn't signed in is offered to sign in, which brings them back here
-to save.
+A visitor signed in with this cinema's customer account (P8.6c) has the tickets saved to
+it by themselves (P6.3b, SaveToAccount), with a link to all their tickets; if that
+fails, a button tries again. Anyone else is offered to sign in or create an account at
+this cinema, which brings them back here to save.
 """
 
 import from react { useState, useEffect }
-import from "@jac/runtime" { jacIsLoggedIn }
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
@@ -20,21 +19,21 @@ import from ...components.ui.spinner { Spinner }
 import from ..shell.AppLink { AppLink }
 import from core.booking.ticket_delivery { resend_tickets }
 import from core.booking.customer_tickets { save_booking }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
-import from ..auth.session { signed_in_email }
+import from .AccountLinks { use_customer }
 import from .checkout_rules { email_problem }
 
 def:pub SaveToAccount(slug: str, token: str, link: str) -> JsxElement {
-    # Saves the tickets to a signed-in visitor's account by itself (P6.3b).
-    signed_in: bool = jacIsLoggedIn();
+    # Saves the tickets to this cinema's customer account by itself (P6.3b, P8.6c).
+    account = use_customer(slug);
     [saving, set_saving] = useState("idle");
     state: str = saving;
 
     async def save {
         set_saving("saving");
-        name: str = signed_in_email().split("@")[0];
         done: any = None;  # jac:ignore[W1037]
         try {
-            done = await save_booking(slug, token, name);  # jac:ignore[W2037]
+            # No name: the server uses the one the account signed up with.
+            done = await save_booking(slug, token, "");  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("saving the tickets failed", e);
         }
@@ -42,22 +41,36 @@ def:pub SaveToAccount(slug: str, token: str, link: str) -> JsxElement {
     }
 
     def save_when_signed_in -> any {  # jac:ignore[W1037]
-        if signed_in {
+        if account == "customer" {
             save();
         }
         return lambda {};
     }
-    useEffect(save_when_signed_in, [link]);
+    useEffect(save_when_signed_in, [link, account]);
 
-    if not signed_in {
+    if account == "" {
+        return <span className="sr-only">Checking your account</span>;
+    }
+    if account != "customer" {
         return
-            <AppLink
-                to={f"/login?next={link}"}
-                testid="sign-in-to-save"
-                className="w-fit text-sm font-medium underline underline-offset-4"
-            >
-                Sign in to keep your tickets in one place
-            </AppLink>;
+            <p className="text-sm">
+                <AppLink
+                    to={f"/c/{slug}/sign-in?next={link}"}
+                    testid="sign-in-to-save"
+                    className="font-medium underline underline-offset-4"
+                >
+                    Sign in
+                </AppLink>
+                {" or "}
+                <AppLink
+                    to={f"/c/{slug}/sign-up?next={link}"}
+                    testid="sign-up-to-save"
+                    className="font-medium underline underline-offset-4"
+                >
+                    create an account
+                </AppLink>
+                {" to keep your tickets in one place."}
+            </p>;
     }
     if state == "saved" {
         return

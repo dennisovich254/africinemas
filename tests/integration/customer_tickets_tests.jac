@@ -5,11 +5,17 @@ guest; a signed-in customer who holds the ticket link saves the booking to their
 account at that cinema (save_booking proves the link), and my_tickets lists what they
 saved there. A customer sees only their own saved bookings: another customer, or the
 same customer at another cinema, sees none of them. Saving twice is one booking; a
-wrong link saves nothing; a caller who isn't signed in is refused.
+wrong link saves nothing; a caller who isn't signed in is refused. Customers are
+accounts of their cinema (P8.6c, customer_at).
 """
 
 import from tests.support.served { Served }
-import from tests.support.storefront_setup { browse, code_of, open_cinema_for }
+import from tests.support.storefront_setup {
+    browse,
+    code_of,
+    open_cinema_for,
+    customer_at
+}
 import from tests.support.payment_setup { ANNA, paying_cinema, paid }
 
 def _link(app: Served, screening: str) -> str {
@@ -33,8 +39,9 @@ def _mine(app: Served, who: str, slug: str = "nova") -> any {  # jac:ignore[W103
 }
 
 test "a signed-in customer saves a booking by its link and sees it in My tickets" {
-    (app, _, screening) = paying_cinema(["kim"]);
+    (app, _, screening) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
         paid(app, screening);
         link = _link(app, screening);
         saved = _save(app, "kim", _token(link));
@@ -56,8 +63,10 @@ test "a signed-in customer saves a booking by its link and sees it in My tickets
 }
 
 test "a customer sees only their own bookings, and only at that cinema" {
-    (app, _, screening) = paying_cinema(["kim", "lee"]);
+    (app, _, screening) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
+        customer_at(app, "nova", "lee");
         paid(app, screening);
         token = _token(_link(app, screening));
         assert _save(app, "kim", token)["ok"];
@@ -65,9 +74,10 @@ test "a customer sees only their own bookings, and only at that cinema" {
         assert code_of(_save(app, "lee", token[:-1] + "x")) == "not_found";
         assert _mine(app, "lee")["bookings"] == [];
         open_cinema_for(app, "owner", "rift", "Rift Cinemas");
-        assert _mine(app, "kim", "rift")["bookings"] == [];
-        # The link belongs to Nova: it saves nothing at another cinema.
-        assert code_of(_save(app, "kim", token, "rift")) == "not_found";
+        # Kim's account is Nova's: at Rift it's no customer at all (P8.6c).
+        assert code_of(_mine(app, "kim", "rift")) == "not_your_cinema";
+        assert code_of(_save(app, "kim", token, "rift"))
+            in ["not_found", "not_your_cinema"];
     } finally {
         app.close();
     }
@@ -79,6 +89,29 @@ test "My tickets needs a signed-in customer" {
         app.client.set_auth_token("");
         resp = app.client.post("/function/my_tickets", json={"slug": "nova"});
         assert resp.status_code == 401 , resp.status_code;
+    } finally {
+        app.close();
+    }
+}
+
+test "a booking saved without a name uses the one the account signed up with" {
+    (app, _, screening) = paying_cinema([]);
+    try {
+        customer_at(app, "nova", "wanjiru");
+        paid(app, screening);
+        token = _token(_link(app, screening));
+        saved = app.call(
+            "wanjiru",
+            "save_booking",
+            {"slug": "nova", "token": token, "display_name": ""}
+        );
+        assert saved["ok"] , saved;
+        # Joining again answers the profile saving made, unchanged.
+        profile = app.call(
+            "wanjiru", "join_as_customer", {"tenant": "nova", "display_name": "Other"}
+        );
+        assert profile["ok"] and profile["created"] == False , profile;
+        assert profile["display_name"] == "wanjiru" , profile;
     } finally {
         app.close();
     }

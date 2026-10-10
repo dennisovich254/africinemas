@@ -52,6 +52,7 @@ import from core.tenancy.principal {
     flush_now
 }
 import from core.audit.log { record }
+import from core.tenancy.storefront_accounts { cinema_of_account }
 
 glob SLUG_HOLD_ENV: str = "AFRICINEMAS_SIGNUP_SLUG_HOLD_S",
      SLUG_HOLD_DEFAULT_S: int = 900;
@@ -227,7 +228,13 @@ def:priv create_cinema(
     name: str, slug: str, email: str = ""
 ) -> dict[str, bool | str | dict[str, str]] {
     # The new cinema's audit log starts with its creation (P7.2); a refusal has no
-    # cinema to record it in.
+    # cinema to record it in. A cinema's customer account can't create one (P8.6c).
+    if cinema_of_account(node_id(root)) {
+        return _refused(
+            "customer_account",
+            "This is a cinema's customer account. Create a cinema with a staff account."
+        );
+    }
     made = _do_create_cinema(name, slug, email);
     if made.get("created") is True {
         record(
