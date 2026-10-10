@@ -21,6 +21,7 @@ import os;
 import json;
 import from tests.support.served { Served }
 import from tests.support.storefront_setup {
+    customer_at,
     browse,
     code_of,
     open_cinema_for,
@@ -273,8 +274,9 @@ test "the chat opens a booking card for a real showtime, suggesting free seats o
 }
 
 test "a signed-in customer's bookings come as a card, without private details" {
-    (app, _, screening) = paying_cinema(["kim"]);
+    (app, _, screening) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
         paid(app, screening);
         link = browse(
             app,

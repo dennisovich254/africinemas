@@ -6,6 +6,7 @@ calls a public endpoint as an anonymous visitor.
 
 import from datetime { datetime, timedelta, timezone }
 import from tests.support.served { Served }
+import from tests.support.harness { TEST_PASSWORD, Actor }
 
 glob START: datetime = (datetime.now(timezone.utc) + timedelta(days=2)).replace(
          hour=18, minute=0, second=0, microsecond=0
@@ -145,4 +146,30 @@ def set_prices(app: Served, who: str, cinema: Cinema, adult: int = 80000) {
         }
     );
     assert saved["ok"] , saved;
+}
+
+def customer_at(app: Served, slug: str, name: str, email: str = "") -> str {
+    # `name` becomes a customer account at the cinema `slug` (P8.6c: storefront
+    # accounts belong to one cinema), signed in; replaces any actor of that name.
+    made = browse(
+        app,
+        "customer_sign_up",
+        {
+            "slug": slug,
+            "email": email or f"{name}@example.com",
+            "password": TEST_PASSWORD,
+            "name": name
+        }
+    );
+    assert made["ok"] , made;
+    resp = app.client.login(made["sign_in_name"], TEST_PASSWORD);
+    assert resp.ok , resp.text;
+    data: dict[str, any] = resp.data or {};  # jac:ignore[W1037]
+    app.actors[name] = Actor(
+        username=made["sign_in_name"],
+        user_id=str(data.get("user_id", "")),
+        root_id=str(data.get("root_id", "")),
+        token=str(data["token"])
+    );
+    return name;
 }

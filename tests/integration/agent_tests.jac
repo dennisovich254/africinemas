@@ -18,7 +18,12 @@ paid for A1 and A2.
 import json;
 import uuid;
 import from tests.support.served { Served }
-import from tests.support.storefront_setup { browse, code_of, add_screening }
+import from tests.support.storefront_setup {
+    customer_at,
+    browse,
+    code_of,
+    add_screening
+}
 import from tests.support.payment_setup { ANNA, ANNA_EMAIL, paying_cinema, paid }
 
 glob HOLDER: str = "holder-agent-0123456789abcdef",
@@ -209,8 +214,9 @@ test "the agent offers exactly its tools, keeps the holder away and treats movie
 }
 
 test "a signed-in customer's own bookings reach the model without private details" {
-    (app, _, screening) = paying_cinema(["kim"]);
+    (app, _, screening) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
         paid(app, screening);
         link = browse(
             app,

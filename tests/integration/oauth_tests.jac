@@ -4,7 +4,8 @@ In-process app (tests/apps/payment_app.jac). The flow MCP's authorization spec s
 discovery, Dynamic Client Registration, the customer's consent (signed in, on our page),
 the code for a token with PKCE S256, then MCP calls with that token.
 
-- The discovery documents are served for the platform's and each cinema's MCP route.
+- The discovery documents are served for each cinema's own MCP connector; sign-in is per
+  cinema (P8.6c), so the platform's /mcp has none.
 - A signed-in customer approves; the code buys a token; with it, MCP offers and answers
   my_bookings with that customer's bookings (and nothing private). Without it, no.
 - A code is single-use and bound to its PKCE verifier, client and redirect; approval
@@ -21,14 +22,23 @@ import json;
 import os;
 import from urllib.parse { urlencode, urlparse, parse_qs }
 import from tests.support.served { Served }
-import from tests.support.storefront_setup { browse }
+import from tests.support.storefront_setup { browse, customer_at, open_cinema_for }
 import from tests.support.payment_setup { ANNA, ANNA_EMAIL, paying_cinema, paid }
 
 glob VERIFIER: str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
      CHALLENGE: str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
      REDIRECT: str = "https://claude.ai/api/mcp/auth_callback",
      BASE: str = "http://localhost:8000",
-     RESOURCE: str = "http://localhost:8000/mcp";
+     # Sign-in is per cinema (P8.6c): Nova's own connector.
+     RESOURCE: str = "http://localhost:8000/c/nova/mcp",
+     NOVA_MCP: str = "/c/nova/mcp";
+
+
+# The public address these tests expect, whatever a developer's .env says (Jac loads
+# .env into test apps too; a tunnel address there would change every URL).
+with entry {
+    os.environ["AFRICINEMAS_PUBLIC_URL"] = "http://localhost:8000";
+}
 
 def _get(app: Served, path: str) -> any {  # jac:ignore[W1037]
     app.client.set_auth_token("");
@@ -130,7 +140,7 @@ def _mcp(
 ) -> any {  # jac:ignore[W1037]
     app.client.set_auth_token(token);
     resp = app.client.post(
-        "/mcp",
+        NOVA_MCP,
         json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
     );
     app.client.set_auth_token("");
@@ -138,20 +148,20 @@ def _mcp(
     return json.loads(resp.text);
 }
 
-test "the discovery documents are served for every MCP route" {
+test "the discovery documents are served for each cinema's own connector only" {
     (app, _, _) = paying_cinema([]);
     try {
         meta = _get(app, "/.well-known/oauth-authorization-server");
         assert meta["issuer"] == BASE
-            and meta["code_challenge_methods_supported"] == ["S256"];
-        for (path, resource) in [
-            ("/.well-known/oauth-protected-resource", RESOURCE),
-            ("/.well-known/oauth-protected-resource/mcp", RESOURCE),
-            ("/.well-known/oauth-protected-resource/c/nova/mcp", f"{BASE}/c/nova/mcp")
+            and meta["code_challenge_methods_supported"] == ["S256"] , meta;
+        doc = _get(app, "/.well-known/oauth-protected-resource/c/nova/mcp");
+        assert doc["resource"] == RESOURCE and doc["authorization_servers"] == [BASE];
+        # The platform's /mcp serves every cinema: nobody signs in on it (P8.6c).
+        for path in [
+            "/.well-known/oauth-protected-resource",
+            "/.well-known/oauth-protected-resource/mcp"
         ] {
-            doc = _get(app, path);
-            assert doc["resource"] == resource
-                and doc["authorization_servers"] == [BASE] , path;
+            assert app.client.get(path).status_code in [404, 405] , path;
         }
     } finally {
         app.close();
@@ -159,8 +169,9 @@ test "the discovery documents are served for every MCP route" {
 }
 
 test "a customer signs Claude in, and with the token Claude sees their bookings" {
-    (app, _, screening) = paying_cinema(["kim"]);
+    (app, _, screening) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
         paid(app, screening);
         link = browse(
             app,
@@ -210,8 +221,9 @@ test "a customer signs Claude in, and with the token Claude sees their bookings"
 }
 
 test "a code is single-use and bound to its verifier, client and redirect" {
-    (app, _, _) = paying_cinema(["kim"]);
+    (app, _, _) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
         client = _register(app)["client_id"];
         # A wrong verifier spends the code: it's refused, and so is the right one after.
         code = _code(_approve(app, "kim", client));
@@ -236,13 +248,30 @@ test "a code is single-use and bound to its verifier, client and redirect" {
 }
 
 test "approval and registration refuse what the spec forbids" {
-    (app, _, _) = paying_cinema(["kim"]);
+    (app, _, _) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
         client = _register(app)["client_id"];
         assert _approve(app, "kim", client, "https://evil.example.com/cb")["ok"]
             == False;
         assert _approve(app, "kim", "made-up-client")["ok"] == False;
         assert _approve(app, "kim", client, REDIRECT, "plain")["ok"] == False;
+        # Only a cinema's own connector signs in: not the platform's /mcp.
+        platform = app.call(
+            "kim",
+            "oauth_approve",
+            {
+                "client_id": client,
+                "redirect_uri": REDIRECT,
+                "code_challenge": CHALLENGE,
+                "code_challenge_method": "S256",
+                "resource": f"{BASE}/mcp",
+                "scope": "africinemas",
+                "state": ""
+            }
+        );
+        assert platform["ok"] == False
+            and platform["error"]["code"] == "invalid_target";
         bad = _register(app, "http://evil.example.com/cb");
         assert bad.get("error") == "invalid_redirect_uri" , bad;
     } finally {
@@ -251,8 +280,9 @@ test "approval and registration refuse what the spec forbids" {
 }
 
 test "refresh tokens rotate, and a used one is refused" {
-    (app, _, _) = paying_cinema(["kim"]);
+    (app, _, _) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
         (client, tokens) = _signed_in(app, "kim");
         fresh = _token(
             app,
@@ -278,18 +308,34 @@ test "refresh tokens rotate, and a used one is refused" {
     }
 }
 
-test "the token belongs to a chat account with no staff power" {
+test "only the cinema's own customers sign Claude in, and the token has no staff power" {
     (app, _, _) = paying_cinema([]);
     try {
-        # The owner sees the staff home page; Claude, signed in by the owner, can't.
-        assert app.call("owner", "staff_home", {"tenant": "nova"})["ok"];
-        (_, tokens) = _signed_in(app, "owner");
+        open_cinema_for(app, "owner", "rift", "Rift Cinemas");
+        client = _register(app)["client_id"];
+        # Staff accounts, and other cinemas' customers, can't sign Claude in at Nova.
+        customer_at(app, "rift", "riftfan");
+        for who in ["owner", "riftfan"] {
+            refused = _approve(app, who, client);
+            assert refused["ok"] == False
+                and refused["error"]["code"] == "not_your_cinema" , f"{who}: {refused}";
+        }
+        # Nova's customer can; the token still can't reach the back office.
+        customer_at(app, "nova", "kim");
+        (_, tokens) = _signed_in(app, "kim");
         app.client.set_auth_token(tokens["access_token"]);
         resp = app.client.post("/function/staff_home", json={"tenant": "nova"});
         app.client.set_auth_token("");
         assert resp.status_code == 200 , resp.text;
-        answer = resp.data["result"];
-        assert answer["ok"] == False , answer;
+        assert resp.data["result"]["ok"] == False , resp.data;
+        # Nor does it sign anyone in at Rift's connector.
+        app.client.set_auth_token(tokens["access_token"]);
+        listed = app.client.post(
+            "/c/rift/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+        );
+        app.client.set_auth_token("");
+        names = [t["name"] for t in json.loads(listed.text)["result"]["tools"]];
+        assert "my_bookings" not in names , names;
     } finally {
         app.close();
     }

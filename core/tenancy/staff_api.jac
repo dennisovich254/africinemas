@@ -37,6 +37,7 @@ import from core.tenancy.groups { add_staff }
 import from core.tenancy.identity { verified_sign_in }
 import from core.tenancy.membership { records_of, remove_member }
 import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
+import from core.tenancy.storefront_accounts { cinema_of_account }
 import from core.catalog.venues { find_venue }
 import from core.tenancy.principal {
     node_id,
@@ -390,7 +391,14 @@ def:priv remove_staff(tenant: str, member_id: str) -> dict[str, any] {  # jac:ig
 
 def:priv accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ignore[W1037]
     # Joining is recorded in the cinema joined (P7.2); a refused invitation has no
-    # cinema the caller belongs to, so it records nothing.
+    # cinema the caller belongs to, so it records nothing. A cinema's customer account
+    # can't join any cinema's staff (P8.6c).
+    if cinema_of_account(node_id(root)) {
+        return refused(
+            "customer_account",
+            "This is a cinema's customer account. Accept the invitation with a staff account."
+        );
+    }
     joined = _do_accept_invite(token, email);
     if joined.get("ok") is True {
         record(

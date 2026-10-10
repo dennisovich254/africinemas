@@ -15,10 +15,12 @@ as in P8.6a (tests/integration/oauth_tests.jac).
 """
 
 import json;
+import os;
 import uuid;
 import from urllib.parse { urlencode, urlparse, parse_qs }
 import from tests.support.served { Served }
 import from tests.support.payment_setup { paying_cinema, settle, fresh_phone }
+import from tests.support.storefront_setup { customer_at }
 
 glob VERIFIER: str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
      CHALLENGE: str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
@@ -32,6 +34,13 @@ glob VERIFIER: str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
          "card_pay",
          "card_status"
      ];
+
+
+# The public address these tests expect, whatever a developer's .env says (Jac loads
+# .env into test apps too; a tunnel address there would change every URL).
+with entry {
+    os.environ["AFRICINEMAS_PUBLIC_URL"] = "http://localhost:8000";
+}
 
 def _token(app: Served, who: str) -> str {
     # `who` signs Claude in (P8.6a): register, approve, swap the code.
@@ -50,7 +59,7 @@ def _token(app: Served, who: str) -> str {
             "redirect_uri": REDIRECT,
             "code_challenge": CHALLENGE,
             "code_challenge_method": "S256",
-            "resource": "",
+            "resource": "http://localhost:8000/c/nova/mcp",
             "scope": "africinemas",
             "state": ""
         }
@@ -81,8 +90,9 @@ def _mcp(
     params: dict[str, any] | None = None  # jac:ignore[W1037]
 ) -> any {  # jac:ignore[W1037]
     app.client.set_auth_token(token);
+    # Nova's own connector: sign-in and booking are per cinema (P8.6c).
     resp = app.client.post(
-        "/mcp",
+        "/c/nova/mcp",
         json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
     );
     app.client.set_auth_token("");
@@ -112,8 +122,9 @@ def _card(
 }
 
 test "the model opens the booking card; the card's tools are the card's alone" {
-    (app, _, screening) = paying_cinema(["kim"]);
+    (app, _, screening) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
         token = _token(app, "kim");
         tools = {
             t["name"]: t for t in _mcp(app, token, "tools/list")["result"]["tools"]
@@ -143,8 +154,9 @@ test "the model opens the booking card; the card's tools are the card's alone" {
 }
 
 test "a signed-in customer books and pays in the card, and the booking is theirs" {
-    (app, _, screening) = paying_cinema(["kim"]);
+    (app, _, screening) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
         token = _token(app, "kim");
         where = {"cinema": "nova", "showtime_id": screening};
         state = _card(app, token, "card_state", where);
@@ -221,8 +233,10 @@ test "signed out, every card tool refuses" {
 }
 
 test "one customer can't take or order another's held seats" {
-    (app, _, screening) = paying_cinema(["kim", "lee"]);
+    (app, _, screening) = paying_cinema([]);
     try {
+        customer_at(app, "nova", "kim");
+        customer_at(app, "nova", "lee");
         where = {"cinema": "nova", "showtime_id": screening};
         kim = _token(app, "kim");
         lee = _token(app, "lee");

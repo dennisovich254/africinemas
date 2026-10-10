@@ -14,10 +14,10 @@ gets it, and never after it expires.
 """
 
 import json;
-import uuid;
 import hashlib;
 import secrets;
 import from core.claims { claim, holder, take_claim }
+import from core.tenancy.principal { same_id }
 
 glob CLIENTS: str = "oauth-client",
      CODES: str = "oauth-code",
@@ -26,15 +26,6 @@ glob CLIENTS: str = "oauth-client",
      CHAT_CUSTOMERS: str = "oauth-chat-customer",
      CODE_TTL: int = 60,
      REFRESH_TTL: int = 30 * 24 * 3600;
-
-def same_id(root_id: str) -> str {
-    # A root id in one form: Jac's identity store writes hex, node_id dashed UUIDs.
-    try {
-        return str(uuid.UUID(root_id));
-    } except ValueError {
-        return root_id;
-    }
-}
 
 def _hash(secret: str) -> str {
     return hashlib.sha256(secret.encode("utf-8")).hexdigest();

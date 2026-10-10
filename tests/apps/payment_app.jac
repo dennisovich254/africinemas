@@ -7,6 +7,8 @@ AFRICINEMAS_PAYMENTS=simulator.
 """
 
 import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
+import from core.tenancy.storefront_accounts { customer_sign_up, my_storefront_account }
+import from core.tenancy.customer_api { join_as_customer }  # jac:ignore[W2037]
 import from core.tenancy.tenant_api { start_shift, end_shift }  # jac:ignore[W2037]
 import from core.tenancy.staff_api {
     invite_staff,  # jac:ignore[W2037]
@@ -47,8 +49,6 @@ import from core.catalog.movie_api { create_movie, upload_poster, set_trailer } 
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]
 import from core.oauth.provider {
     oauth_server_metadata,
-    oauth_resource_metadata,
-    oauth_resource_metadata_mcp,
     oauth_resource_metadata_cinema,
     oauth_register,
     oauth_consent_info,  # jac:ignore[W2037]
