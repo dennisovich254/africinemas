@@ -41,7 +41,8 @@ import from core.oauth.state {
     take_code,
     issue_refresh,
     take_refresh,
-    customer_of_chat
+    customer_of_chat,
+    keep_connection
 }
 import from core.oauth.accounts { chat_account, access_token, token_seconds }
 import from core.booking.ticket_delivery { PUBLIC_URL_ENV, DEFAULT_PUBLIC_URL }
@@ -252,7 +253,14 @@ def:priv oauth_deny(
 }
 
 def _tokens(customer: str, client_id: str, resource: str) -> dict[str, any] {  # jac:ignore[W1037]
-    account = chat_account(customer);
+    # The app's own chat account for this customer (P8.6d), made on its first sign-in.
+    client = client_of(client_id) or {};
+    account = chat_account(
+        customer,
+        client_id,
+        str(client.get("name", "")) or "An app",
+        cinema_of_resource(resource)
+    );
     refresh = issue_refresh(
         {"client_id": client_id, "customer": customer, "resource": resource}
     );
@@ -298,7 +306,10 @@ def:pub oauth_token(
     }
     if grant_type == "refresh_token" {
         kept = take_refresh(refresh_token);
-        if kept is None or kept["client_id"] != client_id {
+        # A disconnected app's refresh tokens die with its connection (P8.6d).
+        if kept is None
+            or kept["client_id"] != client_id
+            or not keep_connection(kept["customer"], client_id) {
             return _problem(
                 "invalid_grant", "This refresh token isn't valid (any more)."
             );

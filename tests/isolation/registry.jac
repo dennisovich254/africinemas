@@ -743,5 +743,20 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "display_name": "Probe"
              }
          },
-         "my_tickets": {"scope": "customer", "audit": "", "probe": {"slug": "{tenant}"}}
+         "my_tickets": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "{tenant}"}
+         },
+         # Connected apps (P8.6d): the caller's own connections at a cinema.
+         "my_connected_apps": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "{tenant}"}
+         },
+         "disconnect_app": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "app_id": "ac-unknown"}
+         }
      };

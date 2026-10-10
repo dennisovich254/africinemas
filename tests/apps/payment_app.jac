@@ -8,6 +8,10 @@ AFRICINEMAS_PAYMENTS=simulator.
 
 import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
 import from core.tenancy.storefront_accounts { customer_sign_up, my_storefront_account }
+import from core.oauth.connections {
+    my_connected_apps,  # jac:ignore[W2037]
+    disconnect_app  # jac:ignore[W2037]
+}
 import from core.tenancy.customer_api { join_as_customer }  # jac:ignore[W2037]
 import from core.tenancy.tenant_api { start_shift, end_shift }  # jac:ignore[W2037]
 import from core.tenancy.staff_api {
