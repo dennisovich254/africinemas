@@ -77,6 +77,12 @@ def bookings_of_caller(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _mine(slug); });  # jac:ignore[W1037]
 }
 
+def save_for_caller(slug: str, token: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # Saves the booking behind ticket link `token` to the caller, as save_booking does,
+    # for a booking made in Claude's booking card (P8.6b).
+    return answer(lambda -> any { return _save(slug, token, ""); });  # jac:ignore[W1037]
+}
+
 def:priv save_booking(slug: str, token: str, display_name: str = "") -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _save(slug, token, display_name); });  # jac:ignore[W1037]
 }

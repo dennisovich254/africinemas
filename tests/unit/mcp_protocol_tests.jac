@@ -21,7 +21,9 @@ import from core.mcp.server {
     PROGRAMME_URI,
     CARD_MIME,
     card_html,
-    programme_html
+    programme_html,
+    booking_html,
+    BOOKING_URI
 }
 
 glob ROOT: str = path.dirname(path.dirname(path.dirname(path.abspath(__file__))));
@@ -57,10 +59,25 @@ test "a notification gets nothing back" {
 test "read-only tools: whats_on and show_movie draw cards, movie_poster is the cards' own" {
     tools = _ask("tools/list")["result"]["tools"];
     assert [t["name"] for t in tools]
-        == ["find_cinemas", "whats_on", "show_movie", "movie_poster"];
+        == [
+            "find_cinemas",
+            "whats_on",
+            "show_movie",
+            "movie_poster",
+            "book_showtime",
+            "card_state",
+            "card_hold",
+            "card_quote",
+            "card_order",
+            "card_pay",
+            "card_status"
+        ];
     for t in tools {
         assert t["inputSchema"]["type"] == "object" , t["name"];
-        assert t["annotations"]["readOnlyHint"] == True , t["name"];
+        # Only the booking card's own tools change anything: hold, order, pay (P8.6b).
+        changes = t["name"] in ["card_hold", "card_order", "card_pay"];
+        assert t["annotations"]["readOnlyHint"] == (not changes) , t["name"];
+        assert t["annotations"]["destructiveHint"] == False , t["name"];
         assert t["description"] , t["name"];
     }
     named = {t["name"]: t for t in tools};
@@ -71,13 +88,34 @@ test "read-only tools: whats_on and show_movie draw cards, movie_poster is the c
     assert "_meta" not in named["find_cinemas"];
     # Only the cards call movie_poster: the model never sees it, nor any image.
     assert named["movie_poster"]["_meta"]["ui"]["visibility"] == ["app"];
+    # Booking (P8.6b): the model opens the card; the card's own tools are the card's alone.
+    assert named["book_showtime"]["_meta"]["ui"]["resourceUri"] == BOOKING_URI;
+    for name in [
+        n
+        for n in named
+        if n.startswith("card_")
+    ] {
+        assert named[name]["_meta"]["ui"]["visibility"] == ["app"] , name;
+    }
 }
 
 test "a cinema's own connector has no cinema argument and no directory" {
     tools = respond("2.0", "tools/list", 1, {}, "nova", "Nova Cinemas")["result"][
         "tools"
     ];
-    assert [t["name"] for t in tools] == ["whats_on", "show_movie", "movie_poster"];
+    assert [t["name"] for t in tools]
+        == [
+            "whats_on",
+            "show_movie",
+            "movie_poster",
+            "book_showtime",
+            "card_state",
+            "card_hold",
+            "card_quote",
+            "card_order",
+            "card_pay",
+            "card_status"
+        ];
     for t in tools {
         assert "cinema" not in t["inputSchema"]["properties"] , t["name"];
         assert "cinema" not in t["inputSchema"].get("required", []) , t["name"];
@@ -101,9 +139,17 @@ test "a cinema's own connector has no cinema argument and no directory" {
 test "both cards are MCP Apps HTML that frame nothing and load nothing outside" {
     listed = _ask("resources/list")["result"]["resources"];
     assert [(r["uri"], r["mimeType"]) for r in listed]
-        == [(CARD_URI, CARD_MIME), (PROGRAMME_URI, CARD_MIME)];
+        == [
+            (CARD_URI, CARD_MIME),
+            (BOOKING_URI, CARD_MIME),
+            (PROGRAMME_URI, CARD_MIME)
+        ];
     assert CARD_MIME == "text/html;profile=mcp-app";
-    for (uri, html) in [(CARD_URI, card_html()), (PROGRAMME_URI, programme_html())] {
+    for (uri, html) in [
+        (CARD_URI, card_html()),
+        (PROGRAMME_URI, programme_html()),
+        (BOOKING_URI, booking_html())
+    ] {
         read = _ask("resources/read", {"uri": uri})["result"]["contents"];
         assert len(read) == 1 and read[0]["uri"] == uri;
         assert read[0]["mimeType"] == CARD_MIME and read[0]["text"] == html;
@@ -118,7 +164,7 @@ test "both cards are MCP Apps HTML that frame nothing and load nothing outside" 
 }
 
 test "the cards speak the MCP Apps handshake and load nothing from outside" {
-    for html in [card_html(), programme_html()] {
+    for html in [card_html(), programme_html(), booking_html()] {
         for message in [
             "ui/initialize",
             "ui/notifications/initialized",
@@ -142,7 +188,7 @@ test "the cards speak the MCP Apps handshake and load nothing from outside" {
     # The movie card: the trailer opens through the host; no card embeds a player.
     movie = card_html();
     assert "ui/open-link" in movie and "Watch trailer" in movie;
-    for html in [card_html(), programme_html()] {
+    for html in [card_html(), programme_html(), booking_html()] {
         assert "iframe" not in html.lower();
     }
     # The programme card: lazy posters through the cards' own tool, and a tap on a
