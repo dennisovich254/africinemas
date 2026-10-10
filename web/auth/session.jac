@@ -30,7 +30,7 @@ def:pub email_identity(email: str) -> dict[str, str] {
     return {"type": "email", "value": email.strip().lower()};
 }
 
-def remember_email(email: str) {
+def:pub remember_email(email: str) {
     store: any = None;  # jac:ignore[W1037]
     try {
         store = localStorage;  # jac:ignore[W2001]
