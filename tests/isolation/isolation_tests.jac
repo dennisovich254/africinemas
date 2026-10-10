@@ -39,9 +39,13 @@ def _served_endpoints(client: JacTestClient) -> set[str] {
             }
         }
         # Endpoints on custom paths (@restspec): M-Pesa's callback (P5.4), MCP (P8.2, P8.3).
-        if route.startswith("/hooks/")
-            or route.startswith("/oauth/")
-            or route.endswith("/mcp") {
+        # The /.well-known/ documents (P8.6a) are static and public (GET), not endpoints.
+        if not route.startswith("/.well-known/")
+            and (
+                route.startswith("/hooks/")
+                or route.startswith("/oauth/")
+                or route.endswith("/mcp")
+            ) {
             names.add(f"route:{route}");
         }
     }
