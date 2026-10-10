@@ -1,6 +1,6 @@
 # ADR-0035: Signing Claude in: our own OAuth 2.1 provider, discovery without a 401, and chat accounts
 
-- **Status:** Spike (awaiting the Claude check)
+- **Status:** Accepted: confirmed in Claude on 2026-10-10 ("Sign in now": discovery, registration, consent, token, then MCP with the token)
 - **Date:** 2026-10-10
 - **Sub-phase:** P8.6a
 - **Code:** `core/oauth/rules.jac`, `core/oauth/state.jac`, `core/oauth/accounts.jac`, `core/oauth/provider.jac`, `core/claims.jac` (`take`), `core/mcp/server.jac` (`signed_in_customer`, `my_bookings`), `web/oauth/AuthorizePage.jac`, `web/auth/session.jac` (`safe_next`)
@@ -22,7 +22,7 @@ What Jac can do: serve GET JSON, take form bodies, and run a request as the acco
    - A consent page at `/oauth/authorize`: the customer signs in, the page shows the app's name and the host they'll go back to, and Allow or Don't allow.
    - `POST /oauth/token` takes a form.
    - Client ID Metadata Documents are left out for now: fetching a URL a client names needs SSRF guards.
-2. **Discovery instead of a 401.** Clients set to "sign in" read the discovery documents before calling MCP. The spike checks that Claude's "Sign in now" mode works this way.
+2. **Discovery instead of a 401.** Clients set to "sign in" read the discovery documents before calling MCP. Confirmed in Claude: two unsigned MCP calls, then `/.well-known/oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`, `POST /oauth/register`, the consent page (S256, `resource` set), `POST /oauth/token`, then MCP with the token.
 3. **Codes and refresh tokens are single-use, short-lived and never stored in the clear.**
    - Codes: 60 s, bound to the client, redirect URI, PKCE challenge, resource and the approving customer.
    - Refresh tokens: 30 days, rotated on every use.
