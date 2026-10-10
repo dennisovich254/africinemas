@@ -62,16 +62,21 @@ repos:
         language: system
         files: \.jac$
         exclude: ^components/ui/
+      # The two slow gates are manual (2026-10-10, user decision): they took ~15 minutes
+      # per push on the dev box, and CI runs both (the same ratchet and the FULL suite)
+      # on every PR, which can't merge until they pass. Run them before a push when
+      # you want an early answer:
+      #   pre-commit run --hook-stage manual --all-files
       - id: jac-check-ratchet
         name: jac check (0 errors, warnings <= baseline)
         entry: scripts/check_warnings.sh
         language: system
         pass_filenames: false
-        stages: [pre-push]
+        stages: [manual]
       - id: jac-test
         # The fast tier; CI runs the full suite (integration, real-server) on every PR.
         name: jac test (strict, quick tier)
         entry: scripts/test.sh --quick
         language: system
         pass_filenames: false
-        stages: [pre-push]
+        stages: [manual]

@@ -45,6 +45,17 @@ import from core.catalog.venue_api { create_venue, create_auditorium }  # jac:ig
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
 import from core.catalog.movie_api { create_movie, upload_poster, set_trailer }  # jac:ignore[W2037]
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]
+import from core.oauth.provider {
+    oauth_server_metadata,
+    oauth_resource_metadata,
+    oauth_resource_metadata_mcp,
+    oauth_resource_metadata_cinema,
+    oauth_register,
+    oauth_consent_info,  # jac:ignore[W2037]
+    oauth_approve,  # jac:ignore[W2037]
+    oauth_deny,  # jac:ignore[W2037]
+    oauth_token
+}  # jac:ignore[W2037]
 import from core.catalog.screening_api {
     create_screening,  # jac:ignore[W2037]
     schedule_screening,  # jac:ignore[W2037]

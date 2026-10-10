@@ -22,6 +22,7 @@ import from .storefront.MoviePage { MoviePage }
 import from .storefront.ScreeningPage { ScreeningPage }
 import from .storefront.TicketsPage { TicketsPage }
 import from .storefront.MyTicketsPage { MyTicketsPage }
+import from .oauth.AuthorizePage { AuthorizePage }
 import from .storefront.MoviesPage { MoviesPage }
 import from .storefront.CinemasPage { CinemasPage }
 import from .auth.InvitePage { InvitePage }
@@ -42,6 +43,7 @@ def:pub AppRoot -> JsxElement {
                 <Route path="/c/:slug/s/:screening" element={<ScreeningPage/>}/>
                 <Route path="/c/:slug/tickets/:token" element={<TicketsPage/>}/>
                 <Route path="/c/:slug/my-tickets" element={<MyTicketsPage/>}/>
+                <Route path="/oauth/authorize" element={<AuthorizePage/>}/>
                 <Route path="/invite/:token" element={<InvitePage/>}/>
                 <Route element={<AuthGuard redirect="/login"/>}>
                     <Route path="/app" element={<CinemaPicker/>}/>

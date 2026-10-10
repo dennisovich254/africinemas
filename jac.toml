@@ -134,6 +134,7 @@ default = "server"
 "core.audit.audit_api" = "server"
 "core.reporting.staff_home" = "server"
 "core.agent.agent_api" = "server"
+"core.oauth.provider" = "server"
 # Every web module is browser code, including pure helpers such as web.backoffice.nav
 # (under default = "server" a pure def:pub would otherwise become a server endpoint).
 "web.*" = "client"
