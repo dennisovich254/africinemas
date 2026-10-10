@@ -98,6 +98,20 @@ def release(namespace: str, key: str, owner: str) -> bool {
     );
 }
 
+def take(namespace: str, key: str) -> str | None {
+    # Removes a live claim and returns its value, in one statement: exactly one caller
+    # gets it, and never once it has expired. For single-use secrets (P8.6a).
+    taken = _store().rows(
+        """
+        DELETE FROM kv_state
+        WHERE key = :k AND (expires_at IS NULL OR expires_at > now())
+        RETURNING value
+        """,
+        {"k": _key(namespace, key)}
+    );
+    return str(taken[0][0]) if taken else None;
+}
+
 def renew(namespace: str, key: str, owner: str, ttl_seconds: int) -> bool {
     # Extends `owner`'s live claim to `ttl_seconds` from now (0: permanent). False when
     # `owner` doesn't hold a live claim.

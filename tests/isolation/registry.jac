@@ -12,6 +12,8 @@
 - "webhook": a public endpoint on a custom path (key "route:<path>"), called by a
   provider (M-Pesa's callback, P5.4); it changes nothing a caller can see and only
   acknowledges. Probed anonymously with a made-up token.
+- "oauth": MCP sign-in's public endpoints on custom paths (P8.6a): client registration and
+  the token endpoint. Probed anonymously; they never answer with another cinema's data.
 - "mcp": the MCP server (P8.2), a public JSON-RPC endpoint on a custom path; read-only,
   it answers as the storefront does. Probed anonymously with a tool call at tenant B;
   a cinema's own connector (/c/{slug}/mcp, P8.3) is tenant A's, asked about tenant B.
@@ -631,6 +633,55 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "id": 1,
                  "method": "tools/call",
                  "params": {"name": "whats_on", "arguments": {"cinema": "{tenant}"}}
+             }
+         },
+         "oauth_consent_info": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {
+                 "client_id": "probe",
+                 "redirect_uri": "https://claude.ai/cb",
+                 "resource": ""
+             }
+         },
+         "oauth_approve": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {
+                 "client_id": "probe",
+                 "redirect_uri": "https://claude.ai/cb",
+                 "code_challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+                 "code_challenge_method": "S256",
+                 "resource": "",
+                 "scope": "",
+                 "state": ""
+             }
+         },
+         "oauth_deny": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {
+                 "client_id": "probe",
+                 "redirect_uri": "https://claude.ai/cb",
+                 "resource": "",
+                 "state": ""
+             }
+         },
+         "route:/oauth/register": {
+             "scope": "oauth",
+             "audit": "",
+             "probe": {
+                 "client_name": "Probe",
+                 "redirect_uris": ["https://claude.ai/cb"]
+             }
+         },
+         "route:/oauth/token": {
+             "scope": "oauth",
+             "audit": "",
+             "probe": {
+                 "grant_type": "refresh_token",
+                 "refresh_token": "x",
+                 "client_id": "y"
              }
          },
          "route:/hooks/mpesa/{token}": {

@@ -26,7 +26,14 @@ reply to a notification.
 import json;
 import os;
 import from http { HTTPMethod }
-import from core.agent.tools { find_cinemas, whats_on, movie_details }
+import from core.agent.tools {
+    find_cinemas,
+    whats_on,
+    movie_details,
+    my_bookings as bookings_tool
+}
+import from core.oauth.state { customer_of_chat }
+import from core.tenancy.principal { node_id, act_as, restore }
 import from core.catalog.screening_api { public_screenings }
 import from core.catalog.storefront_api { public_poster }
 import from core.theming.branding_api { public_branding }
@@ -132,6 +139,20 @@ glob PROTOCOLS: list[str] = ["2025-11-25", "2025-06-18", "2025-03-26"],
              "_meta": {"ui": {"visibility": ["app"]}}
          }
      ],
+     # Offered only to a signed-in customer (an OAuth token for their chat account, P8.6a).
+     MY_BOOKINGS: dict[str, any] = {  # jac:ignore[W1037]
+         "name": "my_bookings",
+         "title": "My bookings",
+         "description": "The signed-in customer's own bookings at a cinema: movie, time, place and seats.",
+         "inputSchema": {
+             "type": "object",
+             "properties": {
+                 "cinema": {"type": "string", "description": "The cinema's slug."}
+             },
+             "required": ["cinema"]
+         },
+         "annotations": READ_ONLY
+     },
      RESOURCES: list[dict[str, str]] = [
          {
              "uri": CARD_URI,
@@ -169,14 +190,16 @@ def _cards -> dict[str, str] {
     return {CARD_URI: CARD_HTML, PROGRAMME_URI: PROGRAMME_HTML};
 }
 
-def _tools(cinema: str) -> list[dict[str, any]] {  # jac:ignore[W1037]
+def _tools(cinema: str, customer: str = "") -> list[dict[str, any]] {  # jac:ignore[W1037]
     # The tools a connector offers. A cinema's own connector (cinema != "") has no
-    # directory, and its tools take no cinema: the server fixes it.
+    # directory, and its tools take no cinema: the server fixes it. A signed-in
+    # customer (P8.6a) also gets my_bookings.
+    offered = TOOLS + ([MY_BOOKINGS] if customer else []);
     if not cinema {
-        return TOOLS;
+        return offered;
     }
     kept: list[dict[str, any]] = [];  # jac:ignore[W1037]
-    for tool in TOOLS {
+    for tool in offered {
         if tool["name"] == "find_cinemas" {
             continue;
         }
@@ -382,9 +405,33 @@ def _arg(args: dict[str, any], name: str) -> str {  # jac:ignore[W1037]
     return value.strip() if isinstance(value, str) else "";
 }
 
+def signed_in_customer -> str {
+    # The customer an OAuth token acts for (its chat account's link), or "" when the
+    # request is signed out or signed in some other way (P8.6a).
+    me = node_id(root);
+    if me == node_id(root.shared) {
+        return "";
+    }
+    return customer_of_chat(me) or "";
+}
+
+def _my_bookings(cinema: str, customer: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The linked customer's bookings, read as that customer, then back to the token's
+    # own account.
+    me = node_id(root);
+    act_as(customer);
+    try {
+        got = bookings_tool(cinema);
+    } finally {
+        restore(me);
+    }
+    return _data(got);
+}
+
 def _call_tool(
     params: dict[str, any],  # jac:ignore[W1037]
-    fixed: str = ""
+    fixed: str = "",
+    customer: str = ""
 ) -> tuple[dict[str, any] | None, str] {  # jac:ignore[W1037]
     # (the tool's result, "") or (None, why the call is invalid). On a cinema's own
     # connector (`fixed`), that cinema replaces any the caller names.
@@ -416,6 +463,12 @@ def _call_tool(
             return (None, "movie_poster needs a cinema and a movie_key.");
         }
         return (_movie_poster(_arg(args, "cinema"), _arg(args, "movie_key")), "");
+    }
+    if name == "my_bookings" and customer {
+        if not _arg(args, "cinema") {
+            return (None, "my_bookings needs a cinema.");
+        }
+        return (_my_bookings(_arg(args, "cinema"), customer), "");
     }
     if name == "show_movie" {
         if not _arg(args, "cinema") or not _arg(args, "movie") {
@@ -464,7 +517,8 @@ def respond(
     id: any,  # jac:ignore[W1037]
     params: any,  # jac:ignore[W1037]
     cinema: str = "",
-    cinema_name: str = ""
+    cinema_name: str = "",
+    customer: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # The JSON-RPC answer to one message; {} for a notification, which gets none.
     # An omitted id or params reaches the endpoint as the string "None" (JI-025), so
@@ -483,9 +537,9 @@ def respond(
     } elif method == "ping" {
         result = {};
     } elif method == "tools/list" {
-        result = {"tools": _tools(cinema)};
+        result = {"tools": _tools(cinema, customer)};
     } elif method == "tools/call" {
-        (result, why) = _call_tool(args, cinema);
+        (result, why) = _call_tool(args, cinema, customer);
         if result is None {
             return _fail(id, INVALID_PARAMS, why);
         }
@@ -524,7 +578,7 @@ def:pub mcp(
     id: any = None,  # jac:ignore[W1037]
     params: any = None  # jac:ignore[W1037]
 ) -> dict[str, any] {  # jac:ignore[W1037]
-    return respond(jsonrpc, method, id, params);
+    return respond(jsonrpc, method, id, params, "", "", signed_in_customer());
 }
 
 @restspec(
@@ -549,5 +603,7 @@ def:pub cinema_mcp(
     if cinema is None {
         return _fail(id, INVALID_PARAMS, f"There's no cinema called {slug}.");
     }
-    return respond(jsonrpc, method, id, params, cinema.slug, cinema.name);
+    return respond(
+        jsonrpc, method, id, params, cinema.slug, cinema.name, signed_in_customer()
+    );
 }

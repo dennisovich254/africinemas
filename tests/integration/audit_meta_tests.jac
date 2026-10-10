@@ -75,7 +75,7 @@ test "every endpoint records exactly its registry action, or nothing" {
             spec = REGISTRY[name];
             assert "audit" in spec , f"{name}: say in the registry what it audits";
             scope = spec["scope"];
-            if scope in ["webhook", "mcp"] or name == "create_cinema" {
+            if scope in ["webhook", "mcp", "oauth"] or name == "create_cinema" {
                 continue;
             }
             body = json.loads(

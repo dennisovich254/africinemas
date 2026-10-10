@@ -99,3 +99,22 @@ test "only the holder can release a claim" {
         app.close();
     }
 }
+
+test "take hands a live claim's value to exactly one caller, never an expired one" {
+    # Single-use secrets (OAuth codes and refresh tokens, P8.6a): taking deletes.
+    app = served(APP, ["u"]);
+    try {
+        t = lambda (key: str) -> any { return app.call(
+            "u", "c_take", {"ns": "code", "key": key}
+        ); };  # jac:ignore[W1037]
+        app.call("u", "c_claim", {"ns": "code", "key": "k1", "owner": "v1", "ttl": 60});
+        assert t("k1") == "v1";
+        assert t("k1") is None;
+        assert t("never-made") is None;
+        app.call("u", "c_claim", {"ns": "code", "key": "k2", "owner": "v2", "ttl": 1});
+        time.sleep(1.5);
+        assert t("k2") is None;
+    } finally {
+        app.close();
+    }
+}

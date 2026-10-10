@@ -15,7 +15,8 @@ import from "@jac/runtime" { jacLogin, jacSignup, jacLogout, SignupResult }
 import from core.tenancy.tenant_api { end_shift }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 
 glob EMAIL_KEY: str = "africinemas_email",
-     NEXT_PREFIXES: list[str] = ["/invite/", "/c/"];
+     # The OAuth consent page (P8.6a) carries the app's redirect address in its query.
+     NEXT_PREFIXES: list[str] = ["/invite/", "/c/", "/oauth/authorize"];
 
 def:pub email_identity(email: str) -> dict[str, str] {
     return {"type": "email", "value": email.strip().lower()};
@@ -48,19 +49,27 @@ def:pub signed_in_email -> str {
     return found or "";
 }
 
+def:pub safe_next(wanted: str) -> str {
+    path = wanted.split("?")[0];
+    if "//" in path or "\\" in path {
+        return "";
+    }
+    for prefix in NEXT_PREFIXES {
+        if path.startswith(prefix) {
+            return wanted;
+        }
+    }
+    return "";
+}
+
 def:pub next_path -> str {
-    # The ?next= page to return to after signing in: an invitation link or a storefront
-    # page, never another site.
+    # The ?next= page to return to after signing in: an invitation link, a storefront
+    # page or the OAuth consent page, never another site. Only its path is checked for
+    # "//" and "\\": the query can't change the site the browser goes to.
     win: any = window;  # jac:ignore[W1037,W2001]
     params_class: any = win.URLSearchParams;  # jac:ignore[W1037]
     query: any = new(params_class, win.location.search);  # jac:ignore[W1037]
-    wanted: str = query.get("next") or "";
-    if (wanted.startswith(NEXT_PREFIXES[0]) or wanted.startswith(NEXT_PREFIXES[1]))
-        and "//" not in wanted
-        and "\\" not in wanted {
-        return wanted;
-    }
-    return "";
+    return safe_next(query.get("next") or "");
 }
 
 # "ok", "rejected" (wrong email or password) or "offline" (the server couldn't be
