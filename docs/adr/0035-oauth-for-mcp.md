@@ -3,7 +3,7 @@
 - **Status:** Accepted: confirmed in Claude on 2026-10-10 ("Sign in now": discovery, registration, consent, token, then MCP with the token)
 - **Date:** 2026-10-10
 - **Sub-phase:** P8.6a
-- **Code:** `core/oauth/rules.jac`, `core/oauth/state.jac`, `core/oauth/accounts.jac`, `core/oauth/provider.jac`, `core/claims.jac` (`take`), `core/mcp/server.jac` (`signed_in_customer`, `my_bookings`), `web/oauth/AuthorizePage.jac`, `web/auth/session.jac` (`safe_next`)
+- **Code:** `core/oauth/rules.jac`, `core/oauth/state.jac`, `core/oauth/accounts.jac`, `core/oauth/provider.jac`, `core/claims.jac` (`take_claim`), `core/mcp/server.jac` (`signed_in_customer`, `my_bookings`), `web/oauth/AuthorizePage.jac`, `web/auth/session.jac` (`safe_next`)
 - **Tests:** `tests/unit/oauth_rules_tests.jac`, `tests/integration/oauth_tests.jac`, `tests/integration/claims_tests.jac`, the isolation registry
 
 ## Context
@@ -26,7 +26,7 @@ What Jac can do: serve GET JSON, take form bodies, and run a request as the acco
 3. **Codes and refresh tokens are single-use, short-lived and never stored in the clear.**
    - Codes: 60 s, bound to the client, redirect URI, PKCE challenge, resource and the approving customer.
    - Refresh tokens: 30 days, rotated on every use.
-   - Both are kept as SHA-256 and taken with `claims.take`, one SQL statement that deletes only a live claim. So exactly one caller gets each, and never after it expires. A failed swap spends the code.
+   - Both are kept as SHA-256 and taken with `claims.take_claim`, one SQL statement that deletes only a live claim. So exactly one caller gets each, and never after it expires. A failed swap spends the code.
 4. **Tokens belong to chat accounts, not customers.** The access token is a normal Jac session token, so Jac's own check runs MCP as its account. But that account is a separate one made for chat (random password, nobody signs in to it), linked to the customer, with no staff role anywhere. So:
    - MCP tools read the customer's own data by acting as the linked customer only inside those tools (`my_bookings`);
    - a token used against any other endpoint has a signed-out visitor's power, even when a cinema's owner signed in;

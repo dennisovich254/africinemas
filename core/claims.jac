@@ -98,7 +98,7 @@ def release(namespace: str, key: str, owner: str) -> bool {
     );
 }
 
-def take(namespace: str, key: str) -> str | None {
+def take_claim(namespace: str, key: str) -> str | None {
     # Removes a live claim and returns its value, in one statement: exactly one caller
     # gets it, and never once it has expired. For single-use secrets (P8.6a).
     taken = _store().rows(

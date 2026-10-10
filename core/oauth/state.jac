@@ -9,7 +9,7 @@
   own (core/oauth/accounts.jac), linked both ways here.
 
 Codes and refresh tokens are kept only as their SHA-256, so the store never holds a
-usable secret; taking one (claims.take) is a single statement, so exactly one caller
+usable secret; taking one (claims.take_claim) is a single statement, so exactly one caller
 gets it, and never after it expires.
 """
 
@@ -17,7 +17,7 @@ import json;
 import uuid;
 import hashlib;
 import secrets;
-import from core.claims { claim, holder, take }
+import from core.claims { claim, holder, take_claim }
 
 glob CLIENTS: str = "oauth-client",
      CODES: str = "oauth-code",
@@ -68,7 +68,7 @@ def _take(namespace: str, secret: str) -> dict[str, any] | None {  # jac:ignore[
     if not secret {
         return None;
     }
-    kept = take(namespace, _hash(secret));
+    kept = take_claim(namespace, _hash(secret));
     return json.loads(kept) if kept else None;
 }
 

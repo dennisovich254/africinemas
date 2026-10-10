@@ -100,7 +100,7 @@ test "only the holder can release a claim" {
     }
 }
 
-test "take hands a live claim's value to exactly one caller, never an expired one" {
+test "take_claim hands a live claim's value to exactly one caller, never an expired one" {
     # Single-use secrets (OAuth codes and refresh tokens, P8.6a): taking deletes.
     app = served(APP, ["u"]);
     try {

@@ -1,6 +1,6 @@
 """Test-only app entry exposing core.claims (ADR-0007). Never imported by main.jac."""
 
-import from core.claims { claim, holder, make_permanent, release, take }
+import from core.claims { claim, holder, make_permanent, release, take_claim }
 
 # `ttl` has no default on purpose: omitted non-string defaults arrive as strings (JI-025).
 def:pub c_claim(ns: str, key: str, owner: str, ttl: int) -> str {
@@ -20,5 +20,5 @@ def:pub c_release(ns: str, key: str, owner: str) -> bool {
 }
 
 def:pub c_take(ns: str, key: str) -> str | None {
-    return take(ns, key);
+    return take_claim(ns, key);
 }
