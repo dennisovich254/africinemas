@@ -97,6 +97,7 @@ test "an owner builds a product with variants, and publishing checks it" {
         _sign_in(page, owner["email"], owner["slug"], "/categories");
         page.click('button:has-text("Add the usual categories")');
         _said(page, "categories-message", "Added the usual categories");
+        page.wait_for_selector('[data-testid="category-row"]');
         names = page.locator('[data-testid="category-name"]').all_inner_texts();
         assert names[:2] == ["Popcorn", "Beverages"] and len(names) == 6 , names;
         # A product with variants.

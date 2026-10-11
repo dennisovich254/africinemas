@@ -94,8 +94,9 @@ def:pub SnackCategoriesPage(slug: str, permissions: list[str]) -> JsxElement {
             return False;
         }
         set_errors({});
-        set_message(done);
+        # Announced once the list shows the change, never before.
         await load();
+        set_message(done);
         return True;
     }
 
