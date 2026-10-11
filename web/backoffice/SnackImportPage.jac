@@ -138,7 +138,7 @@ def:pub SnackImportPage(slug: str, permissions: list[str]) -> JsxElement {
         set_file_name("");
     }
 
-    async def export {
+    async def export_catalog {
         answer: any = None;  # jac:ignore[W1037]
         try {
             answer = await export_snack_catalog(slug);  # jac:ignore[W2037]
@@ -193,7 +193,7 @@ def:pub SnackImportPage(slug: str, permissions: list[str]) -> JsxElement {
                     variant="outline"
                     className="min-h-11 px-4"
                     data-testid="export-catalog"
-                    onClick={export}
+                    onClick={export_catalog}
                 >
                     Export your catalog
                 </Button>
