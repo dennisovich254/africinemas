@@ -20,7 +20,7 @@ asks first.
 """
 
 import from react { useState, useEffect }
-import from "@jac/runtime" { useNavigate }
+import from "@jac/runtime" { useNavigate, useLocation }
 import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.badge { Badge }
 import from ...components.ui.button { Button }
@@ -134,7 +134,12 @@ def:pub SnackProductEditor(
     [form, set_form] = useState(_blank_form());
     [dirty, set_dirty] = useState(False);
     [errors, set_errors] = useState({});
-    [message, set_message] = useState("");
+    # A new product's first save moves to its own address, which builds a fresh editor;
+    # what the save said comes along in the navigation's state.
+    arrived: any = useLocation();  # jac:ignore[W1037,W1051]
+    [message, set_message] = useState(
+        arrived.state["message"] if arrived.state and arrived.state["message"] else ""
+    );
     [failed, set_failed] = useState("");
     [busy, set_busy] = useState(False);
     [asking, set_asking] = useState(False);
@@ -200,28 +205,56 @@ def:pub SnackProductEditor(
     status: str = shown_product["status"] if shown_product is not None else "draft";
     editable = can_manage and status != "archived";
 
-    def put(key: str, value: any) {  # jac:ignore[W1037]
-        changed: dict[str, any] = dict(values);  # jac:ignore[W1037]
-        changed[key] = value;
-        set_form(changed);
+    # Every change applies to the latest form (React's functional update), never to a
+    # copy from the last render, so quick edits one after another can't undo each other.
+    def change(update: any) {  # jac:ignore[W1037]
+        set_form(update);
         set_dirty(True);
     }
 
+    def put(key: str, value: any) {  # jac:ignore[W1037]
+        def update(prev: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+            changed: dict[str, any] = dict(prev);  # jac:ignore[W1037]
+            changed[key] = value;
+            return changed;
+        }
+        change(update);
+    }
+
     def put_option(i: int, key: str, text: str) {
-        put(
-            "options",
-            [dict(o, **{key: text}) if n == i else o for (n, o) in enumerate(options)]
-        );
+        def update(prev: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+            changed: dict[str, any] = dict(prev);  # jac:ignore[W1037]
+            changed["options"] = [
+                dict(o, **{key: text}) if n == i else o
+                for (n, o) in enumerate(prev["options"])
+            ];
+            return changed;
+        }
+        change(update);
     }
 
     def put_row(i: int, key: str, value: any) {  # jac:ignore[W1037]
-        put(
-            "rows",
-            [dict(r, **{key: value}) if n == i else r for (n, r) in enumerate(rows)]
-        );
+        def update(prev: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+            changed: dict[str, any] = dict(prev);  # jac:ignore[W1037]
+            changed["rows"] = [
+                dict(r, **{key: value}) if n == i else r
+                for (n, r) in enumerate(prev["rows"])
+            ];
+            return changed;
+        }
+        change(update);
     }
 
     def choose_kind(kind: str) {
+        def update(prev: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+            return kind_change(prev, kind);
+        }
+        change(update);
+    }
+
+    def kind_change(values: dict[str, any], kind: str) -> dict[str, any] {  # jac:ignore[W1037]
+        rows: list[dict[str, any]] = values["rows"];  # jac:ignore[W1037]
+        options: list[dict[str, str]] = values["options"];
         changed: dict[str, any] = dict(values);  # jac:ignore[W1037]
         changed["kind"] = kind;
         if kind == "single" {
@@ -239,8 +272,7 @@ def:pub SnackProductEditor(
             changed["options"] = [{"name": "Size", "values": ", ".join(suggested)}];
             changed["rows"] = generate_rows([suggested], []) if suggested else [];
         }
-        set_form(changed);
-        set_dirty(True);
+        return changed;
     }
 
     def add_option {
@@ -351,7 +383,8 @@ def:pub SnackProductEditor(
         made: dict[str, any] = saved["product"];  # jac:ignore[W1037]
         set_product(made);
         set_form(_form_of(made));
-        set_message("Saved.");
+        said = "Saved.";
+        set_message(said);
         if then_publish {
             made_id: str = made["product_id"];
             def send_publish -> any {  # jac:ignore[W1037]
@@ -360,11 +393,15 @@ def:pub SnackProductEditor(
             published: any = await call(send_publish);  # jac:ignore[W1037]
             if published is not None {
                 set_product(published["product"]);
-                set_message("Published. It's ready to sell.");
+                said = "Published. It's ready to sell.";
+                set_message(said);
             }
         }
         if is_new {
-            nav(snack_path(slug, made["product_id"]), {"replace": True});  # jac:ignore[W1051]
+            nav(  # jac:ignore[W1051]
+                snack_path(slug, made["product_id"]),
+                {"replace": True, "state": {"message": said}}
+            );
         }
     }
 
