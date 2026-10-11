@@ -33,11 +33,23 @@ def _sign_in(page: any, email: str, slug: str, rest: str = "") {  # jac:ignore[W
 }
 
 def _said(page: any, testid: str, words: str) {  # jac:ignore[W1037]
-    page.wait_for_function(
-        f"(document.querySelector('[data-testid={testid}]')?.innerText || '').includes({repr(
-            words
-        )})"
-    );
+    # Waits for the page's announcement to contain `words`; if it never does, fails
+    # with what the page said instead and every error shown beside a field.
+    try {
+        page.wait_for_function(
+            f"(document.querySelector('[data-testid={testid}]')?.innerText || '').includes({repr(
+                words
+            )})"
+        );
+    } except Exception as e {
+        said = page.evaluate(
+            f"document.querySelector('[data-testid={testid}]')?.innerText || ''"
+        );
+        alerts = page.locator('[role="alert"]').all_inner_texts();
+        raise AssertionError(
+            f"waited for {words!r}; the page said {said!r}; errors: {alerts}"
+        ) from e;
+    }
 }
 
 def _stocked(owner: dict[str, str]) -> str {
