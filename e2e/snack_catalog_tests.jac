@@ -230,7 +230,10 @@ test "every snack page fits a phone, with no sideways scroll" {
         for (rest, ready) in [
             ("", '[data-testid="product-row"]'),
             (f"/{product}", '[data-testid="variant-table"]'),
-            ("/categories", '[data-testid="category-row"]')
+            ("/categories", '[data-testid="category-row"]'),
+            ("/extras", '[data-testid="snack-extras"]'),
+            ("/stock", '[data-testid="snack-stock"]'),
+            ("/import", '[data-testid="snack-import"]')
         ] {
             page.goto(f"{BASE_URL}/app/{owner['slug']}/snacks{rest}");
             page.wait_for_selector(ready);
