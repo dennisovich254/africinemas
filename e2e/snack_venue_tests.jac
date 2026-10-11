@@ -33,11 +33,23 @@ def _sign_in(page: any, email: str, slug: str, product: str) {  # jac:ignore[W10
 }
 
 def _said(page: any, words: str) {  # jac:ignore[W1037]
-    page.wait_for_function(
-        f"(document.querySelector('[data-testid=venues-message]')?.innerText || '').includes({repr(
-            words
-        )})"
-    );
+    # Waits for the section's announcement to contain `words`; if it never does, fails
+    # with what it said instead and every error shown beside a field.
+    try {
+        page.wait_for_function(
+            f"(document.querySelector('[data-testid=venues-message]')?.innerText || '').includes({repr(
+                words
+            )})"
+        );
+    } except Exception as e {
+        said = page.evaluate(
+            "document.querySelector('[data-testid=venues-message]')?.innerText || ''"
+        );
+        alerts = page.locator('[role="alert"]').all_inner_texts();
+        raise AssertionError(
+            f"waited for {words!r}; the page said {said!r}; errors: {alerts}"
+        ) from e;
+    }
 }
 
 def _popcorn(owner: dict[str, str]) -> str {

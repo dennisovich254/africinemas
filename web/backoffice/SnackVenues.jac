@@ -20,7 +20,7 @@ import from core.snacks.venue_api {
     set_snack_venue_price  # jac:ignore[W2037]
 }
 import from .form_parts { FieldError, on_input }
-import from .snack_view { price_text, price_cents_of }
+import from .snack_view { price_text, price_cents_of, with_field }
 
 glob CELL_INPUT: str = "min-h-11 w-28 rounded-md border border-input bg-background px-2 text-sm";
 
@@ -98,8 +98,8 @@ def:pub SnackVenues(
             return;
         }
         set_errors({});
-        set_message(done);
         on_change(answer["product"]);
+        set_message(done);
     }
 
     places: list[dict[str, str]] = venues;
@@ -217,7 +217,7 @@ def:pub SnackVenues(
                             disabled={not can_manage}
                             onChange={on_input(
                                 lambda (text: str) { set_prices(
-                                    dict(drafts, **{key: text})
+                                    with_field(drafts, key, text)
                                 ); }
                             )}
                             className={CELL_INPUT}
