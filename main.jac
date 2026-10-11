@@ -119,6 +119,28 @@ import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
 # The AI booking agent: a customer's message in, its reply out (P8.1).
 # Storefront accounts: one per cinema, apart from the back office (P8.6c).
 import from core.tenancy.storefront_accounts { customer_sign_up, my_storefront_account }
+# The snack catalog: categories, products and their variants (P12.1).
+import from core.snacks.category_api {
+    list_snack_categories,  # jac:ignore[W2037]
+    create_snack_category,  # jac:ignore[W2037]
+    add_default_snack_categories,  # jac:ignore[W2037]
+    rename_snack_category,  # jac:ignore[W2037]
+    reorder_snack_categories,  # jac:ignore[W2037]
+    set_snack_category_status  # jac:ignore[W2037]
+}
+import from core.snacks.product_api {
+    list_snack_products,  # jac:ignore[W2037]
+    get_snack_product,  # jac:ignore[W2037]
+    get_snack_image,  # jac:ignore[W2037]
+    save_snack_product,  # jac:ignore[W2037]
+    publish_snack_product,  # jac:ignore[W2037]
+    unpublish_snack_product,  # jac:ignore[W2037]
+    archive_snack_product,  # jac:ignore[W2037]
+    restore_snack_product,  # jac:ignore[W2037]
+    delete_snack_product,  # jac:ignore[W2037]
+    upload_snack_image,  # jac:ignore[W2037]
+    remove_snack_image  # jac:ignore[W2037]
+}
 # Connected apps: the apps a customer let book for them, and disconnecting one (P8.6d).
 import from core.oauth.connections {
     my_connected_apps,  # jac:ignore[W2037]

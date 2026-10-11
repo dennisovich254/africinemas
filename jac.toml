@@ -136,6 +136,8 @@ default = "server"
 "core.agent.agent_api" = "server"
 "core.oauth.provider" = "server"
 "core.oauth.connections" = "server"
+"core.snacks.category_api" = "server"
+"core.snacks.product_api" = "server"
 # Every web module is browser code, including pure helpers such as web.backoffice.nav
 # (under default = "server" a pure def:pub would otherwise become a server endpoint).
 "web.*" = "client"

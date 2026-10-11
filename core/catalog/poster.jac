@@ -30,6 +30,9 @@ glob MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024,
      # Home-page photos (P4.1b): landscape or portrait, fitted into PHOTO_OUT square.
      PHOTO_MIN_SIDE: int = 400,
      PHOTO_OUT: int = 1600,
+     # Snack photos (P12.1): at least SNACK_MIN square-ish, fitted into SNACK_OUT.
+     SNACK_MIN: int = 200,
+     SNACK_OUT: int = 800,
      # Movie backdrops (P4.1c): landscape, at least BACKDROP_MIN, fitted into BACKDROP_OUT.
      BACKDROP_MIN: tuple[int, int] = (960, 540),
      BACKDROP_OUT: tuple[int, int] = (1920, 1080),
@@ -128,6 +131,14 @@ def process_logo(data: bytes, declared_type: str) -> bytes {
 def process_backdrop(data: bytes, declared_type: str) -> bytes {
     # A movie's landscape backdrop (P4.1c): the same checks, at least 960 x 540.
     return _process(data, declared_type, BACKDROP_MIN, BACKDROP_OUT);
+}
+
+def process_snack_photo(data: bytes, declared_type: str) -> bytes {
+    # A snack's photo (P12.1): the same checks, at least 200 x 200 pixels, fitted into
+    # SNACK_OUT x SNACK_OUT.
+    return _process(
+        data, declared_type, (SNACK_MIN, SNACK_MIN), (SNACK_OUT, SNACK_OUT)
+    );
 }
 
 def process_photo(data: bytes, declared_type: str) -> bytes {
