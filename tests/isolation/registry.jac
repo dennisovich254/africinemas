@@ -207,6 +207,33 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
          # The snack catalog (P12.1).
+         "set_snack_product_venues": {
+             "scope": "tenant",
+             "audit": "snack_product.venues_set",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "venue_ids": []}
+         },
+         "set_snack_variant_availability": {
+             "scope": "tenant",
+             "audit": "snack_variant.availability_changed",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "variant_id": "x",
+                 "venue_id": "x",
+                 "available": True
+             }
+         },
+         "set_snack_venue_price": {
+             "scope": "tenant",
+             "audit": "snack_variant.venue_price_set",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "variant_id": "x",
+                 "venue_id": "x",
+                 "price_cents": None
+             }
+         },
          "list_snack_categories": {
              "scope": "tenant",
              "audit": "",
