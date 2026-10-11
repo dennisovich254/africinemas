@@ -22,7 +22,8 @@ glob STATUS_LABELS: dict[str, str] = {
          ("", "Products"),
          ("categories", "Categories"),
          ("extras", "Combos & Add-ons"),
-         ("stock", "Stock")
+         ("stock", "Stock"),
+         ("import", "Import & export")
      ];
 
 def:pub snack_path(slug: str, rest: str = "") -> str {
@@ -113,4 +114,89 @@ def:pub SnackSubnav(slug: str, current: str) -> JsxElement {
                 </AppLink> for (key, label) in SUBNAV
             ]}
         </nav>;
+}
+
+# Templates for a new product (P12.5; design guide §4A): sensible starting points, never
+# rules. Each names the category it suggests (matched by name) and how it starts.
+glob:pub TEMPLATES: list[dict[str, any]] = [  # jac:ignore[W1037]
+         {
+             "key": "popcorn",
+             "title": "Popcorn",
+             "detail": "Small, Medium and Large",
+             "category": "popcorn",
+             "kind": "variants",
+             "option": "Size",
+             "values": ["Small", "Medium", "Large"]
+         },
+         {
+             "key": "beverage",
+             "title": "Beverage",
+             "detail": "A brand in several sizes",
+             "category": "beverages",
+             "kind": "variants",
+             "option": "Size",
+             "values": ["300 ml", "500 ml", "1 litre"]
+         },
+         {
+             "key": "packaged",
+             "title": "Packaged snack",
+             "detail": "Crisps, chocolate, sweets",
+             "category": "crisps & chips",
+             "kind": "single",
+             "option": "",
+             "values": []
+         },
+         {
+             "key": "combo",
+             "title": "Combo",
+             "detail": "Several products at one price",
+             "category": "combos & deals",
+             "kind": "combo",
+             "option": "",
+             "values": []
+         }
+     ];
+
+def:pub template_form(
+    key: str,
+    categories: list[dict[str, any]],  # jac:ignore[W1037]
+    category_id: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # The editor's starting fields for a template ("" for a blank product), in the
+    # category asked for, else the template's own if the cinema has it.
+    found = [
+        t
+        for t in TEMPLATES
+        if t["key"] == key
+    ];
+    chosen = category_id;
+    if found and not chosen {
+        named = [
+            c["category_id"]
+            for c in categories
+            if c["name"].lower() == found[0]["category"]
+        ];
+        chosen = named[0] if named else "";
+    }
+    base: dict[str, any] = {  # jac:ignore[W1037]
+        "name": "",
+        "brand": "",
+        "description": "",
+        "tags": "",
+        "category_id": chosen,
+        "kind": "single",
+        "options": [],
+        "rows": [blank_row([])]
+    };
+    if not found {
+        return base;
+    }
+    t = found[0];
+    base["kind"] = t["kind"];
+    if t["kind"] == "variants" {
+        values: list[str] = t["values"];
+        base["options"] = [{"name": t["option"], "values": ", ".join(values)}];
+        base["rows"] = generate_rows([values], []);
+    }
+    return base;
 }

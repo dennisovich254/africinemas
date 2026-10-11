@@ -91,7 +91,9 @@ def _name(tenant: Tenant, name: str, keep_id: str = "") -> str {
     return clean;
 }
 
-def _make(tenant: Tenant, tenant_id: str, name: str, position: int) -> SnackCategory {
+def make_category(
+    tenant: Tenant, tenant_id: str, name: str, position: int
+) -> SnackCategory {
     stamp = now().isoformat();
     me = as_principal(tenant);
     try {
@@ -129,7 +131,9 @@ def _create(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
             "too_many_categories", f"A catalog has up to {CATEGORIES_MAX} categories."
         );
     }
-    made = _make(scope.tenant, scope.ctx.tenant_id, clean, next_position(found));
+    made = make_category(
+        scope.tenant, scope.ctx.tenant_id, clean, next_position(found)
+    );
     return {"ok": True, "category": category_view(made, 0)};
 }
 
@@ -140,7 +144,7 @@ def _add_defaults(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     position = next_position(found);
     for name in DEFAULT_CATEGORIES {
         if name.casefold() not in taken {
-            _make(scope.tenant, scope.ctx.tenant_id, name, position);
+            make_category(scope.tenant, scope.ctx.tenant_id, name, position);
             position += 1;
         }
     }

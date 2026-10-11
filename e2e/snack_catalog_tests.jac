@@ -102,6 +102,8 @@ test "an owner builds a product with variants, and publishing checks it" {
         # A product with variants.
         page.click('nav[aria-label="Snacks"] a:has-text("Products")');
         page.click('[data-testid="add-product"]');
+        # Templates come first (P12.5); this starts blank.
+        page.click('[data-testid="template-blank"]');
         page.wait_for_selector('[data-testid="snack-editor"]');
         _type(page, "#p-name", "Popcorn");
         page.select_option("#p-category_id", label="Popcorn");

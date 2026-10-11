@@ -58,8 +58,11 @@ import from .snack_view {
     price_cents_of,
     split_values,
     blank_row,
-    generate_rows
+    generate_rows,
+    template_form,
+    TEMPLATES
 }
+import from core.snacks.tools_api { duplicate_snack_product }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 import from .SnackProductsPage { ProductThumb }
 import from .SnackVenues { SnackVenues }
 import from .SnackExtrasParts { SnackAddonPicker, SnackComponents }
@@ -144,6 +147,13 @@ def:pub SnackProductEditor(
     [busy, set_busy] = useState(False);
     [asking, set_asking] = useState(False);
     [loaded, set_loaded] = useState(False);
+    # A new product starts from a template (P12.5): asked in the address ("Add another"
+    # keeps the category), or chosen first on the page.
+    win: any = window;  # jac:ignore[W1037,W2001]
+    query: any = new(win.URLSearchParams, win.location.search);  # jac:ignore[W1037]
+    asked_template: str = query.get("template") or "";
+    asked_category: str = query.get("category") or "";
+    [started, set_started] = useState(not is_new or bool(asked_template));
 
     async def load {
         found: any = None;  # jac:ignore[W1037]
@@ -173,6 +183,14 @@ def:pub SnackProductEditor(
             }
             set_product(got["product"]);
             set_form(_form_of(got["product"]));
+        } elif asked_template {
+            set_form(
+                template_form(
+                    asked_template if asked_template != "blank" else "",
+                    kinds,
+                    asked_category
+                )
+            );
         }
         set_loaded(True);
     }
@@ -441,6 +459,63 @@ def:pub SnackProductEditor(
                 <Spinner aria-hidden="true"/>
                 Loading…
             </p>;
+    }
+
+    def start_with(key: str) {
+        kinds_now: list[dict[str, any]] = categories;  # jac:ignore[W1037]
+        set_form(template_form(key, kinds_now, asked_category));
+        set_started(True);
+    }
+
+    if is_new and not started {
+        return
+            <div className="flex flex-col gap-4" data-testid="template-picker">
+                <AppLink
+                    to={snack_path(slug)}
+                    className="inline-flex min-h-11 w-fit items-center text-sm font-medium underline underline-offset-4"
+                >
+                    ← Products
+                </AppLink>
+                <h2 className="text-xl font-semibold">What would you like to add?</h2>
+                <p className="text-sm text-muted-foreground">
+                    Start from a template and change anything you like.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                        <button
+                            key={t["key"]}
+                            type="button"
+                            data-testid={f"template-{t['key']}"}
+                            onClick={lambda { start_with(t["key"]); }}
+                            className="flex min-h-20 flex-col items-start justify-center gap-1 rounded-lg border bg-card p-4 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        >
+                            <span className="font-semibold">{t["title"]}</span>
+                            <span className="text-sm text-muted-foreground">
+                                {t["detail"]}
+                            </span>
+                        </button> for t in TEMPLATES
+                    ]}
+                </div>
+                <Button
+                    variant="outline"
+                    className="min-h-11 w-fit px-5"
+                    data-testid="template-blank"
+                    onClick={lambda { start_with(""); }}
+                >
+                    Start with a blank product
+                </Button>
+            </div>;
+    }
+
+    async def duplicate {
+        def send -> any {  # jac:ignore[W1037]
+            return duplicate_snack_product(slug, product_id);  # jac:ignore[W2037]
+        }
+        copy: any = await call(send);  # jac:ignore[W1037]
+        if copy is not None {
+            set_dirty(False);
+            nav(snack_path(slug, copy["product"]["product_id"]));  # jac:ignore[W1051]
+        }
     }
 
     def err(field: str) -> str {
@@ -935,6 +1010,41 @@ def:pub SnackProductEditor(
                 </Badge>
             </p>
             {actions}
+            {can_manage
+                and not is_new
+                and <div className="flex flex-col gap-2 border-t pt-3">
+                    <Button
+                        variant="outline"
+                        className="min-h-11"
+                        disabled={busy}
+                        data-testid="duplicate-product"
+                        onClick={duplicate}
+                    >
+                        Duplicate
+                    </Button>
+                    <AppLink
+                        to={snack_path(
+                            slug, f"new?category={values['category_id']}&template=blank"
+                        )}
+                        testid="add-another"
+                        className="inline-flex min-h-11 items-center justify-center rounded-md px-4 text-sm font-medium underline underline-offset-4"
+                    >
+                        {"Add another product"
+                            + (
+                                f" in {[
+                                    c['name']
+                                    for c in kinds
+                                    if c['category_id'] == values['category_id']
+                                ][0]}"
+                                    if [
+                                        c
+                                        for c in kinds
+                                        if c["category_id"] == values["category_id"]
+                                    ]
+                                    else ""
+                            )}
+                    </AppLink>
+                </div>}
         </section>
         <section
             aria-labelledby="preview-title"

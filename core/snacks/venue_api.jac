@@ -52,7 +52,7 @@ def _view(tenant: Tenant, product: SnackProduct) -> dict[str, any] {  # jac:igno
     };
 }
 
-def _set_product_venues(
+def set_product_venues(
     tenant: str, product_id: str, venue_ids: list[str]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, MANAGE);
@@ -141,7 +141,7 @@ def:priv set_snack_product_venues(
         "snack_product.venues_set",
         "snack_product",
         product_id,
-        lambda -> any { return _set_product_venues(tenant, product_id, venue_ids); }  # jac:ignore[W1037]
+        lambda -> any { return set_product_venues(tenant, product_id, venue_ids); }  # jac:ignore[W1037]
     );
 }
 
