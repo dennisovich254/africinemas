@@ -36,7 +36,14 @@ glob PERMISSIONS: list[str] = [
          "employees.assign_roles",
          "tenant.settings.update",
          "tenant.payment_settings.update",
-         "tenant.delete"
+         "tenant.delete",
+         # Snacks (P12): the catalog, availability per venue, stock, and collecting at
+         # the counter.
+         "concessions.read",
+         "concessions.manage",
+         "concessions.availability",
+         "concessions.inventory",
+         "concessions.collect"
      ],
      _CATALOGUE_READ: set[str] = {"movies.read", "showtimes.read"},
      _FLOOR_READ: set[str] = {"seats.read", "venues.read"},
@@ -66,6 +73,21 @@ glob PERMISSIONS: list[str] = [
          "payments.reconcile",
          "financial_reports.read"
      },
+     # Existing roles only (user decision 2026-10-10): managers run the catalog, the
+     # box office keeps availability and stock at their venues and runs the counter.
+     _SNACKS_MANAGE: set[str] = {
+         "concessions.read",
+         "concessions.manage",
+         "concessions.availability",
+         "concessions.inventory",
+         "concessions.collect"
+     },
+     _SNACKS_COUNTER: set[str] = {
+         "concessions.read",
+         "concessions.availability",
+         "concessions.inventory",
+         "concessions.collect"
+     },
      ROLE_PERMISSIONS: dict[str, set[str]] = {
          "owner": set(PERMISSIONS),
          # Runs the cinema's setup and staff; doesn't handle money or the tenant itself.
@@ -75,22 +97,28 @@ glob PERMISSIONS: list[str] = [
              | _BOOKINGS_ALL
              | _TICKETS_ALL
              | _STAFF_ALL
-             | {"tenant.settings.update"},
+             | {"tenant.settings.update"}
+             | _SNACKS_MANAGE,
          "general_manager": {"movies.read"}
              | _SHOWTIMES_ALL
              | _FLOOR_READ
              | _BOOKINGS_ALL
              | _TICKETS_ALL
-             | {"payments.read", "financial_reports.read", "employees.read"},
-         "finance_manager": _CATALOGUE_READ | {"bookings.read"} | _MONEY_ALL,
+             | {"payments.read", "financial_reports.read", "employees.read"}
+             | _SNACKS_MANAGE,
+         "finance_manager": _CATALOGUE_READ
+             | {"bookings.read", "concessions.read"}
+             | _MONEY_ALL,
          "box_office_manager": _CATALOGUE_READ
              | _FLOOR_READ
              | _BOOKINGS_ALL
              | _TICKETS_ALL
-             | {"payments.read", "employees.read"},
+             | {"payments.read", "employees.read"}
+             | _SNACKS_COUNTER,
          "box_office_agent": _CATALOGUE_READ
              | _FLOOR_READ
-             | {"bookings.read", "bookings.create", "tickets.issue"},
+             | {"bookings.read", "bookings.create", "tickets.issue"}
+             | _SNACKS_COUNTER,
          "content_manager": _MOVIES_ALL
              | {"showtimes.read", "showtimes.create", "showtimes.update"}
              | _FLOOR_READ,
@@ -102,7 +130,8 @@ glob PERMISSIONS: list[str] = [
                  "payments.read",
                  "financial_reports.read",
                  "employees.read",
-                 "audit.read"
+                 "audit.read",
+                 "concessions.read"
              },
          "it_admin": _FLOOR_READ | {"employees.read", "tenant.settings.update"}
      },
