@@ -22,7 +22,9 @@ import from core.snacks.venue_api {
 import from .form_parts { FieldError, on_input }
 import from .snack_view { price_text, price_cents_of }
 
-glob CELL_INPUT: str = "min-h-11 w-28 rounded-md border border-input bg-background px-2 text-sm";
+glob CELL_INPUT: str = "min-h-11 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm md:w-28",
+     # A variant is a row on a wide screen and a card on a phone.
+     ROW: str = "grid gap-2 md:grid-cols-[minmax(7rem,1fr)_auto_minmax(12rem,1fr)] md:items-start md:gap-3";
 
 def:pub SnackVenues(
     slug: str,
@@ -185,15 +187,16 @@ def:pub SnackVenues(
             else price_text(v["venue_prices"].get(here));
         field_id = f"venue-price-{variant_id}";
         return
-            <tr
+            <li
                 key={variant_id}
                 data-testid="venue-variant-row"
-                className="border-t align-top"
+                className={ROW
+                    + " rounded-md border p-3 md:rounded-none md:border-0 md:border-t md:px-0 md:py-2"}
             >
-                <th scope="row" className="py-2 pr-2 text-left text-sm font-medium">
+                <span className="text-sm font-semibold md:font-medium">
                     {v["label"]}
-                </th>
-                <td className="py-2 pr-2">
+                </span>
+                <div>
                     <Button
                         type="button"
                         variant={"outline" if on else "default"}
@@ -205,9 +208,15 @@ def:pub SnackVenues(
                     >
                         {f"Unavailable at {here_name}"}
                     </Button>
-                </td>
-                <td className="py-2 pr-2">
-                    <div className="flex flex-wrap items-center gap-2">
+                </div>
+                <div className="flex flex-col gap-1">
+                    <label
+                        htmlFor={field_id}
+                        className="text-xs font-medium text-muted-foreground md:sr-only"
+                    >
+                        {f"Price at {here_name} (KES)"}
+                    </label>
+                    <div className="flex items-center gap-2">
                         <input
                             id={field_id}
                             aria-label={f"Price in KES for {v['label']} at {here_name}"}
@@ -239,8 +248,8 @@ def:pub SnackVenues(
                             field_id={field_id}
                             error={field_errors[field_id]}
                         />}
-                </td>
-            </tr>;
+                </div>
+            </li>;
     }
 
     return
@@ -305,23 +314,20 @@ def:pub SnackVenues(
                 and <p className="text-sm text-muted-foreground">
                     {f"This product isn't sold at {here_name}. Tick it under Sold at to sell it there."}
                 </p>}
-            <div className="overflow-x-auto">
-                <table className="w-full min-w-[32rem] text-sm">
-                    <thead>
-                        <tr className="text-left text-muted-foreground">
-                            <th scope="col" className="py-2 pr-2 font-medium">
-                                Variant
-                            </th>
-                            <th scope="col" className="py-2 pr-2 font-medium">
-                                Availability
-                            </th>
-                            <th scope="col" className="py-2 pr-2 font-medium">
-                                {f"Price at {here_name} (KES)"}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>{[VariantRow(v) for v in variants]}</tbody>
-                </table>
+            <div className="flex flex-col">
+                <div
+                    aria-hidden="true"
+                    className={"hidden text-sm text-muted-foreground md:grid " + ROW}
+                >
+                    <span className="py-2 font-medium">Variant</span>
+                    <span className="py-2 font-medium">Availability</span>
+                    <span className="py-2 font-medium">
+                        {f"Price at {here_name} (KES)"}
+                    </span>
+                </div>
+                <ul className="flex flex-col gap-3 md:gap-0">
+                    {[VariantRow(v) for v in variants]}
+                </ul>
             </div>
             <p className="text-sm text-muted-foreground">
                 An empty price uses the variant's own price.

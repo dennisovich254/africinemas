@@ -344,15 +344,17 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
                 <div
                     key={f"row-{i}"}
                     data-testid="addon-row"
-                    className="grid grid-cols-[1fr_8rem_auto] items-end gap-2"
+                    className="grid grid-cols-[1fr_auto] items-start gap-2 rounded-md border p-3 sm:grid-cols-[1fr_8rem_auto] sm:rounded-none sm:border-0 sm:p-0"
                 >
-                    <TextField
-                        field_id={problem_id(f"group.options[{i}].name")}
-                        label={f"Add-on {i + 1}"}
-                        value={r["name"]}
-                        error={err(f"options[{i}].name")}
-                        on_value={lambda (text: str) { put_row(i, "name", text); }}
-                    />
+                    <div className="col-span-2 sm:col-span-1">
+                        <TextField
+                            field_id={problem_id(f"group.options[{i}].name")}
+                            label={f"Add-on {i + 1}"}
+                            value={r["name"]}
+                            error={err(f"options[{i}].name")}
+                            on_value={lambda (text: str) { put_row(i, "name", text); }}
+                        />
+                    </div>
                     <TextField
                         field_id={problem_id(f"group.options[{i}].price_cents")}
                         label="Extra (KES)"
@@ -364,7 +366,7 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
                     <Button
                         type="button"
                         variant="ghost"
-                        className="min-h-11 px-3"
+                        className="min-h-11 self-end px-3"
                         aria-label={f"Remove add-on {i + 1}"}
                         disabled={len(rows) == 1}
                         onClick={lambda { put(

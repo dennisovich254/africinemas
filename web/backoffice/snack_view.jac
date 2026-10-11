@@ -97,13 +97,16 @@ def:pub generate_rows(
 
 def:pub SnackSubnav(slug: str, current: str) -> JsxElement {
     return
-        <nav aria-label="Snacks" className="flex gap-1 border-b">
+        <nav
+            aria-label="Snacks"
+            className="flex gap-1 overflow-x-auto border-b [scrollbar-width:thin]"
+        >
             {[
                 <AppLink
                     key={key}
                     to={snack_path(slug, key)}
                     current={current == key}
-                    className={"inline-flex min-h-11 items-center border-b-2 px-4 text-sm "
+                    className={"inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 text-sm sm:px-4 "
                         + (
                             "border-primary font-semibold"
                                 if current == key
