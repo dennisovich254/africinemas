@@ -116,6 +116,18 @@ def find_product(tenant: Tenant, ref: str) -> SnackProduct | None {
     return found if isinstance(found, SnackProduct) else None;
 }
 
+def find_variant(
+    tenant: Tenant, product: SnackProduct, ref: str
+) -> SnackVariant | None {
+    # The product's own variant `ref`, or None.
+    for v in variants_of(tenant, product) {
+        if node_id(v) == ref {
+            return v;
+        }
+    }
+    return None;
+}
+
 def must(found: any) -> any {  # jac:ignore[W1037]
     # `found`, or not_found.
     if found is None {
@@ -143,7 +155,9 @@ def variant_view(v: SnackVariant) -> dict[str, any] {  # jac:ignore[W1037]
         "barcode": v.barcode,
         "price_cents": v.price_cents,
         "available": v.available,
-        "track_stock": v.track_stock
+        "track_stock": v.track_stock,
+        "off_at": list(v.off_at),
+        "venue_prices": dict(v.venue_prices)
     };
 }
 
@@ -163,6 +177,7 @@ def product_view(
         "option_names": list(p.option_names),
         "status": p.status,
         "images": [{"image_id": i["image_id"]} for i in p.images],
+        "off_at": list(p.off_at),
         "currency": CURRENCY,
         "variants": [variant_view(v) for v in variants],
         "updated_at": p.updated_at,

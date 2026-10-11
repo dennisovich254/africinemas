@@ -22,7 +22,8 @@ node SnackProduct {
     # A product family (Popcorn, Coca-Cola). kind is "single" or "variants";
     # option_names are the variant axes (["Size"], ["Flavour", "Size"]); status is
     # "draft", "active" or "archived". images are [{"image_id", "key"}], the first the
-    # main one, each key a media key.
+    # main one, each key a media key. off_at lists the venues that don't sell it
+    # (P12.2); a new venue sells it.
     has tenant_id: str,
         name: str,
         category_id: str = "",
@@ -33,6 +34,7 @@ node SnackProduct {
         option_names: list[str] = [],
         status: str = "draft",
         images: list[dict[str, str]] = [],
+        off_at: list[str] = [],
         created_at: str = "",
         updated_at: str = "",
         published_at: str = "";
@@ -41,7 +43,8 @@ node SnackProduct {
 node SnackVariant {
     # A sellable version of a product (Medium; Zero Sugar · 500 ml). option_values
     # line up with the product's option_names; sku is unique in the cinema (a claim,
-    # ADR-0007) or "" in a draft; price_cents is None until set.
+    # ADR-0007) or "" in a draft; price_cents is None until set. off_at lists the venues
+    # where it isn't available; venue_prices are venues' own prices (P12.2).
     has tenant_id: str,
         product_id: str,
         option_values: list[str] = [],
@@ -50,6 +53,8 @@ node SnackVariant {
         price_cents: int | None = None,
         available: bool = True,
         track_stock: bool = False,
+        off_at: list[str] = [],
+        venue_prices: dict[str, int] = {},
         position: int = 0,
         created_at: str = "",
         updated_at: str = "";

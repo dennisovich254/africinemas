@@ -10,7 +10,9 @@ One page with clear sections:
    the missing combinations as rows, never removing one; each row has its SKU, barcode,
    price, Available and Track stock, and can be removed (a combination the cinema
    doesn't sell). A new product in Popcorn or Beverages starts with the usual sizes.
-4. The side panel: status, the storefront preview (main image, name, "From KES 200"),
+4. At each venue (SnackVenues.jac, P12.2): where it's sold, and each variant's
+   availability and price at a venue.
+5. The side panel: status, the storefront preview (main image, name, "From KES 200"),
    and the actions for the status: Save draft and Publish (draft), Save changes and
    Unpublish (active), Restore (archived), Archive, and Delete (drafts only, asks first).
 
@@ -58,6 +60,7 @@ import from .snack_view {
     generate_rows
 }
 import from .SnackProductsPage { ProductThumb }
+import from .SnackVenues { SnackVenues }
 
 glob IMAGE_TYPES: str = "image/png,image/jpeg,image/webp",
      IMAGES_MAX: int = 5,
@@ -987,7 +990,18 @@ def:pub SnackProductEditor(
             </p>
             <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
                 <div className="flex min-w-0 flex-col gap-4">
-                    {info}{gallery}{variants_section}
+                    {info}{gallery}{variants_section}{shown_product is not None
+                        and not dirty
+                        and <SnackVenues
+                            slug={slug}
+                            product={shown_product}
+                            permissions={permissions}
+                            on_change={set_product}
+                        />}{dirty
+                        and not is_new
+                        and <p className="text-sm text-muted-foreground">
+                            Save your changes to set availability and prices at each venue.
+                        </p>}
                 </div>
                 {side}
             </div>
