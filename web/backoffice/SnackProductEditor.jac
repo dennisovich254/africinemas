@@ -12,7 +12,8 @@ One page with clear sections:
    doesn't sell). A new product in Popcorn or Beverages starts with the usual sizes.
 4. At each venue (SnackVenues.jac, P12.2): where it's sold, and each variant's
    availability and price at a venue.
-5. The side panel: status, the storefront preview (main image, name, "From KES 200"),
+5. The side panel (below the form on a phone, where a bar fixed to the bottom of the
+   screen keeps Save and Publish in reach): status, the storefront preview (main image, name, "From KES 200"),
    and the actions for the status: Save draft and Publish (draft), Save changes and
    Unpublish (active), Restore (archived), Archive, and Delete (drafts only, asks first).
 
@@ -66,7 +67,7 @@ import from .SnackVenues { SnackVenues }
 glob IMAGE_TYPES: str = "image/png,image/jpeg,image/webp",
      IMAGES_MAX: int = 5,
      SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm",
-     CELL_INPUT: str = "min-h-11 w-full min-w-24 rounded-md border border-input bg-background px-2 text-sm",
+     CELL_INPUT: str = "min-h-11 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm",
      # Sizes a new product starts with, by category name (the user can change them).
      SUGGESTED: dict[str, list[str]] = {
          "popcorn": ["Small", "Medium", "Large"],
@@ -629,95 +630,93 @@ def:pub SnackProductEditor(
             </div>}
     </section>;
 
+    # Each variant is a row on a wide screen and a card on a phone: the same fields,
+    # labelled on the phone, under the column headings on a wide screen.
+    GRID = "grid gap-2 md:grid-cols-[minmax(7rem,1fr)_8rem_8rem_7rem_5.5rem_5.5rem_auto] md:items-start md:gap-3";
+    CELL = "flex flex-col gap-1";
+    LABEL = "text-xs font-medium text-muted-foreground md:sr-only";
+
     def RowCells(r: dict[str, any], i: int) -> JsxElement {  # jac:ignore[W1037]
         label = " · ".join(r["option_values"]) if r["option_values"] else "This item";
+        def field(key: str, title: str, mode: str) -> JsxElement {
+            fid = problem_id(f"variants[{i}].{key}");
+            source = "price" if key == "price_cents" else key;
+            return
+                <div className={CELL}>
+                    <label htmlFor={fid} className={LABEL}>{title}</label>
+                    <input
+                        id={fid}
+                        aria-label={f"{title} for {label}"}
+                        value={r[source]}
+                        inputMode={mode}
+                        disabled={not editable}
+                        onChange={on_input(
+                            lambda (text: str) { put_row(i, source, text); }
+                        )}
+                        className={CELL_INPUT}
+                    />
+                    {err(f"variants[{i}].{key}")
+                        and <FieldError
+                            field_id={fid}
+                            error={err(f"variants[{i}].{key}")}
+                        />}
+                </div>;
+        }
+        def tick(key: str, title: str) -> JsxElement {
+            return
+                <label
+                    className="flex min-h-11 items-center gap-2 text-sm md:justify-center"
+                >
+                    <input
+                        type="checkbox"
+                        aria-label={f"{title} for {label}"}
+                        checked={r[key]}
+                        disabled={not editable}
+                        onChange={lambda { put_row(i, key, not r[key]); }}
+                        className="size-5"
+                    />
+                    <span className="md:sr-only">{title}</span>
+                </label>;
+        }
         return
-            <tr
+            <li
                 key={f"row-{i}"}
                 data-testid="variant-row"
-                className="border-t align-top"
+                className={GRID
+                    + " rounded-md border p-3 md:rounded-none md:border-0 md:border-t md:px-0 md:py-2"}
             >
-                <th scope="row" className="py-2 pr-2 text-left text-sm font-medium">
-                    {label}
-                </th>
-                <td className="py-2 pr-2">
-                    <input
-                        id={problem_id(f"variants[{i}].sku")}
-                        aria-label={f"SKU for {label}"}
-                        value={r["sku"]}
-                        disabled={not editable}
-                        onChange={on_input(
-                            lambda (text: str) { put_row(i, "sku", text); }
-                        )}
-                        className={CELL_INPUT}
-                    />
-                    {err(f"variants[{i}].sku")
-                        and <FieldError
-                            field_id={problem_id(f"variants[{i}].sku")}
-                            error={err(f"variants[{i}].sku")}
-                        />}
-                </td>
-                <td className="py-2 pr-2">
-                    <input
-                        id={problem_id(f"variants[{i}].barcode")}
-                        aria-label={f"Barcode for {label}"}
-                        value={r["barcode"]}
-                        inputMode="numeric"
-                        disabled={not editable}
-                        onChange={on_input(
-                            lambda (text: str) { put_row(i, "barcode", text); }
-                        )}
-                        className={CELL_INPUT}
-                    />
-                    {err(f"variants[{i}].barcode")
-                        and <FieldError
-                            field_id={problem_id(f"variants[{i}].barcode")}
-                            error={err(f"variants[{i}].barcode")}
-                        />}
-                </td>
-                <td className="py-2 pr-2">
-                    <input
-                        id={problem_id(f"variants[{i}].price_cents")}
-                        aria-label={f"Price in KES for {label}"}
-                        value={r["price"]}
-                        inputMode="decimal"
-                        disabled={not editable}
-                        onChange={on_input(
-                            lambda (text: str) { put_row(i, "price", text); }
-                        )}
-                        className={CELL_INPUT}
-                    />
-                    {err(f"variants[{i}].price_cents")
-                        and <FieldError
-                            field_id={problem_id(f"variants[{i}].price_cents")}
-                            error={err(f"variants[{i}].price_cents")}
-                        />}
-                </td>
-                <td className="py-2 pr-2 text-center">
-                    <input
-                        type="checkbox"
-                        aria-label={f"{label} available"}
-                        checked={r["available"]}
-                        disabled={not editable}
-                        onChange={lambda { put_row(
-                            i, "available", not r["available"]
-                        ); }}
-                        className="size-5"
-                    />
-                </td>
-                <td className="py-2 pr-2 text-center">
-                    <input
-                        type="checkbox"
-                        aria-label={f"Track stock for {label}"}
-                        checked={r["track_stock"]}
-                        disabled={not editable}
-                        onChange={lambda { put_row(
-                            i, "track_stock", not r["track_stock"]
-                        ); }}
-                        className="size-5"
-                    />
-                </td>
-                <td className="py-2">
+                <div className="flex items-center justify-between gap-2 md:block">
+                    <span className="text-sm font-semibold md:font-medium">
+                        {label}
+                    </span>
+                    {editable
+                        and values["kind"] == "variants"
+                        and <Button
+                            type="button"
+                            variant="ghost"
+                            className="min-h-11 px-3 md:hidden"
+                            aria-label={f"Remove {label}"}
+                            onClick={lambda { put(
+                                "rows",
+                                [
+                                    x
+                                    for (n, x) in enumerate(rows)
+                                    if n != i
+                                ]
+                            ); }}
+                        >
+                            Remove
+                        </Button>}
+                </div>
+                <div className="grid grid-cols-2 gap-2 md:contents">
+                    {field("sku", "SKU", "text")}{field(
+                        "barcode", "Barcode", "numeric"
+                    )}{field("price_cents", "Price (KES)", "decimal")}
+                </div>
+                <div className="flex flex-wrap gap-x-6 md:contents">
+                    {tick("available", "Available")}{tick("track_stock", "Track stock")}
+                </div>
+                <div className="hidden md:block">
                     {editable
                         and values["kind"] == "variants"
                         and <Button
@@ -735,13 +734,16 @@ def:pub SnackProductEditor(
                             ); }}
                         >
                             Remove
-                        </Button>}{err(f"variants[{i}].option_values")
-                        and <FieldError
+                        </Button>}
+                </div>
+                {err(f"variants[{i}].option_values")
+                    and <div className="md:col-span-7">
+                        <FieldError
                             field_id={problem_id(f"variants[{i}].option_values")}
                             error={err(f"variants[{i}].option_values")}
-                        />}
-                </td>
-            </tr>;
+                        />
+                    </div>}
+            </li>;
     }
 
     variants_section = <section
@@ -833,36 +835,22 @@ def:pub SnackProductEditor(
         {err("variants")
             and <FieldError field_id={problem_id("variants")} error={err("variants")}/>}
         {len(rows) > 0
-            and <div className="overflow-x-auto">
-                <table
-                    className="w-full min-w-[40rem] text-sm"
-                    data-testid="variant-table"
+            and <div data-testid="variant-table" className="flex flex-col">
+                <div
+                    aria-hidden="true"
+                    className={"hidden text-sm text-muted-foreground md:grid " + GRID}
                 >
-                    <thead>
-                        <tr className="text-left text-muted-foreground">
-                            <th scope="col" className="py-2 pr-2 font-medium">
-                                Variant
-                            </th>
-                            <th scope="col" className="py-2 pr-2 font-medium">SKU</th>
-                            <th scope="col" className="py-2 pr-2 font-medium">
-                                Barcode
-                            </th>
-                            <th scope="col" className="py-2 pr-2 font-medium">
-                                Price (KES)
-                            </th>
-                            <th scope="col" className="py-2 pr-2 font-medium">
-                                Available
-                            </th>
-                            <th scope="col" className="py-2 pr-2 font-medium">
-                                Track stock
-                            </th>
-                            <th scope="col" className="py-2">
-                                <span className="sr-only">Remove</span>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>{[RowCells(r, i) for (i, r) in enumerate(rows)]}</tbody>
-                </table>
+                    <span className="py-2 font-medium">Variant</span>
+                    <span className="py-2 font-medium">SKU</span>
+                    <span className="py-2 font-medium">Barcode</span>
+                    <span className="py-2 font-medium">Price (KES)</span>
+                    <span className="py-2 text-center font-medium">Available</span>
+                    <span className="py-2 text-center font-medium">Track stock</span>
+                    <span/>
+                </div>
+                <ul className="flex flex-col gap-3 md:gap-0">
+                    {[RowCells(r, i) for (i, r) in enumerate(rows)]}
+                </ul>
             </div>}
         <p className="text-sm text-muted-foreground">
             A draft can leave SKUs and prices empty; publishing needs them. Stock counts come with the Stock page.
@@ -1026,7 +1014,7 @@ def:pub SnackProductEditor(
             >
                 {message}
             </p>
-            <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+            <div className="grid gap-4 pb-24 lg:grid-cols-[1fr_20rem] lg:pb-0">
                 <div className="flex min-w-0 flex-col gap-4">
                     {info}{gallery}{variants_section}{shown_product is not None
                         and not dirty
@@ -1043,5 +1031,29 @@ def:pub SnackProductEditor(
                 </div>
                 {side}
             </div>
+            {editable
+                and <div
+                    data-testid="mobile-save-bar"
+                    className="fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t bg-card/95 p-3 backdrop-blur lg:hidden"
+                >
+                    <Button
+                        variant={"outline" if status == "draft" else "default"}
+                        className="min-h-11 flex-1"
+                        disabled={busy}
+                        data-testid="mobile-save"
+                        onClick={lambda { save(False); }}
+                    >
+                        {"Save draft" if status == "draft" else "Save changes"}
+                    </Button>
+                    {status == "draft"
+                        and <Button
+                            className="min-h-11 flex-1"
+                            disabled={busy}
+                            data-testid="mobile-publish"
+                            onClick={lambda { save(True); }}
+                        >
+                            Publish
+                        </Button>}
+                </div>}
         </div>;
 }
