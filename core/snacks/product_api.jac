@@ -334,6 +334,16 @@ def _transition(
             _category_ok(scope.tenant, product.category_id),
             [_as_fields(v) for v in variants_of(scope.tenant, product)]
         );
+        if product.kind == "combo" and not product.components {
+            problems = problems
+                + [
+                    {
+                        "field": "components",
+                        "code": "COMPONENTS_REQUIRED",
+                        "message": "Choose what this combo includes before publishing."
+                    }
+                ];
+        }
         if problems {
             raise Refused(
                 "cannot_publish",

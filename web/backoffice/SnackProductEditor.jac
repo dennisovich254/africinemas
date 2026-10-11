@@ -10,7 +10,8 @@ One page with clear sections:
    the missing combinations as rows, never removing one; each row has its SKU, barcode,
    price, Available and Track stock, and can be removed (a combination the cinema
    doesn't sell). A new product in Popcorn or Beverages starts with the usual sizes.
-4. At each venue (SnackVenues.jac, P12.2): where it's sold, and each variant's
+4. For a combo, what it includes; for any product, its add-ons (SnackExtrasParts.jac,
+   P12.3). At each venue (SnackVenues.jac, P12.2): where it's sold, and each variant's
    availability and price at a venue.
 5. The side panel: status, the storefront preview (main image, name, "From KES 200"),
    and the actions for the status: Save draft and Publish (draft), Save changes and
@@ -61,6 +62,7 @@ import from .snack_view {
 }
 import from .SnackProductsPage { ProductThumb }
 import from .SnackVenues { SnackVenues }
+import from .SnackExtrasParts { SnackAddonPicker, SnackComponents }
 
 glob IMAGE_TYPES: str = "image/png,image/jpeg,image/webp",
      IMAGES_MAX: int = 5,
@@ -227,7 +229,7 @@ def:pub SnackProductEditor(
     def choose_kind(kind: str) {
         changed: dict[str, any] = dict(values);  # jac:ignore[W1037]
         changed["kind"] = kind;
-        if kind == "single" {
+        if kind in ["single", "combo"] {
             first = dict(rows[0]) if rows else blank_row([]);
             first["option_values"] = [];
             changed["options"] = [];
@@ -732,7 +734,8 @@ def:pub SnackProductEditor(
                 </label>
                 for (kind, words) in [
                     ("single", "No, it's a single item"),
-                    ("variants", "Yes, it has variants (sizes or flavours)")
+                    ("variants", "Yes, it has variants (sizes or flavours)"),
+                    ("combo", "It's a combo (several products at one price)")
                 ]
             ]}
             {err("option_names")
@@ -991,6 +994,21 @@ def:pub SnackProductEditor(
             <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
                 <div className="flex min-w-0 flex-col gap-4">
                     {info}{gallery}{variants_section}{shown_product is not None
+                        and not dirty
+                        and shown_product["kind"] == "combo"
+                        and <SnackComponents
+                            slug={slug}
+                            product={shown_product}
+                            permissions={permissions}
+                            on_change={set_product}
+                        />}{shown_product is not None
+                        and not dirty
+                        and <SnackAddonPicker
+                            slug={slug}
+                            product={shown_product}
+                            permissions={permissions}
+                            on_change={set_product}
+                        />}{shown_product is not None
                         and not dirty
                         and <SnackVenues
                             slug={slug}

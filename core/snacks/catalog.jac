@@ -25,7 +25,8 @@ glob CATEGORY_NAME_MAX: int = 40,
      DESCRIPTION_MAX: int = 500,
      TAGS_MAX: int = 10,
      TAG_MAX: int = 24,
-     KINDS: list[str] = ["single", "variants"],
+     # A combo (P12.3) is sold as one item, like a single one; its parts are components.
+     KINDS: list[str] = ["single", "variants", "combo"],
      OPTIONS_MAX: int = 2,
      OPTION_NAME_MAX: int = 20,
      OPTION_VALUE_MAX: int = 30,
@@ -162,7 +163,7 @@ def check_product(
     given_options: list[any] = option_names if isinstance(option_names, list) else [];  # jac:ignore[W1037]
     clean_options = [_tidy(o) for o in given_options];
     folded = [o.casefold() for o in clean_options];
-    if clean_kind == "single" and clean_options {
+    if clean_kind in ["single", "combo"] and clean_options {
         problems.append(
             _problem(
                 "option_names",
@@ -208,11 +209,11 @@ def check_variants(
 ) -> tuple[list[VariantFields] | None, list[dict[str, str]]] {
     problems: list[dict[str, str]] = [];
     given: list[any] = rows if isinstance(rows, list) else [];  # jac:ignore[W1037]
-    if kind == "single" and len(given) != 1 {
+    if kind in ["single", "combo"] and len(given) != 1 {
         problems.append(
             _problem("variants", "ONE_VARIANT", "A single item is sold in one version.")
         );
-    } elif kind != "single" and (not given or len(given) > VARIANTS_MAX) {
+    } elif kind == "variants" and (not given or len(given) > VARIANTS_MAX) {
         problems.append(
             _problem("variants", "VARIANTS_COUNT", f"Add 1 to {VARIANTS_MAX} variants.")
         );
@@ -221,14 +222,14 @@ def check_variants(
     seen_values: list[str] = [];
     seen_skus: list[str] = [];
     for (i, raw) in enumerate(
-        given[:1] if kind == "single" else given[:VARIANTS_MAX]
+        given[:1] if kind in ["single", "combo"] else given[:VARIANTS_MAX]
     ) {
         row: dict[str, any] = raw if isinstance(raw, dict) else {};  # jac:ignore[W1037]
         at = f"variants[{i}]";
         raw_values = _as_list(row.get("option_values"));
         values = [_tidy(v) for v in raw_values];
         label = variant_label(values);
-        wanted = len(option_names) if kind != "single" else 0;
+        wanted = len(option_names) if kind == "variants" else 0;
         values_key = "|".join([v.casefold() for v in values]);
         if len(values) != wanted
             or any(not v or len(v) > OPTION_VALUE_MAX for v in values) {

@@ -22,7 +22,12 @@ import from core.catalog.poster {
     media_store,
     read_media
 }
-import from core.snacks.models { SnackCategory, SnackProduct, SnackVariant }
+import from core.snacks.models {
+    SnackCategory,
+    SnackProduct,
+    SnackVariant,
+    SnackAddonGroup
+}
 import from core.snacks.catalog { variant_label }
 
 glob READ: str = "concessions.read",
@@ -128,6 +133,75 @@ def find_variant(
     return None;
 }
 
+def find_any_variant(tenant: Tenant, ref: str) -> SnackVariant | None {
+    # Any of the cinema's variants (a combo's component), or None.
+    found = _read(tenant, ref);
+    return found if isinstance(found, SnackVariant) else None;
+}
+
+def addon_groups_of(tenant: Tenant) -> list[SnackAddonGroup] {
+    me = as_principal(tenant);
+    try {
+        found = [tenant-->[?:SnackAddonGroup]];
+    } finally {
+        restore(me);
+    }
+    return sorted(
+        found, key=lambda (g: SnackAddonGroup) -> str { return g.name.casefold(); }
+    );
+}
+
+def find_addon_group(tenant: Tenant, ref: str) -> SnackAddonGroup | None {
+    found = _read(tenant, ref);
+    return found if isinstance(found, SnackAddonGroup) else None;
+}
+
+def addon_group_view(g: SnackAddonGroup, used_by: int) -> dict[str, any] {  # jac:ignore[W1037]
+    return {
+        "group_id": node_id(g),
+        "name": g.name,
+        "label": g.label,
+        "min_picks": g.min_picks,
+        "max_picks": g.max_picks,
+        "repeatable": g.repeatable,
+        "options": [
+            {
+                "option_id": o["option_id"],
+                "name": o["name"],
+                "price_cents": o["price_cents"],
+                "off_at": list(o.get("off_at", []))
+            } for o in g.options
+        ],
+        "used_by": used_by
+    };
+}
+
+def component_views(tenant: Tenant, p: SnackProduct) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # A combo's components, each choice named "Product · Variant" for staff.
+    views: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for c in p.components {
+        choices: list[dict[str, str]] = [];
+        for variant_id in c["variant_ids"] {
+            v = find_any_variant(tenant, variant_id);
+            owner = find_product(tenant, v.product_id) if v is not None else None;
+            name = f"{owner.name} · {variant_label(v.option_values)}"
+                if v is not None and owner is not None
+                else "Removed item";
+            choices.append({"variant_id": variant_id, "name": name});
+        }
+        views.append(
+            {
+                "label": c["label"],
+                "quantity": c["quantity"],
+                "kind": c["kind"],
+                "variant_ids": list(c["variant_ids"]),
+                "choices": choices
+            }
+        );
+    }
+    return views;
+}
+
 def must(found: any) -> any {  # jac:ignore[W1037]
     # `found`, or not_found.
     if found is None {
@@ -178,6 +252,8 @@ def product_view(
         "status": p.status,
         "images": [{"image_id": i["image_id"]} for i in p.images],
         "off_at": list(p.off_at),
+        "addon_group_ids": list(p.addon_group_ids),
+        "components": component_views(tenant, p),
         "currency": CURRENCY,
         "variants": [variant_view(v) for v in variants],
         "updated_at": p.updated_at,
