@@ -109,3 +109,11 @@ def:pub SnackSubnav(slug: str, current: str) -> JsxElement {
             ]}
         </nav>;
 }
+
+def:pub with_field(row: dict[str, any], key: str, value: any) -> dict[str, any] {  # jac:ignore[W1037]
+    # A copy of `row` with `key` set to `value`. Not dict(row, **{key: value}): the
+    # client compiler drops the ** part, so the copy comes back unchanged (JI-049).
+    copy: dict[str, any] = dict(row);  # jac:ignore[W1037]
+    copy[key] = value;
+    return copy;
+}

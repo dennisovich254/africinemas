@@ -55,7 +55,8 @@ import from .snack_view {
     price_cents_of,
     split_values,
     blank_row,
-    generate_rows
+    generate_rows,
+    with_field
 }
 import from .SnackProductsPage { ProductThumb }
 
@@ -225,7 +226,7 @@ def:pub SnackProductEditor(
         def update(prev: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
             changed: dict[str, any] = dict(prev);  # jac:ignore[W1037]
             changed["options"] = [
-                dict(o, **{key: text}) if n == i else o
+                with_field(o, key, text) if n == i else o
                 for (n, o) in enumerate(prev["options"])
             ];
             return changed;
@@ -237,7 +238,7 @@ def:pub SnackProductEditor(
         def update(prev: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
             changed: dict[str, any] = dict(prev);  # jac:ignore[W1037]
             changed["rows"] = [
-                dict(r, **{key: value}) if n == i else r
+                with_field(r, key, value) if n == i else r
                 for (n, r) in enumerate(prev["rows"])
             ];
             return changed;
