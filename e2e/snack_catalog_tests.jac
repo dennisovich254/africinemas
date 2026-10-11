@@ -215,3 +215,33 @@ test "review screenshots of the snack catalog" {
         close_contexts(browser);
     }
 }
+
+test "every snack page fits a phone, with no sideways scroll" {
+    owner = owner_with_cinema();
+    add_venue(owner);
+    product = _stocked(owner);
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(**context_options(pw, "mobile", "light")).new_page();
+        _sign_in(page, owner["email"], owner["slug"]);
+        page.wait_for_selector('[data-testid="product-row"]');
+        for (rest, ready) in [
+            ("", '[data-testid="product-row"]'),
+            (f"/{product}", '[data-testid="variant-table"]'),
+            ("/categories", '[data-testid="category-row"]')
+        ] {
+            page.goto(f"{BASE_URL}/app/{owner['slug']}/snacks{rest}");
+            page.wait_for_selector(ready);
+            wide = page.evaluate(
+                "document.documentElement.scrollWidth - document.documentElement.clientWidth"
+            );
+            assert wide <= 1 , f"/snacks{rest} is {wide}px wider than the phone";
+        }
+        # The editor keeps Save and Publish in reach on a phone.
+        page.goto(f"{BASE_URL}/app/{owner['slug']}/snacks/{product}");
+        page.wait_for_selector('[data-testid="mobile-save-bar"]');
+        assert page.locator('[data-testid="mobile-save"]').is_visible();
+    } finally {
+        close_contexts(browser);
+    }
+}

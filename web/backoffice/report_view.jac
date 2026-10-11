@@ -183,7 +183,13 @@ glob:pub ACTIONS: list[tuple[str, str]] = [
          ("snack_product.restored", "Snack product restored"),
          ("snack_product.deleted", "Snack product deleted"),
          ("snack_product.image_added", "Snack image added"),
-         ("snack_product.image_removed", "Snack image removed")
+         ("snack_product.image_removed", "Snack image removed"),
+         ("snack_product.venues_set", "Snack product's venues changed"),
+         (
+             "snack_variant.availability_changed",
+             "Snack variant available or not at a venue"
+         ),
+         ("snack_variant.venue_price_set", "Snack venue price set")
      ];
 
 def:pub action_label(action: str) -> str {

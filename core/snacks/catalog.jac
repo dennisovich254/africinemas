@@ -365,3 +365,36 @@ def publish_problems(
     }
     return problems;
 }
+
+def offer(
+    status: str,
+    product_off_at: list[str],
+    available: bool,
+    variant_off_at: list[str],
+    price_cents: int | None,
+    venue_prices: dict[str, int],
+    venue_id: str
+) -> tuple[bool, int | None] {
+    # Whether a variant is on sale at `venue_id` (P12.2), and its price there: the
+    # product active and on there, the variant available and on there, and a price
+    # (the venue's own, else the variant's).
+    price = venue_prices.get(venue_id, price_cents);
+    on = status == "active"
+        and venue_id not in product_off_at
+        and available
+        and venue_id not in variant_off_at
+        and price is not None;
+    return (on, price if on else None);
+}
+
+def check_venue_price(value: any) -> tuple[int | None, str] {  # jac:ignore[W1037]
+    # A venue's own price (P12.2): whole cents in range, or None (use the variant's).
+    if value is None {
+        return (None, "");
+    }
+    price = _as_int(value);
+    if price is None or price < PRICE_MIN_CENTS or price > PRICE_MAX_CENTS {
+        return (None, "Enter a price from KES 1 to KES 100,000, or leave it empty.");
+    }
+    return (price, "");
+}
