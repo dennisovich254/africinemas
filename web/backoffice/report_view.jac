@@ -170,7 +170,34 @@ glob:pub ACTIONS: list[tuple[str, str]] = [
          ("home_page.published", "Home page published"),
          ("home_page.rolled_back", "Home page rolled back"),
          ("home_page.photo_uploaded", "Home page photo uploaded"),
-         ("home_page.photo_removed", "Home page photo removed")
+         ("home_page.photo_removed", "Home page photo removed"),
+         ("snack_category.created", "Snack category added"),
+         ("snack_category.defaults_added", "Usual snack categories added"),
+         ("snack_category.renamed", "Snack category renamed"),
+         ("snack_category.reordered", "Snack categories reordered"),
+         ("snack_category.status_changed", "Snack category archived or restored"),
+         ("snack_product.saved", "Snack product saved"),
+         ("snack_product.published", "Snack product published"),
+         ("snack_product.unpublished", "Snack product unpublished"),
+         ("snack_product.archived", "Snack product archived"),
+         ("snack_product.restored", "Snack product restored"),
+         ("snack_product.deleted", "Snack product deleted"),
+         ("snack_product.image_added", "Snack image added"),
+         ("snack_product.image_removed", "Snack image removed"),
+         ("snack_product.venues_set", "Snack product's venues changed"),
+         (
+             "snack_variant.availability_changed",
+             "Snack variant available or not at a venue"
+         ),
+         ("snack_variant.venue_price_set", "Snack venue price set"),
+         ("snack_addons.saved", "Snack add-ons saved"),
+         ("snack_addons.deleted", "Snack add-ons deleted"),
+         (
+             "snack_addons.availability_changed",
+             "Snack add-on available or not at a venue"
+         ),
+         ("snack_product.addons_set", "Snack product's add-ons changed"),
+         ("snack_product.components_set", "Combo contents changed")
      ];
 
 def:pub action_label(action: str) -> str {

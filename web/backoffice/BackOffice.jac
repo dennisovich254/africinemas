@@ -43,6 +43,10 @@ import from .ScreeningsSection { ScreeningsSection }
 import from .ScannerSection { ScannerSection }
 import from .BoxOfficeSection { BoxOfficeSection }
 import from .PricesSection { PricesSection }
+import from .SnackProductsPage { SnackProductsPage }
+import from .SnackProductEditor { SnackProductEditor }
+import from .SnackCategoriesPage { SnackCategoriesPage }
+import from .SnackExtrasPage { SnackExtrasPage }
 import from .StaffSection { StaffSection }
 import from .ReportsSection { ReportsSection }
 import from .StaffHome { StaffHome }
@@ -294,6 +298,10 @@ def:pub BackOffice -> JsxElement {
         title = "Seat layout";
     } elif movie_id {
         title = "New movie" if movie_id == "new" else "Movie";
+    } elif section == "snacks" and item {
+        title = "Snack categories"
+            if item == "categories"
+            else ("New product" if item == "new" else "Snack product");
     }
     content: any = None;  # jac:ignore[W1037]
     if not allowed {
@@ -328,6 +336,20 @@ def:pub BackOffice -> JsxElement {
         content = <BoxOfficeSection slug={slug} shift_open={shift_open}/>;
     } elif section == "scanner" {
         content = <ScannerSection slug={slug} shift_open={shift_open}/>;
+    } elif section == "snacks" and item == "extras" {
+        content = <SnackExtrasPage slug={slug} permissions={permissions}/>;
+    } elif section == "snacks" and item == "categories" {
+        content = <SnackCategoriesPage slug={slug} permissions={permissions}/>;
+    } elif section == "snacks" and item {
+        # key: another product gets a fresh editor, never the last one's fields.
+        content = <SnackProductEditor
+            key={item}
+            slug={slug}
+            product_id={item}
+            permissions={permissions}
+        />;
+    } elif section == "snacks" {
+        content = <SnackProductsPage slug={slug} permissions={permissions}/>;
     } elif section == "prices" {
         content = <PricesSection slug={slug}/>;
     } elif section == "staff" {
