@@ -28,7 +28,24 @@ glob READS: set[str] = {
          "payments.read",
          "financial_reports.read",
          "employees.read",
-         "audit.read"
+         "audit.read",
+         "concessions.read"
+     },
+     # Snacks (P12, user decision 2026-10-10: existing roles only): the owner, tenant
+     # admin and general manager manage the catalog; the box office keeps availability
+     # and stock at their venues and runs the snack counter.
+     SNACK_MANAGERS: set[str] = {
+         "concessions.read",
+         "concessions.manage",
+         "concessions.availability",
+         "concessions.inventory",
+         "concessions.collect"
+     },
+     SNACK_COUNTER: set[str] = {
+         "concessions.read",
+         "concessions.availability",
+         "concessions.inventory",
+         "concessions.collect"
      },
      MATRIX: dict[str, set[str]] = {
          "owner": set(PERMISSIONS),
@@ -56,7 +73,8 @@ glob READS: set[str] = {
              "employees.disable",
              "employees.assign_roles",
              "tenant.settings.update"
-         },
+         }
+             | SNACK_MANAGERS,
          "general_manager": {
              "movies.read",
              "showtimes.read",
@@ -74,7 +92,8 @@ glob READS: set[str] = {
              "payments.read",
              "financial_reports.read",
              "employees.read"
-         },
+         }
+             | SNACK_MANAGERS,
          "finance_manager": {
              "movies.read",
              "showtimes.read",
@@ -82,7 +101,8 @@ glob READS: set[str] = {
              "payments.read",
              "payments.refund",
              "payments.reconcile",
-             "financial_reports.read"
+             "financial_reports.read",
+             "concessions.read"
          },
          "box_office_manager": {
              "movies.read",
@@ -97,7 +117,8 @@ glob READS: set[str] = {
              "tickets.scan",
              "payments.read",
              "employees.read"
-         },
+         }
+             | SNACK_COUNTER,
          "box_office_agent": {
              "movies.read",
              "showtimes.read",
@@ -106,7 +127,8 @@ glob READS: set[str] = {
              "bookings.read",
              "bookings.create",
              "tickets.issue"
-         },
+         }
+             | SNACK_COUNTER,
          "content_manager": {
              "movies.read",
              "movies.create",

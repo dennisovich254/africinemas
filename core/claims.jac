@@ -16,6 +16,7 @@ The only module allowed to use the shared store; contract tests: tests/integrati
 claims_tests.jac and tenant_slug_concurrency_tests.jac.
 """
 
+import json;
 import from jaclang.server.shared_store { shared_store }
 
 glob PREFIX: str = "africinemas:claim:";
@@ -160,6 +161,126 @@ def drop_lapsed(namespace: str) -> int {
             RETURNING key
             """,
             {"n": len(prefix), "p": prefix}
+        )
+    );
+}
+
+# Stock counters (P12.4, ADR-0041): per key, a JSON value {"on_hand": n, "reserved": n},
+# changed only by single statements, so concurrent sales and adjustments can't
+# oversell or lose a change. Each returns the counts after the change, or None when the
+# change would break its guard (nothing changes then).
+
+def _counts(found: list[any]) -> tuple[int, int] | None {  # jac:ignore[W1037]
+    if not found {
+        return None;
+    }
+    value: dict[str, any] = json.loads(str(found[0][0]));  # jac:ignore[W1037]
+    return (int(value.get("on_hand", 0)), int(value.get("reserved", 0)));
+}
+
+def stock_counts(namespace: str, key: str) -> tuple[int, int] {
+    # (on hand, reserved); (0, 0) for a key never stocked.
+    found = _counts(
+        _store().rows(
+            "SELECT value FROM kv_state WHERE key = :k", {"k": _key(namespace, key)}
+        )
+    );
+    return found if found is not None else (0, 0);
+}
+
+def stock_change(namespace: str, key: str, delta: int) -> tuple[int, int] | None {
+    # Adds `delta` to on hand, unless that would go below zero. Adding creates the
+    # counts on first use; taking away needs counts to take from.
+    k = _key(namespace, key);
+    if delta >= 0 {
+        return _counts(
+            _store().rows(
+                """
+                INSERT INTO kv_state (key, value, expires_at)
+                VALUES (:k, json_build_object('on_hand', CAST(:d AS int), 'reserved', 0)::text, NULL)
+                ON CONFLICT (key) DO UPDATE
+                    SET value = jsonb_set(
+                            kv_state.value::jsonb, '{on_hand}',
+                            to_jsonb((kv_state.value::jsonb->>'on_hand')::int + CAST(:d AS int))
+                        )::text,
+                        updated_at = now()
+                RETURNING value
+                """,
+                {"k": k, "d": delta}
+            )
+        );
+    }
+    return _counts(
+        _store().rows(
+            """
+            UPDATE kv_state
+            SET value = jsonb_set(
+                    value::jsonb, '{on_hand}',
+                    to_jsonb((value::jsonb->>'on_hand')::int + CAST(:d AS int))
+                )::text,
+                updated_at = now()
+            WHERE key = :k AND (value::jsonb->>'on_hand')::int + CAST(:d AS int) >= 0
+            RETURNING value
+            """,
+            {"k": k, "d": delta}
+        )
+    );
+}
+
+def stock_reserve(namespace: str, key: str, quantity: int) -> tuple[int, int] | None {
+    # Reserves `quantity` if that many are available (on hand − reserved).
+    return _counts(
+        _store().rows(
+            """
+            UPDATE kv_state
+            SET value = jsonb_set(
+                    value::jsonb, '{reserved}',
+                    to_jsonb((value::jsonb->>'reserved')::int + CAST(:q AS int))
+                )::text,
+                updated_at = now()
+            WHERE key = :k
+              AND (value::jsonb->>'on_hand')::int - (value::jsonb->>'reserved')::int >= CAST(:q AS int)
+            RETURNING value
+            """,
+            {"k": _key(namespace, key), "q": quantity}
+        )
+    );
+}
+
+def stock_release(namespace: str, key: str, quantity: int) -> tuple[int, int] | None {
+    # Gives back up to `quantity` reserved (an order that ended unpaid).
+    return _counts(
+        _store().rows(
+            """
+            UPDATE kv_state
+            SET value = jsonb_set(
+                    value::jsonb, '{reserved}',
+                    to_jsonb(GREATEST((value::jsonb->>'reserved')::int - CAST(:q AS int), 0))
+                )::text,
+                updated_at = now()
+            WHERE key = :k
+            RETURNING value
+            """,
+            {"k": _key(namespace, key), "q": quantity}
+        )
+    );
+}
+
+def stock_commit(namespace: str, key: str, quantity: int) -> tuple[int, int] | None {
+    # A reserved sale went through: `quantity` leaves on hand and reserved together.
+    return _counts(
+        _store().rows(
+            """
+            UPDATE kv_state
+            SET value = jsonb_build_object(
+                    'on_hand', (value::jsonb->>'on_hand')::int - CAST(:q AS int),
+                    'reserved', GREATEST((value::jsonb->>'reserved')::int - CAST(:q AS int), 0)
+                )::text,
+                updated_at = now()
+            WHERE key = :k AND (value::jsonb->>'on_hand')::int >= CAST(:q AS int)
+            RETURNING value
+            """,
+            {"k": _key(namespace, key), "q": quantity}
         )
     );
 }

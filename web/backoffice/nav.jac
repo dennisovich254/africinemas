@@ -24,6 +24,8 @@ glob SUFFIX: str = ".africinemas.co.ke",
          # The price list is a cinema setting (P3.6, P3.7b).
          ("prices", "Prices", "tenant.settings.update"),
          ("box-office", "Box office", "bookings.create"),
+         # The snack catalog (P12): managers build it; the box office reads it here.
+         ("snacks", "Snacks", "concessions.read"),
          ("scanner", "Scanner", "tickets.scan"),
          ("staff", "Staff", "employees.read"),
          # Who changed what (P7.2, P7.3): owners and auditors.
