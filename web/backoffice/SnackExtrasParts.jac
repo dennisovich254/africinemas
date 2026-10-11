@@ -267,7 +267,6 @@ def:pub SnackComponents(
                         value={r["label"]}
                         error={err(f"components[{i}].label")}
                         on_value={lambda (text: str) { put_row(i, "label", text); }}
-                        hint="Like Popcorn or Drinks."
                     />
                     <TextField
                         field_id={problem_id(f"components[{i}].quantity")}
@@ -295,6 +294,9 @@ def:pub SnackComponents(
                             Remove
                         </Button>}
                 </div>
+                <p className="text-sm text-muted-foreground">
+                    Name it like Popcorn or Drinks.
+                </p>
                 <fieldset className="flex flex-col gap-1">
                     <legend className="mb-1 text-sm font-medium">
                         {"Always this product"
