@@ -830,7 +830,7 @@ def:pub SnackProductEditor(
                 </table>
             </div>}
         <p className="text-sm text-muted-foreground">
-            A draft can leave SKUs and prices empty; publishing needs them. Stock counts come with the Stock page.
+            A draft can leave SKUs and prices empty; publishing needs them. Tick Track stock to count a variant on the Stock page.
         </p>
     </section>;
 
