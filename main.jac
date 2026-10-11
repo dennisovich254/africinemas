@@ -119,6 +119,11 @@ import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
 # The AI booking agent: a customer's message in, its reply out (P8.1).
 # Storefront accounts: one per cinema, apart from the back office (P8.6c).
 import from core.tenancy.storefront_accounts { customer_sign_up, my_storefront_account }
+# Connected apps: the apps a customer let book for them, and disconnecting one (P8.6d).
+import from core.oauth.connections {
+    my_connected_apps,  # jac:ignore[W2037]
+    disconnect_app  # jac:ignore[W2037]
+}
 import from core.agent.agent_api { agent_chat, cinema_chat }
 # The MCP server: AfriCinemas in Claude, with a movie card (P8.2). POST /mcp.
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]

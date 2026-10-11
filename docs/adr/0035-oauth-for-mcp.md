@@ -44,3 +44,10 @@ What Jac can do: serve GET JSON, take form bodies, and run a request as the acco
   - booking from Claude (a booking card over the same hold, order and pay endpoints);
   - a page to see and revoke connections;
   - Client ID Metadata Documents.
+
+## Amendment, P8.6d (2026-10-10): a chat account per app, and disconnecting one
+- **One chat account per customer and app**, not per customer. Each app the customer signs in at a cinema is a *connection*: a claim keyed by the customer and the app's client id, holding the app's name, the cinema, when it was connected and its chat account. It lasts as long as a refresh token (30 days) and is renewed with each refresh. Signing the same app in again reuses its connection.
+- **Disconnecting** (`disconnect_app`, from the customer's Account page at `/c/<slug>/account`) takes the connection (one SQL statement, so one caller wins), unlinks the chat account and deletes it. Jac then answers that app's access token with **401 "unknown user"** at once, and its refresh tokens are refused, because a refresh now needs a live connection. The customer's other apps keep working.
+- **Only the cinema's own customer account** lists or ends its connections (`require_customer_of`, ADR-0037). Another customer's app id is `not_found`.
+- A 401 for a deleted account is the one 401 Jac sends us. It is what an OAuth client needs to see: Claude refreshes, is refused, and asks the customer to sign in again.
+- Chat accounts made before this change (one per customer) are no longer used. They hold nothing, and their tokens lapse with Jac's session lifetime.
