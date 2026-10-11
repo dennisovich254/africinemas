@@ -3,7 +3,8 @@
 The cinema's products, with counts (all, active, drafts), a prominent search (name,
 brand, SKU or barcode) and filters (category, status) that keep the page in place.
 Each product shows its main image, name, "3 variants · POP-SM", category, its lowest
-price ("From KES 200"), its status, and opens in the product editor. Managers get "Add
+price ("From KES 200"), its status, and opens in the product editor. Managers tick
+products to publish, archive or restore them together (P12.5); each answers for itself. Managers get "Add
 product"; everyone with access can search and open products. On a phone the table
 becomes a list of cards.
 """
@@ -15,6 +16,7 @@ import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
+import from core.snacks.tools_api { bulk_snack_products }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 import from core.snacks.product_api {
     list_snack_products,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
     get_snack_image  # jac:ignore[W2037]
@@ -83,6 +85,10 @@ def:pub SnackProductsPage(slug: str, permissions: list[str]) -> JsxElement {
     [category, set_category] = useState("");
     [status, set_status] = useState("");
     [failed, set_failed] = useState("");
+    # Bulk actions (P12.5): the products ticked, and what the last action said.
+    [selected, set_selected] = useState([]);
+    [bulk_note, set_bulk_note] = useState("");
+    [bulk_busy, set_bulk_busy] = useState(False);
 
     async def load {
         answer: any = None;  # jac:ignore[W1037]
@@ -176,12 +182,72 @@ def:pub SnackProductsPage(slug: str, permissions: list[str]) -> JsxElement {
         return f"{prefix}KES {price_text(p['price_from_cents'])}";
     }
 
+    ticked: list[str] = selected;
+
+    def tick(product_id: str) {
+        set_selected(
+            [
+                x
+                for x in ticked
+                if x != product_id
+            ]
+                if product_id in ticked
+                else ticked + [product_id]
+        );
+    }
+
+    async def bulk(action: str, words: str) {
+        ids: list[str] = ticked;
+        set_bulk_busy(True);
+        set_bulk_note("");
+        answer: any = None;  # jac:ignore[W1037]
+        try {
+            answer = await bulk_snack_products(slug, ids, action);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("bulk_snack_products failed", e);
+        }
+        set_bulk_busy(False);
+        if answer is None or not answer["ok"] {
+            set_bulk_note(
+                answer["error"]["message"]
+                    if answer is not None
+                    else "We couldn't do that. Try again."
+            );
+            return;
+        }
+        names = {p["product_id"]: p["name"] for p in every};
+        failures = [
+            f"{names.get(r['product_id'], 'A product')}: {r['message']}"
+            for r in answer["results"]
+            if not r["ok"]
+        ];
+        set_bulk_note(
+            f"{words} {answer['done']} of {len(ids)}."
+                + (" " + " ".join(failures) if failures else "")
+        );
+        set_selected([]);
+        await load();
+    }
+
     def Row(p: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
         return
-            <li key={p["product_id"]} data-testid="product-row">
+            <li
+                key={p["product_id"]}
+                data-testid="product-row"
+                className="flex items-center gap-2"
+            >
+                {can_manage
+                    and <input
+                        type="checkbox"
+                        data-testid="select-product"
+                        aria-label={f"Select {p['name']}"}
+                        checked={p["product_id"] in ticked}
+                        onChange={lambda { tick(p["product_id"]); }}
+                        className="size-5 shrink-0"
+                    />}
                 <AppLink
                     to={snack_path(slug, p["product_id"])}
-                    className="grid min-h-16 grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border bg-card p-3 hover:bg-muted/50 md:grid-cols-[auto_2fr_1fr_1fr_auto]"
+                    className="grid min-h-16 min-w-0 flex-1 grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border bg-card p-3 hover:bg-muted/50 md:grid-cols-[auto_2fr_1fr_1fr_auto]"
                 >
                     <ProductThumb
                         slug={slug}
@@ -319,6 +385,56 @@ def:pub SnackProductsPage(slug: str, permissions: list[str]) -> JsxElement {
                 and <p className="text-sm">
                     No products match. Try another search or filter.
                 </p>}
+            <p
+                role="status"
+                aria-live="polite"
+                data-testid="bulk-note"
+                className="text-sm empty:hidden"
+            >
+                {bulk_note}
+            </p>
+            {can_manage
+                and len(ticked) > 0
+                and <div
+                    role="group"
+                    aria-label="Selected products"
+                    data-testid="bulk-actions"
+                    className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 p-3"
+                >
+                    <span className="text-sm font-medium">
+                        {f"{len(ticked)} selected"}
+                    </span>
+                    <Button
+                        className="min-h-11 px-4"
+                        disabled={bulk_busy}
+                        onClick={lambda { bulk("publish", "Published"); }}
+                    >
+                        Publish
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="min-h-11 px-4"
+                        disabled={bulk_busy}
+                        onClick={lambda { bulk("archive", "Archived"); }}
+                    >
+                        Archive
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="min-h-11 px-4"
+                        disabled={bulk_busy}
+                        onClick={lambda { bulk("restore", "Restored"); }}
+                    >
+                        Restore
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className="min-h-11 px-4"
+                        onClick={lambda { set_selected([]); }}
+                    >
+                        Clear
+                    </Button>
+                </div>}
             {len(listed) > 0
                 and <ul className="flex flex-col gap-2" data-testid="product-list">
                     {[Row(p) for p in listed]}
