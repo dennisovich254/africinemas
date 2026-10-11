@@ -47,6 +47,7 @@ import from .SnackProductsPage { SnackProductsPage }
 import from .SnackProductEditor { SnackProductEditor }
 import from .SnackCategoriesPage { SnackCategoriesPage }
 import from .SnackExtrasPage { SnackExtrasPage }
+import from .SnackStockPage { SnackStockPage }
 import from .StaffSection { StaffSection }
 import from .ReportsSection { ReportsSection }
 import from .StaffHome { StaffHome }
@@ -336,6 +337,8 @@ def:pub BackOffice -> JsxElement {
         content = <BoxOfficeSection slug={slug} shift_open={shift_open}/>;
     } elif section == "scanner" {
         content = <ScannerSection slug={slug} shift_open={shift_open}/>;
+    } elif section == "snacks" and item == "stock" {
+        content = <SnackStockPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "extras" {
         content = <SnackExtrasPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "categories" {

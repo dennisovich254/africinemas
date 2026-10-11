@@ -118,3 +118,26 @@ test "take_claim hands a live claim's value to exactly one caller, never an expi
         app.close();
     }
 }
+
+test "stock counters: received, reserved, committed, released, never below zero" {
+    app = served(APP, ["u"]);
+    try {
+        s = lambda (name: str, body: dict[str, any]) -> any { return app.call(
+            "u", name, body
+        ); };  # jac:ignore[W1037]
+        assert s("c_stock", {"key": "coke"}) == [0, 0];
+        # Nothing to take away from a key never stocked.
+        assert s("c_stock_change", {"key": "coke", "delta": -1}) is None;
+        assert s("c_stock_change", {"key": "coke", "delta": 2}) == [2, 0];
+        assert s("c_stock_reserve", {"key": "coke", "quantity": 2}) == [2, 2];
+        # The last units are reserved: another reservation is refused.
+        assert s("c_stock_reserve", {"key": "coke", "quantity": 1}) is None;
+        assert s("c_stock_commit", {"key": "coke", "quantity": 1}) == [1, 1];
+        assert s("c_stock_release", {"key": "coke", "quantity": 5}) == [1, 0];
+        assert s("c_stock_change", {"key": "coke", "delta": -2}) is None;
+        assert s("c_stock_change", {"key": "coke", "delta": -1}) == [0, 0];
+        assert s("c_stock_commit", {"key": "coke", "quantity": 1}) is None;
+    } finally {
+        app.close();
+    }
+}
