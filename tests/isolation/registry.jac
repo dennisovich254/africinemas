@@ -206,6 +206,113 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
+         # The snack catalog (P12.1).
+         "list_snack_categories": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "create_snack_category": {
+             "scope": "tenant",
+             "audit": "snack_category.created",
+             "probe": {"tenant": "{tenant}", "name": "Probe"}
+         },
+         "add_default_snack_categories": {
+             "scope": "tenant",
+             "audit": "snack_category.defaults_added",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "rename_snack_category": {
+             "scope": "tenant",
+             "audit": "snack_category.renamed",
+             "probe": {"tenant": "{tenant}", "category_id": "x", "name": "Probe"}
+         },
+         "reorder_snack_categories": {
+             "scope": "tenant",
+             "audit": "snack_category.reordered",
+             "probe": {"tenant": "{tenant}", "category_ids": []}
+         },
+         "set_snack_category_status": {
+             "scope": "tenant",
+             "audit": "snack_category.status_changed",
+             "probe": {"tenant": "{tenant}", "category_id": "x", "status": "archived"}
+         },
+         "list_snack_products": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "search": "",
+                 "category_id": "",
+                 "status": ""
+             }
+         },
+         "get_snack_product": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "get_snack_image": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "image_id": "x"}
+         },
+         "save_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.saved",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "name": "Probe",
+                 "brand": "",
+                 "description": "",
+                 "tags": [],
+                 "category_id": "x",
+                 "kind": "single",
+                 "option_names": [],
+                 "variants": []
+             }
+         },
+         "publish_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.published",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "unpublish_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.unpublished",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "archive_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.archived",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "restore_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.restored",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "delete_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.deleted",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "upload_snack_image": {
+             "scope": "tenant",
+             "audit": "snack_product.image_added",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "content_type": "image/png",
+                 "data_base64": ""
+             }
+         },
+         "remove_snack_image": {
+             "scope": "tenant",
+             "audit": "snack_product.image_removed",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "image_id": "x"}
+         },
          "create_screening": {
              "scope": "tenant",
              "audit": "showtime.created",

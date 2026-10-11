@@ -48,6 +48,27 @@ import from core.booking.customer_tickets {
     my_tickets  # jac:ignore[W2037]
 }
 import from core.catalog.venue_api { create_venue, create_auditorium }  # jac:ignore[W2037]
+import from core.snacks.category_api {
+    list_snack_categories,  # jac:ignore[W2037]
+    create_snack_category,  # jac:ignore[W2037]
+    add_default_snack_categories,  # jac:ignore[W2037]
+    rename_snack_category,  # jac:ignore[W2037]
+    reorder_snack_categories,  # jac:ignore[W2037]
+    set_snack_category_status  # jac:ignore[W2037]
+}
+import from core.snacks.product_api {
+    list_snack_products,  # jac:ignore[W2037]
+    get_snack_product,  # jac:ignore[W2037]
+    get_snack_image,  # jac:ignore[W2037]
+    save_snack_product,  # jac:ignore[W2037]
+    publish_snack_product,  # jac:ignore[W2037]
+    unpublish_snack_product,  # jac:ignore[W2037]
+    archive_snack_product,  # jac:ignore[W2037]
+    restore_snack_product,  # jac:ignore[W2037]
+    delete_snack_product,  # jac:ignore[W2037]
+    upload_snack_image,  # jac:ignore[W2037]
+    remove_snack_image  # jac:ignore[W2037]
+}
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
 import from core.catalog.movie_api { create_movie, upload_poster, set_trailer }  # jac:ignore[W2037]
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]
