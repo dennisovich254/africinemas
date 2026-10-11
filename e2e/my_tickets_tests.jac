@@ -165,7 +165,9 @@ test "a customer who signed out signs in again from My tickets" {
             **context_options(pw, "desktop", "light")
         ).new_page();
         _sign_up(page, slug, email, f"/c/{slug}");
-        page.wait_for_selector('[data-testid="account-my-tickets"]');
+        page.click('[data-testid="account-page"]');
+        page.wait_for_selector('[data-testid="account"]');
+        assert page.locator('[data-testid="no-connected-apps"]').count() == 1;
         page.click('[data-testid="account-sign-out"]');
         page.wait_for_selector('[data-testid="account-sign-in"]');
         page.goto(f"{BASE_URL}/c/{slug}/my-tickets");

@@ -206,6 +206,230 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
+         # The snack catalog (P12.1).
+         "snack_stock_levels": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "venue_id": "x"}
+         },
+         "snack_stock_history": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "venue_id": "x",
+                 "variant_id": "",
+                 "limit": 10
+             }
+         },
+         "adjust_snack_stock": {
+             "scope": "tenant",
+             "audit": "snack_stock.adjusted",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "variant_id": "x",
+                 "venue_id": "x",
+                 "reason": "received",
+                 "quantity": 1,
+                 "note": ""
+             }
+         },
+         "set_snack_stock_rules": {
+             "scope": "tenant",
+             "audit": "snack_stock.rules_set",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "variant_id": "x",
+                 "venue_id": "x",
+                 "low_threshold": 0,
+                 "at_zero": "unavailable"
+             }
+         },
+         "list_snack_variants": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "list_snack_addon_groups": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "save_snack_addon_group": {
+             "scope": "tenant",
+             "audit": "snack_addons.saved",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "group_id": "x",
+                 "name": "Probe",
+                 "label": "Probe",
+                 "min_picks": 0,
+                 "max_picks": 1,
+                 "repeatable": False,
+                 "options": [{"name": "Probe", "price_cents": 0}]
+             }
+         },
+         "delete_snack_addon_group": {
+             "scope": "tenant",
+             "audit": "snack_addons.deleted",
+             "probe": {"tenant": "{tenant}", "group_id": "x"}
+         },
+         "set_snack_addon_availability": {
+             "scope": "tenant",
+             "audit": "snack_addons.availability_changed",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "group_id": "x",
+                 "option_id": "x",
+                 "venue_id": "x",
+                 "available": True
+             }
+         },
+         "set_snack_product_addons": {
+             "scope": "tenant",
+             "audit": "snack_product.addons_set",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "group_ids": []}
+         },
+         "set_snack_combo_components": {
+             "scope": "tenant",
+             "audit": "snack_product.components_set",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "components": []}
+         },
+         "set_snack_product_venues": {
+             "scope": "tenant",
+             "audit": "snack_product.venues_set",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "venue_ids": []}
+         },
+         "set_snack_variant_availability": {
+             "scope": "tenant",
+             "audit": "snack_variant.availability_changed",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "variant_id": "x",
+                 "venue_id": "x",
+                 "available": True
+             }
+         },
+         "set_snack_venue_price": {
+             "scope": "tenant",
+             "audit": "snack_variant.venue_price_set",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "variant_id": "x",
+                 "venue_id": "x",
+                 "price_cents": None
+             }
+         },
+         "list_snack_categories": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "create_snack_category": {
+             "scope": "tenant",
+             "audit": "snack_category.created",
+             "probe": {"tenant": "{tenant}", "name": "Probe"}
+         },
+         "add_default_snack_categories": {
+             "scope": "tenant",
+             "audit": "snack_category.defaults_added",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "rename_snack_category": {
+             "scope": "tenant",
+             "audit": "snack_category.renamed",
+             "probe": {"tenant": "{tenant}", "category_id": "x", "name": "Probe"}
+         },
+         "reorder_snack_categories": {
+             "scope": "tenant",
+             "audit": "snack_category.reordered",
+             "probe": {"tenant": "{tenant}", "category_ids": []}
+         },
+         "set_snack_category_status": {
+             "scope": "tenant",
+             "audit": "snack_category.status_changed",
+             "probe": {"tenant": "{tenant}", "category_id": "x", "status": "archived"}
+         },
+         "list_snack_products": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "search": "",
+                 "category_id": "",
+                 "status": ""
+             }
+         },
+         "get_snack_product": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "get_snack_image": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "image_id": "x"}
+         },
+         "save_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.saved",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "name": "Probe",
+                 "brand": "",
+                 "description": "",
+                 "tags": [],
+                 "category_id": "x",
+                 "kind": "single",
+                 "option_names": [],
+                 "variants": []
+             }
+         },
+         "publish_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.published",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "unpublish_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.unpublished",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "archive_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.archived",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "restore_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.restored",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "delete_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.deleted",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "upload_snack_image": {
+             "scope": "tenant",
+             "audit": "snack_product.image_added",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "product_id": "x",
+                 "content_type": "image/png",
+                 "data_base64": ""
+             }
+         },
+         "remove_snack_image": {
+             "scope": "tenant",
+             "audit": "snack_product.image_removed",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "image_id": "x"}
+         },
          "create_screening": {
              "scope": "tenant",
              "audit": "showtime.created",
@@ -743,5 +967,20 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "display_name": "Probe"
              }
          },
-         "my_tickets": {"scope": "customer", "audit": "", "probe": {"slug": "{tenant}"}}
+         "my_tickets": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "{tenant}"}
+         },
+         # Connected apps (P8.6d): the caller's own connections at a cinema.
+         "my_connected_apps": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "{tenant}"}
+         },
+         "disconnect_app": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "app_id": "ac-unknown"}
+         }
      };

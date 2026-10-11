@@ -216,7 +216,7 @@ def:pub AuthorizePage -> JsxElement {
                         {[<li key={m}>{m}</li> for m in MAY]}
                     </ul>
                     <p className="text-sm text-muted-foreground">
-                        It can't pay without you: you confirm each payment with your M-Pesa PIN, on your phone. It can't see your payment details or change your account. To stop it, disconnect the cinema in the app.
+                        It can't pay without you: you confirm each payment with your M-Pesa PIN, on your phone. It can't see your payment details or change your account. To stop it, disconnect it on your account page at the cinema, or in the app.
                     </p>
                 </div>
                 <p
