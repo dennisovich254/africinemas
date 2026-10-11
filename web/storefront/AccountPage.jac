@@ -23,8 +23,10 @@ def _day(iso: str) -> str {
     # "10 Oct 2026", in the visitor's own locale.
     win: any = window;  # jac:ignore[W1037,W2001]
     when: any = new(win.Date, iso);  # jac:ignore[W1037]
+    # [] is the visitor's own locale; None would reach the browser as null, which
+    # toLocaleDateString refuses.
     return when.toLocaleDateString(
-        None, {"day": "numeric", "month": "short", "year": "numeric"}
+        [], {"day": "numeric", "month": "short", "year": "numeric"}
     );
 }
 
