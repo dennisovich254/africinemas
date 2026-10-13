@@ -36,7 +36,7 @@ def _audit_log(tenant: str, before: str, limit: int, action: str) -> dict[str, a
     };
 }
 
-def:priv audit_log(
+def:protect audit_log(
     tenant: str, limit: int, before: str = "", action: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _audit_log(tenant, before, limit, action); });  # jac:ignore[W1037]

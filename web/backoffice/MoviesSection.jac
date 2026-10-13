@@ -11,7 +11,7 @@ import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.button { Button }
 import from ...components.ui.spinner { Spinner }
 import from core.catalog.movie_api {
-    list_movies,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    list_movies,  # jac:ignore[W2037] authenticated endpoint
     get_poster  # jac:ignore[W2037]
 }
 

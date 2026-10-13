@@ -413,11 +413,11 @@ def _do_create_movie(  # jac:ignore[W3030] the new-movie form: cinema and its se
     );
 }
 
-def:priv list_movies(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect list_movies(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _list_movies(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv get_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect get_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_movie(tenant, movie_id); });  # jac:ignore[W1037]
 }
 
@@ -485,7 +485,7 @@ def _do_upload_poster(
     );
 }
 
-def:priv get_poster(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect get_poster(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_poster(tenant, movie_id); });  # jac:ignore[W1037]
 }
 
@@ -503,7 +503,7 @@ def _do_remove_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:i
     return answer(lambda -> any { return _remove_backdrop(tenant, movie_id); });  # jac:ignore[W1037]
 }
 
-def:priv create_movie(  # jac:ignore[W3030] the new-movie form: cinema and its seven fields
+def:protect create_movie(  # jac:ignore[W3030] the new-movie form: cinema and its seven fields
     tenant: str,
     title: str,
     synopsis: str,
@@ -532,7 +532,7 @@ def:priv create_movie(  # jac:ignore[W3030] the new-movie form: cinema and its s
     );
 }
 
-def:priv update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its seven fields
+def:protect update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its seven fields
     tenant: str,
     movie_id: str,
     title: str,
@@ -562,7 +562,7 @@ def:priv update_movie(  # jac:ignore[W3030] the edit form: cinema, movie and its
     );
 }
 
-def:priv delete_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect delete_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "movie.deleted",
@@ -572,7 +572,7 @@ def:priv delete_movie(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ign
     );
 }
 
-def:priv upload_poster(
+def:protect upload_poster(
     tenant: str, movie_id: str, content_type: str, data_base64: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -586,7 +586,7 @@ def:priv upload_poster(
     );
 }
 
-def:priv upload_backdrop(
+def:protect upload_backdrop(
     tenant: str, movie_id: str, content_type: str, data_base64: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -600,7 +600,7 @@ def:priv upload_backdrop(
     );
 }
 
-def:priv remove_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect remove_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "movie.backdrop_removed",
@@ -610,7 +610,7 @@ def:priv remove_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:
     );
 }
 
-def:priv set_trailer(tenant: str, movie_id: str, url: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect set_trailer(tenant: str, movie_id: str, url: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "movie.trailer_set",

@@ -162,7 +162,7 @@ def _do_create_cinema(
     };
 }
 
-def:priv my_cinemas -> list[dict[str, str | list[str]]] {
+def:protect my_cinemas -> list[dict[str, str | list[str]]] {
     # The cinemas the caller is active staff of, with their roles there.
     me = node_id(root);
     found: list[dict[str, str | list[str]]] = [];
@@ -191,7 +191,7 @@ def:priv my_cinemas -> list[dict[str, str | list[str]]] {
     return found;
 }
 
-def:priv check_slug(slug: str) -> dict[str, str | bool] {
+def:protect check_slug(slug: str) -> dict[str, str | bool] {
     # For the onboarding wizard, as the owner types: is this cinema address valid and
     # free? Slugs are public (they are subdomains), so this reveals nothing private.
     wanted = normalize_slug(slug);
@@ -224,7 +224,7 @@ def:priv check_slug(slug: str) -> dict[str, str | bool] {
     };
 }
 
-def:priv create_cinema(
+def:protect create_cinema(
     name: str, slug: str, email: str = ""
 ) -> dict[str, bool | str | dict[str, str]] {
     # The new cinema's audit log starts with its creation (P7.2); a refusal has no

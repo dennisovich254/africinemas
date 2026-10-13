@@ -220,7 +220,7 @@ def price_seats(
     return lines;
 }
 
-def:priv get_price_list(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect get_price_list(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_price_list(tenant); });  # jac:ignore[W1037]
 }
 
@@ -239,7 +239,7 @@ def _do_save_price_list(
     );
 }
 
-def:priv quote_tickets(
+def:protect quote_tickets(
     tenant: str,
     screening_id: str,
     items: list[any]  # jac:ignore[W1037]
@@ -249,7 +249,7 @@ def:priv quote_tickets(
     );
 }
 
-def:priv save_price_list(
+def:protect save_price_list(
     tenant: str,
     timezone: str,
     ticket_types: list[any],  # jac:ignore[W1037]

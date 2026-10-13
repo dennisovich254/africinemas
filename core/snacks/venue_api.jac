@@ -133,7 +133,7 @@ def _set_venue_price(
     return _view(scope.tenant, product);
 }
 
-def:priv set_snack_product_venues(
+def:protect set_snack_product_venues(
     tenant: str, product_id: str, venue_ids: list[str]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -145,7 +145,7 @@ def:priv set_snack_product_venues(
     );
 }
 
-def:priv set_snack_variant_availability(
+def:protect set_snack_variant_availability(
     tenant: str, product_id: str, variant_id: str, venue_id: str, available: bool
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -160,7 +160,7 @@ def:priv set_snack_variant_availability(
     );
 }
 
-def:priv set_snack_venue_price(
+def:protect set_snack_venue_price(
     tenant: str,
     product_id: str,
     variant_id: str,

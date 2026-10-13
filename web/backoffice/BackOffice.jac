@@ -29,7 +29,7 @@ import from ...components.ui.empty {
 import from ...components.ui.spinner { Spinner }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppShell { AppShell }
-import from core.tenancy.tenant_api { my_access, start_shift }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.tenancy.tenant_api { my_access, start_shift }  # jac:ignore[W2037] authenticated endpoint
 import from .nav { web_address, nav_for, section_label, section_path, role_label }
 import from .PlainLayout { PlainLayout, AccountActions }
 import from .ScreensSection { ScreensSection }

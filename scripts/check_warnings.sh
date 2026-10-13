@@ -12,7 +12,7 @@ out="$(jac check 2>&1)"; rc=$?
 count="$(scripts/count_warnings.sh <<<"$out")"   # discounts the JSX closing-tag false positive (JI-017)
 
 if (( rc != 0 )); then
-    grep -E '^✖|error\[' <<<"$out" | head -20
+    grep -E '^✖|^\[ERROR\]|error\[' <<<"$out" | head -20
     echo "jac check: errors found (see above)." >&2
     exit 1
 fi
@@ -26,7 +26,7 @@ baseline="${baseline:-0}"
 if (( count > baseline )); then
     echo "jac check: $count warnings, baseline is $baseline. New warnings were introduced." >&2
     echo "Warnings by file and code:" >&2
-    awk '/^⚠/ { match($0, /\[[A-Z][0-9]+\]/); code = substr($0, RSTART + 1, RLENGTH - 2) }
+    awk '/^(⚠|\[WARNING\])/ { match($0, /\[[A-Z][0-9]+\]/); code = substr($0, RSTART + 1, RLENGTH - 2) }
          /^ *-->/ { sub(/^ *--> */, ""); sub(/:[0-9]+:[0-9]+$/, ""); if (code != "") print code "  " $0; code = "" }' \
         <<<"$out" | sort | uniq -c | sort -rn >&2
     exit 1

@@ -21,12 +21,12 @@ def _tenant(tenant_id: str) -> Tenant {
     }
 }
 
-def:priv t_join_as(tenant_id: str, role: str, venue_id: str) -> str {
+def:protect t_join_as(tenant_id: str, role: str, venue_id: str) -> str {
     # Make the caller staff of `tenant_id` with `role` (at `venue_id`, "" = tenant-wide).
     add_staff(_tenant(tenant_id), role, venue_id);
     return node_id(root);
 }
 
-def:priv t_remove(tenant_id: str, staff_root_id: str) -> int {
+def:protect t_remove(tenant_id: str, staff_root_id: str) -> int {
     return remove_member(_tenant(tenant_id), staff_root_id);
 }

@@ -13,7 +13,7 @@ import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
-import from core.reporting.report_api { sales_report }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.reporting.report_api { sales_report }  # jac:ignore[W2037] authenticated endpoint
 import from .report_view { PRESETS, preset_range, period_label, percent, money_label }
 import from .report_parts { KpiTile, TakingsChart, TopMovies, DrillDown }
 

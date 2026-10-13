@@ -79,6 +79,6 @@ node CustomerProfile {
         created_at: str;
 }
 
-edge MemberOf {}
+edge MemberOf: Root --> StaffGroup {}
 
-edge ForTenant {}
+edge ForTenant: StaffGroup --> Tenant {}

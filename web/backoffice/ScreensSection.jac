@@ -16,7 +16,7 @@ import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.catalog.venue_api {
-    list_venues,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    list_venues,  # jac:ignore[W2037] authenticated endpoint
     create_auditorium,  # jac:ignore[W2037]
     rename_auditorium,  # jac:ignore[W2037]
     delete_auditorium  # jac:ignore[W2037]

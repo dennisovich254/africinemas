@@ -13,9 +13,9 @@ and replaces the editor's copy (on_change).
 
 import from react { useState, useEffect }
 import from ...components.ui.button { Button }
-import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] authenticated endpoint
 import from core.snacks.venue_api {
-    set_snack_product_venues,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    set_snack_product_venues,  # jac:ignore[W2037] authenticated endpoint
     set_snack_variant_availability,  # jac:ignore[W2037]
     set_snack_venue_price  # jac:ignore[W2037]
 }

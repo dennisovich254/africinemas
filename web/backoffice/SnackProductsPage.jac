@@ -18,10 +18,10 @@ import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.snacks.tools_api { bulk_snack_products }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 import from core.snacks.product_api {
-    list_snack_products,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    list_snack_products,  # jac:ignore[W2037] authenticated endpoint
     get_snack_image  # jac:ignore[W2037]
 }
-import from core.snacks.category_api { list_snack_categories }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.snacks.category_api { list_snack_categories }  # jac:ignore[W2037] authenticated endpoint
 import from ..shell.AppLink { AppLink }
 import from .form_parts { on_input }
 import from .snack_view { SnackSubnav, snack_path, status_label, price_text }

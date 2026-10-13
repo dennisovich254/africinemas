@@ -9,7 +9,7 @@ cinema if they have none (customer_api.join_customer).
 Each saved booking is a permanent claim in the caller's own namespace,
 "customer-orders:<tenant id>:<customer root id>", keyed by the order. my_tickets reads only
 that namespace, so a customer sees only their own bookings, and only at that cinema.
-Both endpoints need a login (def:priv); a wrong link, or one for another cinema, answers
+Both endpoints need a login (def:protect); a wrong link, or one for another cinema, answers
 not_found.
 """
 
@@ -90,10 +90,12 @@ def save_for_caller(slug: str, token: str) -> dict[str, any] {  # jac:ignore[W10
     return answer(lambda -> any { return _save(slug, token, ""); });  # jac:ignore[W1037]
 }
 
-def:priv save_booking(slug: str, token: str, display_name: str = "") -> dict[str, any] {  # jac:ignore[W1037]
+def:protect save_booking(
+    slug: str, token: str, display_name: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _save(slug, token, display_name); });  # jac:ignore[W1037]
 }
 
-def:priv my_tickets(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect my_tickets(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _mine(slug); });  # jac:ignore[W1037]
 }

@@ -175,7 +175,7 @@ def:pub oauth_register(
     };
 }
 
-def:priv oauth_consent_info(
+def:protect oauth_consent_info(
     client_id: str, redirect_uri: str, resource: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # What the consent page shows: who asks, for which cinema, and where the customer
@@ -197,7 +197,7 @@ def:priv oauth_consent_info(
     };
 }
 
-def:priv oauth_approve(
+def:protect oauth_approve(
     client_id: str,
     redirect_uri: str,
     code_challenge: str,
@@ -237,7 +237,7 @@ def:priv oauth_approve(
     return {"ok": True, "redirect": with_query(redirect_uri, back)};
 }
 
-def:priv oauth_deny(
+def:protect oauth_deny(
     client_id: str, redirect_uri: str, resource: str, state: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # The customer said no: the app hears access_denied, at a redirect it registered.

@@ -21,13 +21,13 @@ import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
-import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] authenticated endpoint
 import from core.catalog.layout_api {
     list_layouts,  # jac:ignore[W2037]
     get_layout,  # jac:ignore[W2037]
     save_layout,  # jac:ignore[W2037]
     publish_layout  # jac:ignore[W2037]
-}  # def:priv endpoints over the server pin (JI-027)
+}  # authenticated endpoints
 import from .seat_grid {
     MAX_ROWS,
     MAX_COLS,

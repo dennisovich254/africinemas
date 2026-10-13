@@ -27,6 +27,6 @@ walker:pub s3_ping {
     }
 }
 
-def:priv s3_whoami -> str {
+def:protect s3_whoami -> str {
     return str(root.__jac__.id);
 }
