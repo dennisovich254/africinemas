@@ -1,7 +1,6 @@
 import from core.health { AppInfo, app_info }
-# Every endpoint must be named in the entry import (jac-sv-endpoints). The checker's
-# W2037 ("private to module") is a false alarm for this documented pattern: :priv
-# endpoints are served, and require a login (tests/api/smoke_tests.jac).
+# Domain endpoints declare :protect (authenticated) or :pub (anonymous).
+# Plain functions, including scheduled jobs, stay internal on Jac 0.37.25.
 import from core.tenancy.signup {
     create_cinema,  # jac:ignore[W2037]
     my_cinemas,  # jac:ignore[W2037]
@@ -132,6 +131,15 @@ import from core.snacks.venue_api {
     set_snack_product_venues,  # jac:ignore[W2037]
     set_snack_variant_availability,  # jac:ignore[W2037]
     set_snack_venue_price  # jac:ignore[W2037]
+}
+import from core.snacks.extras_api {
+    list_snack_variants,  # jac:ignore[W2037]
+    list_snack_addon_groups,  # jac:ignore[W2037]
+    save_snack_addon_group,  # jac:ignore[W2037]
+    delete_snack_addon_group,  # jac:ignore[W2037]
+    set_snack_addon_availability,  # jac:ignore[W2037]
+    set_snack_product_addons,  # jac:ignore[W2037]
+    set_snack_combo_components  # jac:ignore[W2037]
 }
 import from core.snacks.product_api {
     list_snack_products,  # jac:ignore[W2037]

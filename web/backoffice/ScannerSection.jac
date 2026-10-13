@@ -27,7 +27,7 @@ import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
-import from core.booking.redeem_api { door_showtimes, redeem_ticket }  # jac:ignore[W2037] def:priv endpoints over the server pin (JI-027)
+import from core.booking.redeem_api { door_showtimes, redeem_ticket }  # jac:ignore[W2037] authenticated endpoints
 import from ..storefront.showtimes { time_label, long_day_label }
 
 glob REPEAT_MS: int = 4000;

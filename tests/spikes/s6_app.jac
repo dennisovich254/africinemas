@@ -46,7 +46,7 @@ def _sessions_of(staff_root_id: str) -> list[StaffSession] {
     ];
 }
 
-def:priv s6_start_shift -> dict[str, str] {
+def:protect s6_start_shift -> dict[str, str] {
     me = node_id(root);
     act_as(system_root_id());
     try {
@@ -65,7 +65,7 @@ def:priv s6_start_shift -> dict[str, str] {
     }
 }
 
-def:priv s6_end_shift -> dict[str, int] {
+def:protect s6_end_shift -> dict[str, int] {
     me = node_id(root);
     act_as(system_root_id());
     try {
@@ -81,7 +81,7 @@ def:priv s6_end_shift -> dict[str, int] {
     }
 }
 
-def:priv s6_staff_action -> dict[str, any] {
+def:protect s6_staff_action -> dict[str, any] {
     # What every staff endpoint will check, next to membership (ADR-0004).
     me = node_id(root);
     act_as(system_root_id());

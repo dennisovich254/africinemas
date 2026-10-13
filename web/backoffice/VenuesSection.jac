@@ -11,7 +11,7 @@ import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.button { Button }
 import from ...components.ui.spinner { Spinner }
 import from core.catalog.venue_api {
-    list_venues,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    list_venues,  # jac:ignore[W2037] authenticated endpoint
     create_venue,  # jac:ignore[W2037]
     update_venue,  # jac:ignore[W2037]
     delete_venue  # jac:ignore[W2037]

@@ -55,13 +55,13 @@ node Venue {
     has name: str;
 }
 
-edge HasVenue {}
+edge HasVenue: Tenant --> Venue {}
 
-edge ForTenant {}
+edge ForTenant: StaffGroup --> Tenant {}
 
-edge MemberOf {}
+edge MemberOf: Root --> StaffGroup {}
 
-edge OwnsTenant {}
+edge OwnsTenant: Root --> Tenant {}
 
 def _attach_to_tenant(n: any, tenant: Tenant, owner_root_id: str) {  # jac:ignore[W1037]
     # The one place tenant nodes get their grants: the staff group (one entry) and the owner.
@@ -77,7 +77,7 @@ def _owned_tenant(tenant_id: str) -> Tenant {
     return found as Tenant;
 }
 
-def:priv s2_create_tenant(name: str) -> dict[str, str] {
+def:protect s2_create_tenant(name: str) -> dict[str, str] {
     caller = node_id(root);
     principal = new_principal(name);
     act_as(principal);
@@ -108,7 +108,7 @@ def:priv s2_create_tenant(name: str) -> dict[str, str] {
     };
 }
 
-def:priv s2_add_venue(tenant_id: str, name: str) -> str {
+def:protect s2_add_venue(tenant_id: str, name: str) -> str {
     tenant = _owned_tenant(tenant_id);
     caller = node_id(root);
     act_as(tenant.principal_root_id);
@@ -123,7 +123,7 @@ def:priv s2_add_venue(tenant_id: str, name: str) -> str {
     return node_id(venue);
 }
 
-def:priv s2_invite(tenant_id: str) -> str {
+def:protect s2_invite(tenant_id: str) -> str {
     tenant = _owned_tenant(tenant_id);
     caller = node_id(root);
     act_as(tenant.principal_root_id);
@@ -153,7 +153,7 @@ def _is_member(group_id: str) -> bool {
     return any(node_id(g) == group_id for g in [root->:MemberOf:->[?:StaffGroup]]);
 }
 
-def:priv s2_join(token: str) -> dict[str, any] {
+def:protect s2_join(token: str) -> dict[str, any] {
     # Replay-safe: no external side effect runs before the commit. The token is only
     # peeked here and consumed in on_commit (reference/persistence, "Side effects and
     # replay"); single use is enforced by the Invite node inside the transaction.
@@ -205,7 +205,7 @@ def:priv s2_join(token: str) -> dict[str, any] {
     return {"joined": True, "reason": ""};
 }
 
-def:priv s2_remove_staff(tenant_id: str, staff_root_id: str) -> dict[str, int] {
+def:protect s2_remove_staff(tenant_id: str, staff_root_id: str) -> dict[str, int] {
     tenant = _owned_tenant(tenant_id);
     caller = node_id(root);
     target = str(UUID(staff_root_id));
@@ -230,7 +230,7 @@ def:priv s2_remove_staff(tenant_id: str, staff_root_id: str) -> dict[str, int] {
     return {"removed": removed};
 }
 
-def:priv s2_staff_view -> list[dict[str, any]] {
+def:protect s2_staff_view -> list[dict[str, any]] {
     seen: list[dict[str, any]] = [];
     for g in [root->:MemberOf:->[?:StaffGroup]] {
         for t in [g->:ForTenant:->[?:Tenant]] {
@@ -246,7 +246,7 @@ def:priv s2_staff_view -> list[dict[str, any]] {
     return seen;
 }
 
-def:priv s2_rename_venues(new_name: str) -> int {
+def:protect s2_rename_venues(new_name: str) -> int {
     count = 0;
     for g in [root->:MemberOf:->[?:StaffGroup]] {
         for t in [g->:ForTenant:->[?:Tenant]] {
@@ -259,7 +259,7 @@ def:priv s2_rename_venues(new_name: str) -> int {
     return count;
 }
 
-def:priv s2_owner_venues -> list[str] {
+def:protect s2_owner_venues -> list[str] {
     return sorted(
         [
             v.name for t in [root->:OwnsTenant:->[?:Tenant]]
@@ -268,7 +268,7 @@ def:priv s2_owner_venues -> list[str] {
     );
 }
 
-def:priv s2_acl(tenant_id: str) -> dict[str, list[str]] {
+def:protect s2_acl(tenant_id: str) -> dict[str, list[str]] {
     access = _owned_tenant(tenant_id).__jac__.access;
     return {
         "roots": sorted([str(k) for k in access.roots.anchors.keys()]),
@@ -276,7 +276,7 @@ def:priv s2_acl(tenant_id: str) -> dict[str, list[str]] {
     };
 }
 
-def:priv s2_probe(node_id_str: str) -> dict[str, any] {
+def:protect s2_probe(node_id_str: str) -> dict[str, any] {
     found: any = jobj(node_id_str);  # jac:ignore[W1037]
     if found is None {
         return {"resolved": False, "can_read": False, "can_write": False};
@@ -288,7 +288,7 @@ def:priv s2_probe(node_id_str: str) -> dict[str, any] {
     };
 }
 
-def:priv s2_try_self_join(group_id: str) -> dict[str, any] {
+def:protect s2_try_self_join(group_id: str) -> dict[str, any] {
     # A user who only knows the group's id tries to attach to it.
     found: any = jobj(group_id);  # jac:ignore[W1037]
     if found is None {

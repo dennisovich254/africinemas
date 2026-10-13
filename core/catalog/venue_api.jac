@@ -380,7 +380,7 @@ def _do_create_venue(
     return answer(lambda -> any { return _create_venue(tenant, name, city, address); });  # jac:ignore[W1037]
 }
 
-def:priv list_venues(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect list_venues(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _list_venues(tenant); });  # jac:ignore[W1037]
 }
 
@@ -416,7 +416,7 @@ def _do_delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  
     );
 }
 
-def:priv create_venue(
+def:protect create_venue(
     tenant: str, name: str, city: str, address: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -429,7 +429,7 @@ def:priv create_venue(
     );
 }
 
-def:priv update_venue(
+def:protect update_venue(
     tenant: str, venue_id: str, name: str, city: str, address: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -443,7 +443,7 @@ def:priv update_venue(
     );
 }
 
-def:priv delete_venue(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect delete_venue(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "venue.deleted",
@@ -453,7 +453,7 @@ def:priv delete_venue(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ign
     );
 }
 
-def:priv create_auditorium(tenant: str, venue_id: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect create_auditorium(tenant: str, venue_id: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "screen.created",
@@ -464,7 +464,7 @@ def:priv create_auditorium(tenant: str, venue_id: str, name: str) -> dict[str, a
     );
 }
 
-def:priv rename_auditorium(
+def:protect rename_auditorium(
     tenant: str, auditorium_id: str, name: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -476,7 +476,7 @@ def:priv rename_auditorium(
     );
 }
 
-def:priv delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect delete_auditorium(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "screen.deleted",

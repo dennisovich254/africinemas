@@ -204,11 +204,11 @@ def _set_status(tenant: str, category_id: str, status: str) -> dict[str, any] { 
     return {"ok": True, "category": _views(scope.tenant, [found])[0]};
 }
 
-def:priv list_snack_categories(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect list_snack_categories(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _list(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv create_snack_category(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect create_snack_category(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_category.created",
@@ -219,7 +219,7 @@ def:priv create_snack_category(tenant: str, name: str) -> dict[str, any] {  # ja
     );
 }
 
-def:priv add_default_snack_categories(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect add_default_snack_categories(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_category.defaults_added",
@@ -229,7 +229,7 @@ def:priv add_default_snack_categories(tenant: str) -> dict[str, any] {  # jac:ig
     );
 }
 
-def:priv rename_snack_category(
+def:protect rename_snack_category(
     tenant: str, category_id: str, name: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -241,7 +241,7 @@ def:priv rename_snack_category(
     );
 }
 
-def:priv reorder_snack_categories(
+def:protect reorder_snack_categories(
     tenant: str, category_ids: list[str]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -253,7 +253,7 @@ def:priv reorder_snack_categories(
     );
 }
 
-def:priv set_snack_category_status(
+def:protect set_snack_category_status(
     tenant: str, category_id: str, status: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(

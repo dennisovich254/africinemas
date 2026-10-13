@@ -7,7 +7,7 @@ frame of the same size while it loads or when the movie has none.
 """
 
 import from react { useState, useEffect }
-import from core.reporting.staff_home { showtime_art }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.reporting.staff_home { showtime_art }  # jac:ignore[W2037] authenticated endpoint
 
 def:pub ShowtimeArt(
     slug: str, screening_id: str, kind: str, available: bool, className: str = ""

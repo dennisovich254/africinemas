@@ -17,7 +17,7 @@ import from ...components.ui.button { Button }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.catalog.movie_api {
-    create_movie,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    create_movie,  # jac:ignore[W2037] authenticated endpoint
     get_movie,  # jac:ignore[W2037]
     update_movie,  # jac:ignore[W2037]
     delete_movie,  # jac:ignore[W2037]

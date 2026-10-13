@@ -18,7 +18,7 @@ import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from ..shell.AppLink { AppLink }
 import from core.booking.ticket_delivery { resend_tickets }
-import from core.booking.customer_tickets { save_booking }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.booking.customer_tickets { save_booking }  # jac:ignore[W2037] authenticated endpoint
 import from .AccountLinks { use_customer }
 import from .checkout_rules { email_problem }
 

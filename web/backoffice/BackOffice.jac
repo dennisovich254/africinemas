@@ -29,7 +29,7 @@ import from ...components.ui.empty {
 import from ...components.ui.spinner { Spinner }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppShell { AppShell }
-import from core.tenancy.tenant_api { my_access, start_shift }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.tenancy.tenant_api { my_access, start_shift }  # jac:ignore[W2037] authenticated endpoint
 import from .nav { web_address, nav_for, section_label, section_path, role_label }
 import from .PlainLayout { PlainLayout, AccountActions }
 import from .ScreensSection { ScreensSection }
@@ -46,6 +46,7 @@ import from .PricesSection { PricesSection }
 import from .SnackProductsPage { SnackProductsPage }
 import from .SnackProductEditor { SnackProductEditor }
 import from .SnackCategoriesPage { SnackCategoriesPage }
+import from .SnackExtrasPage { SnackExtrasPage }
 import from .StaffSection { StaffSection }
 import from .ReportsSection { ReportsSection }
 import from .StaffHome { StaffHome }
@@ -335,6 +336,8 @@ def:pub BackOffice -> JsxElement {
         content = <BoxOfficeSection slug={slug} shift_open={shift_open}/>;
     } elif section == "scanner" {
         content = <ScannerSection slug={slug} shift_open={shift_open}/>;
+    } elif section == "snacks" and item == "extras" {
+        content = <SnackExtrasPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "categories" {
         content = <SnackCategoriesPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item {

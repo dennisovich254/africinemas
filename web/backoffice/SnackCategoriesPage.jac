@@ -13,7 +13,7 @@ import from ...components.ui.badge { Badge }
 import from ...components.ui.button { Button }
 import from ...components.ui.spinner { Spinner }
 import from core.snacks.category_api {
-    list_snack_categories,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    list_snack_categories,  # jac:ignore[W2037] authenticated endpoint
     create_snack_category,  # jac:ignore[W2037]
     add_default_snack_categories,  # jac:ignore[W2037]
     rename_snack_category,  # jac:ignore[W2037]

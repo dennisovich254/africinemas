@@ -207,6 +207,56 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
          # The snack catalog (P12.1).
+         "list_snack_variants": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "list_snack_addon_groups": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "save_snack_addon_group": {
+             "scope": "tenant",
+             "audit": "snack_addons.saved",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "group_id": "x",
+                 "name": "Probe",
+                 "label": "Probe",
+                 "min_picks": 0,
+                 "max_picks": 1,
+                 "repeatable": False,
+                 "options": [{"name": "Probe", "price_cents": 0}]
+             }
+         },
+         "delete_snack_addon_group": {
+             "scope": "tenant",
+             "audit": "snack_addons.deleted",
+             "probe": {"tenant": "{tenant}", "group_id": "x"}
+         },
+         "set_snack_addon_availability": {
+             "scope": "tenant",
+             "audit": "snack_addons.availability_changed",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "group_id": "x",
+                 "option_id": "x",
+                 "venue_id": "x",
+                 "available": True
+             }
+         },
+         "set_snack_product_addons": {
+             "scope": "tenant",
+             "audit": "snack_product.addons_set",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "group_ids": []}
+         },
+         "set_snack_combo_components": {
+             "scope": "tenant",
+             "audit": "snack_product.components_set",
+             "probe": {"tenant": "{tenant}", "product_id": "x", "components": []}
+         },
          "set_snack_product_venues": {
              "scope": "tenant",
              "audit": "snack_product.venues_set",

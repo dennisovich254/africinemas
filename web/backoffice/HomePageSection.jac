@@ -14,7 +14,7 @@ import from ...components.ui.badge { Badge }
 import from ...components.ui.button { Button }
 import from ...components.ui.spinner { Spinner }
 import from core.homepage.home_api {
-    get_home_page,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    get_home_page,  # jac:ignore[W2037] authenticated endpoint
     save_home_page,  # jac:ignore[W2037]
     publish_home_page,  # jac:ignore[W2037]
     rollback_home_page,  # jac:ignore[W2037]

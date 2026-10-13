@@ -263,7 +263,7 @@ def _door_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     };
 }
 
-def:priv door_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect door_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The showtimes whose door is open now, at the venues where the caller may scan
     # tickets (P6.4): what the scanner page offers to check.
     return answer(lambda -> any { return _door_showtimes(tenant); });  # jac:ignore[W1037]
@@ -273,7 +273,7 @@ def _do_redeem_ticket(tenant: str, screening_id: str, code: str) -> dict[str, an
     return answer(lambda -> any { return _redeem(tenant, screening_id, code); });  # jac:ignore[W1037]
 }
 
-def:priv redeem_ticket(tenant: str, screening_id: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect redeem_ticket(tenant: str, screening_id: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "ticket.scanned",

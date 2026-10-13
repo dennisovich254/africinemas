@@ -457,7 +457,7 @@ def _rollback_home_page(tenant: str, version: int) -> dict[str, any] {  # jac:ig
     return {"ok": True, "version": _publish(scope, page)};
 }
 
-def:priv get_home_page(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect get_home_page(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_home_page(tenant); });  # jac:ignore[W1037]
 }
 
@@ -473,7 +473,7 @@ def _do_rollback_home_page(tenant: str, version: int) -> dict[str, any] {  # jac
     return answer(lambda -> any { return _rollback_home_page(tenant, version); });  # jac:ignore[W1037]
 }
 
-def:priv preview_home_page(tenant: str, page: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect preview_home_page(tenant: str, page: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _preview_home_page(tenant, page); });  # jac:ignore[W1037]
 }
 
@@ -485,7 +485,7 @@ def _do_upload_home_photo(
     );
 }
 
-def:priv get_home_photo(tenant: str, photo: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect get_home_photo(tenant: str, photo: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_home_photo(tenant, photo); });  # jac:ignore[W1037]
 }
 
@@ -493,7 +493,7 @@ def _do_remove_home_photo(tenant: str, photo: str) -> dict[str, any] {  # jac:ig
     return answer(lambda -> any { return _remove_home_photo(tenant, photo); });  # jac:ignore[W1037]
 }
 
-def:priv save_home_page(tenant: str, page: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect save_home_page(tenant: str, page: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "home_page.saved",
@@ -503,7 +503,7 @@ def:priv save_home_page(tenant: str, page: dict[str, any]) -> dict[str, any] {  
     );
 }
 
-def:priv publish_home_page(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect publish_home_page(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "home_page.published",
@@ -513,7 +513,7 @@ def:priv publish_home_page(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     );
 }
 
-def:priv rollback_home_page(tenant: str, version: int) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect rollback_home_page(tenant: str, version: int) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "home_page.rolled_back",
@@ -524,7 +524,7 @@ def:priv rollback_home_page(tenant: str, version: int) -> dict[str, any] {  # ja
     );
 }
 
-def:priv upload_home_photo(
+def:protect upload_home_photo(
     tenant: str, content_type: str, data_base64: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -539,7 +539,7 @@ def:priv upload_home_photo(
     );
 }
 
-def:priv remove_home_photo(tenant: str, photo: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect remove_home_photo(tenant: str, photo: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "home_page.photo_removed",

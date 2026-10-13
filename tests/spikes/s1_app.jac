@@ -33,11 +33,11 @@ node Venue {
     has name: str;
 }
 
-edge HasVenue {}
+edge HasVenue: Tenant --> Venue {}
 
-edge OwnsTenant {}
+edge OwnsTenant: Root --> Tenant {}
 
-def:priv s1_create_tenant(name: str) -> dict[str, str] {
+def:protect s1_create_tenant(name: str) -> dict[str, str] {
     caller_root_id = node_id(root);
     principal_root_id = new_principal(name);
     act_as(principal_root_id);
@@ -62,7 +62,7 @@ def:priv s1_create_tenant(name: str) -> dict[str, str] {
     };
 }
 
-def:priv s1_my_tenants -> list[dict[str, any]] {
+def:protect s1_my_tenants -> list[dict[str, any]] {
     found: list[dict[str, any]] = [];
     for tenant in [root->:OwnsTenant:->[?:Tenant]] {
         found.append(
@@ -76,7 +76,7 @@ def:priv s1_my_tenants -> list[dict[str, any]] {
     return found;
 }
 
-def:priv s1_probe(tenant_id: str) -> dict[str, any] {
+def:protect s1_probe(tenant_id: str) -> dict[str, any] {
     # What a caller who was given only the id can do with it.
     found = jobj(tenant_id);
     if found is None {
@@ -90,7 +90,7 @@ def:priv s1_probe(tenant_id: str) -> dict[str, any] {
     };
 }
 
-def:priv s1_try_tamper(tenant_id: str) -> dict[str, any] {
+def:protect s1_try_tamper(tenant_id: str) -> dict[str, any] {
     found = jobj(tenant_id);
     if found is None {
         return {"resolved": False};
@@ -101,7 +101,7 @@ def:priv s1_try_tamper(tenant_id: str) -> dict[str, any] {
     return {"resolved": True};
 }
 
-def:priv s1_step_down(tenant_id: str) -> dict[str, any] {
+def:protect s1_step_down(tenant_id: str) -> dict[str, any] {
     # Offboarding: the principal (the owner of the nodes) revokes the human's grant.
     caller_root_id = node_id(root);
     tenant = jobj(tenant_id) as Tenant;
@@ -120,7 +120,7 @@ def:priv s1_step_down(tenant_id: str) -> dict[str, any] {
     return {"revoked": True};
 }
 
-def:priv s1_principal_view(principal_root_id: str) -> list[str] {
+def:protect s1_principal_view(principal_root_id: str) -> list[str] {
     # What hangs off the principal's own root: where the tenant subgraph persists.
     # A platform operation (it needs the principal's id, not the owner's grant).
     caller_root_id = node_id(root);

@@ -263,7 +263,7 @@ def _rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore
     return {"ok": True, "version": _publish(scope, theme, logo)};
 }
 
-def:priv get_branding(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect get_branding(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_branding(tenant); });  # jac:ignore[W1037]
 }
 
@@ -313,7 +313,7 @@ def:pub public_branding(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     };
 }
 
-def:priv save_theme(tenant: str, theme: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect save_theme(tenant: str, theme: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "theme.saved",
@@ -323,7 +323,7 @@ def:priv save_theme(tenant: str, theme: dict[str, any]) -> dict[str, any] {  # j
     );
 }
 
-def:priv upload_logo(
+def:protect upload_logo(
     tenant: str, content_type: str, data_base64: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -335,7 +335,7 @@ def:priv upload_logo(
     );
 }
 
-def:priv remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "theme.logo_removed",
@@ -345,7 +345,7 @@ def:priv remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     );
 }
 
-def:priv publish_theme(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect publish_theme(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "theme.published",
@@ -355,7 +355,7 @@ def:priv publish_theme(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     );
 }
 
-def:priv rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "theme.rolled_back",
