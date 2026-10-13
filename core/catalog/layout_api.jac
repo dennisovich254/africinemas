@@ -301,15 +301,15 @@ def _do_publish_layout(tenant: str, auditorium_id: str) -> dict[str, any] {  # j
     return answer(lambda -> any { return _publish_layout(tenant, auditorium_id); });  # jac:ignore[W1037]
 }
 
-def:priv list_layouts(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect list_layouts(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _list_layouts(tenant, auditorium_id); });  # jac:ignore[W1037]
 }
 
-def:priv get_layout(tenant: str, layout_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect get_layout(tenant: str, layout_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_layout(tenant, layout_id); });  # jac:ignore[W1037]
 }
 
-def:priv save_layout(
+def:protect save_layout(
     tenant: str,
     auditorium_id: str,
     rows: int,
@@ -327,7 +327,7 @@ def:priv save_layout(
     );
 }
 
-def:priv publish_layout(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect publish_layout(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "layout.published",

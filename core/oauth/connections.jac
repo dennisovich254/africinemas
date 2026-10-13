@@ -43,10 +43,10 @@ def _disconnect(slug: str, app_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"ok": True};
 }
 
-def:priv my_connected_apps(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect my_connected_apps(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _apps(slug); });  # jac:ignore[W1037]
 }
 
-def:priv disconnect_app(slug: str, app_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect disconnect_app(slug: str, app_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _disconnect(slug, app_id); });  # jac:ignore[W1037]
 }

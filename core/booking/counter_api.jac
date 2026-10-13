@@ -245,7 +245,7 @@ def _sell_with_mpesa(
     );
 }
 
-def:priv counter_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect counter_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _counter_showtimes(tenant); });  # jac:ignore[W1037]
 }
 
@@ -267,7 +267,7 @@ def _do_sell_with_mpesa(
     );
 }
 
-def:priv sell_for_cash(
+def:protect sell_for_cash(
     tenant: str, screening_id: str, holder: str, email: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -279,7 +279,7 @@ def:priv sell_for_cash(
     );
 }
 
-def:priv sell_with_mpesa(
+def:protect sell_with_mpesa(
     tenant: str, screening_id: str, holder: str, phone: str, email: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(

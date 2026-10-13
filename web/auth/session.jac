@@ -20,7 +20,7 @@ import from "@jac/runtime" {
 }
 import from react { useState, useEffect }
 import from core.tenancy.storefront_accounts { my_storefront_account }
-import from core.tenancy.tenant_api { end_shift }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.tenancy.tenant_api { end_shift }  # jac:ignore[W2037] authenticated endpoint
 
 glob EMAIL_KEY: str = "africinemas_email",
      # The OAuth consent page (P8.6a) carries the app's redirect address in its query.

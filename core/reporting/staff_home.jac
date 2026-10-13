@@ -242,7 +242,7 @@ def _staff_home(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     };
 }
 
-def:priv staff_home(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect staff_home(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _staff_home(tenant); });  # jac:ignore[W1037]
 }
 
@@ -278,7 +278,7 @@ def _showtime_art(tenant: str, screening_id: str, kind: str) -> dict[str, any] {
     };
 }
 
-def:priv showtime_art(tenant: str, screening_id: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect showtime_art(tenant: str, screening_id: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _showtime_art(tenant, screening_id, kind); }  # jac:ignore[W1037]
     );

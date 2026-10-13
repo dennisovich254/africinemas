@@ -488,23 +488,23 @@ def _get_image(tenant: str, product_id: str, image_id: str) -> dict[str, any] { 
     return image_answer(found[0]["key"]);
 }
 
-def:priv list_snack_products(
+def:protect list_snack_products(
     tenant: str, search: str, category_id: str, status: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _list(tenant, search, category_id, status); });  # jac:ignore[W1037]
 }
 
-def:priv get_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect get_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get(tenant, product_id); });  # jac:ignore[W1037]
 }
 
-def:priv get_snack_image(
+def:protect get_snack_image(
     tenant: str, product_id: str, image_id: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_image(tenant, product_id, image_id); });  # jac:ignore[W1037]
 }
 
-def:priv save_snack_product(  # jac:ignore[W3030] the editor's whole form: product fields and its variants
+def:protect save_snack_product(  # jac:ignore[W3030] the editor's whole form: product fields and its variants
     tenant: str,
     product_id: str,
     name: str,
@@ -537,7 +537,7 @@ def:priv save_snack_product(  # jac:ignore[W3030] the editor's whole form: produ
     );
 }
 
-def:priv publish_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect publish_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_product.published",
@@ -547,7 +547,7 @@ def:priv publish_snack_product(tenant: str, product_id: str) -> dict[str, any] {
     );
 }
 
-def:priv unpublish_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect unpublish_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_product.unpublished",
@@ -557,7 +557,7 @@ def:priv unpublish_snack_product(tenant: str, product_id: str) -> dict[str, any]
     );
 }
 
-def:priv archive_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect archive_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_product.archived",
@@ -569,7 +569,7 @@ def:priv archive_snack_product(tenant: str, product_id: str) -> dict[str, any] {
     );
 }
 
-def:priv restore_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect restore_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_product.restored",
@@ -579,7 +579,7 @@ def:priv restore_snack_product(tenant: str, product_id: str) -> dict[str, any] {
     );
 }
 
-def:priv delete_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect delete_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_product.deleted",
@@ -589,7 +589,7 @@ def:priv delete_snack_product(tenant: str, product_id: str) -> dict[str, any] { 
     );
 }
 
-def:priv upload_snack_image(
+def:protect upload_snack_image(
     tenant: str, product_id: str, content_type: str, data_base64: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -603,7 +603,7 @@ def:priv upload_snack_image(
     );
 }
 
-def:priv remove_snack_image(
+def:protect remove_snack_image(
     tenant: str, product_id: str, image_id: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(

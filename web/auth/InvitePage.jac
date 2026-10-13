@@ -11,7 +11,7 @@ import from "@jac/runtime" { useNavigate, useParams, jacIsLoggedIn }
 import from ..shell.AppLink { AppLink }
 import from ...components.ui.button { Button }
 import from ...components.ui.spinner { Spinner }
-import from core.tenancy.staff_api { accept_invite }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.tenancy.staff_api { accept_invite }  # jac:ignore[W2037] authenticated endpoint
 import from .AuthLayout { AuthLayout, FormError }
 import from .session { signed_in_email }
 

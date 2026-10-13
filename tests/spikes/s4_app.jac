@@ -50,9 +50,9 @@ node Payment {
         amount: int;
 }
 
-edge OwnsTenant {}
+edge OwnsTenant: Root --> Tenant {}
 
-edge HasPayment {}
+edge HasPayment: Tenant --> Payment {}
 
 def _inbox -> Inbox {
     # Call while acting as the system root: the inbox hangs off it. Made on first use,
@@ -73,7 +73,7 @@ def _receipts -> list[Receipt] {
     return [r for box in [root-->[?:Inbox]] for r in [box-->[?:Receipt]]];
 }
 
-def:priv s4_create_tenant(name: str) -> dict[str, str] {
+def:protect s4_create_tenant(name: str) -> dict[str, str] {
     caller = node_id(root);
     principal = new_principal(name);
     act_as(principal);
@@ -144,7 +144,7 @@ def s4_process_receipts {
     }
 }
 
-def:priv s4_owner_payments -> list[dict[str, any]] {
+def:protect s4_owner_payments -> list[dict[str, any]] {
     return [
         {
             "reference": p.reference,
@@ -179,7 +179,7 @@ def:pub s4_tamper_receipt(receipt_id: str) -> dict[str, any] {
     return {"resolved": True};
 }
 
-def:priv s4_processor_info -> dict[str, any] {
+def:protect s4_processor_info -> dict[str, any] {
     # Test-only look at the inbox, read as the system root.
     caller = node_id(root);
     act_as(system_root_id());

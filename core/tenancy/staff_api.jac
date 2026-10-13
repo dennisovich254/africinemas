@@ -216,7 +216,7 @@ def _do_accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ig
     return {"ok": True, "slug": tenant.slug, "member_id": me, "roles": record.roles};
 }
 
-def:priv list_staff(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect list_staff(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     try {
         scope = scoped(tenant, "employees.read");
     } except NotFound {
@@ -341,7 +341,7 @@ def _do_remove_staff(tenant: str, member_id: str) -> dict[str, any] {  # jac:ign
     return _manage(tenant, member_id, "employees.disable", apply);
 }
 
-def:priv invite_staff(
+def:protect invite_staff(
     tenant: str, role: str, venue_id: str, label: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -355,7 +355,7 @@ def:priv invite_staff(
     );
 }
 
-def:priv change_staff_roles(
+def:protect change_staff_roles(
     tenant: str, member_id: str, roles: list[str]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -368,7 +368,9 @@ def:priv change_staff_roles(
     );
 }
 
-def:priv set_staff_status(tenant: str, member_id: str, status: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect set_staff_status(
+    tenant: str, member_id: str, status: str
+) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "staff.status_changed",
@@ -379,7 +381,7 @@ def:priv set_staff_status(tenant: str, member_id: str, status: str) -> dict[str,
     );
 }
 
-def:priv remove_staff(tenant: str, member_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect remove_staff(tenant: str, member_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "staff.removed",
@@ -389,7 +391,7 @@ def:priv remove_staff(tenant: str, member_id: str) -> dict[str, any] {  # jac:ig
     );
 }
 
-def:priv accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ignore[W1037]
+def:protect accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ignore[W1037]
     # Joining is recorded in the cinema joined (P7.2); a refused invitation has no
     # cinema the caller belongs to, so it records nothing. A cinema's customer account
     # can't join any cinema's staff (P8.6c).

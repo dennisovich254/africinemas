@@ -16,7 +16,7 @@ import from ...components.ui.empty {
     EmptyContent
 }
 import from ...components.ui.spinner { Spinner }
-import from core.tenancy.signup { my_cinemas }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.tenancy.signup { my_cinemas }  # jac:ignore[W2037] authenticated endpoint
 import from .nav { web_address, role_label }
 import from .PlainLayout { PlainLayout, AccountActions }
 

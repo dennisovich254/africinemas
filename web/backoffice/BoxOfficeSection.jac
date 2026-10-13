@@ -19,7 +19,7 @@ import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.booking.counter_api {
-    counter_showtimes,  # jac:ignore[W2037] def:priv endpoints over the server pin (JI-027)
+    counter_showtimes,  # jac:ignore[W2037] authenticated endpoints
     sell_for_cash,  # jac:ignore[W2037]
     sell_with_mpesa  # jac:ignore[W2037]
 }

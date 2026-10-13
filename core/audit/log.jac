@@ -27,7 +27,7 @@ The only module besides core/claims.jac allowed to use the shared store.
 import json;
 import from uuid { uuid4 }
 import from datetime { datetime, timezone }
-import from jaclang.server.shared_store { open_docs_store }
+import from jaclang.server.shared_store { shared_store }
 import from core.authz.context { NotFound, resolve_context }
 import from core.catalog.answers { answer }
 import from core.tenancy.models { StaffGroup, Membership, MemberOf }
@@ -40,7 +40,7 @@ glob DETAIL_MAX: int = 200,
 class AuditStoreUnavailable(RuntimeError) {}
 
 def _store -> any {  # jac:ignore[W1037]
-    store = open_docs_store();
+    store = shared_store();
     if store is None {
         raise AuditStoreUnavailable("the shared store is not reachable");
     }

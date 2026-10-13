@@ -13,7 +13,7 @@ Both save as soon as asked and hand the product the server returns to the editor
 import from react { useState, useEffect }
 import from ...components.ui.button { Button }
 import from core.snacks.extras_api {
-    list_snack_addon_groups,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    list_snack_addon_groups,  # jac:ignore[W2037] authenticated endpoint
     list_snack_variants,  # jac:ignore[W2037]
     set_snack_product_addons,  # jac:ignore[W2037]
     set_snack_combo_components  # jac:ignore[W2037]

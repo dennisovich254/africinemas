@@ -21,7 +21,7 @@ import from core.clock { now }
 import from core.tenancy.shifts { open_shift, close_shift, shift_is_open }
 import from core.audit.log { audited }
 
-def:priv my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The caller's roles in `tenant` (any member may ask).
     try {
         scope: TenantScope = resolve_context(tenant);
@@ -91,7 +91,7 @@ def _do_end_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"ok": True};
 }
 
-def:priv rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "cinema.renamed",
@@ -101,7 +101,7 @@ def:priv rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore
     );
 }
 
-def:priv start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "shift.started",
@@ -111,7 +111,7 @@ def:priv start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     );
 }
 
-def:priv end_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect end_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "shift.ended",

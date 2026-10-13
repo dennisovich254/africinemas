@@ -454,7 +454,7 @@ def:pub bo_ledger(slug: str, screening_id: str) -> list[list[any]] {  # jac:igno
     return found;
 }
 
-def:priv audit_refinish(slug: str, event_id: str) -> bool {
+def:protect audit_refinish(slug: str, event_id: str) -> bool {
     # Tries to finish the cinema's audit event `event_id` again, as "ok" (P7.2): only
     # a pending event is ever finished, so a finished one must not change.
     cinema = lookup_slug(slug);

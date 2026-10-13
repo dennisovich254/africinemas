@@ -31,7 +31,7 @@ node ShowItem {
     has title: str;
 }
 
-def:priv s7_publish(name: str) -> dict[str, str] {
+def:protect s7_publish(name: str) -> dict[str, str] {
     me = node_id(root);
     principal = new_principal(f"s7-{name}");
     act_as(principal);

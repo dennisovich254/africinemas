@@ -13,7 +13,7 @@ import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
-import from core.catalog.pricing_api { get_price_list, save_price_list }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.catalog.pricing_api { get_price_list, save_price_list }  # jac:ignore[W2037] authenticated endpoint
 import from .form_parts { FieldError, error_id, on_input, submit_with }
 
 glob DAYS: list[str] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],

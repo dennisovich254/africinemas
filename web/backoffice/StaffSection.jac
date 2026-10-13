@@ -16,7 +16,7 @@ import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.tenancy.staff_api {
-    list_staff,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    list_staff,  # jac:ignore[W2037] authenticated endpoint
     invite_staff,  # jac:ignore[W2037]
     change_staff_roles,  # jac:ignore[W2037]
     set_staff_status,  # jac:ignore[W2037]

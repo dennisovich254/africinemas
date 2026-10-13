@@ -109,11 +109,11 @@ def join_customer(tenant: str, display_name: str) -> dict[str, any] {  # jac:ign
     return _view(shop, profile, True);
 }
 
-def:priv join_as_customer(tenant: str, display_name: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect join_as_customer(tenant: str, display_name: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return join_customer(tenant, display_name); });  # jac:ignore[W1037]
 }
 
-def:priv my_customer_profile(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect my_customer_profile(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _my_profile(tenant); });  # jac:ignore[W1037]
 }
 
