@@ -5,7 +5,7 @@ sends the customer to our consent page with a PKCE S256 challenge, swaps the cod
 tokens, and calls MCP with `Authorization: Bearer`.
 
 - Discovery (GET): /.well-known/oauth-authorization-server, and the protected-resource
-  document for /mcp and each /c/{slug}/mcp (rules.jac).
+  document for /mcp and each /mcp/c/{slug} (rules.jac).
 - POST /oauth/register: Dynamic Client Registration; redirect URIs must be https or this
   machine, and are kept exactly.
 - The consent page (web/oauth/AuthorizePage.jac) asks oauth_consent_info and, on Allow,
@@ -61,7 +61,7 @@ def cinema_of_resource(resource: str) -> str {
     # (P8.6c): customer accounts belong to one cinema, so the platform's /mcp, which
     # serves every cinema, has no sign-in.
     found = re.fullmatch(
-        re.escape(base_url()) + r"/c/([a-z0-9-]{1,63})/mcp", resource or ""
+        re.escape(base_url()) + r"/mcp/c/([a-z0-9-]{1,63})", resource or ""
     );
     return found.group(1) if found is not None else "";
 }
@@ -98,7 +98,7 @@ def _checked(
             None,
             refused(
                 "invalid_target",
-                "Sign in through a cinema's own AfriCinemas connector (its address ends in /c/<cinema>/mcp)."
+                "Sign in through a cinema's own AfriCinemas connector (its address ends in /mcp/c/<cinema>)."
             )
         );
     }
@@ -130,12 +130,12 @@ def:pub oauth_server_metadata -> dict[str, any] {  # jac:ignore[W1037]
 
 @restspec(
     method=HTTPMethod.GET,
-    path="/.well-known/oauth-protected-resource/c/{slug}/mcp",
+    path="/.well-known/oauth-protected-resource/mcp/c/{slug}",
     produces="application/json",
     envelope=False
 )
 def:pub oauth_resource_metadata_cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return protected_resource(base_url(), f"/c/{slug}/mcp");
+    return protected_resource(base_url(), f"/mcp/c/{slug}");
 }
 
 @restspec(

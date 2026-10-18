@@ -15,8 +15,8 @@ glob VERIFIER: str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
      REDIRECT: str = "https://claude.ai/api/mcp/auth_callback",
      BASE: str = "http://localhost:8000",
      # Sign-in is per cinema (P8.6c): Nova's own connector.
-     RESOURCE: str = "http://localhost:8000/c/nova/mcp",
-     NOVA_MCP: str = "/c/nova/mcp";
+     RESOURCE: str = "http://localhost:8000/mcp/c/nova",
+     NOVA_MCP: str = "/mcp/c/nova";
 
 
 # The public address these tests expect, whatever a developer's .env says (Jac loads

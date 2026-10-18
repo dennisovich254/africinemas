@@ -61,7 +61,7 @@ test "Settings › AI chat shows the cinema's connector link and how to add it" 
             for scheme in ["light", "dark"] {
                 page = _open(browser, pw, project, owner, scheme);
                 link = page.input_value(LINK);
-                assert link == f"{BASE_URL}/c/{owner['slug']}/mcp" , link;
+                assert link == f"{BASE_URL}/mcp/c/{owner['slug']}" , link;
                 text = page.inner_text(SECTION);
                 for words in [
                     "Add custom connector",
@@ -96,7 +96,7 @@ test "the connector link answers MCP as that cinema" {
         owner = owner_with_cinema("Rupas Cinema");
         page = browser.new_context().new_page();
         answer = page.request.post(
-            f"{BASE_URL}/c/{owner['slug']}/mcp",
+            f"{BASE_URL}/mcp/c/{owner['slug']}",
             data={
                 "jsonrpc": "2.0",
                 "id": 1,
@@ -108,7 +108,7 @@ test "the connector link answers MCP as that cinema" {
         hello = answer.json();
         assert hello["result"]["serverInfo"]["title"] == "Rupas Cinema" , hello;
         tools = page.request.post(
-            f"{BASE_URL}/c/{owner['slug']}/mcp",
+            f"{BASE_URL}/mcp/c/{owner['slug']}",
             data={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
         ).json()["result"]["tools"];
         assert "find_cinemas" not in [t["name"] for t in tools];

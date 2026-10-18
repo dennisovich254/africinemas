@@ -1,7 +1,7 @@
 """/oauth/authorize: the consent page an MCP client (Claude) sends the customer to (P8.6a).
 
 The app connects to one cinema (its `resource` is that cinema's connector,
-/c/<slug>/mcp), so only that cinema's customer accounts can allow it (P8.6c): signed
+/mcp/c/<slug>), so only that cinema's customer accounts can allow it (P8.6c): signed
 out, or signed in with any other account, the page asks the customer to sign in with
 their account at that cinema (its own sign-in page) and comes back here. Then it
 asks the server who's asking (oauth_consent_info: a registered app, one of its exact
@@ -40,12 +40,12 @@ def _asked(name: str) -> str {
 }
 
 def _cinema_of(resource: str) -> str {
-    # The cinema a connector address names: ".../c/<slug>/mcp" -> "<slug>", else "".
+    # The cinema a connector address names: ".../mcp/c/<slug>" -> "<slug>", else "".
     parts = resource.split("/");
-    if len(parts) < 4 or parts[-1] != "mcp" or parts[-3] != "c" {
+    if len(parts) < 4 or parts[-3] != "mcp" or parts[-2] != "c" {
         return "";
     }
-    slug = parts[-2];
+    slug = parts[-1];
     ok = len(slug) > 0 and all([ch in SLUG_CHARS for ch in slug]);
     return slug if ok else "";
 }

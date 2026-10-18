@@ -81,5 +81,5 @@ test "the discovery documents name our endpoints, S256 only, and each MCP resour
     assert platform["authorization_servers"] == [BASE];
     assert platform["bearer_methods_supported"] == ["header"];
     assert platform["scopes_supported"] == [SCOPE];
-    assert protected_resource(BASE, "/c/nova/mcp")["resource"] == f"{BASE}/c/nova/mcp";
+    assert protected_resource(BASE, "/mcp/c/nova")["resource"] == f"{BASE}/mcp/c/nova";
 }

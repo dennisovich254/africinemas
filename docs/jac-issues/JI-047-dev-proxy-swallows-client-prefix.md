@@ -2,7 +2,7 @@
 
 - **Version:** jaclang 0.37.18
 - **Found:** 2026-10-10, P8.6c (`jac run --dev main.jac`); the cause landed in P8.3
-- **Status:** open (we serve with `--no-dev`: `scripts/dev_daraja.sh`, e2e)
+- **Status:** worked around in our code (2026-10-18): the cinema connector moved to `/mcp/c/{slug}`, so no page shares its proxied prefix; `tests/unit/dev_proxy_tests.jac` guards it. Still open upstream (seen again on 0.37.25).
 
 ## What we saw
 With `jac run --dev main.jac`, every storefront page (`/c/westgate`, `/c/westgate/sign-up`, ...) answered the API server's JSON `404 Not Found` instead of the web app. `jac run --no-dev` (our `scripts/dev_daraja.sh` and the e2e server) serves the same pages correctly.
@@ -16,7 +16,7 @@ The cinema connector is `@restspec(path="/c/{slug}/mcp")` (P8.3). For the Vite d
 so Vite forwards `/c/*` (the client's storefront routes) to the API. `client_claimed_paths` only checks Jac's built-in prefixes (`/api`, `/walker`, ...), so a client route can't claim `/c` back. The logic is in `jaclang/client/impl/vite_bundler.impl.jac`, in the `declared_path.split('{')[0]` branch.
 
 ## Workaround (in place)
-Run the app with `--no-dev` (`scripts/dev_daraja.sh`). A client change then needs a restart instead of hot reload.
+The cinema connector moved from `/c/{slug}/mcp` to `/mcp/c/{slug}` (its proxied prefix is now `/mcp/c`, which no page uses), and `tests/unit/dev_proxy_tests.jac` fails if a parameterised server route ever shares a prefix with a page route again. Before that, the only workaround was running with `--no-dev`.
 
 ## Suggestion upstream
 Proxy a parameterised route as an anchored regex (for example `^/c/[^/]+/mcp$`), the way exact routes already get `^...$`, instead of its bare static prefix. Or skip prefixes that the client router's routes use.

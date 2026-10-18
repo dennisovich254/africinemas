@@ -16,7 +16,7 @@
   the token endpoint. Probed anonymously; they never answer with another cinema's data.
 - "mcp": the MCP server (P8.2), a public JSON-RPC endpoint on a custom path; read-only,
   it answers as the storefront does. Probed anonymously with a tool call at tenant B;
-  a cinema's own connector (/c/{slug}/mcp, P8.3) is tenant A's, asked about tenant B.
+  a cinema's own connector (/mcp/c/{slug}, P8.3) is tenant A's, asked about tenant B.
 
 isolation_tests.jac fails when the app serves an endpoint that isn't listed here, so no
 new endpoint can skip the cross-tenant checks.
@@ -904,7 +904,7 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  }
              }
          },
-         "route:/c/{slug}/mcp": {
+         "route:/mcp/c/{slug}": {
              "scope": "mcp",
              "audit": "",
              "probe": {

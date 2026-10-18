@@ -45,7 +45,7 @@ test "the discovery documents are served for each cinema's own connector only" {
         meta = _get(app, "/.well-known/oauth-authorization-server");
         assert meta["issuer"] == BASE
             and meta["code_challenge_methods_supported"] == ["S256"] , meta;
-        doc = _get(app, "/.well-known/oauth-protected-resource/c/nova/mcp");
+        doc = _get(app, "/.well-known/oauth-protected-resource/mcp/c/nova");
         assert doc["resource"] == RESOURCE and doc["authorization_servers"] == [BASE];
         # The platform's /mcp serves every cinema: nobody signs in on it (P8.6c).
         for path in [
@@ -222,7 +222,7 @@ test "only the cinema's own customers sign Claude in, and the token has no staff
         # Nor does it sign anyone in at Rift's connector.
         app.client.set_auth_token(tokens["access_token"]);
         listed = app.client.post(
-            "/c/rift/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+            "/mcp/c/rift", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
         );
         app.client.set_auth_token("");
         names = [t["name"] for t in json.loads(listed.text)["result"]["tools"]];

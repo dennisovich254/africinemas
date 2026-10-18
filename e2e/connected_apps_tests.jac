@@ -45,7 +45,7 @@ def _sign_up(page: any, slug: str) {  # jac:ignore[W1037]
 def _connect_app(customer_token: str, slug: str) -> str {
     # What Claude does to sign in for the customer; returns the app's access token.
     (_, doc) = http_call(
-        "GET", f"{BASE_URL}/.well-known/oauth-protected-resource/c/{slug}/mcp"
+        "GET", f"{BASE_URL}/.well-known/oauth-protected-resource/mcp/c/{slug}"
     );
     resource = str(doc["resource"]);
     (status, made) = http_call(
@@ -93,7 +93,7 @@ def _connect_app(customer_token: str, slug: str) -> str {
 def _mcp_status(slug: str, token: str) -> int {
     (status, _) = http_call(
         "POST",
-        f"{BASE_URL}/c/{slug}/mcp",
+        f"{BASE_URL}/mcp/c/{slug}",
         {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
         token
     );
@@ -114,7 +114,7 @@ test "a customer disconnects an app from their account page" {
         ).tap();
         page.wait_for_selector('[data-testid="account"]');
         address = page.inner_text('[data-testid="connector-address"]');
-        assert address.endswith(f"/c/{slug}/mcp") , address;
+        assert address.endswith(f"/mcp/c/{slug}") , address;
         # Claude signs in for them; the page lists it.
         token = _connect_app(page.evaluate("localStorage.getItem('jac_token')"), slug);
         assert _mcp_status(slug, token) == 200;

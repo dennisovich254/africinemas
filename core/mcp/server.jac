@@ -14,7 +14,7 @@ It's read-only and needs no login: anyone may ask, as on the storefront.
 - whats_on also draws the programme card (core/mcp/programme_card.jac, P8.3), whose
   posters come one at a time from movie_poster, a tool only the cards may call.
 
-A cinema's own connector, POST /c/{slug}/mcp (P8.3), is the same server with the cinema
+A cinema's own connector, POST /mcp/c/{slug} (P8.3), is the same server with the cinema
 fixed: no directory, no cinema argument, and any cinema a caller names is replaced.
 Cards wear the cinema's accent colours (its published theme, contrast-checked).
 
@@ -721,7 +721,7 @@ def:pub mcp(
 
 @restspec(
     method=HTTPMethod.POST,
-    path="/c/{slug}/mcp",
+    path="/mcp/c/{slug}",
     produces="application/json",
     envelope=False
 )

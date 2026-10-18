@@ -118,7 +118,7 @@ def AppRow(
 def ConnectHint(slug: str) -> JsxElement {
     # How to let Claude book here: the cinema's own connector address.
     win: any = window;  # jac:ignore[W1037,W2001]
-    address: str = f"{win.location.origin}/c/{slug}/mcp";
+    address: str = f"{win.location.origin}/mcp/c/{slug}";
     [copied, set_copied] = useState(False);
 
     async def copy {

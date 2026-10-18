@@ -1,7 +1,7 @@
 """Settings → AI chat (P8.3): the cinema's own connector for AI chats such as Claude.
 
 Shows the cinema's connector link (`connector_url`, served by core/mcp/server.jac as
-POST /c/{slug}/mcp) with a Copy button and the three steps to add it in Claude. The
+POST /mcp/c/{slug}) with a Copy button and the three steps to add it in Claude. The
 connector is read-only: customers see the cinema's programme, posters, trailers and
 showtimes in the chat and book on the cinema's website. Copying falls back to selecting
 the link when the browser won't copy.
@@ -14,7 +14,7 @@ import from ...components.ui.label { Label }
 
 def:pub connector_url(origin: str, slug: str) -> str {
     # The cinema's own MCP connector, on the site the staff member is using.
-    return f"{origin}/c/{slug}/mcp";
+    return f"{origin}/mcp/c/{slug}";
 }
 
 def:pub ConnectSection(slug: str, cinema: str) -> JsxElement {

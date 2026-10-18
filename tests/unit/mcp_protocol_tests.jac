@@ -7,7 +7,7 @@ server's `respond` directly, without HTTP or a cinema:
   tools and resources are offered; a notification gets nothing back;
 - read-only tools only (no seats held, nothing ordered, nothing paid): whats_on and
   show_movie draw cards, and movie_poster is for the cards alone (8.3);
-- a cinema's own connector (/c/{slug}/mcp, 8.3) has no cinema argument and no directory;
+- a cinema's own connector (/mcp/c/{slug}, 8.3) has no cinema argument and no directory;
 - the cards: MCP Apps' HTML type, a CSP that frames nothing (trailers open through the
   host), and HTML that loads nothing from outside and never writes data as HTML;
 - JSON-RPC's errors: a bad version, an unknown method, tool or resource.
