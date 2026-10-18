@@ -21,7 +21,8 @@ glob STATUS_LABELS: dict[str, str] = {
      SUBNAV: list[tuple[str, str]] = [
          ("", "Products"),
          ("categories", "Categories"),
-         ("extras", "Combos & Add-ons")
+         ("extras", "Combos & Add-ons"),
+         ("stock", "Stock")
      ];
 
 def:pub snack_path(slug: str, rest: str = "") -> str {

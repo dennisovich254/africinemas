@@ -70,6 +70,12 @@ import from core.snacks.extras_api {
     set_snack_product_addons,  # jac:ignore[W2037]
     set_snack_combo_components  # jac:ignore[W2037]
 }
+import from core.snacks.inventory_api {
+    snack_stock_levels,  # jac:ignore[W2037]
+    snack_stock_history,  # jac:ignore[W2037]
+    adjust_snack_stock,  # jac:ignore[W2037]
+    set_snack_stock_rules  # jac:ignore[W2037]
+}
 import from core.snacks.product_api {
     list_snack_products,  # jac:ignore[W2037]
     get_snack_product,  # jac:ignore[W2037]
@@ -502,4 +508,53 @@ def:pub agent_tool(name: str, args: dict[str, any], holder: str) -> any {  # jac
     } finally {
         HOLDER.reset(token);
     }
+}
+
+# Test-only: the stock calls orders will make (P12.4, used from P12.7).
+import from core.catalog.answers { Refused as StockRefused, answer as stock_answer }
+import from core.tenancy.open_cinema { open_cinema as stock_cinema }
+import from core.snacks.inventory_api { reserve_stock, commit_stock, release_stock }
+
+def _stock_cinema(tenant: str) -> any {  # jac:ignore[W1037]
+    found = stock_cinema(tenant);
+    if found is None {
+        raise StockRefused("not_found", "No such cinema.");
+    }
+    return found;
+}
+
+def:pub t_reserve_snack_stock(
+    tenant: str, variant_id: str, venue_id: str, quantity: int
+) -> dict[str, any] {  # jac:ignore[W1037]
+    def work -> any {  # jac:ignore[W1037]
+        if not reserve_stock(_stock_cinema(tenant), variant_id, venue_id, quantity) {
+            raise StockRefused("out_of_stock", "Not enough left.");
+        }
+        return {"ok": True};
+    }
+    return stock_answer(work);
+}
+
+def:pub t_commit_snack_stock(
+    tenant: str, variant_id: str, venue_id: str, quantity: int, order_ref: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    def work -> any {  # jac:ignore[W1037]
+        if not commit_stock(
+            _stock_cinema(tenant), variant_id, venue_id, quantity, order_ref
+        ) {
+            raise StockRefused("out_of_stock", "Not enough on hand.");
+        }
+        return {"ok": True};
+    }
+    return stock_answer(work);
+}
+
+def:pub t_release_snack_stock(
+    tenant: str, variant_id: str, venue_id: str, quantity: int
+) -> dict[str, any] {  # jac:ignore[W1037]
+    def work -> any {  # jac:ignore[W1037]
+        release_stock(_stock_cinema(tenant), variant_id, venue_id, quantity);
+        return {"ok": True};
+    }
+    return stock_answer(work);
 }

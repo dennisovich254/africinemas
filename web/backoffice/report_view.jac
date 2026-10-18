@@ -197,7 +197,9 @@ glob:pub ACTIONS: list[tuple[str, str]] = [
              "Snack add-on available or not at a venue"
          ),
          ("snack_product.addons_set", "Snack product's add-ons changed"),
-         ("snack_product.components_set", "Combo contents changed")
+         ("snack_product.components_set", "Combo contents changed"),
+         ("snack_stock.adjusted", "Snack stock adjusted"),
+         ("snack_stock.rules_set", "Snack stock alert changed")
      ];
 
 def:pub action_label(action: str) -> str {

@@ -22,3 +22,36 @@ def:pub c_release(ns: str, key: str, owner: str) -> bool {
 def:pub c_take(ns: str, key: str) -> str | None {
     return take_claim(ns, key);
 }
+
+# Stock counters (P12.4).
+import from core.claims {
+    stock_counts,
+    stock_change,
+    stock_reserve,
+    stock_release,
+    stock_commit
+}
+
+def:pub c_stock(key: str) -> list[int] {
+    return list(stock_counts("stock", key));
+}
+
+def:pub c_stock_change(key: str, delta: int) -> list[int] | None {
+    got = stock_change("stock", key, delta);
+    return list(got) if got is not None else None;
+}
+
+def:pub c_stock_reserve(key: str, quantity: int) -> list[int] | None {
+    got = stock_reserve("stock", key, quantity);
+    return list(got) if got is not None else None;
+}
+
+def:pub c_stock_release(key: str, quantity: int) -> list[int] | None {
+    got = stock_release("stock", key, quantity);
+    return list(got) if got is not None else None;
+}
+
+def:pub c_stock_commit(key: str, quantity: int) -> list[int] | None {
+    got = stock_commit("stock", key, quantity);
+    return list(got) if got is not None else None;
+}

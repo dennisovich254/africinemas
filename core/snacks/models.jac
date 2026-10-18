@@ -50,6 +50,8 @@ node SnackVariant {
     # line up with the product's option_names; sku is unique in the cinema (a claim,
     # ADR-0007) or "" in a draft; price_cents is None until set. off_at lists the venues
     # where it isn't available; venue_prices are venues' own prices (P12.2).
+    # stock_rules are per venue: {"low": threshold, "at_zero": "unavailable" or
+    # "allow"} (P12.4); its counts live in core/claims.jac (snacks.inventory_api).
     has tenant_id: str,
         product_id: str,
         option_values: list[str] = [],
@@ -60,6 +62,7 @@ node SnackVariant {
         track_stock: bool = False,
         off_at: list[str] = [],
         venue_prices: dict[str, int] = {},
+        stock_rules: dict[str, dict[str, any]] = {},  # jac:ignore[W1037]
         position: int = 0,
         created_at: str = "",
         updated_at: str = "";
@@ -80,4 +83,21 @@ node SnackAddonGroup {
         options: list[dict[str, any]] = [],  # jac:ignore[W1037]
         created_at: str = "",
         updated_at: str = "";
+}
+
+node StockMovement {
+    # One change to a variant's stock at a venue (P12.4; design guide §8C): the reason
+    # ("received", "damaged", "count", "other", or "sale" for an order), the change to
+    # on hand, on hand after it, a note, who made it (a staff root id, "" for a sale) and
+    # when. Movements are only ever added.
+    has tenant_id: str,
+        product_id: str,
+        variant_id: str,
+        venue_id: str,
+        reason: str,
+        change: int,
+        on_hand_after: int,
+        note: str = "",
+        made_by: str = "",
+        at: str = "";
 }
