@@ -1,6 +1,6 @@
 """P8.6b: booking from Claude: the booking card's own tools, over MCP with OAuth tokens.
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa. Nova shows Rafiki
+In-process app (payment_app.jac) with the simulated M-Pesa. Nova shows Rafiki
 on a five-seat screen; Anna holds and has ordered A1 and A2. Customers sign Claude in
 as in P8.6a (tests/integration/oauth_tests.jac).
 

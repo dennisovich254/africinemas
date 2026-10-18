@@ -66,7 +66,8 @@ test "S3: the legacy _before_request walker is not middleware or an endpoint" {
         assert not hook_log.exists() , f"the hook ran: {hook_log.read_text()[:300]}";
         # Plain walkers are private on 0.37.25; the old hook name grants no exposure.
         (status, payload) = http_call("POST", f"{base}/walker/_before_request", {});
-        assert status == 404 , (status, payload);
+        # A missing route may reach the SPA fallback, which rejects POST with 405.
+        assert status in (404, 405) , (status, payload);
     } finally {
         server.stop(drop=True);
         remove_project(workdir);

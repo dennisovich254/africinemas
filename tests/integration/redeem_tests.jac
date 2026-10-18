@@ -1,6 +1,6 @@
 """P6.2: redeeming a ticket at the door (architecture §47).
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa and a frozen
+In-process app (payment_app.jac) with the simulated M-Pesa and a frozen
 clock. Anna has paid for A1 and A2. Staff on shift with tickets.scan at the showtime's
 venue redeem by its QR payload or its typed reference: the first scan marks the ticket
 used, a second is told it was already redeemed and when. A code this server didn't

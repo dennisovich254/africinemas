@@ -11,7 +11,8 @@ import from os { path }
 import from tests.support.served { Served, served }
 
 glob APP: str = path.join(
-         path.dirname(path.dirname(path.abspath(__file__))), "apps", "signup_app.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "signup_app.jac"
      ),
      FAULTS: str = "AFRICINEMAS_FAULTS",
      STEPS: list[str] = [

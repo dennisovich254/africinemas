@@ -1,6 +1,6 @@
 """P8.6d: a customer sees the apps they've let book for them at a cinema, and disconnects them.
 
-In-process app (tests/apps/payment_app.jac). Each app a customer signs in (Claude, through
+In-process app (payment_app.jac). Each app a customer signs in (Claude, through
 our OAuth provider) is a connection at that cinema: its own chat account, its tokens,
 and when it was connected. The customer lists them on the cinema's storefront
 (my_connected_apps) and can disconnect one (disconnect_app): at once, its access token

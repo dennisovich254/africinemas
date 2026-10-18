@@ -17,7 +17,7 @@ glob REPO_ROOT: Path = Path(__file__).resolve().parent.parent.parent,
          "core",
          "desktop",
          "mobile",
-         "tests/apps"
+         "*_app.jac"
      ],
      ENDPOINT: str = r"def\s*:\s*(pub|protect)\s+\w+\s*\((?P<params>[^)]*)\)",
      TYPED_DEFAULT: str = r"\w+\s*:\s*(int|float|bool)\b[^,=]*=";
@@ -38,13 +38,16 @@ test "no endpoint gives an int, float or bool parameter a default" {
     offenders: list[str] = [];
     for src in APP_SOURCES {
         target = REPO_ROOT / src;
-        files = [target]
-            if target.is_file()
-            else sorted(
-                p
-                for p in target.rglob("*.jac")
-                if p.is_file() and ".jac" not in p.parts
-            );
+        # The test apps sit at the root (Jac 0.37.25 roots an app at its own folder).
+        files = sorted(REPO_ROOT.glob(src))
+            if "*" in src
+            else [target]
+                if target.is_file()
+                else sorted(
+                    p
+                    for p in target.rglob("*.jac")
+                    if p.is_file() and ".jac" not in p.parts
+                );
         for f in files {
             for name in _offenders(f.read_text()) {
                 offenders.append(f"{f.relative_to(REPO_ROOT)}: {name}");

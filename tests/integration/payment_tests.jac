@@ -1,4 +1,4 @@
-"""P5.3: starting a payment (in-process app: tests/apps/payment_app.jac, simulated M-Pesa).
+"""P5.3: starting a payment (in-process app: payment_app.jac, simulated M-Pesa).
 
 A visitor with an order waiting for payment pays from their M-Pesa number: the payment
 is recorded, and exactly one STK push (PIN prompt) is sent, even when Jac re-runs the

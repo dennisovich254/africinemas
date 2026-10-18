@@ -8,7 +8,8 @@ import from os { path }
 import from tests.support.served { served }
 
 glob APP: str = path.join(
-         path.dirname(path.dirname(path.abspath(__file__))), "apps", "tenancy_app.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "tenancy_app.jac"
      );
 
 test "a free slug is claimed by the first tenant, and the claim is idempotent" {

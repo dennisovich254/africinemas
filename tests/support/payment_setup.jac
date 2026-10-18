@@ -1,5 +1,5 @@
 """Payments for the integration tests (P5.3, P5.4): a cinema whose visitor has an order
-waiting for payment, served by tests/apps/payment_app.jac with the simulated M-Pesa.
+waiting for payment, served by payment_app.jac with the simulated M-Pesa.
 """
 
 import os;
@@ -16,7 +16,8 @@ import from tests.support.storefront_setup {
 }
 
 glob APP: str = path.join(
-         path.dirname(path.dirname(path.abspath(__file__))), "apps", "payment_app.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "payment_app.jac"
      ),
      PAYMENTS: str = "AFRICINEMAS_PAYMENTS",
      TICKET_KEY: str = "AFRICINEMAS_TICKET_KEY",

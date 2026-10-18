@@ -1,6 +1,6 @@
 """P8.1: the AI booking agent's tools and replies, against a real cinema.
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa and a scripted
+In-process app (payment_app.jac) with the simulated M-Pesa and a scripted
 model (MockLLM, no key, no network). Nova shows Rafiki on a five-seat screen; Anna has
 paid for A1 and A2.
 

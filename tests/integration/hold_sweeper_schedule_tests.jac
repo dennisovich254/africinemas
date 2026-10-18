@@ -1,7 +1,7 @@
 """P4.4: the hold expiry sweeper runs on its own, on a schedule (real server).
 
 The scheduler only runs in a served process, so this boots a real server from a temp
-project (tests/apps/sweeper_app.jac as main.jac, the scheduler on, the sweep every
+project (sweeper_app.jac as main.jac, the scheduler on, the sweep every
 second) and waits for a lapsed hold to be swept. What one sweep does, and that running
 it again changes nothing, is in hold_sweeper_tests.jac.
 """
@@ -37,9 +37,7 @@ enabled = true
 
 def _project -> str {
     workdir = tempfile.mkdtemp(prefix="africinemas-sweeper-");
-    shutil.copy(
-        REPO_ROOT / "tests" / "apps" / "sweeper_app.jac", Path(workdir) / "main.jac"
-    );
+    shutil.copy(REPO_ROOT / "sweeper_app.jac", Path(workdir) / "main.jac");
     shutil.copytree(REPO_ROOT / "core", Path(workdir) / "core");
     (Path(workdir) / "jac.toml").write_text(APP_TOML);
     (Path(workdir) / ".jac").mkdir();

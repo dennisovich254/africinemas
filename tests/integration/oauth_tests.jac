@@ -1,6 +1,6 @@
 """P8.6a: signing Claude in with OAuth 2.1 (core/oauth), against a real cinema.
 
-In-process app (tests/apps/payment_app.jac). The flow MCP's authorization spec sets out:
+In-process app (payment_app.jac). The flow MCP's authorization spec sets out:
 discovery, Dynamic Client Registration, the customer's consent (signed in, on our page),
 the code for a token with PKCE S256, then MCP calls with that token.
 

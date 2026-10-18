@@ -1,4 +1,4 @@
-"""P5.5: the resolver job and the ledger (in-process app: tests/apps/payment_app.jac).
+"""P5.5: the resolver job and the ledger (in-process app: payment_app.jac).
 
 Stuck payments are settled from M-Pesa's own answer, without a callback; one M-Pesa
 still calls "processing" times out and settles later. An order past its time to pay

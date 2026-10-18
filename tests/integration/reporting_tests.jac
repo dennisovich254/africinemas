@@ -1,6 +1,6 @@
 """P7.1: the sales report against real sales (core/reporting/report_api.jac).
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa. Nova's five-seat
+In-process app (payment_app.jac) with the simulated M-Pesa. Nova's five-seat
 screen at Westgate shows Rafiki two days ahead, each Adult ticket KES 930 (800, a 100
 evening extra and a 30 service fee). Anna buys A1 and A2 online with M-Pesa; at the box
 office the agent sells A3 and A4 for cash and A5 with M-Pesa. The report counts the
