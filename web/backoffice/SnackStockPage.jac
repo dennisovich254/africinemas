@@ -27,7 +27,7 @@ import from core.snacks.inventory_api {
 import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
 import from ..shell.AppLink { AppLink }
 import from .form_parts { TextField, FieldError, submit_with, on_input }
-import from .snack_view { SnackSubnav, snack_path }
+import from .snack_view { SnackSubnav, snack_path, whole_number, with_field }
 
 glob REASONS: list[tuple[str, str]] = [
          ("received", "Stock received"),
@@ -60,13 +60,17 @@ def:pub after_change(reason: str, quantity: int, on_hand: int) -> int {
 
 def:pub int_of(text: str) -> any {  # jac:ignore[W1037]
     # "12", "-3", "+5" as a whole number, or None.
-    cleaned = text.strip().lstrip("+");
+    # Browser-safe: no str.isdigit or lstrip(chars) in the client runtime.
+    cleaned = text.strip();
+    if cleaned.startswith("+") {
+        cleaned = cleaned[1:];
+    }
     negative = cleaned.startswith("-");
-    digits = cleaned[1:] if negative else cleaned;
-    if not digits or not digits.isdigit() {
+    value = whole_number(cleaned[1:] if negative else cleaned, -1);
+    if value == -1 {
         return None;
     }
-    return 0 - int(digits) if negative else int(digits);
+    return 0 - value if negative else value;
 }
 
 def:pub SnackStockPage(slug: str, permissions: list[str]) -> JsxElement {
@@ -147,7 +151,7 @@ def:pub SnackStockPage(slug: str, permissions: list[str]) -> JsxElement {
     values: dict[str, str] = form;
 
     def put(key: str, text: str) {
-        set_form(dict(values, **{key: text}));
+        set_form(with_field(values, key, text));
     }
 
     def open_form(row: dict[str, any], which: str) {  # jac:ignore[W1037]
@@ -186,9 +190,10 @@ def:pub SnackStockPage(slug: str, permissions: list[str]) -> JsxElement {
             return False;
         }
         set_errors({});
-        set_message(done);
         set_open_row("");
+        # Announced once the list shows the change, never before.
         await load();
+        set_message(done);
         return True;
     }
 
