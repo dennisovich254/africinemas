@@ -405,7 +405,7 @@ def _bulk_venues(
     return {"ok": True, "done": len(ids)};
 }
 
-def:priv duplicate_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect duplicate_snack_product(tenant: str, product_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_product.duplicated",
@@ -415,7 +415,7 @@ def:priv duplicate_snack_product(tenant: str, product_id: str) -> dict[str, any]
     );
 }
 
-def:priv preview_snack_import(
+def:protect preview_snack_import(
     tenant: str, csv_text: str, mapping: dict[str, str], create_categories: bool
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
@@ -423,7 +423,7 @@ def:priv preview_snack_import(
     );  # jac:ignore[W1037]
 }
 
-def:priv import_snack_catalog(
+def:protect import_snack_catalog(
     tenant: str, csv_text: str, mapping: dict[str, str], create_categories: bool
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -435,11 +435,11 @@ def:priv import_snack_catalog(
     );
 }
 
-def:priv export_snack_catalog(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect export_snack_catalog(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _export(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv bulk_snack_products(
+def:protect bulk_snack_products(
     tenant: str, product_ids: list[str], action: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -452,7 +452,7 @@ def:priv bulk_snack_products(
     );
 }
 
-def:priv bulk_snack_venues(
+def:protect bulk_snack_venues(
     tenant: str, product_ids: list[str], venue_ids: list[str]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(

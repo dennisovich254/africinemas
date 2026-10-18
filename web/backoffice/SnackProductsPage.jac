@@ -16,7 +16,7 @@ import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
-import from core.snacks.tools_api { bulk_snack_products }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.snacks.tools_api { bulk_snack_products }  # jac:ignore[W2037] authenticated endpoint
 import from core.snacks.product_api {
     list_snack_products,  # jac:ignore[W2037] authenticated endpoint
     get_snack_image  # jac:ignore[W2037]

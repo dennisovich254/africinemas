@@ -64,7 +64,7 @@ import from .snack_view {
     template_form,
     TEMPLATES
 }
-import from core.snacks.tools_api { duplicate_snack_product }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.snacks.tools_api { duplicate_snack_product }  # jac:ignore[W2037] authenticated endpoint
 import from .SnackProductsPage { ProductThumb }
 import from .SnackVenues { SnackVenues }
 import from .SnackExtrasParts { SnackAddonPicker, SnackComponents }
