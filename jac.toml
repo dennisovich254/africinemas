@@ -175,7 +175,6 @@ playwright = "~=1.63"
 pillow = "~=12.3"
 # Ticket QR codes as PNG images in the ticket email (P6.3); pure Python, no deps.
 segno = "~=1.6"
-byllm = "~=0.6"
 
 # ---------------------------------------------------------------------------
 # The AI booking agent (P8.1): Gemini through byLLM. No key here: the provider reads it
