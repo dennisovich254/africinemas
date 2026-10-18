@@ -1,14 +1,13 @@
-"""`/app/new`: create a cinema in two steps (P2.7b).
+"""`/app/new`: create a cinema (P2.7b).
 
-1. Name and web address. The address is suggested from the name and checked with the
-   server (`check_slug`) when the field loses focus, so problems show before submitting.
-2. "Brand your cinema": the Settings branding editor (logo, colours, publish), after
-   opening the owner's shift so it can save. Optional: continuing without it keeps
-   the AfriCinemas default theme.
+One form: the cinema's name and web address. The address is suggested from the name and
+checked with the server (`check_slug`) when the field loses focus, so problems show
+before submitting. Once created, the owner's shift opens and the back office follows;
+branding waits in Settings, so a first-time owner meets nothing more to fill in here.
 """
 
 import from react { useState, useRef }
-import from "@jac/runtime" { Link }
+import from "@jac/runtime" { useNavigate }
 import from "@hugeicons/react" { HugeiconsIcon }
 import from "@hugeicons/core-free-icons" { CheckmarkCircle02Icon, AlertCircleIcon }
 import from ...components.ui.button { Button }
@@ -31,32 +30,8 @@ import from ...components.ui.spinner { Spinner }
 import from ..auth.session { signed_in_email }
 import from core.tenancy.signup { check_slug, create_cinema }  # jac:ignore[W2037] authenticated endpoint
 import from core.tenancy.tenant_api { start_shift }  # jac:ignore[W2037] authenticated endpoint
-import from .BrandingSection { BrandingSection }
 import from .nav { web_address, suggest_slug }
 import from .PlainLayout { PlainLayout, AccountActions }
-
-glob STEPS: list[str] = ["Name your cinema", "Brand your cinema"];
-
-def Progress(step: int) -> JsxElement {
-    return
-        <ol aria-label="Progress" className="flex gap-2 text-sm">
-            {[
-                <li
-                    key={label}
-                    aria-current={"step" if i + 1 == step else None}
-                    className={"flex flex-1 items-center gap-2 border-t-2 pt-2 "
-                        + (
-                            "border-primary font-medium text-foreground"
-                                if i + 1 <= step
-                                else "border-border text-muted-foreground"
-                        )}
-                >
-                    <span>{i + 1}</span>
-                    <span>{label}</span>
-                </li> for (i, label) in enumerate(STEPS)
-            ]}
-        </ol>;
-}
 
 # The address check's outcome, under the field. `state` is "", "checking", "ok" or "bad".
 def SlugStatus(state: str, message: str) -> JsxElement {
@@ -92,7 +67,7 @@ def SlugStatus(state: str, message: str) -> JsxElement {
 }
 
 def:pub NewCinemaWizard -> JsxElement {
-    [step, set_step] = useState(1);
+    nav = useNavigate();
     [name, set_name] = useState("");
     [slug, set_slug] = useState("");
     [slug_edited, set_slug_edited] = useState(False);
@@ -100,9 +75,7 @@ def:pub NewCinemaWizard -> JsxElement {
     [slug_message, set_slug_message] = useState("");
     [name_error, set_name_error] = useState("");
     [busy, set_busy] = useState(False);
-    [created, set_created] = useState("");
     [failed, set_failed] = useState("");
-    [can_brand, set_can_brand] = useState(False);
     slug_input = useRef(None);
     # The address most recently sent to check_slug; older answers are ignored.
     last_checked = useRef("");
@@ -177,18 +150,15 @@ def:pub NewCinemaWizard -> JsxElement {
             return;
         }
         if result["created"] {
-            # Branding saves need an open shift, as everywhere in the back office: open
-            # it now, so step 2 can save. If it can't, step 2 says Settings will do.
-            opened: any = None;  # jac:ignore[W1037]
+            # Open the owner's shift, so the new back office opens ready to work rather
+            # than on the Start shift banner. If it fails, the banner offers it there.
             try {
-                opened = await start_shift(result["slug"]);  # jac:ignore[W2037]
+                await start_shift(result["slug"]);  # jac:ignore[W2037]
             } except Exception as err {
                 console.warn("start_shift failed", err);
             }
-            set_can_brand(True if opened and opened["ok"] else False);
             set_busy(False);
-            set_created(result["slug"]);
-            set_step(2);
+            nav(f"/app/{result['slug']}", {"replace": True});
             return;
         }
         set_busy(False);
@@ -202,100 +172,71 @@ def:pub NewCinemaWizard -> JsxElement {
         }
     }
 
-    body: any = None;  # jac:ignore[W1037]
-    if step == 1 {
-        slug_bad = slug_state == "bad";
-        body = <form onSubmit={submit} noValidate={True}>
-            <FieldGroup>
-                <h2 className="text-lg font-semibold">{STEPS[0]}</h2>
-                {failed and <FieldError>{failed}</FieldError>}
-                <Field data-invalid={"true" if name_error else None}>
-                    <FieldLabel htmlFor="cinema-name">Cinema name</FieldLabel>
-                    <Input
-                        id="cinema-name"
-                        name="cinema-name"
-                        ref={name_input}
-                        autoComplete="organization"
+    slug_bad = slug_state == "bad";
+    body = <form onSubmit={submit} noValidate={True}>
+        <FieldGroup>
+            <h2 className="text-lg font-semibold">Name your cinema</h2>
+            {failed and <FieldError>{failed}</FieldError>}
+            <Field data-invalid={"true" if name_error else None}>
+                <FieldLabel htmlFor="cinema-name">Cinema name</FieldLabel>
+                <Input
+                    id="cinema-name"
+                    name="cinema-name"
+                    ref={name_input}
+                    autoComplete="organization"
+                    required={True}
+                    maxLength={80}
+                    value={name}
+                    onChange={lambda (ev: any) { on_name(ev.target.value); }}  # jac:ignore[W1037]
+                    onBlur={lambda { if not slug_edited { verify(slug); }}}
+                    aria-invalid={"true" if name_error else None}
+                    aria-describedby={"cinema-name-error" if name_error else None}
+                    className="h-11 text-base"
+                />
+                {name_error
+                    and <FieldError id="cinema-name-error">{name_error}</FieldError>}
+            </Field>
+            <Field data-invalid={"true" if slug_bad else None}>
+                <FieldLabel htmlFor="cinema-slug">Web address</FieldLabel>
+                <InputGroup className="h-11">
+                    <InputGroupInput
+                        id="cinema-slug"
+                        name="cinema-slug"
+                        ref={slug_input}
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        spellCheck={False}
                         required={True}
-                        maxLength={80}
-                        value={name}
-                        onChange={lambda (ev: any) { on_name(ev.target.value); }}  # jac:ignore[W1037]
-                        onBlur={lambda { if not slug_edited { verify(slug); }}}
-                        aria-invalid={"true" if name_error else None}
-                        aria-describedby={"cinema-name-error" if name_error else None}
+                        maxLength={40}
+                        value={slug}
+                        onChange={lambda (ev: any) { on_slug(ev.target.value); }}  # jac:ignore[W1037]
+                        onBlur={lambda { verify(slug); }}
+                        aria-invalid={"true" if slug_bad else None}
+                        aria-describedby="cinema-slug-hint cinema-slug-status"
                         className="h-11 text-base"
                     />
-                    {name_error
-                        and <FieldError id="cinema-name-error">
-                            {name_error}
-                        </FieldError>}
-                </Field>
-                <Field data-invalid={"true" if slug_bad else None}>
-                    <FieldLabel htmlFor="cinema-slug">Web address</FieldLabel>
-                    <InputGroup className="h-11">
-                        <InputGroupInput
-                            id="cinema-slug"
-                            name="cinema-slug"
-                            ref={slug_input}
-                            autoComplete="off"
-                            autoCapitalize="none"
-                            spellCheck={False}
-                            required={True}
-                            maxLength={40}
-                            value={slug}
-                            onChange={lambda (ev: any) { on_slug(ev.target.value); }}  # jac:ignore[W1037]
-                            onBlur={lambda { verify(slug); }}
-                            aria-invalid={"true" if slug_bad else None}
-                            aria-describedby="cinema-slug-hint cinema-slug-status"
-                            className="h-11 text-base"
-                        />
-                        <InputGroupAddon align="inline-end">
-                            <InputGroupText>{web_address("")}</InputGroupText>
-                        </InputGroupAddon>
-                    </InputGroup>
-                    <FieldDescription id="cinema-slug-hint">
-                        Where customers book: 3 to 40 letters, numbers or hyphens.
-                    </FieldDescription>
-                    <SlugStatus state={slug_state} message={slug_message}/>
-                </Field>
-                <Button
-                    type="submit"
-                    disabled={busy}
-                    className="h-11 w-full sm:w-auto sm:self-end sm:px-6"
-                >
-                    {busy and <Spinner aria-hidden="true"/>}{"Creating…"
-                        if busy
-                        else "Create cinema"}
-                </Button>
-            </FieldGroup>
-        </form>;
-    } else {
-        body = <div className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold">{STEPS[1]}</h2>
-            <p className="text-muted-foreground">
-                Your cinema is ready at{" "}
-                <span className="font-medium text-foreground">
-                    {web_address(created)}
-                </span>
-                {". Add your logo and colours now, or later from Settings: until then your storefront uses the AfriCinemas look."
-                    if can_brand
-                    else ". Your storefront uses the AfriCinemas look until you add your logo and colours in Settings."}
-            </p>
-            {can_brand
-                and <div data-testid="wizard-branding">
-                    <BrandingSection slug={created} cinema={name}/>
-                </div>}
+                    <InputGroupAddon align="inline-end">
+                        <InputGroupText>{web_address("")}</InputGroupText>
+                    </InputGroupAddon>
+                </InputGroup>
+                <FieldDescription id="cinema-slug-hint">
+                    Where customers book: 3 to 40 letters, numbers or hyphens.
+                </FieldDescription>
+                <SlugStatus state={slug_state} message={slug_message}/>
+            </Field>
             <Button
-                asChild={True}
+                type="submit"
+                disabled={busy}
                 className="h-11 w-full sm:w-auto sm:self-end sm:px-6"
             >
-                <Link to={f"/app/{created}"}>Continue to your cinema</Link>
+                {busy and <Spinner aria-hidden="true"/>}{"Creating…"
+                    if busy
+                    else "Create cinema"}
             </Button>
-        </div>;
-    }
+        </FieldGroup>
+    </form>;
     return
         <PlainLayout title="New cinema" account={<AccountActions slugs={[]}/>}>
-            <Progress step={step}/>
             <Card>
                 <CardContent>{body}</CardContent>
             </Card>
