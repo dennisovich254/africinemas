@@ -99,6 +99,11 @@ def price_cents_of(text: str) -> int | None {
     return cents if 100 <= cents <= PRICE_MAX_CENTS else None;
 }
 
+def _error_order(e: dict[str, any]) -> tuple[int, str] {  # jac:ignore[W1037]
+    # Errors sorted by row, then field, so a preview lists them in file order.
+    return (e["row"], e["field"]);
+}
+
 def _error(row: int, field: str, message: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"row": row, "field": field, "message": message};
 }
@@ -308,16 +313,7 @@ def plan_import(
         );
     }
     if errors {
-        return (
-            [],
-            sorted(
-                errors,
-                key=lambda (e: dict[str, any]) -> tuple[int, str] { return (
-                    e["row"],
-                    e["field"]
-                ); }
-            )
-        );  # jac:ignore[W1037]
+        return ([], sorted(errors, key=_error_order));
     }
     return (plan, []);
 }
