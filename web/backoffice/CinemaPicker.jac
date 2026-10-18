@@ -1,7 +1,7 @@
 """`/app`: the cinemas the signed-in person works at, or a way to create their first."""
 
 import from react { useState, useEffect }
-import from "@jac/runtime" { Link }
+import from "@jac/runtime" { Link, useNavigate }
 import from "@hugeicons/react" { HugeiconsIcon }
 import from "@hugeicons/core-free-icons" { Add01Icon, ArrowRight01Icon, Film01Icon }
 import from ...components.ui.alert { Alert, AlertDescription }
@@ -19,6 +19,7 @@ import from ...components.ui.spinner { Spinner }
 import from core.tenancy.signup { my_cinemas }  # jac:ignore[W2037] authenticated endpoint
 import from .nav { web_address, role_label }
 import from .PlainLayout { PlainLayout, AccountActions }
+import from ..auth.session { sign_out }
 
 def CinemaLink(cinema: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     return
@@ -76,6 +77,7 @@ def NoCinemas -> JsxElement {
 def:pub CinemaPicker -> JsxElement {
     [cinemas, set_cinemas] = useState(None);
     [failed, set_failed] = useState(False);
+    nav = useNavigate();
     async def load {
         found: any = None;  # jac:ignore[W1037]
         try {
@@ -85,7 +87,18 @@ def:pub CinemaPicker -> JsxElement {
             set_failed(True);
             return;
         }
+        # A refused call (a 401 for a session the server no longer accepts) comes back
+        # as an error, not a list: say so instead of crashing on it.
+        if not Array.isArray(found) {  # jac:ignore[W2001]
+            console.warn("my_cinemas refused", found);
+            set_failed(True);
+            return;
+        }
         set_cinemas(found);
+    }
+    async def sign_in_again {
+        await sign_out([]);
+        nav("/login", {"replace": True});
     }
     # A named function, not `lambda { load(); }`: that compiles to `() => load()`, and
     # React would call the returned promise as the effect's cleanup (JI-028).
@@ -96,11 +109,20 @@ def:pub CinemaPicker -> JsxElement {
     slugs = [c["slug"] for c in cinemas] if cinemas else [];
     body: any = None;  # jac:ignore[W1037]
     if failed {
-        body = <Alert variant="destructive">
-            <AlertDescription>
-                We couldn't load your cinemas. Refresh the page to try again.
-            </AlertDescription>
-        </Alert>;
+        body = <div className="flex flex-col gap-4">
+            <Alert variant="destructive">
+                <AlertDescription>
+                    We couldn't load your cinemas. Your sign-in may have expired: sign in again, or refresh the page to try again.
+                </AlertDescription>
+            </Alert>
+            <Button
+                variant="outline"
+                className="min-h-11 self-start"
+                onClick={sign_in_again}
+            >
+                Sign in again
+            </Button>
+        </div>;
     } elif cinemas is None {
         body = <p
             role="status"
