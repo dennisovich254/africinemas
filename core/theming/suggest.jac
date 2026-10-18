@@ -30,9 +30,41 @@ import from core.theming.tokens {
     RADII,
     DEFAULT_THEME,
     InvalidThemeValue,
-    validate_theme
+    validate_theme,
+    contrast_ratio
 }
 import from core.theming.branding { NAME_MAX, parse_theme, repair_reporting }
+
+# The theme model: byLLM's Model with its own time limit per attempt, then other models.
+# The booking agent sets litellm's global limit to 15 s, right for a chat reply but too
+# short for three themes from an image; and Gemini answers 503 ("high demand") at peaks,
+# when a different model usually has room (seen 2026-10-18).
+obj ThemeModel(Model) {
+    has fallback_models: list[str] = [],
+        attempt_timeout: float = 20.0;
+
+    def _attempt(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+        return super.model_call_no_stream(params);
+    }
+
+    override def model_call_no_stream(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+        failure: Exception = RuntimeError("no theme model to try");
+        for name in [self.model_name] + self.fallback_models {
+            tried = dict(params);
+            tried["model"] = name;
+            tried["timeout"] = self.attempt_timeout;
+            # Our loop is the retry: no hidden retries inside one attempt.
+            tried["num_retries"] = 0;
+            try {
+                return self._attempt(tried);
+            } except Exception as e {
+                logger.warning("theme model %s failed: %s", name, type(e).__name__);
+                failure = e;
+            }
+        }
+        raise failure;
+    }
+}
 
 glob logger = logging.getLogger(__name__),
      # Its own setting, so suggestions can use a stronger model than the chat; else the
@@ -40,19 +72,25 @@ glob logger = logging.getLogger(__name__),
      MODEL_ENV: str = "AFRICINEMAS_THEME_MODEL",
      CHAT_MODEL_ENV: str = "AFRICINEMAS_LLM_MODEL",
      DEFAULT_MODEL: str = "gemini/gemini-3.5-flash-lite",
-     theme_model: any = Model(  # jac:ignore[W1037]
+     # Tried in turn when the model above is overloaded, slow or failing.
+     FALLBACK_MODELS: list[str] = [
+         "gemini/gemini-3.5-flash",
+         "gemini/gemini-2.5-flash"
+     ],
+     theme_model: any = ThemeModel(  # jac:ignore[W1037]
          model_name=os.environ.get(MODEL_ENV)
              or os.environ.get(CHAT_MODEL_ENV)
-             or DEFAULT_MODEL
+             or DEFAULT_MODEL,
+         fallback_models=FALLBACK_MODELS
      ),
      PROPOSALS: int = 3,
      SWATCH_MAX: int = 8,
      # The logo is sampled at this size: enough for its colours, cheap to quantize.
      SAMPLE_PX: int = 128,
      REASON_MAX: int = 200,
-     # Seconds the owner waits for the model before getting the code's theme instead.
-     # A hard deadline: provider retries and slow networks otherwise ran for minutes.
-     CALL_DEADLINE: float = 45.0,
+     # Seconds the owner waits for the models (each attempt has its own 20 s) before
+     # getting the code's theme instead: a hard deadline whatever the provider does.
+     CALL_DEADLINE: float = 65.0,
      _calls: ThreadPoolExecutor = ThreadPoolExecutor(
          max_workers=4, thread_name_prefix="theme-suggest"
      ),
@@ -203,6 +241,12 @@ def _colours(mode: any) -> dict[str, str] {  # jac:ignore[W1037]
     return out;
 }
 
+def _page_is_light(background: str) -> bool {
+    # Dark text reads better on it than light text does, as the theme repair judges it.
+    return contrast_ratio("#000000", background)
+        > contrast_ratio("#FFFFFF", background);
+}
+
 def _allowed(value: any, allowed: list[str], fallback: str) -> str {  # jac:ignore[W1037]
     return value if isinstance(value, str) and value in allowed else fallback;
 }
@@ -229,6 +273,11 @@ def checked_proposal(proposal: any) -> dict[str, any] | None {  # jac:ignore[W10
     try {
         parsed = parse_theme(data);
     } except InvalidThemeValue {
+        return None;
+    }
+    # Light mode on a light page, dark mode on a dark one, or the mode switch looks wrong.
+    if not _page_is_light(parsed.light.background)
+        or _page_is_light(parsed.dark.background) {
         return None;
     }
     (fixed, changes) = repair_reporting(parsed);

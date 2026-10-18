@@ -20,7 +20,8 @@ import from core.theming.suggest {
     ThemeProposal,
     ModeColours,
     logo_colours,
-    checked_proposal
+    checked_proposal,
+    ThemeModel
 }
 
 glob RED: tuple[int, int, int, int] = (120, 20, 30, 255),
@@ -92,6 +93,11 @@ test "a proposal is rebuilt as a readable theme; a broken one is dropped" {
     assert validate_theme(parse_theme(pale["theme"])) == [];
     # Not a colour at all: the proposal is dropped.
     assert checked_proposal(_proposal("Broken", {"accent": "gold"})) is None;
+    # A dark page in light mode would make the mode switch look wrong: dropped.
+    assert checked_proposal(
+        _proposal("Upside Down", {"background": "#101010", "ink": "#f0f0f0"})
+    )
+        is None;
     # A hex without its "#" is still a colour.
     assert checked_proposal(_proposal("Bare", {"accent": "78141e"})) is not None;
 }
@@ -142,4 +148,46 @@ test "a failing model gives one theme built from the logo" {
     assert validate_theme(parse_theme(theme)) == [];
     # Built on the logo's key colour (repair may darken it for contrast).
     assert theme["light"]["accent"] != DEFAULT_THEME.light.accent;
+}
+
+obj ScriptedThemeModel(ThemeModel) {
+    # A ThemeModel whose attempts are scripted per model name: no network.
+    has fails: list[str] = [],
+        tried: list[dict[str, any]] = [];  # jac:ignore[W1037]
+
+    override def _attempt(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+        self.tried.append(params);
+        if params["model"] in self.fails {
+            raise RuntimeError(f"{params['model']} is overloaded");
+        }
+        return {"answered_by": params["model"]};
+    }
+}
+
+test "an overloaded model hands over to the next, each with its own time limit" {
+    model = ScriptedThemeModel(
+        model_name="gemini/lite",
+        fallback_models=["gemini/flash", "gemini/older"],
+        fails=["gemini/lite"]
+    );
+    got = model.model_call_no_stream({"model": "ignored", "messages": []});
+    assert got == {"answered_by": "gemini/flash"};
+    assert [t["model"] for t in model.tried] == ["gemini/lite", "gemini/flash"];
+    assert all(
+        [
+            t["timeout"] == model.attempt_timeout and t["num_retries"] == 0
+            for t in model.tried
+        ]
+    );
+    every = ScriptedThemeModel(
+        model_name="gemini/lite",
+        fallback_models=["gemini/flash"],
+        fails=["gemini/lite", "gemini/flash"]
+    );
+    try {
+        every.model_call_no_stream({"messages": []});
+        assert False , "all models failing must raise";
+    } except RuntimeError as e {
+        assert "gemini/flash" in str(e);
+    }
 }
