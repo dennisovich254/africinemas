@@ -24,7 +24,7 @@ import from core.snacks.tools_api {
 }
 import from ..shell.AppLink { AppLink }
 import from .form_parts { on_input }
-import from .snack_view { SnackSubnav, snack_path, price_text }
+import from .snack_view { SnackSubnav, snack_path, price_text, with_field }
 
 glob FIELD_LABELS: list[tuple[str, str, bool]] = [
          ("product_name", "Product name", True),
@@ -160,7 +160,7 @@ def:pub SnackImportPage(slug: str, permissions: list[str]) -> JsxElement {
     products: list[dict[str, any]] = shown["products"] if shown is not None else [];  # jac:ignore[W1037]
 
     def remap(field: str, column: str) {
-        changed = dict(chosen, **{field: column});
+        changed = with_field(chosen, field, column);
         set_mapping(changed);
         run_preview(text, changed, create);
     }
