@@ -116,15 +116,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
             page.locator("#cinema-slug").blur();
             page.wait_for_selector(f'{SLUG_STATUS}:has-text("available")');
             page.click('button[type="submit"]');
-            page.wait_for_selector('h2:has-text("Brand your cinema")');
-            # Step 2 is the real branding editor, not a placeholder (improvements #22).
-            page.wait_for_selector('[data-testid="wizard-branding"]');
-            assert page.locator(
-                '[aria-current="step"]'
-            ).inner_text().strip().startswith(
-                "2"
-            ) , f"{project}: the progress marks step 2";
-            page.click('a:has-text("Continue to your cinema")');
+            # One step (improvements #22): creating the cinema opens its back office.
             page.wait_for_url(f"**/app/{slug}");
             assert page.locator(TITLE).inner_text().strip() == "Overview";
             assert _nav_labels(page, project)
@@ -176,11 +168,11 @@ test "the slug field flags an invalid or taken address before submitting" {
                 in (slug_input.get_attribute("aria-describedby") or "") , value;
         }
         page.click('button[type="submit"]');
-        # Submitting a taken address stays on step 1 and puts focus on the field.
+        # Submitting a taken address stays on the form and puts focus on the field.
         page.wait_for_function(
             "document.activeElement && document.activeElement.id === 'cinema-slug'"
         );
-        assert page.locator('h2:has-text("Brand your cinema")').count() == 0;
+        assert page.url.endswith("/app/new") , page.url;
     } finally {
         close_contexts(browser);
     }
@@ -200,7 +192,6 @@ test "an account made in the browser can sign out and sign back in" {
             _type(page, "#cinema-name", "Round Trip Cinema");
             _type(page, "#cinema-slug", unique("again"));
             page.click('button[type="submit"]');
-            page.click('a:has-text("Continue to your cinema")');
             page.wait_for_selector(TITLE);
             _sign_out(page, project);
             # Sign back in with the same details, typed the way people do.
