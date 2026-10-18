@@ -20,7 +20,7 @@ import from core.snacks.extras_api {
 }
 import from ..shell.AppLink { AppLink }
 import from .form_parts { TextField, FieldError }
-import from .snack_view { snack_path, problem_id, with_field }
+import from .snack_view { snack_path, problem_id, whole_number, with_field }
 
 glob COMPONENTS_MAX: int = 6;
 
@@ -219,9 +219,7 @@ def:pub SnackComponents(
         components = [
             {
                 "label": r["label"],
-                "quantity": int(r["quantity"])
-                    if r["quantity"].strip().isdigit()
-                    else 0,
+                "quantity": whole_number(r["quantity"], 0),
                 "variant_ids": r["variant_ids"]
             } for r in parts
         ];

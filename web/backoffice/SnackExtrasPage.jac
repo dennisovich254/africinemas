@@ -33,6 +33,7 @@ import from .snack_view {
     problem_id,
     price_text,
     price_cents_of,
+    whole_number,
     with_field
 }
 
@@ -212,8 +213,8 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
             set_errors(shown);
             return;
         }
-        low = int(values["min"]) if values["min"].strip().isdigit() else -1;
-        high = int(values["max"]) if values["max"].strip().isdigit() else 0;
+        low = whole_number(values["min"], -1);
+        high = whole_number(values["max"], 0);
         group_id: str = "" if editing == "new" else editing;
         def send -> any {  # jac:ignore[W1037]
             return save_snack_addon_group(  # jac:ignore[W2037]
