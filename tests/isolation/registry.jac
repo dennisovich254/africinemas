@@ -207,6 +207,46 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
          # The snack catalog (P12.1).
+         "duplicate_snack_product": {
+             "scope": "tenant",
+             "audit": "snack_product.duplicated",
+             "probe": {"tenant": "{tenant}", "product_id": "x"}
+         },
+         "preview_snack_import": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "csv_text": "product_name,category,sku,price\nProbe,Probe,PROBE,100\n",
+                 "mapping": {},
+                 "create_categories": False
+             }
+         },
+         "import_snack_catalog": {
+             "scope": "tenant",
+             "audit": "snack_catalog.imported",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "csv_text": "product_name,category,sku,price\nProbe,Probe,PROBE,100\n",
+                 "mapping": {},
+                 "create_categories": False
+             }
+         },
+         "export_snack_catalog": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "bulk_snack_products": {
+             "scope": "tenant",
+             "audit": "snack_product.bulk_changed",
+             "probe": {"tenant": "{tenant}", "product_ids": [], "action": "archive"}
+         },
+         "bulk_snack_venues": {
+             "scope": "tenant",
+             "audit": "snack_product.bulk_venues_set",
+             "probe": {"tenant": "{tenant}", "product_ids": [], "venue_ids": []}
+         },
          "snack_stock_levels": {
              "scope": "tenant",
              "audit": "",

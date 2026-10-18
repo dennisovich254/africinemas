@@ -76,6 +76,14 @@ import from core.snacks.inventory_api {
     adjust_snack_stock,  # jac:ignore[W2037]
     set_snack_stock_rules  # jac:ignore[W2037]
 }
+import from core.snacks.tools_api {
+    duplicate_snack_product,  # jac:ignore[W2037]
+    preview_snack_import,  # jac:ignore[W2037]
+    import_snack_catalog,  # jac:ignore[W2037]
+    export_snack_catalog,  # jac:ignore[W2037]
+    bulk_snack_products,  # jac:ignore[W2037]
+    bulk_snack_venues  # jac:ignore[W2037]
+}
 import from core.snacks.product_api {
     list_snack_products,  # jac:ignore[W2037]
     get_snack_product,  # jac:ignore[W2037]

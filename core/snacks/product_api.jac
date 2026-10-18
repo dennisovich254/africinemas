@@ -154,7 +154,7 @@ def _claim_skus(
     return won;
 }
 
-def _save(  # jac:ignore[W3030] the editor's whole form: product fields and its variants
+def save_product(  # jac:ignore[W3030] the editor's whole form: product fields and its variants
     tenant: str,
     product_id: str,
     name: str,
@@ -318,7 +318,7 @@ def _move(product: SnackProduct, tenant: Tenant, status: str) {
     }
 }
 
-def _transition(
+def move_product(
     tenant: str, product_id: str, allowed: list[str], to: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, MANAGE);
@@ -521,7 +521,7 @@ def:priv save_snack_product(  # jac:ignore[W3030] the editor's whole form: produ
         "snack_product.saved",
         "snack_product",
         product_id,
-        lambda -> any { return _save(  # jac:ignore[W1037]
+        lambda -> any { return save_product(  # jac:ignore[W1037]
             tenant,
             product_id,
             name,
@@ -543,7 +543,7 @@ def:priv publish_snack_product(tenant: str, product_id: str) -> dict[str, any] {
         "snack_product.published",
         "snack_product",
         product_id,
-        lambda -> any { return _transition(tenant, product_id, ["draft"], "active"); }  # jac:ignore[W1037]
+        lambda -> any { return move_product(tenant, product_id, ["draft"], "active"); }  # jac:ignore[W1037]
     );
 }
 
@@ -553,7 +553,7 @@ def:priv unpublish_snack_product(tenant: str, product_id: str) -> dict[str, any]
         "snack_product.unpublished",
         "snack_product",
         product_id,
-        lambda -> any { return _transition(tenant, product_id, ["active"], "draft"); }  # jac:ignore[W1037]
+        lambda -> any { return move_product(tenant, product_id, ["active"], "draft"); }  # jac:ignore[W1037]
     );
 }
 
@@ -563,7 +563,7 @@ def:priv archive_snack_product(tenant: str, product_id: str) -> dict[str, any] {
         "snack_product.archived",
         "snack_product",
         product_id,
-        lambda -> any { return _transition(  # jac:ignore[W1037]
+        lambda -> any { return move_product(  # jac:ignore[W1037]
             tenant, product_id, ["draft", "active"], "archived"
         ); }
     );
@@ -575,7 +575,9 @@ def:priv restore_snack_product(tenant: str, product_id: str) -> dict[str, any] {
         "snack_product.restored",
         "snack_product",
         product_id,
-        lambda -> any { return _transition(tenant, product_id, ["archived"], "draft"); }  # jac:ignore[W1037]
+        lambda -> any { return move_product(
+            tenant, product_id, ["archived"], "draft"
+        ); }  # jac:ignore[W1037]
     );
 }
 

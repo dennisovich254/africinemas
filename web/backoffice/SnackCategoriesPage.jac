@@ -20,7 +20,9 @@ import from core.snacks.category_api {
     reorder_snack_categories,  # jac:ignore[W2037]
     set_snack_category_status  # jac:ignore[W2037]
 }
-import from .form_parts { TextField, submit_with }
+import from ...components.ui.input { Input }
+import from ...components.ui.label { Label }
+import from .form_parts { TextField, FieldError, submit_with, on_input }
 import from .snack_view { SnackSubnav }
 
 def:pub swapped(ids: list[str], at: int, step: int) -> list[str] {
@@ -301,25 +303,38 @@ def:pub SnackCategoriesPage(slug: str, permissions: list[str]) -> JsxElement {
             {can_manage
                 and <form
                     data-testid="add-category"
-                    className="flex flex-wrap items-end gap-3 border-t pt-6"
+                    className="flex flex-col gap-1.5 border-t pt-6"
                     onSubmit={submit_with(lambda { add(); })}
                 >
-                    <TextField
-                        field_id="new-category"
-                        label="New category"
-                        value={new_name}
-                        error={field_errors["new-category"] or ""}
-                        on_value={set_new_name}
-                        hint="Like Ice cream or Hot drinks."
-                    />
-                    <Button
-                        type="submit"
-                        variant="outline"
-                        className="min-h-11 px-5"
-                        disabled={busy or not new_name.strip()}
-                    >
-                        Add category
-                    </Button>
+                    <Label htmlFor="new-category">New category</Label>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Input
+                            id="new-category"
+                            value={new_name}
+                            aria-invalid={"true"
+                                if field_errors["new-category"]
+                                else "false"}
+                            aria-describedby="new-category-hint"
+                            onChange={on_input(set_new_name)}
+                            className="min-h-11 w-full max-w-xs"
+                        />
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            className="min-h-11 px-5"
+                            disabled={busy or not new_name.strip()}
+                        >
+                            Add category
+                        </Button>
+                    </div>
+                    <p id="new-category-hint" className="text-sm text-muted-foreground">
+                        Like Ice cream or Hot drinks.
+                    </p>
+                    {field_errors["new-category"]
+                        and <FieldError
+                            field_id="new-category"
+                            error={field_errors["new-category"]}
+                        />}
                 </form>}
         </div>;
 }
