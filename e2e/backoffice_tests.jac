@@ -117,12 +117,14 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
             page.wait_for_selector(f'{SLUG_STATUS}:has-text("available")');
             page.click('button[type="submit"]');
             page.wait_for_selector('h2:has-text("Brand your cinema")');
+            # Step 2 is the real branding editor, not a placeholder (improvements #22).
+            page.wait_for_selector('[data-testid="wizard-branding"]');
             assert page.locator(
                 '[aria-current="step"]'
             ).inner_text().strip().startswith(
                 "2"
             ) , f"{project}: the progress marks step 2";
-            page.click('a:has-text("Skip for now")');
+            page.click('a:has-text("Continue to your cinema")');
             page.wait_for_url(f"**/app/{slug}");
             assert page.locator(TITLE).inner_text().strip() == "Overview";
             assert _nav_labels(page, project)
@@ -198,7 +200,7 @@ test "an account made in the browser can sign out and sign back in" {
             _type(page, "#cinema-name", "Round Trip Cinema");
             _type(page, "#cinema-slug", unique("again"));
             page.click('button[type="submit"]');
-            page.click('a:has-text("Skip for now")');
+            page.click('a:has-text("Continue to your cinema")');
             page.wait_for_selector(TITLE);
             _sign_out(page, project);
             # Sign back in with the same details, typed the way people do.
