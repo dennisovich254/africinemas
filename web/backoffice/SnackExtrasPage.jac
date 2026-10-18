@@ -32,7 +32,8 @@ import from .snack_view {
     snack_path,
     problem_id,
     price_text,
-    price_cents_of
+    price_cents_of,
+    with_field
 }
 
 glob OPTIONS_MAX: int = 20;
@@ -174,13 +175,13 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
     field_errors: dict[str, str] = errors;
 
     def put(key: str, value: any) {  # jac:ignore[W1037]
-        set_form(dict(values, **{key: value}));
+        set_form(with_field(values, key, value));
     }
 
     def put_row(i: int, key: str, text: str) {
         put(
             "options",
-            [dict(r, **{key: text}) if n == i else r for (n, r) in enumerate(rows)]
+            [with_field(r, key, text) if n == i else r for (n, r) in enumerate(rows)]
         );
     }
 

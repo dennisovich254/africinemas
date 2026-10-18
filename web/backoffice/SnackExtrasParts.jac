@@ -20,7 +20,7 @@ import from core.snacks.extras_api {
 }
 import from ..shell.AppLink { AppLink }
 import from .form_parts { TextField, FieldError }
-import from .snack_view { snack_path, problem_id }
+import from .snack_view { snack_path, problem_id, with_field }
 
 glob COMPONENTS_MAX: int = 6;
 
@@ -192,7 +192,7 @@ def:pub SnackComponents(
 
     def put_row(i: int, key: str, value: any) {  # jac:ignore[W1037]
         set_rows(
-            [dict(r, **{key: value}) if n == i else r for (n, r) in enumerate(parts)]
+            [with_field(r, key, value) if n == i else r for (n, r) in enumerate(parts)]
         );
     }
 
