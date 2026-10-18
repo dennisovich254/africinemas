@@ -10,7 +10,7 @@ YouTube trailer. Nobody signs in: an MCP client browses as the storefront does.
 - What the storefront doesn't show, the tools don't either: an unknown cinema or movie
   is a tool error the model can read, not a JSON-RPC failure.
 - 8.3: a showtime that has started is no longer on sale in the chat; a cinema's own
-  connector (/c/{slug}/mcp) answers about that cinema only, whatever its arguments say,
+  connector (/mcp/c/{slug}) answers about that cinema only, whatever its arguments say,
   and as the platform's does; whats_on draws the programme card, whose posters come
   one at a time from movie_poster.
 """
@@ -33,7 +33,7 @@ import from tests.support.storefront_setup {
 
 glob MEDIA_ENV: str = "AFRICINEMAS_MEDIA_DIR",
      CLOCK_ENV: str = "AFRICINEMAS_CLOCK_CONTROL",
-     NOVA_MCP: str = "/c/nova/mcp",
+     NOVA_MCP: str = "/mcp/c/nova",
      HIDDEN: list[str] = [
          '"email"',
          '"phone"',
@@ -252,7 +252,7 @@ test "a cinema's own connector answers about that cinema only, as the platform's
                 NOVA_MCP
             );
         # An unknown cinema's connector answers nothing.
-        assert _rpc(app, "initialize", {}, 1, "/c/no-such-cinema/mcp")["error"]["code"]
+        assert _rpc(app, "initialize", {}, 1, "/mcp/c/no-such-cinema")["error"]["code"]
             == -32602;
     } finally {
         app.close();

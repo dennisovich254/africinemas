@@ -21,7 +21,7 @@ def _status(app: Served, token: str) -> int {
     # The HTTP status of an MCP call with `token`.
     app.client.set_auth_token(token);
     resp = app.client.post(
-        "/c/nova/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+        "/mcp/c/nova", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
     );
     app.client.set_auth_token("");
     return resp.status_code;

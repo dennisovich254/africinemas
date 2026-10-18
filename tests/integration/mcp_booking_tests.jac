@@ -59,7 +59,7 @@ def _token(app: Served, who: str) -> str {
             "redirect_uri": REDIRECT,
             "code_challenge": CHALLENGE,
             "code_challenge_method": "S256",
-            "resource": "http://localhost:8000/c/nova/mcp",
+            "resource": "http://localhost:8000/mcp/c/nova",
             "scope": "africinemas",
             "state": ""
         }
@@ -92,7 +92,7 @@ def _mcp(
     app.client.set_auth_token(token);
     # Nova's own connector: sign-in and booking are per cinema (P8.6c).
     resp = app.client.post(
-        "/c/nova/mcp",
+        "/mcp/c/nova",
         json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
     );
     app.client.set_auth_token("");
