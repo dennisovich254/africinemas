@@ -175,6 +175,8 @@ playwright = "~=1.63"
 pillow = "~=12.3"
 # Ticket QR codes as PNG images in the ticket email (P6.3); pure Python, no deps.
 segno = "~=1.6"
+# Theme suggestions read a logo's colours with Material Color Utilities (ADR-0043).
+materialyoucolor = "~=3.0"
 
 # ---------------------------------------------------------------------------
 # The AI booking agent (P8.1): Gemini through byLLM. No key here: the provider reads it

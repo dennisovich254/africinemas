@@ -23,6 +23,12 @@ import from core.audit.audit_api { audit_log }  # jac:ignore[W2037]
 import from core.reporting.staff_home { staff_home, showtime_art }  # jac:ignore[W2037]
 import from core.agent.agent_api { agent_chat, cinema_chat }  # jac:ignore[W2037]
 import core.agent.agent as agent_module;
+import from core.theming.branding_api {
+    get_branding,  # jac:ignore[W2037]
+    upload_logo,  # jac:ignore[W2037]
+    suggest_themes  # jac:ignore[W2037]
+}
+import core.theming.suggest as suggest_module;
 import from core.agent.tools { HOLDER, tool_named }
 import from jaclang.byllm.lib { MockLLM, MockToolCall }
 import from core.audit.log { Opened, collection_of, _close }
@@ -488,6 +494,13 @@ def:pub agent_mock(steps: list[any]) -> bool {  # jac:ignore[W1037]
         }
     }
     agent_module.agent_model = MockLLM(outputs=outputs);
+    return True;
+}
+
+def:pub script_theme_model(outputs: list[str]) -> bool {
+    # The theme suggester's model becomes a MockLLM (ADR-0043): each output is the
+    # model's next answer, as text (JSON for a list of proposals).
+    suggest_module.theme_model = MockLLM(outputs=outputs);
     return True;
 }
 

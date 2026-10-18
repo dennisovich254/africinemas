@@ -18,6 +18,7 @@ import from core.theming.branding_api {
     get_branding,  # jac:ignore[W2037] authenticated endpoint
     save_theme,  # jac:ignore[W2037]
     upload_logo,  # jac:ignore[W2037]
+    suggest_themes,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
     rollback_theme  # jac:ignore[W2037]
@@ -147,6 +148,40 @@ def PresetCard(
         </label>;
 }
 
+# One theme the AI designed from the logo (ADR-0043): its mood, why, and its colours.
+def IdeaCard(
+    idea: dict[str, any],  # jac:ignore[W1037]
+    on_use: any  # jac:ignore[W1037]
+) -> JsxElement {
+    theme: dict[str, any] = idea["theme"];  # jac:ignore[W1037]
+    swatches = ["background", "surface", "accent", "ink"];
+    return
+        <div
+            className="flex h-full flex-col gap-3 rounded-lg border bg-card p-3"
+            data-testid="theme-idea"
+        >
+            <span className="font-medium">{theme["name"]}</span>
+            <span className="flex gap-1" aria-hidden="true">
+                {[
+                    <span
+                        key={f"{mode}-{role}"}
+                        className="size-5 rounded border"
+                        style={{"background": theme[mode][role]}}
+                    ></span> for mode in MODES for role in swatches
+                ]}
+            </span>
+            {idea["reason"]
+                and <p className="text-sm text-muted-foreground">{idea["reason"]}</p>}
+            <Button
+                variant="outline"
+                className="mt-auto min-h-11 self-start px-4"
+                onClick={lambda { on_use(idea); }}
+            >
+                Try this theme
+            </Button>
+        </div>;
+}
+
 def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     [data, set_data] = useState(None);
     [failed, set_failed] = useState("");
@@ -160,6 +195,8 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     [message, set_message] = useState("");
     [adjusted, set_adjusted] = useState([]);
     [restoring, set_restoring] = useState(0);
+    [ideas, set_ideas] = useState([]);
+    [ideas_note, set_ideas_note] = useState("");
 
     def show(answer: dict[str, any]) {  # jac:ignore[W1037]
         draft: dict[str, any] = answer["branding"]["draft"];  # jac:ignore[W1037]
@@ -271,6 +308,45 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_errors({});
         set_message("");
         set_adjusted([]);
+    }
+
+    async def ask_ideas {
+        answer: any = None;  # jac:ignore[W1037]
+        set_busy("suggesting");
+        set_ideas_note("");
+        try {
+            answer = await suggest_themes(slug);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("suggest_themes failed", e);
+            set_busy("");
+            set_ideas_note(
+                "We couldn't get ideas. Check your connection and try again."
+            );
+            return;
+        }
+        set_busy("");
+        if not answer["ok"] {
+            set_ideas_note(answer["error"]["message"]);
+            return;
+        }
+        set_ideas(answer["proposals"]);
+        left: int = answer["remaining"];
+        said = "Here are themes made from your logo. Try one in the preview."
+            if answer["from_ai"]
+            else "The AI couldn't answer just now, so here's a theme made from your logo's main colour.";
+        more = " That was your last set of ideas for today."
+            if left == 0
+            else f" You can ask {left} more times today.";
+        set_ideas_note(said + more);
+    }
+
+    def use_idea(idea: dict[str, any]) {  # jac:ignore[W1037]
+        choose_preset(idea["theme"]);
+        set_message(
+            f"{idea['theme'][
+                'name'
+            ]} is in the editor. Adjust it, then save or publish to keep it."
+        );
     }
 
     def change_field(field: str, value: str) {
@@ -592,6 +668,49 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         </div>
     </section>;
 
+    idea_list: list[dict[str, any]] = ideas;  # jac:ignore[W1037]
+    ideas_section = <section
+        aria-labelledby="ideas-heading"
+        className="flex flex-col gap-3"
+        data-testid="theme-ideas"
+    >
+        <h3 id="ideas-heading" className="font-semibold">Ideas from your logo</h3>
+        <p className="text-sm text-muted-foreground">
+            {"AI looks at your logo and suggests three themes made from its colours. Try one in the preview, then adjust it."
+                if logo
+                else "Upload your logo above, and AI will suggest themes made from its colours."}
+        </p>
+        {logo
+            and <Button
+                variant="outline"
+                className="min-h-11 self-start px-5"
+                disabled={busy != ""}
+                onClick={ask_ideas}
+            >
+                {busy == "suggesting" and <Spinner aria-hidden="true"/>}{"Looking at your logo…"
+                    if busy == "suggesting"
+                    else (
+                        "Suggest themes again" if len(ideas) > 0 else "Suggest themes"
+                    )}
+            </Button>}
+        {ideas_note
+            and <p
+                role="status"
+                className="text-sm text-muted-foreground"
+                data-testid="ideas-note"
+            >
+                {ideas_note}
+            </p>}
+        {len(idea_list) > 0
+            and <ul className="grid gap-3 sm:grid-cols-2">
+                {[
+                    <li key={i["theme"]["name"]}>
+                        <IdeaCard idea={i} on_use={use_idea}/>
+                    </li> for i in idea_list
+                ]}
+            </ul>}
+    </section>;
+
     history = <section
         aria-labelledby="history-heading"
         className="flex flex-col gap-3"
@@ -735,7 +854,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     </div>
                 </div>
                 <div className="flex min-w-0 flex-col gap-8 lg:order-1">
-                    {presets}{colours}{type_and_shape}{logo_section}{actions}{history}
+                    {presets}{colours}{type_and_shape}{logo_section}{ideas_section}{actions}{history}
                 </div>
             </div>
         </div>;

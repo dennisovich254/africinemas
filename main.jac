@@ -68,6 +68,7 @@ import from core.theming.branding_api {
     get_branding,  # jac:ignore[W2037]
     save_theme,  # jac:ignore[W2037]
     upload_logo,  # jac:ignore[W2037]
+    suggest_themes,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
     rollback_theme,  # jac:ignore[W2037]

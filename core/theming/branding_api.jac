@@ -11,6 +11,9 @@ tests/isolation/registry.jac, plus the public public_branding.
 - public_branding(slug) is public (no login): the published theme, its storefront CSS
   (built here from checked tokens only, core/theming/css.jac) and the logo as a data
   URL; the platform default until the cinema publishes.
+- suggest_themes asks the model for themes designed from the draft logo (ADR-0043,
+  core/theming/suggest.jac): checked and repaired like any theme, never saved until
+  the owner picks one, SUGGEST_DAILY a day per cinema.
 - Everything but public_branding needs tenant.settings.update. Another cinema's
   branding answers not_found.
 """
@@ -36,9 +39,11 @@ import from core.theming.tokens {
 import from core.theming.css { theme_css, FONT_STACKS, RADIUS_REM }
 import from core.theming.branding { PRESETS, parse_theme, repair_reporting }
 import from core.theming.models { Branding, ThemeVersion }
+import from core.theming.suggest { suggest_from_logo }
 import from core.audit.log { audited }
 
-glob CONFIGURE: str = "tenant.settings.update";
+glob CONFIGURE: str = "tenant.settings.update",
+     SUGGEST_DAILY: int = 5;
 
 def _branding(scope: TenantScope) -> Branding | None {
     if not scope.tenant.branding_id {
@@ -188,6 +193,37 @@ def _upload_logo(tenant: str, content_type: str, data_base64: str) -> dict[str, 
     return {"ok": True};
 }
 
+def _suggest_themes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = scoped(tenant, CONFIGURE);
+    branding = _branding(scope);
+    if branding is None or not branding.draft_logo {
+        raise Refused("no_logo", "Upload your logo first, then ask for theme ideas.");
+    }
+    logo = branding.draft_logo;
+    today = now().date().isoformat();
+    used = branding.suggest_count if branding.suggest_day == today else 0;
+    if used >= SUGGEST_DAILY {
+        raise Refused(
+            "suggest_limit",
+            f"You've asked for theme ideas {SUGGEST_DAILY} times today. Try again tomorrow."
+        );
+    }
+    # Counted before the model call, so a slow or failed call still counts.
+    def _count(b: Branding) {
+        b.suggest_day = today;
+        b.suggest_count = used + 1;
+    }
+    _edit_draft(scope, _count);
+    found = suggest_from_logo(base64.b64decode(logo), scope.tenant.name);
+    return {
+        "ok": True,
+        "proposals": found["proposals"],
+        "colours": found["colours"],
+        "from_ai": found["from_ai"],
+        "remaining": SUGGEST_DAILY - used - 1
+    };
+}
+
 def _remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, CONFIGURE);
     def _set(b: Branding) {
@@ -279,6 +315,10 @@ def _do_upload_logo(
     );
 }
 
+def _do_suggest_themes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _suggest_themes(tenant); });  # jac:ignore[W1037]
+}
+
 def _do_remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _remove_logo(tenant); });  # jac:ignore[W1037]
 }
@@ -332,6 +372,16 @@ def:protect upload_logo(
         "theme",
         "",
         lambda -> any { return _do_upload_logo(tenant, content_type, data_base64); }  # jac:ignore[W1037]
+    );
+}
+
+def:protect suggest_themes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "theme.suggested",
+        "theme",
+        "",
+        lambda -> any { return _do_suggest_themes(tenant); }  # jac:ignore[W1037]
     );
 }
 

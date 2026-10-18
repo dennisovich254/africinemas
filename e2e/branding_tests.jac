@@ -240,6 +240,40 @@ test "a logo uploaded here shows on the storefront and in the back-office" {
     }
 }
 
+test "theme ideas from the logo load into the editor, saving nothing yet" {
+    # CI has no model key, so the AI call fails and the code's theme from the logo is
+    # the one idea; with a key there are up to three. Either way the flow is the same.
+    owner = owner_with_cinema();
+    (pw, browser) = shared_browser();
+    try {
+        page = _page(browser, pw, "desktop");
+        _sign_in(page, owner["email"]);
+        _open_branding(page, owner);
+        ideas = '[data-testid="theme-ideas"]';
+        assert page.locator(f'{ideas} button:has-text("Suggest themes")').count() == 0;
+        page.set_input_files(
+            "#logo-file",
+            files=[{"name": "logo.png", "mimeType": "image/png", "buffer": _logo_png()}]
+        );
+        page.wait_for_selector('[data-testid="logo-preview"]');
+        page.click(f'{ideas} button:has-text("Suggest themes")');
+        page.wait_for_selector('[data-testid="theme-idea"]', timeout=60000);
+        assert "more times today" in page.inner_text('[data-testid="ideas-note"]');
+        first = page.locator('[data-testid="theme-idea"]').first;
+        name = first.locator("span.font-medium").inner_text().strip();
+        first.locator('button:has-text("Try this theme")').click();
+        page.wait_for_function(
+            f"document.querySelector('[data-testid=branding-message]')?.innerText.includes({repr(
+                name + ' is in the editor'
+            )})"
+        );
+        # Nothing is public until the owner publishes.
+        assert "default theme" in page.inner_text(STATUS);
+    } finally {
+        close_contexts(browser);
+    }
+}
+
 test "the Branding page and the storefront pass the phone checks" {
     owner = owner_with_cinema();
     (pw, browser) = shared_browser();

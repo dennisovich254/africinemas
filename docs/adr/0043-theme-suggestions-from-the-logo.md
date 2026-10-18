@@ -1,0 +1,22 @@
+# ADR-0043: Theme suggestions from the cinema's logo
+
+- **Status:** Accepted
+- **Date:** 2026-10-18
+- **Sub-phase:** Deferred AI features: AI brand-theme generator, phase (a)
+- **Code:** `core/theming/suggest.jac` (`logo_colours`, `checked_proposal`, `code_proposal`, `suggest_from_logo`), `core/theming/branding_api.jac` (`suggest_themes`), `web/backoffice/BrandingSection.jac` (Ideas from your logo)
+- **Tests:** `tests/unit/theme_suggest_tests.jac`, `tests/integration/theme_suggest_tests.jac`, `e2e/branding_tests.jac` (theme ideas), `tests/isolation/registry.jac`
+
+## Context
+The plan's deferred "AI brand-theme generator": an owner with a logo should get themes that look like their brand without picking 40 colours. Themes are data (ADR-0013): exact fields, `#RRGGBB` colours, allowlisted fonts and radius, repaired for contrast. The owner asked whether the model should also read the colours, since current models are capable (user discussion, 2026-10-18).
+
+## Decision
+1. **Code reads the colours; the model designs.** Material Color Utilities (`materialyoucolor`, the algorithm behind Android's dynamic colour) quantizes the logo's pixels into at most 8 exact colours with their share, skipping transparent pixels and sampling with nearest-neighbour so no in-between shades are invented, and scores which suit a brand colour. A vision model sees colours approximately and can invent hex values; code is exact, free and testable. The model (Gemini through byLLM, `theme_model`) gets the logo image *and* those exact colours, and decides roles, added colours, fonts, corners and a mood name: the design judgement it is good at.
+2. **Typed output, nothing trusted.** `_propose` returns `list[ThemeProposal]`. Each is rebuilt through `parse_theme`; an unlisted font or radius falls back to the default theme's; a non-colour drops the proposal; colours are repaired like any saved theme and the proposal is dropped if it still fails `validate_theme`. At most 3, duplicates removed. The model never writes CSS or SVG into the page.
+3. **Never stuck.** A provider error, a mangled answer or no usable proposal gives one theme built by code: the default theme wearing the logo's key colour, repaired. The model call runs under a hard 45 s deadline in a worker thread (byLLM and litellm retries otherwise took minutes on a bad network).
+4. **Suggesting saves nothing.** `suggest_themes` returns proposals; the page puts a chosen one in the editor like a preset, and the owner saves or publishes as usual. It needs the draft logo (`no_logo`) and `tenant.settings.update`, is audited (`theme.suggested`), and is limited to 5 a day per cinema (`suggest_limit`), counted before the model call on the cinema's `Branding` (`suggest_day`, `suggest_count`).
+5. **Model choice:** `AFRICINEMAS_THEME_MODEL`, else the chat's `AFRICINEMAS_LLM_MODEL`, else `gemini/gemini-3.5-flash-lite`. A real run (2026-10-18) answered in 7 s with three distinct themes built on the logo's exact colours.
+
+## Consequences
+- The logo goes to the model provider (Gemini) when the owner asks; it is the cinema's public logo.
+- Repair adjusted 8 to 13 colours per model theme in the first real run: the model's contrast is approximate, the repair makes it readable.
+- Next (phase b, planned): shapes and motifs. The model describes the logo's motifs and shape language; the site renders them from our own allowlisted library of patterns, never from model-written markup.
