@@ -1,6 +1,6 @@
 """P8.2: the MCP server over HTTP (POST /mcp), against a real cinema.
 
-In-process app (tests/apps/payment_app.jac): Nova shows Rafiki, with a poster and a
+In-process app (payment_app.jac): Nova shows Rafiki, with a poster and a
 YouTube trailer. Nobody signs in: an MCP client browses as the storefront does.
 
 - A client's handshake and a notification go through the real route.

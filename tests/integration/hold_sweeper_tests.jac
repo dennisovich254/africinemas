@@ -1,4 +1,4 @@
-"""P4.4: the hold expiry sweeper (in-process app: tests/apps/sweeper_app.jac).
+"""P4.4: the hold expiry sweeper (in-process app: sweeper_app.jac).
 
 Holds lapse by themselves on every read (P4.2), so the sweeper is housekeeping: it marks
 a hold whose time is up as expired, frees its seats' slots and deletes the lapsed seat
@@ -20,7 +20,8 @@ import from tests.support.storefront_setup {
 }
 
 glob APP: str = path.join(
-         path.dirname(path.dirname(path.abspath(__file__))), "apps", "sweeper_app.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "sweeper_app.jac"
      ),
      HOLD_ENV: str = "AFRICINEMAS_HOLD_SECONDS",
      ANNA: str = "holder-anna-0123456789abcdef",

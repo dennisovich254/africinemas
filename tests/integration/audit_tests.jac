@@ -1,6 +1,6 @@
 """P7.2: the audit log records who did what, and nobody can rewrite it.
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa. Real actions at
+In-process app (payment_app.jac) with the simulated M-Pesa. Real actions at
 Nova: creating the cinema, staff joining, a role change, a cash sale and a door scan,
 each an event with its actor, resource and result; a refused attempt records its code.
 Owners and auditors read the log, newest first, a page at a time; a box office agent

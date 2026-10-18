@@ -43,7 +43,7 @@ def _lifetime_s(token: str) -> float {
     return float(claims["exp"]) - float(claims["iat"]);
 }
 
-test "S3: the documented _before_request hook never runs, and is a public route" {
+test "S3: the legacy _before_request walker is not middleware or an endpoint" {
     workdir = _project();
     hook_log = Path(workdir) / "hook_hits.txt";
     server = RealServer(
@@ -64,9 +64,10 @@ test "S3: the documented _before_request hook never runs, and is a public route"
             assert status == 200 , f"{path}: {status}";
         }
         assert not hook_log.exists() , f"the hook ran: {hook_log.read_text()[:300]}";
-        # The hook walker is exposed like any walker, and fails when called.
+        # Plain walkers are private on 0.37.25; the old hook name grants no exposure.
         (status, payload) = http_call("POST", f"{base}/walker/_before_request", {});
-        assert status >= 400 or "error" in str(payload) , (status, payload);
+        # A missing route may reach the SPA fallback, which rejects POST with 405.
+        assert status in (404, 405) , (status, payload);
     } finally {
         server.stop(drop=True);
         remove_project(workdir);

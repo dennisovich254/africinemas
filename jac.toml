@@ -1,6 +1,6 @@
 [project]
 name = "africinemas"
-jac-version = "==0.37.18"
+jac-version = "==0.37.25"
 default-app = "web"
 
 [client.app_meta_data]
@@ -114,9 +114,8 @@ conflict_backoff_ms = 20
 default = "server"
 
 [placement.pins]
-# The web UI imports these login-required (def:priv) endpoints. A module-level "server"
-# pin makes those imports service-boundary calls, sent with the session token; without
-# it the compiler refuses them in a workspace (E5082, docs/jac-issues/JI-027).
+# Keep domain implementations on the server. Exposed :protect/:pub declarations
+# bridge to the browser; placement pins alone do not expose private functions.
 "core.tenancy.signup" = "server"
 "core.tenancy.tenant_api" = "server"
 "core.tenancy.staff_api" = "server"
@@ -169,14 +168,13 @@ inherits = "development"
 # start (ADR-0001). AfriCinemas has its own platform roles, so production doesn't create it.
 enabled = false
 
-[dev-dependencies]
+[dev-dependencies.pypi]
 playwright = "~=1.63"
 
-[dependencies]
+[dependencies.pypi]
 pillow = "~=12.3"
 # Ticket QR codes as PNG images in the ticket email (P6.3); pure Python, no deps.
 segno = "~=1.6"
-byllm = "~=0.6"
 
 # ---------------------------------------------------------------------------
 # The AI booking agent (P8.1): Gemini through byLLM. No key here: the provider reads it

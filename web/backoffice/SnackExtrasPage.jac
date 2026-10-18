@@ -18,13 +18,13 @@ import from ...components.ui.badge { Badge }
 import from ...components.ui.button { Button }
 import from ...components.ui.spinner { Spinner }
 import from core.snacks.extras_api {
-    list_snack_addon_groups,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    list_snack_addon_groups,  # jac:ignore[W2037] authenticated endpoint
     save_snack_addon_group,  # jac:ignore[W2037]
     delete_snack_addon_group,  # jac:ignore[W2037]
     set_snack_addon_availability  # jac:ignore[W2037]
 }
-import from core.snacks.product_api { list_snack_products }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
-import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.snacks.product_api { list_snack_products }  # jac:ignore[W2037] authenticated endpoint
+import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] authenticated endpoint
 import from ..shell.AppLink { AppLink }
 import from .form_parts { TextField, FieldError, ConfirmDelete, submit_with, on_input }
 import from .snack_view {

@@ -9,7 +9,7 @@ one here, and comes back to this page.
 
 import from react { useState, useEffect }
 import from "@jac/runtime" { useParams, jacIsLoggedIn }
-import from core.booking.customer_tickets { my_tickets }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.booking.customer_tickets { my_tickets }  # jac:ignore[W2037] authenticated endpoint
 import from .StorefrontShell { StorefrontShell, Loading }
 import from .venue_choice { use_title }
 import from .showtimes { long_day_label, time_label }

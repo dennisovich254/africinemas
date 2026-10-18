@@ -1,6 +1,6 @@
 """P6.3a: the ticket email, the private ticket link and resending (ADR-0010, ADR-0022).
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa and the
+In-process app (payment_app.jac) with the simulated M-Pesa and the
 development outbox (no SMTP host, so nothing is really sent). Paying needs an email
 address. Confirming the payment queues the ticket email, and the mail job sends it once:
 one QR image per seat and the ticket link. The link shows the booking to whoever holds

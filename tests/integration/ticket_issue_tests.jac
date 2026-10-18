@@ -1,7 +1,7 @@
 """P6.1: tickets issued when a payment is confirmed carry a unique reference and a
 signed QR payload (architecture §46).
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa. Each reference is
+In-process app (payment_app.jac) with the simulated M-Pesa. Each reference is
 claimed (core/claims.jac, namespace "ticket-ref") for its cinema and ticket, so it is
 unique across every cinema and the scanner (6.2) can find the ticket from it. The QR
 payload verifies with the server's key and holds nothing personal.

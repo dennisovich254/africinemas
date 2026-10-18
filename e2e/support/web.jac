@@ -65,7 +65,10 @@ def shared_browser -> tuple[any, any] {  # jac:ignore[W1037]
     # (playwright, browser) for this test run; relaunched if the browser has died.
     session = _session();
     if "pw" not in session {
-        session["pw"] = sync_playwright().start();
+        # Typed `any`: inferring Playwright's own types leaves this module with no
+        # bytecode under `jac test` on Jac 0.37.25, silently.
+        driver: any = sync_playwright();
+        session["pw"] = driver.start();
         atexit.register(_shutdown);
     }
     if "browser" not in session or not session["browser"].is_connected() {

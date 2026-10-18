@@ -1,6 +1,6 @@
 """P5.4: Safaricom's callback, and settling payments from M-Pesa's own answer.
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa. The callback
+In-process app (payment_app.jac) with the simulated M-Pesa. The callback
 (POST /hooks/mpesa/{token}) only files a receipt; settling asks M-Pesa (the status
 query) and only then marks the payment paid, the order confirmed, the seats sold and
 one ticket per seat issued, in one commit. Three duplicate callbacks make one ticket

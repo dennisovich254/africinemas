@@ -334,11 +334,11 @@ def commit_stock(
     return True;
 }
 
-def:priv snack_stock_levels(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect snack_stock_levels(tenant: str, venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _levels(tenant, venue_id); });  # jac:ignore[W1037]
 }
 
-def:priv snack_stock_history(
+def:protect snack_stock_history(
     tenant: str, venue_id: str, variant_id: str, limit: int
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
@@ -346,7 +346,7 @@ def:priv snack_stock_history(
     );  # jac:ignore[W1037]
 }
 
-def:priv adjust_snack_stock(  # jac:ignore[W3030] an adjustment: which variant where, the reason, how many and a note
+def:protect adjust_snack_stock(  # jac:ignore[W3030] an adjustment: which variant where, the reason, how many and a note
     tenant: str,
     product_id: str,
     variant_id: str,
@@ -367,7 +367,7 @@ def:priv adjust_snack_stock(  # jac:ignore[W3030] an adjustment: which variant w
     );
 }
 
-def:priv set_snack_stock_rules(
+def:protect set_snack_stock_rules(
     tenant: str,
     product_id: str,
     variant_id: str,

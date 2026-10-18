@@ -1,6 +1,6 @@
 """P6.4: the showtimes a member of staff can check tickets for right now (door_showtimes).
 
-In-process app (tests/apps/payment_app.jac) with a frozen clock. The scanner page lists
+In-process app (payment_app.jac) with a frozen clock. The scanner page lists
 the published showtimes whose door is open (from two hours before the start until the
 showtime ends, as redeeming checks, ADR-0021), at the venues where the caller may scan
 tickets. A box office agent, who can't scan, is refused; another cinema's showtimes

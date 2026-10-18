@@ -12,8 +12,8 @@ import from "@jac/runtime" { useParams, jacLogout }
 import from ...components.ui.button { Button }
 import from core.tenancy.storefront_accounts { my_storefront_account }
 import from core.oauth.connections {
-    my_connected_apps,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
-    disconnect_app  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    my_connected_apps,  # jac:ignore[W2037] authenticated endpoint
+    disconnect_app  # jac:ignore[W2037] authenticated endpoint
 }
 import from .StorefrontShell { StorefrontShell, Loading }
 import from .venue_choice { use_title }

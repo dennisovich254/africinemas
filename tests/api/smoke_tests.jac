@@ -1,5 +1,6 @@
 """P0.2 smoke tests: the served web app boots and exposes its first endpoint."""
 
+import json;
 import os;
 import shutil;
 import tempfile;
@@ -58,6 +59,30 @@ test "the production app serves cinema signup, and only to signed-in users" {
                 f"/function/{name}", json={"name": "Nova", "slug": "nova"}
             );
             assert resp.status_code == 401 , f"{name}: {resp.status_code} {resp.text[:200]}";
+        }
+    } finally {
+        _close(client);
+    }
+}
+
+test "staff invitations require a signed-in caller and jobs stay private" {
+    client = _client();
+    try {
+        resp = client.post("/function/accept_invite", json={"token": "invalid"});
+        assert resp.status_code == 401 , f"accept_invite: {resp.status_code}";
+        spec = client.get("/openapi.json");
+        assert spec.status_code == 200 , f"openapi: {spec.status_code}";
+        paths = json.loads(spec.text)["paths"];
+        for name in [
+            "sweep_holds",
+            "send_ticket_mail",
+            "resolve_payments",
+            "settle_callbacks"
+        ] {
+            assert f"/function/{name}" not in paths , f"internal job {name} is advertised";
+            resp = client.post(f"/function/{name}", json={});
+            # A missing route may reach the SPA fallback and reject POST with 405.
+            assert resp.status_code in [404, 405] , f"internal job {name}: {resp.status_code}";
         }
     } finally {
         _close(client);

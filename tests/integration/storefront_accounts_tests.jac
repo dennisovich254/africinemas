@@ -5,7 +5,7 @@ cinema; that account works at that cinema only, never in the back office, and ne
 another cinema. The same email can have a separate account (and password) at each
 cinema, and a staff account besides. Staff accounts are no one's customer.
 
-In-process app (tests/apps/payment_app.jac): Nova and Rift.
+In-process app (payment_app.jac): Nova and Rift.
 """
 
 import from tests.support.served { Served }

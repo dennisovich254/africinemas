@@ -19,12 +19,12 @@ import from ...components.ui.button { Button }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.snacks.inventory_api {
-    snack_stock_levels,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    snack_stock_levels,  # jac:ignore[W2037] authenticated endpoint
     snack_stock_history,  # jac:ignore[W2037]
     adjust_snack_stock,  # jac:ignore[W2037]
     set_snack_stock_rules  # jac:ignore[W2037]
 }
-import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] authenticated endpoint
 import from ..shell.AppLink { AppLink }
 import from .form_parts { TextField, FieldError, submit_with, on_input }
 import from .snack_view { SnackSubnav, snack_path, whole_number, with_field }

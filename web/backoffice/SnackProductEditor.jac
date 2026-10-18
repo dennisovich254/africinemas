@@ -32,7 +32,7 @@ import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.snacks.product_api {
-    get_snack_product,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    get_snack_product,  # jac:ignore[W2037] authenticated endpoint
     save_snack_product,  # jac:ignore[W2037]
     publish_snack_product,  # jac:ignore[W2037]
     unpublish_snack_product,  # jac:ignore[W2037]
@@ -42,7 +42,7 @@ import from core.snacks.product_api {
     upload_snack_image,  # jac:ignore[W2037]
     remove_snack_image  # jac:ignore[W2037]
 }
-import from core.snacks.category_api { list_snack_categories }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.snacks.category_api { list_snack_categories }  # jac:ignore[W2037] authenticated endpoint
 import from ..shell.AppLink { AppLink }
 import from .form_parts {
     TextField,
@@ -64,7 +64,7 @@ import from .snack_view {
     template_form,
     TEMPLATES
 }
-import from core.snacks.tools_api { duplicate_snack_product }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.snacks.tools_api { duplicate_snack_product }  # jac:ignore[W2037] authenticated endpoint
 import from .SnackProductsPage { ProductThumb }
 import from .SnackVenues { SnackVenues }
 import from .SnackExtrasParts { SnackAddonPicker, SnackComponents }

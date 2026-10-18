@@ -1,6 +1,6 @@
 """P12.1: the snack catalog in the back office (core/snacks), design guide docs/snacks-guide.md.
 
-In-process app (tests/apps/payment_app.jac): Nova with one venue, its owner on shift.
+In-process app (payment_app.jac): Nova with one venue, its owner on shift.
 - Categories: the usual six in one call (skipping names already there), added (names
   unique ignoring case), renamed, reordered, archived and restored.
 - Products: saved as drafts even with gaps (no SKU, no price); publishing checks them

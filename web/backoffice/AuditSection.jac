@@ -12,7 +12,7 @@ import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.button { Button }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
-import from core.audit.audit_api { audit_log }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.audit.audit_api { audit_log }  # jac:ignore[W2037] authenticated endpoint
 import from ..shell.ResponsiveTable { ResponsiveTable }
 import from ..storefront.showtimes { day_label, time_label }
 import from .report_view { ACTIONS, action_label, resource_label, result_label }

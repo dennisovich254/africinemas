@@ -18,7 +18,7 @@ import from ...components.ui.badge { Badge }
 import from ...components.ui.button { Button }
 import from ...components.ui.label { Label }
 import from core.snacks.tools_api {
-    preview_snack_import,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    preview_snack_import,  # jac:ignore[W2037] authenticated endpoint
     import_snack_catalog,  # jac:ignore[W2037]
     export_snack_catalog  # jac:ignore[W2037]
 }

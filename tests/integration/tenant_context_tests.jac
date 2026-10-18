@@ -10,7 +10,8 @@ import from operator { itemgetter }
 import from tests.support.served { Served, served }
 
 glob APP: str = path.join(
-         path.dirname(path.dirname(path.abspath(__file__))), "apps", "context_app.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "context_app.jac"
      );
 
 def _two_cinemas -> tuple[Served, dict[str, any], dict[str, any]] {  # jac:ignore[W1037]

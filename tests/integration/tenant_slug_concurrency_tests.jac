@@ -26,9 +26,7 @@ entry-point = "main"
 
 def _project -> str {
     workdir = tempfile.mkdtemp(prefix="africinemas-race-");
-    shutil.copy(
-        REPO_ROOT / "tests" / "apps" / "tenancy_app.jac", Path(workdir) / "main.jac"
-    );
+    shutil.copy(REPO_ROOT / "tenancy_app.jac", Path(workdir) / "main.jac");
     shutil.copytree(REPO_ROOT / "core", Path(workdir) / "core");
     (Path(workdir) / "jac.toml").write_text(APP_TOML);
     (Path(workdir) / ".jac").mkdir();

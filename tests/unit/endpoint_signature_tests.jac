@@ -1,9 +1,10 @@
 """Guard (JI-025): endpoints must not rely on non-string parameter defaults.
 
-On Jac 0.37.18 an omitted `def:pub`/`def:priv` parameter with a non-string default
+On Jac 0.37.18 an omitted endpoint parameter with a non-string default
 arrives as a string: `x: int = 0` gives '0', and `flag: bool = False` gives 'False',
 which is truthy. So endpoint parameters of type int, float or bool are declared without
-a default and callers always send them.
+a default and callers always send them. The guard includes :protect endpoints
+after the 0.37.25 exposure migration.
 """
 
 import re;
@@ -16,9 +17,9 @@ glob REPO_ROOT: Path = Path(__file__).resolve().parent.parent.parent,
          "core",
          "desktop",
          "mobile",
-         "tests/apps"
+         "*_app.jac"
      ],
-     ENDPOINT: str = r"def\s*:\s*(pub|priv)\s+\w+\s*\((?P<params>[^)]*)\)",
+     ENDPOINT: str = r"def\s*:\s*(pub|protect)\s+\w+\s*\((?P<params>[^)]*)\)",
      TYPED_DEFAULT: str = r"\w+\s*:\s*(int|float|bool)\b[^,=]*=";
 
 def _offenders(source: str) -> list[str] {
@@ -37,13 +38,16 @@ test "no endpoint gives an int, float or bool parameter a default" {
     offenders: list[str] = [];
     for src in APP_SOURCES {
         target = REPO_ROOT / src;
-        files = [target]
-            if target.is_file()
-            else sorted(
-                p
-                for p in target.rglob("*.jac")
-                if p.is_file() and ".jac" not in p.parts
-            );
+        # The test apps sit at the root (Jac 0.37.25 roots an app at its own folder).
+        files = sorted(REPO_ROOT.glob(src))
+            if "*" in src
+            else [target]
+                if target.is_file()
+                else sorted(
+                    p
+                    for p in target.rglob("*.jac")
+                    if p.is_file() and ".jac" not in p.parts
+                );
         for f in files {
             for name in _offenders(f.read_text()) {
                 offenders.append(f"{f.relative_to(REPO_ROOT)}: {name}");
@@ -56,8 +60,8 @@ test "no endpoint gives an int, float or bool parameter a default" {
 
 test "the guard catches the risky forms and allows the safe ones" {
     assert _offenders("def:pub f(x: int = 0) -> str {") == ["def:pub f"];
-    assert _offenders("def:priv g(a: str, on: bool = False) -> str {")
-        == ["def:priv g"];
+    assert _offenders("def:protect g(a: str, on: bool = False) -> str {")
+        == ["def:protect g"];
     assert _offenders("def:pub h(ratio: float = 1.5) -> str {") == ["def:pub h"];
     assert _offenders("def:pub ok(x: int, name: str = \"a\") -> str {") == [];
     assert _offenders("def helper(x: int = 0) -> int {") == [] , "plain helpers are not endpoints";

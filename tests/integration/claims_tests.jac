@@ -7,7 +7,8 @@ import from os { path }
 import from tests.support.served { served }
 
 glob APP: str = path.join(
-         path.dirname(path.dirname(path.abspath(__file__))), "apps", "claims_app.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "claims_app.jac"
      );
 
 test "the first owner wins, a repeat is idempotent, and others are told the holder" {

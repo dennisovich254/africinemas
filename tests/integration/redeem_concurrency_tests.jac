@@ -33,9 +33,7 @@ default = "server"
 
 def _project -> str {
     workdir = tempfile.mkdtemp(prefix="africinemas-redeem-");
-    shutil.copy(
-        REPO_ROOT / "tests" / "apps" / "redeem_app.jac", Path(workdir) / "main.jac"
-    );
+    shutil.copy(REPO_ROOT / "redeem_app.jac", Path(workdir) / "main.jac");
     shutil.copytree(REPO_ROOT / "core", Path(workdir) / "core");
     (Path(workdir) / "jac.toml").write_text(APP_TOML);
     (Path(workdir) / ".jac").mkdir();

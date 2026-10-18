@@ -32,7 +32,7 @@ import from "@hugeicons/core-free-icons" {
 }
 import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.spinner { Spinner }
-import from core.reporting.staff_home { staff_home }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.reporting.staff_home { staff_home }  # jac:ignore[W2037] authenticated endpoint
 import from .ShowtimeArt { ShowtimeArt }
 import from ..shell.AppLink { AppLink }
 import from ..storefront.showtimes { time_label }

@@ -5,7 +5,7 @@
 set -uo pipefail
 out="$(jac check --lint "${@:-.}" 2>&1)"; rc=$?
 printf '%s\n' "$out"
-if (( rc != 0 )) || grep -qE '^(⚠|✖)' <<<"$out"; then
+if (( rc != 0 )) || grep -qE '^(⚠|✖|\[(WARNING|ERROR)\])' <<<"$out"; then
     echo "jac lint: violations found (try: jac check --lint --fix <file>)" >&2
     exit 1
 fi

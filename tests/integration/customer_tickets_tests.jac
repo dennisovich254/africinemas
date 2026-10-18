@@ -1,6 +1,6 @@
 """P6.3b: "My tickets", a signed-in customer's bookings at a cinema (ADR-0010, ADR-0023).
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa. Anna pays as a
+In-process app (payment_app.jac) with the simulated M-Pesa. Anna pays as a
 guest; a signed-in customer who holds the ticket link saves the booking to their
 account at that cinema (save_booking proves the link), and my_tickets lists what they
 saved there. A customer sees only their own saved bookings: another customer, or the

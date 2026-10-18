@@ -28,7 +28,7 @@ import from ...components.ui.input_group {
 }
 import from ...components.ui.spinner { Spinner }
 import from ..auth.session { signed_in_email }
-import from core.tenancy.signup { check_slug, create_cinema }  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+import from core.tenancy.signup { check_slug, create_cinema }  # jac:ignore[W2037] authenticated endpoint
 import from .nav { web_address, suggest_slug }
 import from .PlainLayout { PlainLayout, AccountActions }
 

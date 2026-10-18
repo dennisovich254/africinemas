@@ -1,6 +1,6 @@
 """P12.2: snack availability and prices per venue (core/snacks/venue_api.jac).
 
-In-process app (tests/apps/payment_app.jac): Nova with Westgate, plus Junction added
+In-process app (payment_app.jac): Nova with Westgate, plus Junction added
 here. A product is sold at every venue unless switched off at one; each variant can be
 unavailable at a venue and can have that venue's own price.
 

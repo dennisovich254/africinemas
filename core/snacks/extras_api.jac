@@ -329,15 +329,15 @@ def _list_variants(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"ok": True, "variants": found};
 }
 
-def:priv list_snack_variants(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect list_snack_variants(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _list_variants(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv list_snack_addon_groups(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect list_snack_addon_groups(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _list(tenant); });  # jac:ignore[W1037]
 }
 
-def:priv save_snack_addon_group(  # jac:ignore[W3030] the add-on group form: its fields and options
+def:protect save_snack_addon_group(  # jac:ignore[W3030] the add-on group form: its fields and options
     tenant: str,
     group_id: str,
     name: str,
@@ -359,7 +359,7 @@ def:priv save_snack_addon_group(  # jac:ignore[W3030] the add-on group form: its
     );
 }
 
-def:priv delete_snack_addon_group(tenant: str, group_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect delete_snack_addon_group(tenant: str, group_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_addons.deleted",
@@ -369,7 +369,7 @@ def:priv delete_snack_addon_group(tenant: str, group_id: str) -> dict[str, any] 
     );
 }
 
-def:priv set_snack_addon_availability(
+def:protect set_snack_addon_availability(
     tenant: str, group_id: str, option_id: str, venue_id: str, available: bool
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -384,7 +384,7 @@ def:priv set_snack_addon_availability(
     );
 }
 
-def:priv set_snack_product_addons(
+def:protect set_snack_product_addons(
     tenant: str, product_id: str, group_ids: list[str]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
@@ -396,7 +396,7 @@ def:priv set_snack_product_addons(
     );
 }
 
-def:priv set_snack_combo_components(
+def:protect set_snack_combo_components(
     tenant: str,
     product_id: str,
     components: list[dict[str, any]]  # jac:ignore[W1037]

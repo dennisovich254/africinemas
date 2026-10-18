@@ -1,6 +1,6 @@
 """P4.7, spike S5: seat holds under opening-night load (architecture §25, §138).
 
-Boots a real server (tests/apps/order_app.jac as main.jac) and sends 200 hold requests
+Boots a real server (order_app.jac as main.jac) and sends 200 hold requests
 at once, as anonymous visitors, in two shapes:
 
 - hot seat: everyone wants the same seat. Exactly one wins; everyone else is told
@@ -59,9 +59,7 @@ default = "server"
 
 def _project -> str {
     workdir = tempfile.mkdtemp(prefix="africinemas-load-");
-    shutil.copy(
-        REPO_ROOT / "tests" / "apps" / "order_app.jac", Path(workdir) / "main.jac"
-    );
+    shutil.copy(REPO_ROOT / "order_app.jac", Path(workdir) / "main.jac");
     shutil.copytree(REPO_ROOT / "core", Path(workdir) / "core");
     (Path(workdir) / "jac.toml").write_text(APP_TOML);
     (Path(workdir) / ".jac").mkdir();

@@ -1,6 +1,6 @@
 """P8.4: the storefront chat (cinema_chat), against a real cinema with a scripted model.
 
-In-process app (tests/apps/payment_app.jac), MockLLM (no key, no network). Nova shows
+In-process app (payment_app.jac), MockLLM (no key, no network). Nova shows
 Rafiki, with a YouTube trailer; Rift shows Kesho.
 
 - The reply comes with cards built from what the tools returned this turn: the

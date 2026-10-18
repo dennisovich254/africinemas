@@ -1,6 +1,6 @@
 """P6.5: a walk-in sale at the box office, paid in cash or with M-Pesa at the counter.
 
-In-process app (tests/apps/payment_app.jac) with the simulated M-Pesa. The agent books
+In-process app (payment_app.jac) with the simulated M-Pesa. The agent books
 for the customer through the storefront's own hold and order endpoints, under a counter
 holder id, then takes the money: sell_for_cash confirms the order at once (seats sold,
 tickets issued) with a ledger entry of the whole amount, method "cash", recorded by the

@@ -1,6 +1,6 @@
 """P12.5: faster catalog work (core/snacks/tools_api.jac). Design guide §4.
 
-In-process app (tests/apps/payment_app.jac): Nova with Westgate, its owner on shift.
+In-process app (payment_app.jac): Nova with Westgate, its owner on shift.
 - Duplicate makes a new draft "Copy of …" with the same variants and prices but no
   SKUs and no stock; it never reuses a SKU.
 - The CSV import's preview reports every bad row (with its row number) and saves

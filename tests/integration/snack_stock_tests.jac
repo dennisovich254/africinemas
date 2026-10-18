@@ -1,6 +1,6 @@
 """P12.4: stock per variant per venue (core/snacks/inventory_api.jac). Design guide §8.
 
-In-process app (tests/apps/payment_app.jac): Nova with Westgate, its owner on shift,
+In-process app (payment_app.jac): Nova with Westgate, its owner on shift,
 and a Coca-Cola 500 ml whose stock is tracked.
 - Stock levels list the tracked variants at a venue with on hand, reserved, available,
   their low-stock alert and status.

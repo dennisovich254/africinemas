@@ -15,7 +15,7 @@ import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.theming.branding_api {
-    get_branding,  # jac:ignore[W2037] def:priv endpoint over the server pin (JI-027)
+    get_branding,  # jac:ignore[W2037] authenticated endpoint
     save_theme,  # jac:ignore[W2037]
     upload_logo,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]

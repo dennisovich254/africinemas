@@ -1,6 +1,6 @@
 """P12.3: add-on groups and combos (core/snacks/extras_api.jac). Design guide §5.
 
-In-process app (tests/apps/payment_app.jac): Nova with Westgate, its owner on shift.
+In-process app (payment_app.jac): Nova with Westgate, its owner on shift.
 - An add-on group ("Popcorn extras": butter +30, caramel +50, pick up to 2) is saved,
   checked by field, attached to Popcorn and shown as used by it; edited, its options
   keep their ids and venue switches; it can't be deleted while attached. The box office

@@ -1,6 +1,6 @@
 """P7.4: the staff home page's data (core/reporting/staff_home.jac, staff_home).
 
-In-process app (tests/apps/payment_app.jac) with the clock frozen an hour before Nova's
+In-process app (payment_app.jac) with the clock frozen an hour before Nova's
 Rafiki showtime, so "today" is the showtime's day. One request gives the Overview what
 the caller's roles allow:
 

@@ -148,7 +148,7 @@ def _sales_report(
     };
 }
 
-def:priv sales_report(
+def:protect sales_report(
     tenant: str, date_from: str, date_to: str, venue_id: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
