@@ -18,7 +18,11 @@ glob STATUS_LABELS: dict[str, str] = {
          "active": "Active",
          "archived": "Archived"
      },
-     SUBNAV: list[tuple[str, str]] = [("", "Products"), ("categories", "Categories")];
+     SUBNAV: list[tuple[str, str]] = [
+         ("", "Products"),
+         ("categories", "Categories"),
+         ("extras", "Combos & Add-ons")
+     ];
 
 def:pub snack_path(slug: str, rest: str = "") -> str {
     return f"/app/{slug}/snacks/{rest}" if rest else f"/app/{slug}/snacks";
@@ -43,6 +47,21 @@ def:pub price_cents_of(text: str) -> any {  # jac:ignore[W1037]
     }
     cents = cents_of(text, False);
     return cents if cents is not None and cents > 0 else -1;
+}
+
+def:pub whole_number(text: str, fallback: int) -> int {
+    # A whole number typed in a field, or `fallback`. Not str.isdigit(): the browser
+    # runtime has no isdigit, so calling it throws and the save never starts.
+    digits = text.strip();
+    if not digits {
+        return fallback;
+    }
+    for ch in digits {
+        if ch not in "0123456789" {
+            return fallback;
+        }
+    }
+    return int(digits);
 }
 
 def:pub split_values(text: str) -> list[str] {
