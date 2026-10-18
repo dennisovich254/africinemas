@@ -14,7 +14,11 @@ node Branding {
         draft: dict[str, any] = {},  # jac:ignore[W1037]
         draft_logo: str = "",
         version: int = 0,
-        updated_at: str = "";
+        updated_at: str = "",
+        # Theme suggestions asked for on suggest_day (ISO date): they cost a model call,
+        # so a cinema gets SUGGEST_DAILY a day (ADR-0043).
+        suggest_day: str = "",
+        suggest_count: int = 0;
 }
 
 node ThemeVersion {
