@@ -2,8 +2,9 @@
 
 1. Name and web address. The address is suggested from the name and checked with the
    server (`check_slug`) when the field loses focus, so problems show before submitting.
-2. "Brand your cinema": reserved for the branding tools (plan 3.8, 8.5) and skippable;
-   skipping keeps the AfriCinemas default theme.
+2. "Brand your cinema": the Settings branding editor (logo, colours, publish), after
+   opening the owner's shift so it can save. Optional: continuing without it keeps
+   the AfriCinemas default theme.
 """
 
 import from react { useState, useRef }
@@ -29,6 +30,8 @@ import from ...components.ui.input_group {
 import from ...components.ui.spinner { Spinner }
 import from ..auth.session { signed_in_email }
 import from core.tenancy.signup { check_slug, create_cinema }  # jac:ignore[W2037] authenticated endpoint
+import from core.tenancy.tenant_api { start_shift }  # jac:ignore[W2037] authenticated endpoint
+import from .BrandingSection { BrandingSection }
 import from .nav { web_address, suggest_slug }
 import from .PlainLayout { PlainLayout, AccountActions }
 
@@ -99,6 +102,7 @@ def:pub NewCinemaWizard -> JsxElement {
     [busy, set_busy] = useState(False);
     [created, set_created] = useState("");
     [failed, set_failed] = useState("");
+    [can_brand, set_can_brand] = useState(False);
     slug_input = useRef(None);
     # The address most recently sent to check_slug; older answers are ignored.
     last_checked = useRef("");
@@ -172,12 +176,22 @@ def:pub NewCinemaWizard -> JsxElement {
             );
             return;
         }
-        set_busy(False);
         if result["created"] {
+            # Branding saves need an open shift, as everywhere in the back office: open
+            # it now, so step 2 can save. If it can't, step 2 says Settings will do.
+            opened: any = None;  # jac:ignore[W1037]
+            try {
+                opened = await start_shift(result["slug"]);  # jac:ignore[W2037]
+            } except Exception as err {
+                console.warn("start_shift failed", err);
+            }
+            set_can_brand(True if opened and opened["ok"] else False);
+            set_busy(False);
             set_created(result["slug"]);
             set_step(2);
             return;
         }
+        set_busy(False);
         code = result["error"]["code"];
         if code == "invalid_name" {
             set_name_error(result["error"]["message"]);
@@ -263,13 +277,19 @@ def:pub NewCinemaWizard -> JsxElement {
                 <span className="font-medium text-foreground">
                     {web_address(created)}
                 </span>
-                . Adding your logo and colours comes next; until then your storefront uses the AfriCinemas look. You can brand it any time from Settings.
+                {". Add your logo and colours now, or later from Settings: until then your storefront uses the AfriCinemas look."
+                    if can_brand
+                    else ". Your storefront uses the AfriCinemas look until you add your logo and colours in Settings."}
             </p>
+            {can_brand
+                and <div data-testid="wizard-branding">
+                    <BrandingSection slug={created} cinema={name}/>
+                </div>}
             <Button
                 asChild={True}
                 className="h-11 w-full sm:w-auto sm:self-end sm:px-6"
             >
-                <Link to={f"/app/{created}"}>Skip for now</Link>
+                <Link to={f"/app/{created}"}>Continue to your cinema</Link>
             </Button>
         </div>;
     }
