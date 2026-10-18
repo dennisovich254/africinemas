@@ -44,7 +44,8 @@ def _served_endpoints(client: JacTestClient) -> set[str] {
             and (
                 route.startswith("/hooks/")
                 or route.startswith("/oauth/")
-                or route.endswith("/mcp")
+                or route == "/mcp"
+                or route.startswith("/mcp/")
             ) {
             names.add(f"route:{route}");
         }
