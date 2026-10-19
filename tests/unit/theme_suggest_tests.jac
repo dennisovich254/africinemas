@@ -6,6 +6,7 @@ only allowlisted fonts; a failing model gives one theme built from the logo inst
 """
 
 import io;
+import os;
 import from PIL { Image }
 import from jaclang.byllm.lib { MockLLM }
 import from core.theming.tokens {
@@ -21,7 +22,9 @@ import from core.theming.suggest {
     ModeColours,
     logo_colours,
     checked_proposal,
-    ThemeModel
+    ThemeModel,
+    _short_name,
+    retry_after
 }
 
 glob RED: tuple[int, int, int, int] = (120, 20, 30, 255),
@@ -111,31 +114,27 @@ test "only allowlisted fonts and corners reach the owner" {
     assert shown["theme"]["radius"] == DEFAULT_THEME.radius;
 }
 
-test "the model's themes are checked, and a long mood name is cut" {
+test "the model's theme is checked, and a broken one gives the logo's theme" {
     suggest.theme_model = MockLLM(
         outputs=[
-            [
-                _proposal("Crimson Premiere"),
-                _proposal("Broken", {"accent": "not a colour"}),
-                _proposal("A very long mood name that goes on and on and on for ever"),
-                _proposal("Golden Hour")
-            ]
+            _proposal("A very long mood name that goes on and on and on for ever"),
+            _proposal("Broken", {"accent": "not a colour"})
         ]
     );
     got = suggest.suggest_from_logo(_logo(), "Nova Cinemas");
-    assert got["from_ai"];
-    names = [p["theme"]["name"] for p in got["proposals"]];
-    # At most three of the four were read, and the broken one never shows.
-    assert names[0] == "Crimson Premiere" , names;
-    assert "Broken" not in names and len(names) == 2 , names;
-    assert all([len(n) <= 40 for n in names]) , names;
-    for p in got["proposals"] {
-        assert validate_theme(parse_theme(p["theme"])) == [];
-    }
+    assert got["from_ai"] and len(got["proposals"]) == 1;
+    name = got["proposals"][0]["theme"]["name"];
+    assert len(name) <= 40 and not name.startswith("A ") , name;
+    assert validate_theme(parse_theme(got["proposals"][0]["theme"])) == [];
     assert got["colours"][0]["hex"] == "#78141e";
     sent = str(suggest.theme_model.sent("messages"));
     assert "#78141e" in sent , "the model sees the logo's exact colours";
     assert "Nova Cinemas" in sent;
+    assert any([d in sent for d in suggest.DIRECTIONS]) , "each ask has a style direction";
+    # The next ask's theme is broken: the owner gets the logo's theme instead.
+    again = suggest.suggest_from_logo(_logo(), "Nova Cinemas");
+    assert not again["from_ai"];
+    assert again["proposals"][0]["theme"]["name"] == "From your logo";
 }
 
 test "a failing model gives one theme built from the logo" {
@@ -153,10 +152,15 @@ test "a failing model gives one theme built from the logo" {
 obj ScriptedThemeModel(ThemeModel) {
     # A ThemeModel whose attempts are scripted per model name: no network.
     has fails: list[str] = [],
+        limited_once: list[str] = [],
         tried: list[dict[str, any]] = [];  # jac:ignore[W1037]
 
     override def _attempt(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
         self.tried.append(params);
+        if params["model"] in self.limited_once {
+            self.limited_once.remove(params["model"]);
+            raise RuntimeError("Rate limit reached (OTPM). Please try again in 0.01s.");
+        }
         if params["model"] in self.fails {
             raise RuntimeError(f"{params['model']} is overloaded");
         }
@@ -164,15 +168,33 @@ obj ScriptedThemeModel(ThemeModel) {
     }
 }
 
+test "a model whose provider has no key is skipped" {
+    saved = os.environ.pop("GROQ_API_KEY", None);
+    os.environ["GEMINI_API_KEY"] = os.environ.get("GEMINI_API_KEY") or "test-key";
+    try {
+        model = ScriptedThemeModel(
+            model_name="groq/qwen/qwen3.8-27b",
+            fallback_models=["gemini/gemini-3.5-flash"]
+        );
+        assert model.usable_models() == ["gemini/gemini-3.5-flash"];
+        got = model.model_call_no_stream({"messages": []});
+        assert got == {"answered_by": "gemini/gemini-3.5-flash"};
+    } finally {
+        if saved is not None {
+            os.environ["GROQ_API_KEY"] = saved;
+        }
+    }
+}
+
 test "an overloaded model hands over to the next, each with its own time limit" {
     model = ScriptedThemeModel(
-        model_name="gemini/lite",
-        fallback_models=["gemini/flash", "gemini/older"],
-        fails=["gemini/lite"]
+        model_name="test/lite",
+        fallback_models=["test/flash", "test/older"],
+        fails=["test/lite"]
     );
     got = model.model_call_no_stream({"model": "ignored", "messages": []});
-    assert got == {"answered_by": "gemini/flash"};
-    assert [t["model"] for t in model.tried] == ["gemini/lite", "gemini/flash"];
+    assert got == {"answered_by": "test/flash"};
+    assert [t["model"] for t in model.tried] == ["test/lite", "test/flash"];
     assert all(
         [
             t["timeout"] == model.attempt_timeout and t["num_retries"] == 0
@@ -180,14 +202,37 @@ test "an overloaded model hands over to the next, each with its own time limit" 
         ]
     );
     every = ScriptedThemeModel(
-        model_name="gemini/lite",
-        fallback_models=["gemini/flash"],
-        fails=["gemini/lite", "gemini/flash"]
+        model_name="test/lite",
+        fallback_models=["test/flash"],
+        fails=["test/lite", "test/flash"]
     );
     try {
         every.model_call_no_stream({"messages": []});
         assert False , "all models failing must raise";
     } except RuntimeError as e {
-        assert "gemini/flash" in str(e);
+        assert "test/flash" in str(e);
     }
+}
+
+test "a theme's name is short, even when the model wrote a sentence" {
+    assert _short_name("Midnight Premiere") == "Midnight Premiere";
+    assert _short_name("A bold, high-contrast theme that leans into the purples")
+        == "Bold High-contrast Theme";
+    assert len(_short_name("Supercalifragilistic " * 5)) <= 40;
+    assert _short_name("   ") == "From your logo";
+}
+
+test "a short per-minute limit is waited out once, a long one moves on" {
+    assert retry_after("Limit 1000, Used 465. Please try again in 18.84s. Need more")
+        == 18.84;
+    assert retry_after("This model is currently experiencing high demand") is None;
+    model = ScriptedThemeModel(
+        model_name="test/groq",
+        fallback_models=["test/gemini"],
+        limited_once=["test/groq"]
+    );
+    got = model.model_call_no_stream({"messages": []});
+    assert got == {"answered_by": "test/groq"} , "waited, then the same model answered";
+    assert [t["model"] for t in model.tried] == ["test/groq", "test/groq"];
+    assert all([t["max_tokens"] == suggest.MAX_OUTPUT_TOKENS for t in model.tried]);
 }

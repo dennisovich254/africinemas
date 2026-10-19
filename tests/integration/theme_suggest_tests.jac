@@ -2,7 +2,7 @@
 
 In-process app (payment_app.jac) with a scripted model (script_theme_model, MockLLM).
 - It needs the draft logo, and tenant.settings.update like the rest of branding.
-- Every theme it returns is readable; nothing is saved until the owner picks one.
+- The theme it returns (one per ask) is readable; nothing is saved until the owner picks one.
 - A failing model still answers, with one theme built from the logo.
 - SUGGEST_DAILY (5) a day per cinema: the sixth is refused.
 """
@@ -28,22 +28,20 @@ def _logo_base64 -> str {
     return base64.b64encode(out.getvalue()).decode();
 }
 
-def _proposals(names: list[str]) -> str {
-    # The model's answer: proposals on the default colours with a red accent, as JSON.
+def _proposal(name: str) -> str {
+    # The model's answer: one theme on the default colours with a red accent, as JSON.
     light = dict(DEFAULT_THEME.light.as_dict());
     light["accent"] = "#78141e";
     return json.dumps(
-        [
-            {
-                "mood": n,
-                "reason": "Red and gold, like the logo.",
-                "light": light,
-                "dark": DEFAULT_THEME.dark.as_dict(),
-                "display_font": "Bebas Neue",
-                "body_font": "Outfit",
-                "radius": "medium"
-            } for n in names
-        ]
+        {
+            "mood": name,
+            "reason": "Red and gold, like the logo.",
+            "light": light,
+            "dark": DEFAULT_THEME.dark.as_dict(),
+            "display_font": "Bebas Neue",
+            "body_font": "Outfit",
+            "radius": "medium"
+        }
     );
 }
 
@@ -70,14 +68,11 @@ test "suggestions need a logo, and come back readable without saving anything" {
             "draft"
         ];
         app.call(
-            "owner",
-            "script_theme_model",
-            {"outputs": [_proposals(["Crimson Premiere", "Golden Hour"])]}
+            "owner", "script_theme_model", {"outputs": [_proposal("Crimson Premiere")]}
         );
         got = _suggest(app);
         assert got["ok"] and got["from_ai"] , got;
-        assert [p["theme"]["name"] for p in got["proposals"]]
-            == ["Crimson Premiere", "Golden Hour"];
+        assert [p["theme"]["name"] for p in got["proposals"]] == ["Crimson Premiere"];
         for p in got["proposals"] {
             assert validate_theme(parse_theme(p["theme"])) == [];
         }
