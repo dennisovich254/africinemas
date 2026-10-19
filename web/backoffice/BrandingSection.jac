@@ -39,6 +39,7 @@ import from .ThemePreview { ThemePreview }
 import from .form_parts { read_as_base64 }
 
 glob MODES: list[str] = ["light", "dark"],
+     IDEAS_KEPT: int = 6,
      SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm",
      LOGO_TYPES: str = "image/png,image/jpeg,image/webp";
 
@@ -329,9 +330,18 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             set_ideas_note(answer["error"]["message"]);
             return;
         }
-        set_ideas(answer["proposals"]);
+        # One idea per ask (Groq's per-minute limit): newest first, earlier ones kept.
+        fresh: list[dict[str, any]] = answer["proposals"];  # jac:ignore[W1037]
+        names = [i["theme"]["name"] for i in fresh];
+        earlier: list[dict[str, any]] = ideas;  # jac:ignore[W1037]
+        kept: list[dict[str, any]] = [  # jac:ignore[W1037]
+            i
+            for i in earlier
+            if i["theme"]["name"] not in names
+        ];
+        set_ideas((fresh + kept)[:IDEAS_KEPT]);
         left: int = answer["remaining"];
-        said = "Here are themes made from your logo. Try one in the preview."
+        said = "Here's a theme made from your logo. Try it in the preview, or ask for another."
             if answer["from_ai"]
             else "The AI couldn't answer just now, so here's a theme made from your logo's main colour.";
         more = " That was your last set of ideas for today."
@@ -676,7 +686,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     >
         <h3 id="ideas-heading" className="font-semibold">Ideas from your logo</h3>
         <p className="text-sm text-muted-foreground">
-            {"AI looks at your logo and suggests three themes made from its colours. Try one in the preview, then adjust it."
+            {"AI looks at your logo and suggests a theme made from its colours; ask again for another. Try one in the preview, then adjust it."
                 if logo
                 else "Upload your logo above, and AI will suggest themes made from its colours."}
         </p>
@@ -689,9 +699,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             >
                 {busy == "suggesting" and <Spinner aria-hidden="true"/>}{"Looking at your logo…"
                     if busy == "suggesting"
-                    else (
-                        "Suggest themes again" if len(ideas) > 0 else "Suggest themes"
-                    )}
+                    else ("Suggest another" if len(ideas) > 0 else "Suggest a theme")}
             </Button>}
         {ideas_note
             and <p

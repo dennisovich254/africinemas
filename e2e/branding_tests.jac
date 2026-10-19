@@ -242,7 +242,7 @@ test "a logo uploaded here shows on the storefront and in the back-office" {
 
 test "theme ideas from the logo load into the editor, saving nothing yet" {
     # CI has no model key, so the AI call fails and the code's theme from the logo is
-    # the one idea; with a key there are up to three. Either way the flow is the same.
+    # the idea; with a key it is the model's. One idea per ask either way.
     owner = owner_with_cinema();
     (pw, browser) = shared_browser();
     try {
@@ -250,13 +250,13 @@ test "theme ideas from the logo load into the editor, saving nothing yet" {
         _sign_in(page, owner["email"]);
         _open_branding(page, owner);
         ideas = '[data-testid="theme-ideas"]';
-        assert page.locator(f'{ideas} button:has-text("Suggest themes")').count() == 0;
+        assert page.locator(f'{ideas} button:has-text("Suggest a theme")').count() == 0;
         page.set_input_files(
             "#logo-file",
             files=[{"name": "logo.png", "mimeType": "image/png", "buffer": _logo_png()}]
         );
         page.wait_for_selector('[data-testid="logo-preview"]');
-        page.click(f'{ideas} button:has-text("Suggest themes")');
+        page.click(f'{ideas} button:has-text("Suggest a theme")');
         page.wait_for_selector('[data-testid="theme-idea"]', timeout=60000);
         assert "more times today" in page.inner_text('[data-testid="ideas-note"]');
         first = page.locator('[data-testid="theme-idea"]').first;
