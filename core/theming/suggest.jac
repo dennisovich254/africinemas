@@ -120,11 +120,19 @@ def _has_key(model: str) -> bool {
 glob logger = logging.getLogger(__name__),
      # A model to try before the others (any litellm name that reads images).
      MODEL_ENV: str = "AFRICINEMAS_THEME_MODEL",
-     KEY_ENVS: dict[str, str] = {"groq/": "GROQ_API_KEY", "gemini/": "GEMINI_API_KEY"},
-     # Tried in turn; each must read the logo image. Gemini 2.5 Flash only (owner's
-     # choice, 2026-10-19): 3.5 kept answering 503, and Groq's free tier allows about
-     # one theme a minute. One theme per request keeps each answer small and quick.
-     MODELS: list[str] = ["gemini/gemini-2.5-flash"],
+     KEY_ENVS: dict[str, str] = {
+         "openrouter/": "OPENROUTER_API_KEY",
+         "groq/": "GROQ_API_KEY",
+         "gemini/": "GEMINI_API_KEY"
+     },
+     # Tried in turn; each must read the logo image (owner's choice, 2026-10-19): Gemma 4
+     # through OpenRouter (free), then Gemini 2.5 Flash with our own key. Gemini 3.5 kept
+     # answering 503 and Groq's free tier allows about one theme a minute. One theme per
+     # request keeps each answer small and quick.
+     MODELS: list[str] = [
+         "openrouter/google/gemma-4-31b-it:free",
+         "gemini/gemini-2.5-flash"
+     ],
      theme_model: any = ThemeModel(  # jac:ignore[W1037]
          model_name=os.environ.get(MODEL_ENV) or MODELS[0],
          fallback_models=[
