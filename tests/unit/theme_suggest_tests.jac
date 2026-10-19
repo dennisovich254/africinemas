@@ -66,7 +66,8 @@ def _proposal(
         dark=_mode(DEFAULT_THEME.dark.as_dict(), {"accent": "#e6b428"}),
         display_font=font,
         body_font="Outfit",
-        radius=radius
+        radius=radius,
+        scheme="light"
     );
 }
 
@@ -101,6 +102,15 @@ test "a proposal is rebuilt as a readable theme; a broken one is dropped" {
         is None;
     # A hex without its "#" is still a colour.
     assert checked_proposal(_proposal("Bare", {"accent": "78141e"})) is not None;
+}
+
+test "the model picks light or dark for everyone; anything else follows the device" {
+    dark = _proposal("Neon Nights");
+    dark.scheme = "dark";
+    assert checked_proposal(dark)["theme"]["scheme"] == "dark";
+    odd = _proposal("Sepia");
+    odd.scheme = "sepia";
+    assert checked_proposal(odd)["theme"]["scheme"] == "auto";
 }
 
 test "only allowlisted fonts and corners reach the owner" {

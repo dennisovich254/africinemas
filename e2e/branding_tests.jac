@@ -157,6 +157,30 @@ test "the storefront wears the cinema's dark theme on a dark device" {
     }
 }
 
+test "a cinema that chose dark is dark on every device, and auto follows the device" {
+    owner = owner_with_cinema();
+    velvet = dict(_preset("Velvet Curtain"));
+    velvet["scheme"] = "dark";
+    _publish_api(owner, velvet);
+    (pw, browser) = shared_browser();
+    try {
+        page = _page(browser, pw, "desktop", "light");
+        _storefront(page, owner["slug"]);
+        assert page.evaluate("document.documentElement.classList.contains('dark')") , "always dark, even on a light device";
+        assert _var(page, "--background") == velvet["dark"]["background"];
+        velvet["scheme"] = "auto";
+        velvet["name"] = "Velvet Auto";
+        _publish_api(owner, velvet);
+        page.reload();
+        page.wait_for_selector(STOREFRONT);
+        assert not page.evaluate(
+            "document.documentElement.classList.contains('dark')"
+        ) , "auto follows the light device";
+    } finally {
+        close_contexts(browser);
+    }
+}
+
 test "an unreadable colour is repaired on save, and a malformed one is flagged" {
     owner = owner_with_cinema();
     (pw, browser) = shared_browser();

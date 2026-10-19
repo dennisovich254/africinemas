@@ -28,6 +28,11 @@ glob ROLE_LABELS: dict[str, str] = {
          "seat_sold": "Sold seats"
      },
      # The colours most cinemas change; the rest sit under "More colours".
+     SCHEME_LABELS: dict[str, str] = {
+         "auto": "Follow each visitor's device",
+         "light": "Always light",
+         "dark": "Always dark"
+     },
      KEY_ROLES: list[str] = [
          "accent",
          "on_accent",
@@ -46,6 +51,15 @@ glob ROLE_LABELS: dict[str, str] = {
 
 def:pub role_label(role: str) -> str {
     return ROLE_LABELS[role] if role in ROLE_LABELS else role;
+}
+
+def:pub scheme_of(theme: dict[str, any]) -> str {  # jac:ignore[W1037]
+    # A theme saved before schemes existed has none: it follows the device ("auto").
+    return theme["scheme"] or "auto";
+}
+
+def:pub scheme_label(scheme: str) -> str {
+    return SCHEME_LABELS[scheme] if scheme in SCHEME_LABELS else scheme;
 }
 
 def:pub radius_label(radius: str) -> str {
@@ -116,6 +130,9 @@ def:pub same_theme(a: dict[str, any], b: dict[str, any]) -> bool {  # jac:ignore
         if a[key] != b[key] {
             return False;
         }
+    }
+    if scheme_of(a) != scheme_of(b) {
+        return False;
     }
     for mode in ["light", "dark"] {
         for role in ROLE_LABELS {

@@ -26,6 +26,8 @@ import from core.theming.branding_api {
 import from .branding_model {
     role_label,
     radius_label,
+    scheme_of,
+    scheme_label,
     key_roles,
     other_roles,
     is_hex,
@@ -359,6 +361,14 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         );
     }
 
+    def change_scheme(value: str) {
+        # The preview shows the mode the storefront will now always wear.
+        change_field("scheme", value);
+        if value != "auto" {
+            set_mode(value);
+        }
+    }
+
     def change_field(field: str, value: str) {
         set_theme(with_field(current, field, value));
         set_message("");
@@ -633,6 +643,20 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                 {[
                     <option key={r} value={r}>{radius_label(r)}</option>
                     for r in options["radii"]
+                ]}
+            </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+            <Label htmlFor="scheme">Light or dark</Label>
+            <select
+                id="scheme"
+                value={scheme_of(current)}
+                onChange={lambda (e: any) { change_scheme(e.target.value); }}  # jac:ignore[W1037]
+                className={SELECT_CLASSES}
+            >
+                {[
+                    <option key={m} value={m}>{scheme_label(m)}</option>
+                    for m in options["schemes"]
                 ]}
             </select>
         </div>
