@@ -56,6 +56,33 @@ def:pub with_template(page: dict[str, any], template: str) -> dict[str, any] {  
     return changed;
 }
 
+def:pub with_designed_layout(
+    page: dict[str, any],  # jac:ignore[W1037]
+    template: str,
+    order: list[str]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # The page in `template`, its sections in that template's designed `order`. Each
+    # section keeps its content and whether it shows; any not in `order` go last.
+    changed = _copy(page);
+    changed["template"] = template;
+    sections: list[dict[str, any]] = changed["sections"];  # jac:ignore[W1037]
+    placed: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for kind in order {
+        for section in sections {
+            if section["type"] == kind {
+                placed.append(section);
+            }
+        }
+    }
+    rest: list[dict[str, any]] = [  # jac:ignore[W1037]
+        section
+        for section in sections
+        if section["type"] not in order
+    ];
+    changed["sections"] = placed + rest;
+    return changed;
+}
+
 def:pub moved(page: dict[str, any], index: int, step: int) -> dict[str, any] {  # jac:ignore[W1037]
     # The page with section `index` moved up (step -1) or down (step 1).
     changed = _copy(page);

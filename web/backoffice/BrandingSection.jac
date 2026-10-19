@@ -41,10 +41,21 @@ import from .branding_model {
     version_label
 }
 import from .ThemePreview { ThemePreview }
+import from .home_page_model { with_designed_layout }
+import from core.homepage.home_api {
+    get_home_page,  # jac:ignore[W2037] authenticated endpoint
+    save_home_page  # jac:ignore[W2037]
+}
 import from .form_parts { read_as_base64 }
 
 glob MODES: list[str] = ["light", "dark"],
      IDEAS_KEPT: int = 6,
+     # The home page templates (core/homepage/page.jac), as owners read them.
+     TEMPLATE_LABELS: dict[str, str] = {
+         "marquee": "Marquee: posters first, with a big hero",
+         "schedule": "Schedule: today's showtimes first",
+         "compact": "Compact: one simple list"
+     },
      # How the storefront wears the pattern (ADR-0045): designed styles, as owners read them.
      STYLE_LABELS: list[tuple[str, str, str]] = [
          ("ambient", "Ambient", "A very faint layer behind the whole page"),
@@ -165,8 +176,10 @@ def PresetCard(
 # One theme the AI designed from the logo (ADR-0043): its mood, why, and its colours.
 def IdeaCard(
     idea: dict[str, any],  # jac:ignore[W1037]
-    on_use: any  # jac:ignore[W1037]
+    on_use: any,  # jac:ignore[W1037]
+    on_layout: any  # jac:ignore[W1037]
 ) -> JsxElement {
+    layout: str = idea["template"] or "";
     theme: dict[str, any] = idea["theme"];  # jac:ignore[W1037]
     swatches = ["background", "surface", "accent", "ink"];
     return
@@ -186,13 +199,28 @@ def IdeaCard(
             </span>
             {idea["reason"]
                 and <p className="text-sm text-muted-foreground">{idea["reason"]}</p>}
-            <Button
-                variant="outline"
-                className="mt-auto min-h-11 self-start px-4"
-                onClick={lambda { on_use(idea); }}
-            >
-                Try this theme
-            </Button>
+            {layout
+                and <p className="text-sm" data-testid="idea-layout">
+                    <span className="font-medium">Home page: </span>
+                    {TEMPLATE_LABELS[layout] or layout}
+                </p>}
+            <div className="mt-auto flex flex-wrap gap-2">
+                <Button
+                    variant="outline"
+                    className="min-h-11 px-4"
+                    onClick={lambda { on_use(idea); }}
+                >
+                    Try this theme
+                </Button>
+                {layout
+                    and <Button
+                        variant="ghost"
+                        className="min-h-11 px-4"
+                        onClick={lambda { on_layout(layout); }}
+                    >
+                        Use this home page layout
+                    </Button>}
+            </div>
         </div>;
 }
 
@@ -435,6 +463,33 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             set_pattern_style_state(before);
             set_pattern_note(
                 "We couldn't save that. Check your connection and try again."
+            );
+        }
+    }
+
+    async def use_layout(template: str) {
+        # The suggested home page layout goes to the home page's own draft: private
+        # until published from Home page, like any other home page change.
+        home: any = None;  # jac:ignore[W1037]
+        saved: any = None;  # jac:ignore[W1037]
+        set_ideas_note("");
+        try {
+            home = await get_home_page(slug);  # jac:ignore[W2037]
+            if home["ok"] {
+                order: list[str] = home["options"]["templates"][template];
+                page = with_designed_layout(home["home"]["draft"], template, order);
+                saved = await save_home_page(slug, page);  # jac:ignore[W2037]
+            }
+        } except Exception as e {
+            console.warn("home layout failed", e);
+        }
+        if saved and saved["ok"] {
+            set_ideas_note(
+                "The home page layout is saved as a draft. Publish it from Home page to show it."
+            );
+        } else {
+            set_ideas_note(
+                "We couldn't change the home page layout. Check your connection and try again."
             );
         }
     }
@@ -824,7 +879,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             and <ul className="grid gap-3 sm:grid-cols-2">
                 {[
                     <li key={i["theme"]["name"]}>
-                        <IdeaCard idea={i} on_use={use_idea}/>
+                        <IdeaCard idea={i} on_use={use_idea} on_layout={use_layout}/>
                     </li> for i in idea_list
                 ]}
             </ul>}
