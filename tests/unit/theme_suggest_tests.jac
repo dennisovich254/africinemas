@@ -6,7 +6,6 @@ only allowlisted fonts; a failing model gives one theme built from the logo inst
 """
 
 import io;
-import os;
 import from PIL { Image }
 import from jaclang.byllm.lib { MockLLM }
 import from core.theming.tokens {
@@ -23,8 +22,7 @@ import from core.theming.suggest {
     logo_colours,
     checked_proposal,
     ThemeModel,
-    _short_name,
-    retry_after
+    _short_name
 }
 
 glob RED: tuple[int, int, int, int] = (120, 20, 30, 255),
@@ -152,37 +150,14 @@ test "a failing model gives one theme built from the logo" {
 obj ScriptedThemeModel(ThemeModel) {
     # A ThemeModel whose attempts are scripted per model name: no network.
     has fails: list[str] = [],
-        limited_once: list[str] = [],
         tried: list[dict[str, any]] = [];  # jac:ignore[W1037]
 
     override def _attempt(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
         self.tried.append(params);
-        if params["model"] in self.limited_once {
-            self.limited_once.remove(params["model"]);
-            raise RuntimeError("Rate limit reached (OTPM). Please try again in 0.01s.");
-        }
         if params["model"] in self.fails {
             raise RuntimeError(f"{params['model']} is overloaded");
         }
         return {"answered_by": params["model"]};
-    }
-}
-
-test "a model whose provider has no key is skipped" {
-    saved = os.environ.pop("GROQ_API_KEY", None);
-    os.environ["GEMINI_API_KEY"] = os.environ.get("GEMINI_API_KEY") or "test-key";
-    try {
-        model = ScriptedThemeModel(
-            model_name="groq/qwen/qwen3.8-27b",
-            fallback_models=["gemini/gemini-3.5-flash"]
-        );
-        assert model.usable_models() == ["gemini/gemini-3.5-flash"];
-        got = model.model_call_no_stream({"messages": []});
-        assert got == {"answered_by": "gemini/gemini-3.5-flash"};
-    } finally {
-        if saved is not None {
-            os.environ["GROQ_API_KEY"] = saved;
-        }
     }
 }
 
@@ -220,19 +195,4 @@ test "a theme's name is short, even when the model wrote a sentence" {
         == "Bold High-contrast Theme";
     assert len(_short_name("Supercalifragilistic " * 5)) <= 40;
     assert _short_name("   ") == "From your logo";
-}
-
-test "a short per-minute limit is waited out once, a long one moves on" {
-    assert retry_after("Limit 1000, Used 465. Please try again in 18.84s. Need more")
-        == 18.84;
-    assert retry_after("This model is currently experiencing high demand") is None;
-    model = ScriptedThemeModel(
-        model_name="test/groq",
-        fallback_models=["test/gemini"],
-        limited_once=["test/groq"]
-    );
-    got = model.model_call_no_stream({"messages": []});
-    assert got == {"answered_by": "test/groq"} , "waited, then the same model answered";
-    assert [t["model"] for t in model.tried] == ["test/groq", "test/groq"];
-    assert all([t["max_tokens"] == suggest.MAX_OUTPUT_TOKENS for t in model.tried]);
 }

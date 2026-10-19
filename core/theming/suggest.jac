@@ -18,8 +18,6 @@ owner gets one theme built by code from the logo's key colour instead.
 
 import io;
 import os;
-import re;
-import time;
 import random;
 import logging;
 import from concurrent.futures { ThreadPoolExecutor }
@@ -41,20 +39,11 @@ import from core.theming.branding { NAME_MAX, parse_theme, repair_reporting }
 
 # The theme model: byLLM's Model with its own time limit per attempt, then other models.
 # The booking agent sets litellm's global limit to 15 s, right for a chat reply but too
-# short for three themes from an image; and Gemini answered 503 ("high demand") at
-# peaks for hours (2026-10-18), so Groq goes first. A model whose provider has no key
-# in the environment is skipped, so either key alone works.
+# short for a theme from an image; and Gemini answered 503 ("high demand") at peaks
+# (2026-10-18), when another Gemini model usually has room.
 obj ThemeModel(Model) {
     has fallback_models: list[str] = [],
         attempt_timeout: float = 20.0;
-
-    def usable_models -> list[str] {
-        return [
-            name
-            for name in [self.model_name] + self.fallback_models
-            if _has_key(name)
-        ];
-    }
 
     def _attempt(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
         return super.model_call_no_stream(params);
@@ -62,77 +51,38 @@ obj ThemeModel(Model) {
 
     override def model_call_no_stream(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
         failure: Exception = RuntimeError("no theme model to try");
-        for name in self.usable_models() {
+        for name in [self.model_name] + self.fallback_models {
             tried = dict(params);
             tried["model"] = name;
             tried["timeout"] = self.attempt_timeout;
             # Our loop is the retry: no hidden retries inside one attempt.
             tried["num_retries"] = 0;
             tried["max_tokens"] = MAX_OUTPUT_TOKENS;
-            # Calmer sampling: Qwen on Groq sometimes loops on one key in JSON mode.
             tried["temperature"] = TEMPERATURE;
-            # A per-minute limit that says "try again in N s" is waited out once, when
-            # N is short (Groq's free tier fits about one theme a minute); an answer the
-            # provider's JSON check rejected is asked again once, straight away.
-            for waited in [False, True] {
-                try {
-                    return self._attempt(tried);
-                } except Exception as e {
-                    logger.warning(
-                        "theme model %s failed: %s: %s",
-                        name,
-                        type(e).__name__,
-                        str(e)[:300]
-                    );
-                    failure = e;
-                    pause = 0.0
-                        if "json_validate_failed" in str(e)
-                        else retry_after(str(e));
-                    if waited or pause is None or pause > RATE_WAIT_MAX {
-                        break;
-                    }
-                    if pause > 0 {
-                        time.sleep(pause + 0.5);
-                    }
-                }
+            # Gemini 2.5 Flash thinks by default, and its thinking counts against
+            # max_tokens: the theme came back cut off after 40 characters (2026-10-19).
+            tried["reasoning_effort"] = "disable";
+            try {
+                return self._attempt(tried);
+            } except Exception as e {
+                logger.warning(
+                    "theme model %s failed: %s: %s",
+                    name,
+                    type(e).__name__,
+                    str(e)[:300]
+                );
+                failure = e;
             }
         }
         raise failure;
     }
 }
 
-def retry_after(message: str) -> float | None {
-    # The wait a rate-limit message asks for ("Please try again in 18.84s"), or None.
-    found = re.search(r"try again in ([0-9.]+)\s*s", message);
-    return float(found.group(1)) if found is not None else None;
-}
-
-def _has_key(model: str) -> bool {
-    # Whether the environment holds the key for `model`'s provider; others are assumed set.
-    for (prefix, env) in KEY_ENVS.items() {
-        if model.startswith(prefix) {
-            return bool(os.environ.get(env, "").strip());
-        }
-    }
-    return True;
-}
-
 glob logger = logging.getLogger(__name__),
-     # A model to try before the others (any litellm name that reads images).
+     # A model to try before the others (any Gemini model that reads images).
      MODEL_ENV: str = "AFRICINEMAS_THEME_MODEL",
-     KEY_ENVS: dict[str, str] = {
-         "openrouter/": "OPENROUTER_API_KEY",
-         "groq/": "GROQ_API_KEY",
-         "gemini/": "GEMINI_API_KEY"
-     },
-     # Tried in turn; each must read the logo image (owner's choice, 2026-10-19): Gemma 4
-     # through OpenRouter (free), then Gemini 2.5 Flash with our own key. Gemini 3.5 kept
-     # answering 503 and Groq's free tier allows about one theme a minute. One theme per
-     # request keeps each answer small and quick.
-     MODELS: list[str] = [
-         "openrouter/google/gemma-4-31b-it:free",
-         "gemini/gemini-2.5-flash"
-     ],
+     # Gemini on our own (paid) key; one theme per request keeps each answer small.
+     MODELS: list[str] = ["gemini/gemini-2.5-flash"],
      theme_model: any = ThemeModel(  # jac:ignore[W1037]
          model_name=os.environ.get(MODEL_ENV) or MODELS[0],
          fallback_models=[
@@ -141,13 +91,10 @@ glob logger = logging.getLogger(__name__),
              if m != os.environ.get(MODEL_ENV, MODELS[0])
          ]
      ),
-     # One theme per request: Groq's free tier allows 1,000 output tokens a minute and three
-     # full themes need about 1,500 (seen 2026-10-19); one needs about 500.
-     # One theme used 465 output tokens (2026-10-19); this leaves room without reserving
-     # so much of the minute's 1,000 that the next request is refused at once.
-     MAX_OUTPUT_TOKENS: int = 700,
-     # Seconds worth waiting for a per-minute limit before trying the next model.
-     RATE_WAIT_MAX: float = 25.0,
+     # One theme per request: three full themes need about 1,500 output tokens and were
+     # slow or cut off (2026-10-19); one needs about 500.
+     # One theme used about 465 output tokens (2026-10-19); this leaves room.
+     MAX_OUTPUT_TOKENS: int = 1200,
      TEMPERATURE: float = 0.7,
      DIRECTIONS: list[str] = [
          "dark and cinematic",
@@ -171,6 +118,7 @@ glob logger = logging.getLogger(__name__),
 Rules you always follow:
 - Design one theme in the style direction you are given. It must feel like the logo: build on its exact colours (given as hex), and add only colours that suit them.
 - Every colour is a 6-digit hex like #1a2b3c. Light mode has a light background and dark text; dark mode has a dark background and light text.
+- Never use plain grey or plain black backgrounds: tint background, surface, raised and field with the logo's colours (a pale tint of a logo colour in light mode, a deep shade of one in dark mode), so the whole page feels like the brand, not only the buttons.
 - Text must be easy to read on its background, buttons on their colour, and the seat colours clearly different from each other.
 - Use only the fonts and corner styles you are given.
 - Give each theme a short name of 2 to 4 words in mood (like Midnight Premiere or Golden Hour), never a sentence. Put the explanation in reason.
