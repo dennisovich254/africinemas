@@ -50,6 +50,9 @@ glob HEX_PATTERN: str = r"^#[0-9A-Fa-f]{6}$",
          "Roboto"
      ],
      RADII: list[str] = ["none", "small", "medium", "large"],
+     # Which mode the storefront shows: "auto" follows the visitor's device; "light" or
+     # "dark" is the cinema's choice for everyone (ADR-0044).
+     SCHEMES: list[str] = ["auto", "light", "dark"],
      TEXT: float = 4.5,
      UI: float = 3.0;
 
@@ -137,7 +140,8 @@ obj Theme {
         dark: ThemeTokens,
         display_font: str,
         body_font: str,
-        radius: str;
+        radius: str,
+        scheme: str = "auto";
 
     def postinit {
         if self.display_font not in DISPLAY_FONTS {
@@ -149,6 +153,9 @@ obj Theme {
         if self.radius not in RADII {
             raise InvalidThemeValue(f"radius not allowed: {self.radius!r}");
         }
+        if self.scheme not in SCHEMES {
+            raise InvalidThemeValue(f"scheme not allowed: {self.scheme!r}");
+        }
     }
 
     # `obj` equality is identity-based (docs/jac-issues/JI-016): compare themes by this view.
@@ -159,7 +166,8 @@ obj Theme {
             "dark": self.dark.as_dict(),
             "display_font": self.display_font,
             "body_font": self.body_font,
-            "radius": self.radius
+            "radius": self.radius,
+            "scheme": self.scheme
         };
     }
 }
@@ -304,7 +312,8 @@ def repair_theme(theme: Theme) -> Theme {
         dark=repair_tokens(theme.dark),
         display_font=theme.display_font,
         body_font=theme.body_font,
-        radius=theme.radius
+        radius=theme.radius,
+        scheme=theme.scheme
     );
 }
 

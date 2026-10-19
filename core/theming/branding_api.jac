@@ -34,7 +34,8 @@ import from core.theming.tokens {
     ROLES,
     DISPLAY_FONTS,
     BODY_FONTS,
-    RADII
+    RADII,
+    SCHEMES
 }
 import from core.theming.css { theme_css, FONT_STACKS, RADIUS_REM }
 import from core.theming.branding { PRESETS, parse_theme, repair_reporting }
@@ -156,6 +157,7 @@ def _get_branding(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
             "display_fonts": DISPLAY_FONTS,
             "body_fonts": BODY_FONTS,
             "radii": RADII,
+            "schemes": SCHEMES,
             "font_stacks": FONT_STACKS,
             "radius_rem": RADIUS_REM
         }

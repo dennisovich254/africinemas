@@ -18,6 +18,8 @@ import from core.theming.tokens {
 
 glob NAME_MAX: int = 40,
      KEYS: list[str] = ["name", "light", "dark", "display_font", "body_font", "radius"],
+     # Optional: themes saved before ADR-0044 have no scheme, and read as "auto".
+     OPTIONAL_KEYS: list[str] = ["scheme"],
      MODES: list[str] = ["light", "dark"];
 
 def _tokens(values: dict[str, str], changes: dict[str, str]) -> ThemeTokens {
@@ -146,9 +148,21 @@ def _mode(data: any, mode: str) -> ThemeTokens {  # jac:ignore[W1037]
 
 def parse_theme(data: any) -> Theme {  # jac:ignore[W1037]
     # The theme in `data`, or InvalidThemeValue for anything but exactly a theme.
-    if not isinstance(data, dict) or sorted(data.keys()) != sorted(KEYS) {
-        raise InvalidThemeValue(f"a theme has exactly the fields {KEYS}");
+    if not isinstance(data, dict)
+        or sorted(
+            [
+                k
+                for k in data.keys()
+                if k not in OPTIONAL_KEYS
+            ]
+        )
+            != sorted(KEYS)
+        or any([k not in KEYS + OPTIONAL_KEYS for k in data.keys()]) {
+        raise InvalidThemeValue(
+            f"a theme has exactly the fields {KEYS + OPTIONAL_KEYS}"
+        );
     }
+    scheme = data.get("scheme", "auto");
     name = data["name"];
     if not isinstance(name, str) {
         raise InvalidThemeValue("the theme's name must be text");
@@ -156,6 +170,9 @@ def parse_theme(data: any) -> Theme {  # jac:ignore[W1037]
     name = " ".join(name.split());
     if not name or len(name) > NAME_MAX {
         raise InvalidThemeValue(f"name the theme in 1 to {NAME_MAX} characters");
+    }
+    if not isinstance(scheme, str) {
+        raise InvalidThemeValue("scheme must be text");
     }
     for key in ["display_font", "body_font", "radius"] {
         if not isinstance(data[key], str) {
@@ -168,7 +185,8 @@ def parse_theme(data: any) -> Theme {  # jac:ignore[W1037]
         dark=_mode(data["dark"], "dark"),
         display_font=data["display_font"],
         body_font=data["body_font"],
-        radius=data["radius"]
+        radius=data["radius"],
+        scheme=scheme
     );
 }
 

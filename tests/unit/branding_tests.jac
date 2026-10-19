@@ -68,6 +68,16 @@ test "a theme is read from plain data, colours tidied to upper case" {
     assert parse_theme(_data({"name": "  Nova   Gold  "})).name == "Nova Gold";
 }
 
+test "a theme saved before schemes follows the device; a chosen scheme is kept" {
+    old = _data();
+    old.pop("scheme", None);
+    assert parse_theme(old).scheme == "auto";
+    assert parse_theme(_data({"scheme": "dark"})).scheme == "dark";
+    assert parse_theme(_data({"scheme": "light"})).as_dict()["scheme"] == "light";
+    (fixed, _) = repair_reporting(parse_theme(_data({"scheme": "dark"})));
+    assert fixed.scheme == "dark" , "repair keeps the scheme";
+}
+
 test "anything that isn't a token value is refused" {
     missing = _data();
     light = dict(missing["light"]);
@@ -86,6 +96,8 @@ test "anything that isn't a token value is refused" {
         _data({"display_font": "Comic Sans"}),
         _data({"body_font": "url(evil)"}),
         _data({"radius": "huge"}),
+        _data({"scheme": "sepia"}),
+        _data({"scheme": 1}),
         _data({"name": ""}),
         _data({"name": "x" * (NAME_MAX + 1)}),
         _data({"name": 7})

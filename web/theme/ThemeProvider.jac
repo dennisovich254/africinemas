@@ -33,16 +33,25 @@ def _set_dark(dark: bool) {
 }
 
 # `children: any` is the documented idiom for pass-through children (jac-cl-organization).
-def:pub ThemeProvider(surface: str, children: any = None) -> JsxElement {  # jac:ignore[W1037]
+# `mode`: "auto" follows the device; "light" or "dark" is a cinema's fixed choice (ADR-0044).
+def:pub ThemeProvider(
+    surface: str,
+    children: any = None,  # jac:ignore[W1037]
+    mode: str = "auto"
+) -> JsxElement {
     useLayoutEffect(
         lambda {
+            if mode == "light" or mode == "dark" {
+                _set_dark(mode == "dark");
+                return lambda {};
+            }
             query: any = window.matchMedia("(prefers-color-scheme: dark)");  # jac:ignore[W2001,W1037]
             _set_dark(query.matches);
             handler = lambda (e: any) { _set_dark(e.matches); };  # jac:ignore[W1037]
             query.addEventListener("change", handler);
             return lambda { query.removeEventListener("change", handler); };
         },
-        []
+        [mode]
     );
     # Mirror the surface onto <body> so UI that Radix portals outside this div (drawers,
     # dialogs, menus) still gets the theme variables and the focus-ring rule.

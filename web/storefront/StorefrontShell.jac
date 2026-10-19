@@ -260,6 +260,8 @@ def:pub StorefrontShell(
             </ThemeProvider>;
     }
     look: dict[str, any] = branding;  # jac:ignore[W1037]
+    # The cinema's fixed light or dark choice, or "auto" to follow the device (ADR-0044).
+    scheme: str = look["theme"]["scheme"] or "auto";
     over: bool = hero is not None and not scrolled;
     place: dict[str, str] = cinema;
     names: list[str] = venues;
@@ -273,7 +275,7 @@ def:pub StorefrontShell(
         <span className="hidden sm:inline">Book tickets</span>
     </a>;
     return
-        <ThemeProvider surface="storefront">
+        <ThemeProvider surface="storefront" mode={scheme}>
             <div data-testid="storefront" className="flex min-h-svh flex-col">
                 <div className={"sticky top-0 z-30 " + ("dark" if over else "")}>
                     <header
