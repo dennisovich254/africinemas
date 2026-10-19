@@ -40,7 +40,8 @@ def _proposal(name: str) -> str {
             "dark": DEFAULT_THEME.dark.as_dict(),
             "display_font": "Bebas Neue",
             "body_font": "Outfit",
-            "radius": "medium"
+            "radius": "medium",
+            "scheme": "dark"
         }
     );
 }
@@ -76,6 +77,7 @@ test "suggestions need a logo, and come back readable without saving anything" {
         for p in got["proposals"] {
             assert validate_theme(parse_theme(p["theme"])) == [];
         }
+        assert got["proposals"][0]["theme"]["scheme"] == "dark" , "the scheme the model chose";
         assert got["colours"] and got["colours"][0]["hex"].startswith("#");
         assert got["remaining"] == 4;
         after = app.call("owner", "get_branding", {"tenant": "nova"})["branding"][
