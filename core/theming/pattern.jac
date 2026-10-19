@@ -117,7 +117,9 @@ def as_webp(raw: bytes) -> bytes {
     } except Exception as e {
         raise PatternFailed(f"not an image: {type(e).__name__}");
     }
-    flat = picture.convert("RGB");
+    # Transparency is kept: the page's own colour shows through. Flattening it turned a
+    # transparent ground black (2026-10-19), which would darken a light page.
+    flat = picture.convert("RGBA");
     flat.thumbnail((MAX_SIDE, MAX_SIDE));
     out = io.BytesIO();
     flat.save(out, "WEBP", quality=80);

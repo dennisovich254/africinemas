@@ -51,14 +51,24 @@ test "only a real image is kept, as WebP no larger than MAX_SIDE" {
     } except PatternFailed {}
 }
 
+test "a transparent ground stays transparent, never black" {
+    clear = Image.new("RGBA", (64, 64), (0, 0, 0, 0));
+    clear.putpixel((10, 10), (232, 90, 140, 255));
+    out = io.BytesIO();
+    clear.save(out, "PNG");
+    kept = Image.open(io.BytesIO(as_webp(out.getvalue())));
+    assert kept.mode == "RGBA";
+    assert kept.getpixel((40, 40))[3] == 0 , "the ground is see-through";
+}
+
 test "a drawing comes from the model's answer; an answer without an image fails" {
     image = base64.b64encode(_png(800, 500)).decode();
-    pattern.send = lambda (logo: bytes, brief: str) -> any { return {
+    pattern.send = lambda (_logo: bytes, _brief: str) -> any { return {
         "candidates": [{"content": {"parts": [{"inlineData": {"data": image}}]}}]
     }; };
     drawn = pattern.draw_pattern(_png(100, 100), _theme("auto"));
     assert Image.open(io.BytesIO(drawn)).format == "WEBP";
-    pattern.send = lambda (logo: bytes, brief: str) -> any { return {
+    pattern.send = lambda (_logo: bytes, _brief: str) -> any { return {
         "candidates": [{"content": {"parts": [{"text": "I can't draw that"}]}}]
     }; };
     try {
