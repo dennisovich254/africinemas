@@ -262,6 +262,9 @@ def:pub StorefrontShell(
     look: dict[str, any] = branding;  # jac:ignore[W1037]
     # The cinema's fixed light or dark choice, or "auto" to follow the device (ADR-0044).
     scheme: str = look["theme"]["scheme"] or "auto";
+    # The pattern drawn from the logo, and where the cinema shows it (ADR-0045).
+    pattern: str = look["pattern"] or "";
+    pattern_places: list[str] = look["pattern_places"] or [];
     over: bool = hero is not None and not scrolled;
     place: dict[str, str] = cinema;
     names: list[str] = venues;
@@ -276,11 +279,17 @@ def:pub StorefrontShell(
     </a>;
     return
         <ThemeProvider surface="storefront" mode={scheme}>
-            <div data-testid="storefront" className="flex min-h-svh flex-col">
+            <div
+                data-testid="storefront"
+                data-pattern={" ".join(pattern_places) if pattern else ""}
+                style={{"--ac-pattern": f"url({pattern})"} if pattern else {}}
+                className="flex min-h-svh flex-col"
+            >
                 <div className={"sticky top-0 z-30 " + ("dark" if over else "")}>
                     <header
                         data-surface="storefront"
                         data-testid="storefront-header"
+                        data-pattern-slot="header"
                         data-over-hero={"true" if over else "false"}
                         className={"text-foreground transition-colors duration-200 motion-reduce:transition-none "
                             + (
@@ -402,7 +411,7 @@ def:pub StorefrontShell(
                     {children}
                 </main>
                 {chat and <ChatLauncher slug={slug} cinema={place["name"]}/>}
-                <footer className="border-t bg-card">
+                <footer className="border-t bg-card" data-pattern-slot="footer">
                     <div
                         className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 text-sm text-muted-foreground sm:grid-cols-3"
                     >

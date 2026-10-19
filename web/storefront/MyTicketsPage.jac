@@ -136,7 +136,11 @@ def:pub MyTicketsPage -> JsxElement {
     ];
     return
         <StorefrontShell slug={slug}>
-            <section data-testid="my-tickets" className="flex flex-col gap-6">
+            <section
+                data-testid="my-tickets"
+                data-pattern-slot="tickets"
+                className="flex flex-col gap-6"
+            >
                 <h1 className="font-display text-4xl leading-none">My tickets</h1>
                 {len(bookings) == 0
                     and <p

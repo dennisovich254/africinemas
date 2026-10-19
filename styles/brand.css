@@ -215,3 +215,34 @@
 .dark [data-surface="backoffice"] {
   --chart-bar: #B8892A;
 }
+
+/* ADR-0045: the cinema's pattern, drawn from its logo, shown faintly behind the parts of
+   its storefront it chose. The storefront root carries the chosen places (data-pattern)
+   and the image (--ac-pattern); each part that can wear it is marked data-pattern-slot.
+   The pattern sits under the part's content (z-index -1 inside its own stacking context),
+   so text keeps its contrast. */
+[data-pattern~="hero"] [data-pattern-slot="hero"],
+[data-pattern~="header"] [data-pattern-slot="header"],
+[data-pattern~="sections"] [data-pattern-slot="sections"],
+[data-pattern~="footer"] [data-pattern-slot="footer"],
+[data-pattern~="tickets"] [data-pattern-slot="tickets"] {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-pattern~="hero"] [data-pattern-slot="hero"]::before,
+[data-pattern~="header"] [data-pattern-slot="header"]::before,
+[data-pattern~="sections"] [data-pattern-slot="sections"]::before,
+[data-pattern~="footer"] [data-pattern-slot="footer"]::before,
+[data-pattern~="tickets"] [data-pattern-slot="tickets"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: var(--ac-pattern);
+  background-size: 360px auto;
+  background-repeat: repeat;
+  opacity: 0.14;
+}

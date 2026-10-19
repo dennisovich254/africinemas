@@ -25,3 +25,6 @@ export AFRICINEMAS_MEDIA_DIR="$E2E_MEDIA_DIR"
 # The storefront chat (P8.4) answers from a script the browser tests write, never the
 # real model: no key, no cost (core/agent/agent.jac, SCRIPT_ENV).
 export AFRICINEMAS_AGENT_SCRIPT="${AFRICINEMAS_AGENT_SCRIPT:-$PWD/e2e/artifacts/agent_script.json}"
+# The pattern drawn from a logo (ADR-0045) comes from an image the browser tests write,
+# never the real image model (core/theming/pattern.jac, SCRIPT_ENV).
+export AFRICINEMAS_PATTERN_SCRIPT="${AFRICINEMAS_PATTERN_SCRIPT:-$PWD/e2e/artifacts/pattern_script.png}"

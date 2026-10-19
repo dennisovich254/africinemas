@@ -18,7 +18,13 @@ node Branding {
         # Theme suggestions asked for on suggest_day (ISO date): they cost a model call,
         # so a cinema gets SUGGEST_DAILY a day (ADR-0043).
         suggest_day: str = "",
-        suggest_count: int = 0;
+        suggest_count: int = 0,
+        # The pattern drawn from the logo (ADR-0045): base64 WebP ("" for none), where
+        # the storefront shows it, and drawings asked for on pattern_day (PATTERN_DAILY).
+        draft_pattern: str = "",
+        draft_pattern_places: list[str] = [],
+        pattern_day: str = "",
+        pattern_count: int = 0;
 }
 
 node ThemeVersion {
@@ -27,5 +33,7 @@ node ThemeVersion {
         version: int,
         theme: dict[str, any] = {},  # jac:ignore[W1037]
         logo: str = "",
+        pattern: str = "",
+        pattern_places: list[str] = [],
         published_at: str = "";
 }

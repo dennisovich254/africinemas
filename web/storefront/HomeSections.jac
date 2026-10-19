@@ -94,6 +94,7 @@ def Hero(slug: str, section: dict[str, any], template: str) -> JsxElement {  # j
     return
         <section
             data-testid="section-hero"
+            data-pattern-slot="hero"
             className={"relative isolate flex items-end overflow-hidden rounded-xl border bg-card "
                 + ("min-h-[22rem] @xl:min-h-[28rem]" if big else "min-h-[14rem]")}
         >
@@ -283,6 +284,7 @@ def Today(slug: str, section: dict[str, any], tz: str) -> JsxElement {  # jac:ig
         <section
             id="showtimes"
             data-testid="section-today"
+            data-pattern-slot="sections"
             className="flex scroll-mt-24 flex-col gap-4"
         >
             <SectionHeading text={heading_of(section)}/>
@@ -352,6 +354,7 @@ def:pub NowShowing(  # jac:ignore[W3030] the cinema, section, time zone, templat
         <section
             id="now-showing"
             data-testid="section-now_showing"
+            data-pattern-slot="sections"
             className="flex scroll-mt-24 flex-col gap-4"
         >
             <div className="flex flex-wrap items-end justify-between gap-3">
@@ -395,6 +398,7 @@ def:pub ComingSoon(slug: str, section: dict[str, any]) -> JsxElement {  # jac:ig
         <section
             id="coming-soon"
             data-testid="section-coming_soon"
+            data-pattern-slot="sections"
             className="flex scroll-mt-24 flex-col gap-4"
         >
             <SectionHeading text={heading_of(section)}/>
@@ -467,7 +471,11 @@ def About(slug: str, section: dict[str, any]) -> JsxElement {  # jac:ignore[W103
     photos: list[str] = section["fields"].get("photos", []) or [];
     heading = heading_of(section);
     return
-        <section data-testid="section-about" className="flex flex-col gap-4">
+        <section
+            data-testid="section-about"
+            data-pattern-slot="sections"
+            className="flex flex-col gap-4"
+        >
             <SectionHeading text={heading}/>
             {text
                 and <p className="max-w-prose whitespace-pre-line leading-relaxed">
@@ -494,7 +502,11 @@ def Location(section: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     fields: dict[str, any] = section["fields"];  # jac:ignore[W1037]
     hours: list[dict[str, str]] = fields["hours"];
     return
-        <section data-testid="section-location" className="flex flex-col gap-4">
+        <section
+            data-testid="section-location"
+            data-pattern-slot="sections"
+            className="flex flex-col gap-4"
+        >
             <SectionHeading text={heading_of(section)}/>
             <div className="flex flex-col gap-3">
                 {fields["address"]
@@ -529,7 +541,11 @@ def Contact(section: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     phone: str = fields["phone"];
     dial: str = phone.replace(" ", "");
     return
-        <section data-testid="section-contact" className="flex flex-col gap-4">
+        <section
+            data-testid="section-contact"
+            data-pattern-slot="sections"
+            className="flex flex-col gap-4"
+        >
             <SectionHeading text={heading_of(section)}/>
             <ul className="flex flex-col gap-1">
                 {phone
