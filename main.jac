@@ -69,6 +69,9 @@ import from core.theming.branding_api {
     save_theme,  # jac:ignore[W2037]
     upload_logo,  # jac:ignore[W2037]
     suggest_themes,  # jac:ignore[W2037]
+    draw_pattern,  # jac:ignore[W2037]
+    remove_pattern,  # jac:ignore[W2037]
+    set_pattern_style,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
     rollback_theme,  # jac:ignore[W2037]
@@ -215,6 +218,7 @@ import from core.tenancy.customer_api {
 import ".styles.global.css";
 import ".styles.fonts.css";
 import ".styles.brand.css";
+import ".styles.pattern.css";
 import ".styles.landing.css";
 import from .web.AppRoot { AppRoot }
 

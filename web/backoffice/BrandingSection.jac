@@ -19,6 +19,9 @@ import from core.theming.branding_api {
     save_theme,  # jac:ignore[W2037]
     upload_logo,  # jac:ignore[W2037]
     suggest_themes,  # jac:ignore[W2037]
+    draw_pattern,  # jac:ignore[W2037]
+    remove_pattern,  # jac:ignore[W2037]
+    set_pattern_style,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
     rollback_theme  # jac:ignore[W2037]
@@ -42,6 +45,14 @@ import from .form_parts { read_as_base64 }
 
 glob MODES: list[str] = ["light", "dark"],
      IDEAS_KEPT: int = 6,
+     # How the storefront wears the pattern (ADR-0045): designed styles, as owners read them.
+     STYLE_LABELS: list[tuple[str, str, str]] = [
+         ("ambient", "Ambient", "A very faint layer behind the whole page"),
+         ("spotlight", "Hero spotlight", "In the hero at the top, fading out below"),
+         ("framed", "Framed", "Bands in the header and footer"),
+         ("breaks", "Section breaks", "Thin strips between home page sections"),
+         ("none", "None", "Keep the pattern, but don't show it")
+     ],
      SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm",
      LOGO_TYPES: str = "image/png,image/jpeg,image/webp";
 
@@ -199,6 +210,9 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     [adjusted, set_adjusted] = useState([]);
     [restoring, set_restoring] = useState(0);
     [ideas, set_ideas] = useState([]);
+    [pattern, set_pattern] = useState("");
+    [pattern_style, set_pattern_style_state] = useState("ambient");
+    [pattern_note, set_pattern_note] = useState("");
     [ideas_note, set_ideas_note] = useState("");
 
     def show(answer: dict[str, any]) {  # jac:ignore[W1037]
@@ -209,6 +223,8 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_texts(texts_for(draft["theme"]));
         set_errors({});
         set_logo(draft["logo"]);
+        set_pattern(draft["pattern"]);
+        set_pattern_style_state(draft["pattern_style"]);
     }
 
     async def load -> bool {
@@ -350,6 +366,77 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             if left == 0
             else f" You can ask {left} more times today.";
         set_ideas_note(said + more);
+    }
+
+    async def draw {
+        answer: any = None;  # jac:ignore[W1037]
+        set_busy("drawing");
+        set_pattern_note("");
+        try {
+            answer = await draw_pattern(slug, current);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("draw_pattern failed", e);
+            set_busy("");
+            set_pattern_note(
+                "We couldn't draw a pattern. Check your connection and try again."
+            );
+            return;
+        }
+        set_busy("");
+        if not answer["ok"] {
+            set_pattern_note(answer["error"]["message"]);
+            return;
+        }
+        set_pattern(answer["pattern"]);
+        set_pattern_style_state(answer["style"]);
+        left: int = answer["remaining"];
+        set_pattern_note(
+            "Here's your pattern, with the style AI chose for it. Switch styles if you like, then publish to put it on your storefront."
+                + (
+                    " That was your last drawing for today."
+                        if left == 0
+                        else f" You can draw {left} more today."
+                )
+        );
+    }
+
+    async def drop_pattern {
+        answer: any = None;  # jac:ignore[W1037]
+        set_busy("drawing");
+        try {
+            answer = await remove_pattern(slug);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("remove_pattern failed", e);
+        }
+        set_busy("");
+        if answer and answer["ok"] {
+            set_pattern("");
+            set_pattern_note(
+                "Pattern removed. Publish to take it off your storefront."
+            );
+        }
+    }
+
+    async def pick_style(style: str) {
+        # Chosen at once, so the radio never snaps back while the save is on its way;
+        # put back if the save fails.
+        before: str = pattern_style;
+        set_pattern_style_state(style);
+        answer: any = None;  # jac:ignore[W1037]
+        try {
+            answer = await set_pattern_style(slug, style);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("set_pattern_style failed", e);
+        }
+        if answer and answer["ok"] {
+            set_pattern_style_state(answer["style"]);
+            set_pattern_note("Saved. Publish to show it on your storefront.");
+        } else {
+            set_pattern_style_state(before);
+            set_pattern_note(
+                "We couldn't save that. Check your connection and try again."
+            );
+        }
     }
 
     def use_idea(idea: dict[str, any]) {  # jac:ignore[W1037]
@@ -743,6 +830,79 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             </ul>}
     </section>;
 
+    pattern_section = <section
+        aria-labelledby="pattern-heading"
+        className="flex flex-col gap-3"
+        data-testid="theme-pattern"
+    >
+        <h3 id="pattern-heading" className="font-semibold">Pattern from your logo</h3>
+        <p className="text-sm text-muted-foreground">
+            {"AI draws a light pattern from the flowers, birds or shapes in your logo, in your theme's colours. AI also chooses how your storefront wears it."
+                if logo
+                else "Upload your logo above, and AI can draw a pattern from it."}
+        </p>
+        {pattern
+            and <img
+                src={pattern}
+                alt="The pattern drawn from your logo"
+                className="max-h-48 w-full rounded-lg border object-cover"
+                data-testid="pattern-preview"
+            />}
+        {logo
+            and <div className="flex flex-wrap gap-3">
+                <Button
+                    variant="outline"
+                    className="min-h-11 px-5"
+                    disabled={busy != ""}
+                    onClick={draw}
+                >
+                    {busy == "drawing" and <Spinner aria-hidden="true"/>}{"Drawing… about 15 seconds"
+                        if busy == "drawing"
+                        else ("Draw again" if pattern else "Draw a pattern")}
+                </Button>
+                {pattern
+                    and <Button
+                        variant="ghost"
+                        className="min-h-11 px-4"
+                        disabled={busy != ""}
+                        onClick={drop_pattern}
+                    >
+                        Remove pattern
+                    </Button>}
+            </div>}
+        {pattern
+            and <fieldset className="flex flex-col gap-2" data-testid="pattern-styles">
+                <legend className="mb-1 text-sm font-medium">Style</legend>
+                {[
+                    <label
+                        key={key}
+                        className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-muted"
+                    >
+                        <input
+                            type="radio"
+                            name="pattern-style"
+                            value={key}
+                            checked={key == pattern_style}
+                            onChange={lambda { pick_style(key); }}
+                            className="mt-0.5 size-4"
+                        />
+                        <span className="flex flex-col">
+                            <span className="font-medium">{label}</span>
+                            <span className="text-muted-foreground">{detail}</span>
+                        </span>
+                    </label> for (key, label, detail) in STYLE_LABELS
+                ]}
+            </fieldset>}
+        {pattern_note
+            and <p
+                role="status"
+                className="text-sm text-muted-foreground"
+                data-testid="pattern-note"
+            >
+                {pattern_note}
+            </p>}
+    </section>;
+
     history = <section
         aria-labelledby="history-heading"
         className="flex flex-col gap-3"
@@ -886,7 +1046,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     </div>
                 </div>
                 <div className="flex min-w-0 flex-col gap-8 lg:order-1">
-                    {presets}{colours}{type_and_shape}{logo_section}{ideas_section}{actions}{history}
+                    {presets}{colours}{type_and_shape}{logo_section}{ideas_section}{pattern_section}{actions}{history}
                 </div>
             </div>
         </div>;

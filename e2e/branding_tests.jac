@@ -8,6 +8,7 @@ its back-office.
 """
 
 import io;
+import os;
 import base64;
 import from PIL { Image }
 import from core.theming.tokens { DEFAULT_THEME }
@@ -293,6 +294,42 @@ test "theme ideas from the logo load into the editor, saving nothing yet" {
         );
         # Nothing is public until the owner publishes.
         assert "default theme" in page.inner_text(STATUS);
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "a pattern drawn from the logo is worn in the chosen style, after publishing" {
+    # The image model is scripted (AFRICINEMAS_PATTERN_SCRIPT, scripts/e2e_env.sh).
+    with open(os.environ["AFRICINEMAS_PATTERN_SCRIPT"], "wb") as f {
+        f.write(_logo_png());
+    }
+    owner = owner_with_cinema();
+    (pw, browser) = shared_browser();
+    try {
+        page = _page(browser, pw, "desktop");
+        _sign_in(page, owner["email"]);
+        _open_branding(page, owner);
+        page.set_input_files(
+            "#logo-file",
+            files=[{"name": "logo.png", "mimeType": "image/png", "buffer": _logo_png()}]
+        );
+        page.wait_for_selector('[data-testid="logo-preview"]');
+        page.click('[data-testid="theme-pattern"] button:has-text("Draw a pattern")');
+        page.wait_for_selector('[data-testid="pattern-preview"]', timeout=60000);
+        styles = '[data-testid="pattern-styles"]';
+        assert page.locator(f"{styles} input:checked").count() == 1 , "a style is chosen";
+        page.locator(f'{styles} label:has-text("Framed") input').check();
+        page.wait_for_selector('[data-testid="pattern-note"]:has-text("Saved")');
+        page.click(PUBLISH);
+        page.wait_for_selector(f"{STATUS}:has-text('Version 1')");
+        _storefront(page, owner["slug"]);
+        painted = """slot => getComputedStyle(document.querySelector(`[data-pattern-slot="${slot}"]`), '::before').backgroundImage""";
+        for slot in ["header", "footer"] {
+            assert "data:image/webp" in page.evaluate(painted, slot) , f"framed: the {slot} wears it";
+        }
+        assert page.locator('[data-pattern-slot="hero"]').count() == 0
+            or "data:image" not in page.evaluate(painted, "hero") , "framed: not the hero";
     } finally {
         close_contexts(browser);
     }
