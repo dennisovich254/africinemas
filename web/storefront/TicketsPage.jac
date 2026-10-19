@@ -91,7 +91,6 @@ def:pub TicketsPage -> JsxElement {
         <StorefrontShell slug={slug}>
             <section
                 data-testid="tickets-page"
-                data-pattern-slot="tickets"
                 aria-labelledby="tickets-heading"
                 className="flex flex-col gap-6"
             >

@@ -299,7 +299,7 @@ test "theme ideas from the logo load into the editor, saving nothing yet" {
     }
 }
 
-test "a pattern drawn from the logo shows where the owner put it, after publishing" {
+test "a pattern drawn from the logo is worn in the chosen style, after publishing" {
     # The image model is scripted (AFRICINEMAS_PATTERN_SCRIPT, scripts/e2e_env.sh).
     with open(os.environ["AFRICINEMAS_PATTERN_SCRIPT"], "wb") as f {
         f.write(_logo_png());
@@ -317,19 +317,19 @@ test "a pattern drawn from the logo shows where the owner put it, after publishi
         page.wait_for_selector('[data-testid="logo-preview"]');
         page.click('[data-testid="theme-pattern"] button:has-text("Draw a pattern")');
         page.wait_for_selector('[data-testid="pattern-preview"]', timeout=60000);
-        places = '[data-testid="pattern-places"]';
-        assert page.locator(f'{places} label:has-text("Footer") input').is_checked();
-        page.locator(f'{places} label:has-text("Header") input').check();
+        styles = '[data-testid="pattern-styles"]';
+        assert page.locator(f"{styles} input:checked").count() == 1 , "a style is chosen";
+        page.locator(f'{styles} label:has-text("Framed") input').check();
         page.wait_for_selector('[data-testid="pattern-note"]:has-text("Saved")');
         page.click(PUBLISH);
         page.wait_for_selector(f"{STATUS}:has-text('Version 1')");
         _storefront(page, owner["slug"]);
         painted = """slot => getComputedStyle(document.querySelector(`[data-pattern-slot="${slot}"]`), '::before').backgroundImage""";
         for slot in ["header", "footer"] {
-            assert "data:image/webp" in page.evaluate(painted, slot) , f"pattern behind the {slot}";
+            assert "data:image/webp" in page.evaluate(painted, slot) , f"framed: the {slot} wears it";
         }
-        assert page.locator('[data-pattern-slot="sections"]').count() == 0
-            or "data:image" not in page.evaluate(painted, "sections") , "not where it wasn't put";
+        assert page.locator('[data-pattern-slot="hero"]').count() == 0
+            or "data:image" not in page.evaluate(painted, "hero") , "framed: not the hero";
     } finally {
         close_contexts(browser);
     }

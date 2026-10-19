@@ -262,9 +262,9 @@ def:pub StorefrontShell(
     look: dict[str, any] = branding;  # jac:ignore[W1037]
     # The cinema's fixed light or dark choice, or "auto" to follow the device (ADR-0044).
     scheme: str = look["theme"]["scheme"] or "auto";
-    # The pattern drawn from the logo, and where the cinema shows it (ADR-0045).
+    # The pattern drawn from the logo, and the style the storefront wears it in (ADR-0045).
     pattern: str = look["pattern"] or "";
-    pattern_places: list[str] = look["pattern_places"] or [];
+    pattern_style: str = look["pattern_style"] or "";
     over: bool = hero is not None and not scrolled;
     place: dict[str, str] = cinema;
     names: list[str] = venues;
@@ -281,7 +281,7 @@ def:pub StorefrontShell(
         <ThemeProvider surface="storefront" mode={scheme}>
             <div
                 data-testid="storefront"
-                data-pattern={" ".join(pattern_places) if pattern else ""}
+                data-pattern-style={pattern_style if pattern else ""}
                 style={{"--ac-pattern": f"url({pattern})"} if pattern else {}}
                 className="flex min-h-svh flex-col"
             >

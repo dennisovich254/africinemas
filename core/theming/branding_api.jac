@@ -43,7 +43,12 @@ import from core.theming.branding { PRESETS, parse_theme, repair_reporting }
 import from core.theming.models { Branding, ThemeVersion }
 import from core.theming.suggest { suggest_from_logo }
 import from core.theming.pattern { draw_pattern as make_pattern }
-import from core.theming.pattern { PatternFailed, DEFAULT_PLACES, checked_places }
+import from core.theming.pattern {
+    PatternFailed,
+    DEFAULT_STYLE,
+    checked_style,
+    choose_style
+}
 import from core.audit.log { audited }
 
 glob logger = logging.getLogger(__name__),
@@ -121,9 +126,9 @@ def _view(scope: TenantScope, branding: Branding | None) -> dict[str, any] {  # 
             "pattern": _data_url(
                 branding.draft_pattern if branding is not None else ""
             ),
-            "pattern_places": list(branding.draft_pattern_places)
+            "pattern_style": (branding.draft_pattern_style or DEFAULT_STYLE)
                 if branding is not None
-                else list(DEFAULT_PLACES)
+                else DEFAULT_STYLE
         },
         "published": {
             "version": latest.version,
@@ -279,17 +284,17 @@ def _draw_pattern(tenant: str, theme: dict[str, any]) -> dict[str, any] {  # jac
         );
     }
     encoded = base64.b64encode(webp).decode();
+    # The model picks how the storefront wears this drawing; the owner may switch.
+    style = choose_style(base64.b64decode(logo), webp);
     def _keep(b: Branding) {
         b.draft_pattern = encoded;
-        if not b.draft_pattern_places {
-            b.draft_pattern_places = list(DEFAULT_PLACES);
-        }
+        b.draft_pattern_style = style;
     }
     _edit_draft(scope, _keep);
     return {
         "ok": True,
         "pattern": _data_url(encoded),
-        "places": list(branding.draft_pattern_places or DEFAULT_PLACES),
+        "style": style,
         "remaining": PATTERN_DAILY - used - 1
     };
 }
@@ -303,18 +308,18 @@ def _remove_pattern(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"ok": True};
 }
 
-def _set_pattern_places(tenant: str, places: list[str]) -> dict[str, any] {  # jac:ignore[W1037]
+def _set_pattern_style(tenant: str, style: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, CONFIGURE);
     try {
-        chosen = checked_places(places);
+        chosen = checked_style(style);
     } except ValueError as e {
-        raise Refused("invalid_places", str(e));
+        raise Refused("invalid_style", str(e));
     }
     def _set(b: Branding) {
-        b.draft_pattern_places = chosen;
+        b.draft_pattern_style = chosen;
     }
     _edit_draft(scope, _set);
-    return {"ok": True, "places": chosen};
+    return {"ok": True, "style": chosen};
 }
 
 def _remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
@@ -331,10 +336,10 @@ def _publish(
     theme: dict[str, any],  # jac:ignore[W1037]
     logo: str,
     pattern: str = "",
-    places: list[str] | None = None
+    style: str = ""
 ) -> int {
     # Publishes `theme`, `logo` and the pattern as the next version; returns its number.
-    shown_places = list(places or []);
+    shown_style = (style or DEFAULT_STYLE) if pattern else "";
     stamp = now().isoformat();
     me = node_id(root);
     act_as(scope.tenant.principal_root_id);
@@ -347,7 +352,7 @@ def _publish(
             theme=theme,
             logo=logo,
             pattern=pattern,
-            pattern_places=shown_places,
+            pattern_style=shown_style,
             published_at=stamp
         );
         branding ++> published;
@@ -363,7 +368,7 @@ def _publish(
             "theme": theme,
             "logo": logo,
             "pattern": pattern,
-            "pattern_places": shown_places
+            "pattern_style": shown_style
         }
     );
     return published.version;
@@ -375,23 +380,25 @@ def _publish_theme(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     theme = _draft_theme(branding);
     logo = branding.draft_logo if branding is not None else "";
     pattern = branding.draft_pattern if branding is not None else "";
-    places = list(branding.draft_pattern_places) if branding is not None else [];
+    style = (branding.draft_pattern_style or DEFAULT_STYLE)
+        if branding is not None
+        else "";
     versions = _versions(scope, branding);
-    # Where a pattern shows only matters when there is one.
+    # How a pattern is worn only matters when there is one.
     public = (
         versions[0].theme,
         versions[0].logo,
         versions[0].pattern,
-        list(versions[0].pattern_places) if versions[0].pattern else []
+        versions[0].pattern_style if versions[0].pattern else ""
     )
         if versions
-        else (DEFAULT_THEME.as_dict(), "", "", []);
-    if (theme, logo, pattern, places if pattern else []) == public {
+        else (DEFAULT_THEME.as_dict(), "", "", "");
+    if (theme, logo, pattern, style if pattern else "") == public {
         raise Refused(
             "nothing_to_publish", "The storefront already shows this theme and logo."
         );
     }
-    return {"ok": True, "version": _publish(scope, theme, logo, pattern, places)};
+    return {"ok": True, "version": _publish(scope, theme, logo, pattern, style)};
 }
 
 def _rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore[W1037]
@@ -409,15 +416,15 @@ def _rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore
     theme = dict(earlier.theme);
     logo = earlier.logo;
     pattern = earlier.pattern;
-    places = list(earlier.pattern_places);
+    style = earlier.pattern_style;
     def _set(b: Branding) {
         b.draft = theme;
         b.draft_logo = logo;
         b.draft_pattern = pattern;
-        b.draft_pattern_places = places;
+        b.draft_pattern_style = style;
     }
     _edit_draft(scope, _set);
-    return {"ok": True, "version": _publish(scope, theme, logo, pattern, places)};
+    return {"ok": True, "version": _publish(scope, theme, logo, pattern, style)};
 }
 
 def:protect get_branding(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
@@ -448,8 +455,8 @@ def _do_remove_pattern(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _remove_pattern(tenant); });  # jac:ignore[W1037]
 }
 
-def _do_set_pattern_places(tenant: str, places: list[str]) -> dict[str, any] {  # jac:ignore[W1037]
-    return answer(lambda -> any { return _set_pattern_places(tenant, places); });  # jac:ignore[W1037]
+def _do_set_pattern_style(tenant: str, style: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _set_pattern_style(tenant, style); });  # jac:ignore[W1037]
 }
 
 def _do_remove_logo(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
@@ -484,7 +491,9 @@ def:pub public_branding(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
             "css": theme_css(theme, "storefront"),
             "logo": _data_url(logo),
             "pattern": _data_url(pattern),
-            "pattern_places": list(shown.get("pattern_places", [])) if pattern else []
+            "pattern_style": (shown.get("pattern_style") or DEFAULT_STYLE)
+                if pattern
+                else ""
         }
     };
 }
@@ -541,13 +550,13 @@ def:protect remove_pattern(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     );
 }
 
-def:protect set_pattern_places(tenant: str, places: list[str]) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect set_pattern_style(tenant: str, style: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
-        "theme.pattern_placed",
+        "theme.pattern_styled",
         "theme",
         "",
-        lambda -> any { return _do_set_pattern_places(tenant, places); }  # jac:ignore[W1037]
+        lambda -> any { return _do_set_pattern_style(tenant, style); }  # jac:ignore[W1037]
     );
 }
 

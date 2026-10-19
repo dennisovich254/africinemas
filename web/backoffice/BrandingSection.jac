@@ -21,7 +21,7 @@ import from core.theming.branding_api {
     suggest_themes,  # jac:ignore[W2037]
     draw_pattern,  # jac:ignore[W2037]
     remove_pattern,  # jac:ignore[W2037]
-    set_pattern_places,  # jac:ignore[W2037]
+    set_pattern_style,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
     rollback_theme  # jac:ignore[W2037]
@@ -45,13 +45,13 @@ import from .form_parts { read_as_base64 }
 
 glob MODES: list[str] = ["light", "dark"],
      IDEAS_KEPT: int = 6,
-     # Where the storefront can show the pattern (ADR-0045), as the owner reads them.
-     PLACE_LABELS: list[tuple[str, str]] = [
-         ("hero", "Behind the hero"),
-         ("header", "Header"),
-         ("sections", "Behind home page sections"),
-         ("footer", "Footer"),
-         ("tickets", "Ticket pages")
+     # How the storefront wears the pattern (ADR-0045): designed styles, as owners read them.
+     STYLE_LABELS: list[tuple[str, str, str]] = [
+         ("ambient", "Ambient", "A very faint layer behind the whole page"),
+         ("spotlight", "Hero spotlight", "In the hero at the top, fading out below"),
+         ("framed", "Framed", "Bands in the header and footer"),
+         ("breaks", "Section breaks", "Thin strips between home page sections"),
+         ("none", "None", "Keep the pattern, but don't show it")
      ],
      SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm",
      LOGO_TYPES: str = "image/png,image/jpeg,image/webp";
@@ -211,7 +211,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     [restoring, set_restoring] = useState(0);
     [ideas, set_ideas] = useState([]);
     [pattern, set_pattern] = useState("");
-    [places, set_places] = useState([]);
+    [pattern_style, set_pattern_style_state] = useState("ambient");
     [pattern_note, set_pattern_note] = useState("");
     [ideas_note, set_ideas_note] = useState("");
 
@@ -224,7 +224,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_errors({});
         set_logo(draft["logo"]);
         set_pattern(draft["pattern"]);
-        set_places(draft["pattern_places"]);
+        set_pattern_style_state(draft["pattern_style"]);
     }
 
     async def load -> bool {
@@ -388,10 +388,10 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             return;
         }
         set_pattern(answer["pattern"]);
-        set_places(answer["places"]);
+        set_pattern_style_state(answer["style"]);
         left: int = answer["remaining"];
         set_pattern_note(
-            "Here's your pattern. Choose where it shows, then publish to put it on your storefront."
+            "Here's your pattern, with the style AI chose for it. Switch styles if you like, then publish to put it on your storefront."
                 + (
                     " That was your last drawing for today."
                         if left == 0
@@ -417,27 +417,19 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         }
     }
 
-    async def toggle_place(place: str) {
-        chosen: list[str] = places;
-        wanted = [
-            p
-            for p in chosen
-            if p != place
-        ]
-            if place in chosen
-            else chosen + [place];
+    async def pick_style(style: str) {
         answer: any = None;  # jac:ignore[W1037]
         try {
-            answer = await set_pattern_places(slug, wanted);  # jac:ignore[W2037]
+            answer = await set_pattern_style(slug, style);  # jac:ignore[W2037]
         } except Exception as e {
-            console.warn("set_pattern_places failed", e);
+            console.warn("set_pattern_style failed", e);
             set_pattern_note(
                 "We couldn't save that. Check your connection and try again."
             );
             return;
         }
         if answer["ok"] {
-            set_places(answer["places"]);
+            set_pattern_style_state(answer["style"]);
             set_pattern_note("Saved. Publish to show it on your storefront.");
         }
     }
@@ -833,7 +825,6 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             </ul>}
     </section>;
 
-    shown_places: list[str] = places;
     pattern_section = <section
         aria-labelledby="pattern-heading"
         className="flex flex-col gap-3"
@@ -841,7 +832,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     >
         <h3 id="pattern-heading" className="font-semibold">Pattern from your logo</h3>
         <p className="text-sm text-muted-foreground">
-            {"AI draws a light pattern from the flowers, birds or shapes in your logo, in your theme's colours. It shows faintly behind the parts of your storefront you choose."
+            {"AI draws a light pattern from the flowers, birds or shapes in your logo, in your theme's colours. AI also chooses how your storefront wears it."
                 if logo
                 else "Upload your logo above, and AI can draw a pattern from it."}
         </p>
@@ -875,21 +866,26 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     </Button>}
             </div>}
         {pattern
-            and <fieldset className="flex flex-col gap-2" data-testid="pattern-places">
-                <legend className="mb-1 text-sm font-medium">Show it</legend>
+            and <fieldset className="flex flex-col gap-2" data-testid="pattern-styles">
+                <legend className="mb-1 text-sm font-medium">Style</legend>
                 {[
                     <label
                         key={key}
-                        className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+                        className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-muted"
                     >
                         <input
-                            type="checkbox"
-                            checked={key in shown_places}
-                            onChange={lambda { toggle_place(key); }}
-                            className="size-5"
+                            type="radio"
+                            name="pattern-style"
+                            value={key}
+                            checked={key == pattern_style}
+                            onChange={lambda { pick_style(key); }}
+                            className="mt-0.5 size-4"
                         />
-                        {label}
-                    </label> for (key, label) in PLACE_LABELS
+                        <span className="flex flex-col">
+                            <span className="font-medium">{label}</span>
+                            <span className="text-muted-foreground">{detail}</span>
+                        </span>
+                    </label> for (key, label, detail) in STYLE_LABELS
                 ]}
             </fieldset>}
         {pattern_note

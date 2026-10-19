@@ -1,22 +1,26 @@
-"""The pattern drawn from a logo (ADR-0045): the brief, the image kept, the places.
+"""The pattern drawn from a logo (ADR-0045): the brief, the image kept, the style.
 
 No network: the model call (`send`) is replaced. Only a real image is stored, re-encoded
-as WebP and no larger than MAX_SIDE; places are some of PLACES, in their order.
+as WebP and no larger than MAX_SIDE; the style is one of STYLES, the model's pick or
+DEFAULT_STYLE.
 """
 
 import io;
 import base64;
 import from PIL { Image }
+import from jaclang.byllm.lib { MockLLM }
 import from core.theming.tokens { DEFAULT_THEME }
 import from core.theming.branding { parse_theme }
 import core.theming.pattern as pattern;
 import from core.theming.pattern {
     PatternFailed,
-    PLACES,
+    STYLES,
+    DEFAULT_STYLE,
     MAX_SIDE,
     pattern_prompt,
     as_webp,
-    checked_places
+    checked_style,
+    choose_style
 }
 
 def _png(width: int, height: int) -> bytes {
@@ -77,14 +81,21 @@ test "a drawing comes from the model's answer; an answer without an image fails"
     } except PatternFailed {}
 }
 
-test "places are some of the allowed ones, in their order" {
-    assert checked_places(["footer", "hero"]) == ["hero", "footer"];
-    assert checked_places([]) == [];
-    assert checked_places(PLACES) == PLACES;
-    for bad in [["everywhere"], "hero", None] {
+test "a style is one of the designed ones" {
+    for style in STYLES {
+        assert checked_style(style) == style;
+    }
+    for bad in ["everywhere", "", None, ["ambient"]] {
         try {
-            checked_places(bad);
+            checked_style(bad);
             assert False , bad;
         } except ValueError {}
     }
+}
+
+test "the model picks the style; if it can't, the pattern is ambient" {
+    pattern.style_model = MockLLM(outputs=["spotlight"]);
+    assert choose_style(_png(100, 100), _png(200, 100)) == "spotlight";
+    pattern.style_model = MockLLM(outputs=["somewhere odd"]);
+    assert choose_style(_png(100, 100), _png(200, 100)) == DEFAULT_STYLE;
 }

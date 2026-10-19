@@ -71,7 +71,7 @@ import from core.theming.branding_api {
     suggest_themes,  # jac:ignore[W2037]
     draw_pattern,  # jac:ignore[W2037]
     remove_pattern,  # jac:ignore[W2037]
-    set_pattern_places,  # jac:ignore[W2037]
+    set_pattern_style,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
     rollback_theme,  # jac:ignore[W2037]

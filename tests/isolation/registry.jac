@@ -656,10 +656,10 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "theme.pattern_removed",
              "probe": {"tenant": "{tenant}"}
          },
-         "set_pattern_places": {
+         "set_pattern_style": {
              "scope": "tenant",
-             "audit": "theme.pattern_placed",
-             "probe": {"tenant": "{tenant}", "places": ["hero"]}
+             "audit": "theme.pattern_styled",
+             "probe": {"tenant": "{tenant}", "style": "ambient"}
          },
          "suggest_themes": {
              "scope": "tenant",

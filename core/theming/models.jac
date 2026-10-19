@@ -19,10 +19,10 @@ node Branding {
         # so a cinema gets SUGGEST_DAILY a day (ADR-0043).
         suggest_day: str = "",
         suggest_count: int = 0,
-        # The pattern drawn from the logo (ADR-0045): base64 WebP ("" for none), where
-        # the storefront shows it, and drawings asked for on pattern_day (PATTERN_DAILY).
+        # The pattern drawn from the logo (ADR-0045): base64 WebP ("" for none), how the
+        # storefront wears it (a pattern style), and drawings asked for on pattern_day.
         draft_pattern: str = "",
-        draft_pattern_places: list[str] = [],
+        draft_pattern_style: str = "",
         pattern_day: str = "",
         pattern_count: int = 0;
 }
@@ -34,6 +34,6 @@ node ThemeVersion {
         theme: dict[str, any] = {},  # jac:ignore[W1037]
         logo: str = "",
         pattern: str = "",
-        pattern_places: list[str] = [],
+        pattern_style: str = "",
         published_at: str = "";
 }
