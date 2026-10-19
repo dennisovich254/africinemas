@@ -418,19 +418,24 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     }
 
     async def pick_style(style: str) {
+        # Chosen at once, so the radio never snaps back while the save is on its way;
+        # put back if the save fails.
+        before: str = pattern_style;
+        set_pattern_style_state(style);
         answer: any = None;  # jac:ignore[W1037]
         try {
             answer = await set_pattern_style(slug, style);  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("set_pattern_style failed", e);
+        }
+        if answer and answer["ok"] {
+            set_pattern_style_state(answer["style"]);
+            set_pattern_note("Saved. Publish to show it on your storefront.");
+        } else {
+            set_pattern_style_state(before);
             set_pattern_note(
                 "We couldn't save that. Check your connection and try again."
             );
-            return;
-        }
-        if answer["ok"] {
-            set_pattern_style_state(answer["style"]);
-            set_pattern_note("Saved. Publish to show it on your storefront.");
         }
     }
 
