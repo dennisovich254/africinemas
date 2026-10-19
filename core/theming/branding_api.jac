@@ -27,7 +27,7 @@ import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.responses { NOT_FOUND }
 import from core.catalog.answers { Refused, answer }
-import from core.catalog.storefront { set_branding, branding_of }
+import from core.catalog.storefront { set_branding, branding_of, upcoming }
 import from core.catalog.poster { PosterRejected, decode_upload, process_logo }
 import from core.theming.tokens {
     DEFAULT_THEME,
@@ -213,6 +213,19 @@ def _upload_logo(tenant: str, content_type: str, data_base64: str) -> dict[str, 
     return {"ok": True};
 }
 
+def _programme(scope: TenantScope) -> str {
+    # What the cinema shows, for the model's home page layout choice: counts only.
+    shows = upcoming(scope.tenant);
+    if not shows {
+        return "No showtimes published yet.";
+    }
+    films = {str(s.movie.get("movie_id") or s.movie.get("title", "")) for s in shows};
+    venues = {str(s.venue.get("venue_id") or s.venue.get("name", "")) for s in shows};
+    return f"{len(films)} films with {len(shows)} showtimes coming up, at {len(
+        venues
+    )} venue(s).";
+}
+
 def _suggest_themes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, CONFIGURE);
     branding = _branding(scope);
@@ -234,7 +247,9 @@ def _suggest_themes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         b.suggest_count = used + 1;
     }
     _edit_draft(scope, _count);
-    found = suggest_from_logo(base64.b64decode(logo), scope.tenant.name);
+    found = suggest_from_logo(
+        base64.b64decode(logo), scope.tenant.name, _programme(scope)
+    );
     return {
         "ok": True,
         "proposals": found["proposals"],

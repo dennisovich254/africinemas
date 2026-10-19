@@ -67,7 +67,8 @@ def _proposal(
         display_font=font,
         body_font="Outfit",
         radius=radius,
-        scheme="light"
+        scheme="light",
+        template="schedule"
     );
 }
 
@@ -111,6 +112,14 @@ test "the model picks light or dark for everyone; anything else follows the devi
     odd = _proposal("Sepia");
     odd.scheme = "sepia";
     assert checked_proposal(odd)["theme"]["scheme"] == "auto";
+}
+
+test "a home page layout is offered only when it is one of the templates" {
+    assert checked_proposal(_proposal("Busy Nights"))["template"] == "schedule";
+    odd = _proposal("Odd");
+    odd.template = "magazine";
+    assert checked_proposal(odd)["template"] == "";
+    assert suggest.code_proposal(["#78141e"])["template"] == "" , "the fallback offers none";
 }
 
 test "only allowlisted fonts and corners reach the owner" {
