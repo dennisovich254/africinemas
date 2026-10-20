@@ -119,7 +119,9 @@ test "the storefront wears the cinema's brand kit inside its parts" {
                 "e => getComputedStyle(e).textTransform"
             );
             assert caps == "uppercase";
-            poster = page.locator('[data-kit-slot="poster"]').first.evaluate(
+            poster = page.locator(
+                '[data-testid="movie-card"] [data-kit-slot="poster"]'
+            ).first.evaluate(
                 "e => getComputedStyle(e).maskImage || getComputedStyle(e).webkitMaskImage"
             );
             assert "radial-gradient" in poster , "notched posters";
