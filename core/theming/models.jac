@@ -24,7 +24,12 @@ node Branding {
         draft_pattern: str = "",
         draft_pattern_style: str = "",
         pattern_day: str = "",
-        pattern_count: int = 0;
+        pattern_count: int = 0,
+        # The brand kit drawn from the logo (ADR-0046): {"motifs": [{"name", "mask"}],
+        # "look": {...}} or {} for none, and kits drawn on kit_day (KIT_DAILY).
+        draft_kit: dict[str, any] = {},  # jac:ignore[W1037]
+        kit_day: str = "",
+        kit_count: int = 0;
 }
 
 node ThemeVersion {
@@ -35,5 +40,6 @@ node ThemeVersion {
         logo: str = "",
         pattern: str = "",
         pattern_style: str = "",
+        kit: dict[str, any] = {},  # jac:ignore[W1037]
         published_at: str = "";
 }
