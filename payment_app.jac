@@ -28,6 +28,9 @@ import from core.theming.branding_api {
     upload_logo,  # jac:ignore[W2037]
     suggest_themes,  # jac:ignore[W2037]
     draw_pattern,  # jac:ignore[W2037]
+    draw_brand_kit,  # jac:ignore[W2037]
+    set_brand_look,  # jac:ignore[W2037]
+    remove_brand_kit,  # jac:ignore[W2037]
     remove_pattern,  # jac:ignore[W2037]
     set_pattern_style,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
@@ -35,6 +38,7 @@ import from core.theming.branding_api {
 }
 import core.theming.suggest as suggest_module;
 import core.theming.pattern as pattern_module;
+import core.theming.brandkit as brandkit_module;
 import from core.agent.tools { HOLDER, tool_named }
 import from jaclang.byllm.lib { MockLLM, MockToolCall }
 import from core.audit.log { Opened, collection_of, _close }
@@ -500,6 +504,24 @@ def:pub agent_mock(steps: list[any]) -> bool {  # jac:ignore[W1037]
         }
     }
     agent_module.agent_model = MockLLM(outputs=outputs);
+    return True;
+}
+
+def:pub script_brand_kit(image_base64: str, plan: str) -> bool {
+    # The brand kit's models (ADR-0046): every motif drawing is this image (or fails
+    # when it is ""), and the plan is this JSON text (BrandPlan).
+    def drawn(_logo: bytes, _brief: str) -> dict[str, any] {  # jac:ignore[W1037]
+        if not image_base64 {
+            raise brandkit_module.KitFailed("scripted failure");
+        }
+        return {
+            "candidates": [
+                {"content": {"parts": [{"inlineData": {"data": image_base64}}]}}
+            ]
+        };
+    }
+    brandkit_module.send = drawn;
+    brandkit_module.plan_model = MockLLM(outputs=[plan] * 5);
     return True;
 }
 
