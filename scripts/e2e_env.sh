@@ -28,3 +28,7 @@ export AFRICINEMAS_AGENT_SCRIPT="${AFRICINEMAS_AGENT_SCRIPT:-$PWD/e2e/artifacts/
 # The pattern drawn from a logo (ADR-0045) comes from an image the browser tests write,
 # never the real image model (core/theming/pattern.jac, SCRIPT_ENV).
 export AFRICINEMAS_PATTERN_SCRIPT="${AFRICINEMAS_PATTERN_SCRIPT:-$PWD/e2e/artifacts/pattern_script.png}"
+# The brand kit (ADR-0046): motif drawings and the plan come from files the browser tests
+# write, never the real models (core/theming/brandkit.jac, SCRIPT_ENV and PLAN_ENV).
+export AFRICINEMAS_KIT_SCRIPT="${AFRICINEMAS_KIT_SCRIPT:-$PWD/e2e/artifacts/kit_script.png}"
+export AFRICINEMAS_KIT_PLAN="${AFRICINEMAS_KIT_PLAN:-$PWD/e2e/artifacts/kit_plan.json}"
