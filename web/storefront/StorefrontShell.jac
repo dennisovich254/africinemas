@@ -10,6 +10,10 @@ defaults (styles/brand.css) for this cinema alone. An unknown or closed cinema g
 Every page but a showtime's (whose seat bar is fixed to the bottom) has "Ask <cinema>",
 the cinema's own chat (P8.4, ChatPanel.jac).
 
+The cinema's design (ADR-0047), chosen by the AI from its logo, is on the root as
+data-design-* attributes: styles/design.css sets the fonts, header, hero, surfaces and
+spacing from them. Without a design the storefront keeps the platform's look.
+
 The header (P4.1d) has the cinema's name or logo; Movies, Showtimes and Cinemas;
 search; Sign in or My tickets (AccountLinks.jac, P8.6c); a venue picker when the cinema has more than one venue; and Book tickets. On
 phones the links and the picker move into a menu sheet, and search and Book stay in
@@ -165,24 +169,9 @@ def FooterColumn(title: str, links: list[list[str]]) -> JsxElement {
 
 def:pub StorefrontShell(
     slug: str,
-    hero: any = None,  # jac:ignore[W1037] a full-width hero above the page (P4.1d)
     chat: bool = True,
     children: any = None  # jac:ignore[W1037] pass-through children (jac-cl-organization idiom)
 ) -> JsxElement {
-    # With a `hero`, the header lies over it: see-through, in the theme's dark colours,
-    # until the visitor scrolls, then solid as on every other page.
-    [scrolled, set_scrolled] = useState(False);
-
-    def watch_scroll -> any {  # jac:ignore[W1037]
-        win: any = window;  # jac:ignore[W1037,W2001]
-        def moved {
-            set_scrolled(win.scrollY > 24);
-        }
-        moved();
-        win.addEventListener("scroll", moved, {"passive": True});
-        return lambda { win.removeEventListener("scroll", moved); };
-    }
-    useEffect(watch_scroll, []);
     [branding, set_branding] = useState(None);
     [cinema, set_cinema] = useState(None);
     [missing, set_missing] = useState(False);
@@ -274,7 +263,11 @@ def:pub StorefrontShell(
         root_style["--kit-single"] = f"url({motifs[0]['mask']})";
         root_style["--kit-group"] = f"url({motifs[len(motifs) - 1]['mask']})";
     }
-    over: bool = hero is not None and not scrolled;
+    # The design's parts (ADR-0047), omitted without a kit so no design rule applies.
+    designed: bool = bool(kit_look["card"]);
+    def part(name: str) -> str | None {
+        return (kit_look[name] or None) if designed else None;
+    }
     place: dict[str, str] = cinema;
     names: list[str] = venues;
     several: bool = len(names) > 1;
@@ -297,26 +290,24 @@ def:pub StorefrontShell(
                 data-kit-frame={kit_look["frame"] or ""}
                 data-kit-divider={kit_look["divider"] or ""}
                 data-kit-heading={kit_look["heading"] or ""}
+                data-design-fonts={part("fonts")}
+                data-design-header={part("header")}
+                data-design-hero={part("hero")}
+                data-design-surfaces={part("surfaces")}
+                data-design-density={part("density")}
                 className="flex min-h-svh flex-col"
             >
-                <div className={"sticky top-0 z-30 " + ("dark" if over else "")}>
+                <div className="sticky top-0 z-30">
                     <header
-                        data-surface="storefront"
                         data-testid="storefront-header"
-                        data-over-hero={"true" if over else "false"}
-                        className={"text-foreground transition-colors duration-200 motion-reduce:transition-none "
-                            + (
-                                "border-b border-transparent bg-linear-to-b from-background/80 to-transparent"
-                                    if over
-                                    else "border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
-                            )}
+                        className="border-b bg-background/95 text-foreground backdrop-blur supports-[backdrop-filter]:bg-background/85"
                     >
                         <div
-                            className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-2"
+                            className="design-header-row mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-2"
                         >
                             <h1
                                 data-testid="storefront-name"
-                                className="mr-auto min-w-0 font-display text-2xl leading-none sm:text-3xl"
+                                className="design-header-brand mr-auto min-w-0 font-display text-2xl leading-none sm:text-3xl"
                             >
                                 <AppLink
                                     to={f"/c/{slug}"}
@@ -326,7 +317,7 @@ def:pub StorefrontShell(
                                         and <img
                                             src={look["logo"]}
                                             alt={place["name"]}
-                                            className="h-10 w-auto max-w-[45vw]"
+                                            className="design-logo h-11 w-auto max-w-[45vw] object-contain sm:h-12"
                                         />}{not look["logo"]
                                         and <span className="truncate">
                                             {place["name"]}
@@ -417,7 +408,6 @@ def:pub StorefrontShell(
                         </div>
                     </header>
                 </div>
-                {hero}
                 <main
                     className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8"
                 >

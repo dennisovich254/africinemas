@@ -1,0 +1,189 @@
+/* ADR-0047: the cinema's design system, chosen by the AI from its logo.
+   The storefront root carries the choices as data-design-fonts, -header, -hero, -surfaces
+   and -density (absent without a design), next to the brand kit's data-kit-* (brandkit.css).
+   Every value here is a designed option: the AI only picks among them. */
+
+/* Fonts: a pairing whose headings match the logo's lettering (fonts.css loads them). */
+[data-design-fonts] {
+  --display-weight: 600;
+  --display-tracking: 0em;
+  font-family: var(--font-sans);
+}
+[data-design-fonts="gallery"] {
+  --font-display: 'Raleway Variable', sans-serif;
+  --font-sans: 'DM Sans Variable', sans-serif;
+  --display-weight: 300;
+  --display-tracking: 0.04em;
+}
+[data-design-fonts="marquee"] {
+  --font-display: 'Bebas Neue', 'Outfit Variable', sans-serif;
+  --font-sans: 'Outfit Variable', sans-serif;
+  --display-weight: 400;
+  --display-tracking: 0.02em;
+}
+[data-design-fonts="editorial"] {
+  --font-display: 'Fraunces Variable', serif;
+  --font-sans: 'DM Sans Variable', sans-serif;
+  --display-weight: 600;
+  --display-tracking: -0.01em;
+}
+[data-design-fonts="luxe"] {
+  --font-display: 'Cormorant Garamond Variable', serif;
+  --font-sans: 'Outfit Variable', sans-serif;
+  --display-weight: 600;
+}
+[data-design-fonts="bold"] {
+  --font-display: 'Anton', 'Inter Variable', sans-serif;
+  --font-sans: 'Inter Variable', sans-serif;
+  --display-weight: 400;
+  --display-tracking: 0.01em;
+}
+[data-design-fonts="friendly"] {
+  --font-display: 'Baloo 2 Variable', sans-serif;
+  --font-sans: 'Nunito Variable', sans-serif;
+  --display-weight: 700;
+}
+[data-design-fonts="modern"] {
+  --font-display: 'Sora Variable', sans-serif;
+  --font-sans: 'DM Sans Variable', sans-serif;
+  --display-weight: 600;
+  --display-tracking: -0.01em;
+}
+[data-design-fonts="heritage"] {
+  --font-display: 'Cinzel Variable', serif;
+  --font-sans: 'Outfit Variable', sans-serif;
+  --display-weight: 600;
+  --display-tracking: 0.02em;
+}
+[data-design-fonts] .font-display {
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+}
+/* Capitals widen with the logo's spacing. */
+[data-design-fonts][data-kit-heading="caps"] [data-kit-slot="heading"] {
+  letter-spacing: calc(var(--display-tracking) + 0.06em);
+}
+
+/* Shapes: one corner style for cards, panels, buttons and chips together. */
+[data-kit-card="sharp"],
+[data-kit-card="notched"] {
+  --radius: 0.125rem;
+}
+[data-kit-card="rounded"] {
+  --radius: 1rem;
+}
+[data-kit-card="sharp"] main .rounded-full,
+[data-kit-card="notched"] main .rounded-full {
+  border-radius: var(--radius);
+}
+
+/* Header: the logo left of the links, or centred above them (wide screens). */
+@media (min-width: 768px) {
+  [data-design-header="centred"] .design-header-row {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 0.25rem;
+    padding-top: 1rem;
+  }
+  [data-design-header="centred"] .design-header-brand {
+    flex-basis: 100%;
+    margin-right: 0;
+    display: flex;
+    justify-content: center;
+  }
+  [data-design-header="centred"] .design-logo {
+    height: 4.5rem;
+  }
+}
+
+/* Surfaces: how panels are drawn. */
+[data-design-surfaces="outlined"] [data-design-slot="panel"] {
+  background: transparent;
+  border: 1px solid var(--border);
+}
+[data-design-surfaces="filled"] [data-design-slot="panel"] {
+  background: var(--card);
+  border-color: transparent;
+}
+[data-design-surfaces="flat"] [data-design-slot="panel"] {
+  background: transparent;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  padding-inline: 0;
+}
+
+/* Density: the space between home sections. */
+[data-design-density="airy"] [data-testid="home-page"] {
+  gap: 4.5rem;
+}
+[data-design-density="compact"] [data-testid="home-page"] {
+  gap: 2.25rem;
+}
+
+/* Hero compositions. Without a design (and for framed_poster): the words, then the
+   poster beside them on wide pages (HomeSections.Hero's own classes). */
+.kit-crest {
+  display: none !important;
+}
+
+/* Centred crest: the group motif above, everything centred, the poster small below. */
+[data-design-hero="centred_crest"] .design-hero {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  text-align: center;
+}
+[data-design-hero="centred_crest"] .design-hero-copy {
+  align-items: center;
+}
+[data-design-hero="centred_crest"] .design-hero-actions {
+  justify-content: center;
+}
+[data-design-hero="centred_crest"] .design-hero-poster {
+  width: 9rem;
+}
+[data-design-hero="centred_crest"][data-kit-motif="on"] .kit-crest {
+  display: inline-block !important;
+  width: 4.5rem;
+  height: 4.5rem;
+}
+[data-design-hero="centred_crest"] .kit-hero {
+  display: none !important;
+}
+
+/* Split: the poster fills one side, the words on a tinted panel beside it. */
+[data-design-hero="split"] .design-hero {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+[data-design-hero="split"] .design-hero-poster {
+  order: -1;
+  width: 100%;
+  height: 100%;
+}
+[data-design-hero="split"] .design-hero-poster [data-kit-slot="poster"] {
+  aspect-ratio: auto;
+  height: 100%;
+  min-height: 16rem;
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-mask: none;
+  mask: none;
+}
+[data-design-hero="split"] .design-hero-copy {
+  height: 100%;
+  justify-content: center;
+  padding: 1.75rem;
+  background: var(--card);
+}
+@container (min-width: 36rem) {
+  [data-design-hero="split"] .design-hero {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+  [data-design-hero="split"] .design-hero-poster [data-kit-slot="poster"] {
+    min-height: 24rem;
+  }
+  [data-design-hero="split"] .design-hero-copy {
+    padding: 2.5rem;
+  }
+}

@@ -219,6 +219,7 @@ import ".styles.global.css";
 import ".styles.fonts.css";
 import ".styles.brand.css";
 import ".styles.brandkit.css";
+import ".styles.design.css";
 import ".styles.landing.css";
 import from .web.AppRoot { AppRoot }
 

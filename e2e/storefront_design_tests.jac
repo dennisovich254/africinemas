@@ -74,7 +74,7 @@ test "the date strip shows one day's showtimes at a time, grouped by movie" {
     }
 }
 
-test "the hero puts the featured movie on its backdrop, and Book tickets leads to it" {
+test "the hero shows the featured movie's poster, and Book tickets leads to it" {
     owner = cinema_with_programme();
     _backdrop(owner, owner["rafiki"]);
     (pw, browser) = shared_browser();
@@ -83,8 +83,6 @@ test "the hero puts the featured movie on its backdrop, and Book tickets leads t
         _home(page, owner["slug"]);
         hero_image = '[data-testid="section-hero"] img';
         page.wait_for_function(IMAGE_SHOWN_JS, arg=hero_image);
-        # The real backdrop, not the blurred poster that stands in for one.
-        assert "blur" not in (page.get_attribute(hero_image, "class") or "");
         page.click('[data-testid="hero-cta"]');
         page.wait_for_selector('[data-testid="movie-page"]');
         page.wait_for_function(IMAGE_SHOWN_JS, arg='[data-testid="movie-hero"] img');
