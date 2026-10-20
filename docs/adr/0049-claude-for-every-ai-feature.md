@@ -47,4 +47,12 @@ Warui's logo also still sat on a white box: its artwork touches one corner, and 
 ## Consequences
 - One provider and one key (`ANTHROPIC_API_KEY`) for the storefront's AI. A lapsed account shows up in the Branding note, not as a quietly weaker page.
 - **Faithful figures:** they are the logo's own shapes, as faithful as its pixels. A very small logo gives softer edges, and potrace smooths them.
-- **Still on Gemini:** the booking chat agent (`core/agent`), until it moves to Claude next.
+- **The booking chat agent** moves in the next PR (below).
+
+## The booking chat agent moves too
+The storefront chat (`core/agent/agent.jac`) keeps byLLM's tool loop, which drives Claude through litellm (`anthropic/claude-opus-5-5`, `ANTHROPIC_API_KEY`):
+- **A live probe** made the tool call on the first turn and answered from history on the second, in 4 to 6 s a turn.
+- **Time limits:** `CALL_TIMEOUT` is 30 s and byLLM's fallback timeout is 40 s, because Claude thinks before answering.
+- **No temperature:** `jac.toml` no longer sends one, since Claude Opus 5.5 refuses sampling parameters.
+
+With this, nothing in AfriCinemas calls Gemini. `GEMINI_API_KEY` can be removed from every environment.
