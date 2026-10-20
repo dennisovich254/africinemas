@@ -19,9 +19,9 @@ import from core.theming.branding_api {
     save_theme,  # jac:ignore[W2037]
     upload_logo,  # jac:ignore[W2037]
     suggest_themes,  # jac:ignore[W2037]
-    draw_pattern,  # jac:ignore[W2037]
-    remove_pattern,  # jac:ignore[W2037]
-    set_pattern_style,  # jac:ignore[W2037]
+    draw_brand_kit,  # jac:ignore[W2037]
+    set_brand_look,  # jac:ignore[W2037]
+    remove_brand_kit,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
     rollback_theme  # jac:ignore[W2037]
@@ -56,13 +56,24 @@ glob MODES: list[str] = ["light", "dark"],
          "schedule": "Schedule: today's showtimes first",
          "compact": "Compact: one simple list"
      },
-     # How the storefront wears the pattern (ADR-0045): designed styles, as owners read them.
-     STYLE_LABELS: list[tuple[str, str, str]] = [
-         ("ambient", "Ambient", "A very faint layer behind the whole page"),
-         ("spotlight", "Hero spotlight", "In the hero at the top, fading out below"),
-         ("framed", "Framed", "Bands in the header and footer"),
-         ("breaks", "Section breaks", "Thin strips between home page sections"),
-         ("none", "None", "Keep the pattern, but don't show it")
+     # The brand kit's look (ADR-0046): each choice and its designed options.
+     LOOK_CHOICES: list[tuple[str, str, list[tuple[str, str]]]] = [
+         (
+             "card",
+             "Movie cards",
+             [("notched", "Ticket-notched"), ("sharp", "Sharp"), ("rounded", "Rounded")]
+         ),
+         (
+             "frame",
+             "Hero frame",
+             [("open", "Open, motif flying out"), ("full", "Full"), ("none", "None")]
+         ),
+         (
+             "divider",
+             "Dividers",
+             [("motif", "One motif"), ("row", "Row of three"), ("line", "Plain line")]
+         ),
+         ("heading", "Headings", [("caps", "Capitals"), ("natural", "As written")])
      ],
      SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm",
      LOGO_TYPES: str = "image/png,image/jpeg,image/webp";
@@ -238,9 +249,8 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     [adjusted, set_adjusted] = useState([]);
     [restoring, set_restoring] = useState(0);
     [ideas, set_ideas] = useState([]);
-    [pattern, set_pattern] = useState("");
-    [pattern_style, set_pattern_style_state] = useState("ambient");
-    [pattern_note, set_pattern_note] = useState("");
+    [kit, set_kit] = useState({});
+    [kit_note, set_kit_note] = useState("");
     [ideas_note, set_ideas_note] = useState("");
 
     def show(answer: dict[str, any]) {  # jac:ignore[W1037]
@@ -251,8 +261,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_texts(texts_for(draft["theme"]));
         set_errors({});
         set_logo(draft["logo"]);
-        set_pattern(draft["pattern"]);
-        set_pattern_style_state(draft["pattern_style"]);
+        set_kit(draft["kit"] or {});
     }
 
     async def load -> bool {
@@ -396,30 +405,34 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_ideas_note(said + more);
     }
 
-    async def draw {
+    async def draw_kit {
         answer: any = None;  # jac:ignore[W1037]
         set_busy("drawing");
-        set_pattern_note("");
+        set_kit_note("");
         try {
-            answer = await draw_pattern(slug, current);  # jac:ignore[W2037]
+            answer = await draw_brand_kit(slug);  # jac:ignore[W2037]
         } except Exception as e {
-            console.warn("draw_pattern failed", e);
-            set_busy("");
-            set_pattern_note(
-                "We couldn't draw a pattern. Check your connection and try again."
+            console.warn("draw_brand_kit failed", e);
+        }
+        set_busy("");
+        if not answer {
+            set_kit_note(
+                "We couldn't draw your brand. Check your connection and try again."
             );
             return;
         }
-        set_busy("");
         if not answer["ok"] {
-            set_pattern_note(answer["error"]["message"]);
+            set_kit_note(answer["error"]["message"]);
             return;
         }
-        set_pattern(answer["pattern"]);
-        set_pattern_style_state(answer["style"]);
+        set_kit(answer["kit"]);
         left: int = answer["remaining"];
-        set_pattern_note(
-            "Here's your pattern, with the style AI chose for it. Switch styles if you like, then publish to put it on your storefront."
+        found: list[dict[str, str]] = answer["kit"]["motifs"] or [];
+        said = "Here's your brand, drawn from your logo. Change the look if you like, then publish."
+            if len(found) > 0
+            else "Your logo has no figure to draw, so your brand uses its shapes only. Change the look if you like, then publish.";
+        set_kit_note(
+            said
                 + (
                     " That was your last drawing for today."
                         if left == 0
@@ -428,42 +441,40 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         );
     }
 
-    async def drop_pattern {
+    async def drop_kit {
         answer: any = None;  # jac:ignore[W1037]
         set_busy("drawing");
         try {
-            answer = await remove_pattern(slug);  # jac:ignore[W2037]
+            answer = await remove_brand_kit(slug);  # jac:ignore[W2037]
         } except Exception as e {
-            console.warn("remove_pattern failed", e);
+            console.warn("remove_brand_kit failed", e);
         }
         set_busy("");
         if answer and answer["ok"] {
-            set_pattern("");
-            set_pattern_note(
-                "Pattern removed. Publish to take it off your storefront."
-            );
+            set_kit({});
+            set_kit_note("Brand removed. Publish to take it off your storefront.");
         }
     }
 
-    async def pick_style(style: str) {
-        # Chosen at once, so the radio never snaps back while the save is on its way;
-        # put back if the save fails.
-        before: str = pattern_style;
-        set_pattern_style_state(style);
+    async def pick_look(key: str, value: str) {
+        # Shown at once; put back if the save fails.
+        before: dict[str, any] = kit;  # jac:ignore[W1037]
+        look: dict[str, str] = dict(before["look"]);
+        look[key] = value;
+        changed: dict[str, any] = dict(before);  # jac:ignore[W1037]
+        changed["look"] = look;
+        set_kit(changed);
         answer: any = None;  # jac:ignore[W1037]
         try {
-            answer = await set_pattern_style(slug, style);  # jac:ignore[W2037]
+            answer = await set_brand_look(slug, look);  # jac:ignore[W2037]
         } except Exception as e {
-            console.warn("set_pattern_style failed", e);
+            console.warn("set_brand_look failed", e);
         }
         if answer and answer["ok"] {
-            set_pattern_style_state(answer["style"]);
-            set_pattern_note("Saved. Publish to show it on your storefront.");
+            set_kit_note("Saved. Publish to show it on your storefront.");
         } else {
-            set_pattern_style_state(before);
-            set_pattern_note(
-                "We couldn't save that. Check your connection and try again."
-            );
+            set_kit(before);
+            set_kit_note("We couldn't save that. Check your connection and try again.");
         }
     }
 
@@ -885,76 +896,103 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             </ul>}
     </section>;
 
-    pattern_section = <section
-        aria-labelledby="pattern-heading"
+    shown_kit: dict[str, any] = kit;  # jac:ignore[W1037]
+    kit_motifs: list[dict[str, str]] = shown_kit["motifs"] or [];
+    kit_look: dict[str, str] = shown_kit["look"] or {};
+    # In the browser an empty dict is true: a kit is known by its look's card choice.
+    has_kit: bool = True if kit_look["card"] else False;
+    motif_colour: str = current[mode]["accent"];
+    kit_section = <section
+        aria-labelledby="kit-heading"
         className="flex flex-col gap-3"
-        data-testid="theme-pattern"
+        data-testid="brand-kit"
     >
-        <h3 id="pattern-heading" className="font-semibold">Pattern from your logo</h3>
+        <h3 id="kit-heading" className="font-semibold">Your brand from your logo</h3>
         <p className="text-sm text-muted-foreground">
-            {"AI draws a light pattern from the flowers, birds or shapes in your logo, in your theme's colours. AI also chooses how your storefront wears it."
+            {"AI draws the figures in your logo, like a bird or a flower, and picks shapes that match it. Your storefront then carries them in its headings, dividers, posters, tickets and footer, in your theme's colours."
                 if logo
-                else "Upload your logo above, and AI can draw a pattern from it."}
+                else "Upload your logo above, and AI can draw your brand from it."}
         </p>
-        {pattern
-            and <img
-                src={pattern}
-                alt="The pattern drawn from your logo"
-                className="max-h-48 w-full rounded-lg border object-cover"
-                data-testid="pattern-preview"
-            />}
+        {len(kit_motifs) > 0
+            and <ul className="flex flex-wrap gap-3" data-testid="kit-motifs">
+                {[
+                    <li
+                        key={m["name"]}
+                        className="flex size-20 items-center justify-center rounded-lg border bg-card"
+                        title={m["name"]}
+                    >
+                        <span
+                            aria-hidden="true"
+                            className="size-14"
+                            style={{
+                                "background": motif_colour,
+                                "maskImage": f"url({m['mask']})",
+                                "WebkitMaskImage": f"url({m['mask']})",
+                                "maskSize": "contain",
+                                "WebkitMaskSize": "contain",
+                                "maskRepeat": "no-repeat",
+                                "WebkitMaskRepeat": "no-repeat",
+                                "maskPosition": "center",
+                                "WebkitMaskPosition": "center"
+                            }}
+                        ></span>
+                        <span className="sr-only">{m["name"]}</span>
+                    </li> for m in kit_motifs
+                ]}
+            </ul>}
         {logo
             and <div className="flex flex-wrap gap-3">
                 <Button
                     variant="outline"
                     className="min-h-11 px-5"
                     disabled={busy != ""}
-                    onClick={draw}
+                    onClick={draw_kit}
                 >
                     {busy == "drawing" and <Spinner aria-hidden="true"/>}{"Drawing… about 15 seconds"
                         if busy == "drawing"
-                        else ("Draw again" if pattern else "Draw a pattern")}
+                        else ("Draw again" if has_kit else "Draw my brand")}
                 </Button>
-                {pattern
+                {has_kit
                     and <Button
                         variant="ghost"
                         className="min-h-11 px-4"
                         disabled={busy != ""}
-                        onClick={drop_pattern}
+                        onClick={drop_kit}
                     >
-                        Remove pattern
+                        Remove brand
                     </Button>}
             </div>}
-        {pattern
-            and <fieldset className="flex flex-col gap-2" data-testid="pattern-styles">
-                <legend className="mb-1 text-sm font-medium">Style</legend>
+        {has_kit
+            and <div className="grid gap-4 sm:grid-cols-2" data-testid="kit-look">
                 {[
-                    <label
-                        key={key}
-                        className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-muted"
-                    >
-                        <input
-                            type="radio"
-                            name="pattern-style"
-                            value={key}
-                            checked={key == pattern_style}
-                            onChange={lambda { pick_style(key); }}
-                            className="mt-0.5 size-4"
-                        />
-                        <span className="flex flex-col">
-                            <span className="font-medium">{label}</span>
-                            <span className="text-muted-foreground">{detail}</span>
-                        </span>
-                    </label> for (key, label, detail) in STYLE_LABELS
+                    <fieldset key={key} className="flex flex-col gap-2">
+                        <legend className="mb-1 text-sm font-medium">{label}</legend>
+                        {[
+                            <label
+                                key={value}
+                                className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-muted"
+                            >
+                                <input
+                                    type="radio"
+                                    name={f"kit-{key}"}
+                                    value={value}
+                                    checked={kit_look[key] == value}
+                                    onChange={lambda { pick_look(key, value); }}
+                                    className="size-4"
+                                />
+                                {text}
+                            </label> for (value, text) in options
+                        ]}
+                    </fieldset> for (key, label, options) in LOOK_CHOICES
                 ]}
-            </fieldset>}
-        {pattern_note
+            </div>}
+        {kit_note
             and <p
                 role="status"
                 className="text-sm text-muted-foreground"
-                data-testid="pattern-note"
+                data-testid="kit-note"
             >
-                {pattern_note}
+                {kit_note}
             </p>}
     </section>;
 
@@ -1101,7 +1139,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     </div>
                 </div>
                 <div className="flex min-w-0 flex-col gap-8 lg:order-1">
-                    {presets}{colours}{type_and_shape}{logo_section}{ideas_section}{pattern_section}{actions}{history}
+                    {presets}{colours}{type_and_shape}{logo_section}{ideas_section}{kit_section}{actions}{history}
                 </div>
             </div>
         </div>;

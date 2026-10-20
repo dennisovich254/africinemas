@@ -263,9 +263,6 @@ def:pub StorefrontShell(
     look: dict[str, any] = branding;  # jac:ignore[W1037]
     # The cinema's fixed light or dark choice, or "auto" to follow the device (ADR-0044).
     scheme: str = look["theme"]["scheme"] or "auto";
-    # The pattern drawn from the logo, and the style the storefront wears it in (ADR-0045).
-    pattern: str = look["pattern"] or "";
-    pattern_style: str = look["pattern_style"] or "";
     # The brand kit (ADR-0046): its look on the root, its motifs as masks for KitMark.
     kit: dict[str, any] = look["kit"] or {};  # jac:ignore[W1037]
     # A look always has a card choice; test that, not the dict: in the browser an
@@ -273,9 +270,6 @@ def:pub StorefrontShell(
     kit_look: dict[str, str] = kit["look"] or {};
     motifs: list[dict[str, str]] = kit["motifs"] or [];
     root_style: dict[str, str] = {};
-    if pattern {
-        root_style["--ac-pattern"] = f"url({pattern})";
-    }
     if len(motifs) > 0 {
         root_style["--kit-single"] = f"url({motifs[0]['mask']})";
         root_style["--kit-group"] = f"url({motifs[len(motifs) - 1]['mask']})";
@@ -296,7 +290,6 @@ def:pub StorefrontShell(
         <ThemeProvider surface="storefront" mode={scheme}>
             <div
                 data-testid="storefront"
-                data-pattern-style={pattern_style if pattern else ""}
                 style={root_style}
                 data-kit={"on" if kit_look["card"] else ""}
                 data-kit-motif={"on" if len(motifs) > 0 else ""}
@@ -310,7 +303,6 @@ def:pub StorefrontShell(
                     <header
                         data-surface="storefront"
                         data-testid="storefront-header"
-                        data-pattern-slot="header"
                         data-over-hero={"true" if over else "false"}
                         className={"text-foreground transition-colors duration-200 motion-reduce:transition-none "
                             + (
@@ -432,7 +424,7 @@ def:pub StorefrontShell(
                     {children}
                 </main>
                 {chat and <ChatLauncher slug={slug} cinema={place["name"]}/>}
-                <footer className="border-t bg-card" data-pattern-slot="footer">
+                <footer className="border-t bg-card">
                     <div
                         className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 text-sm text-muted-foreground sm:grid-cols-3"
                     >
