@@ -15,7 +15,7 @@ import from react { useState, useEffect }
 import from .KitMark { KitMark }
 import from ..shell.AppLink { AppLink }
 import from core.catalog.storefront_api { public_home_photo }
-import from .StorefrontParts { Poster, Backdrop, ShowtimeLink }
+import from .StorefrontParts { Poster, ShowtimeLink }
 import from .showtimes {
     details_line,
     where_label,
@@ -26,8 +26,7 @@ import from .showtimes {
     by_movie,
     release_label,
     sorted_unique,
-    listed,
-    runtime_label
+    listed
 }
 
 glob HEADINGS: dict[str, str] = {
@@ -90,98 +89,107 @@ def:pub MovieCard(slug: str, movie: dict[str, any], tz: str) -> JsxElement {  # 
         </li>;
 }
 
-def Hero(slug: str, section: dict[str, any], template: str) -> JsxElement {  # jac:ignore[W1037]
-    # The page's one bold moment: the featured movie over its backdrop (or its blurred
-    # poster), the cinema's headline, and Book tickets. Marquee makes it tall; the
-    # other templates keep it slim.
+def:pub Hero(slug: str, section: dict[str, any], template: str) -> JsxElement {  # jac:ignore[W1037]
+    # The page's one bold moment, inside the page, never behind it (ADR-0047): the
+    # featured movie's poster, its title and details, the cinema's headline, and Book
+    # tickets. One markup; styles/design.css arranges it as the cinema's design says
+    # (a framed poster beside the words, a centred crest, or a split), framed poster
+    # without a design. Marquee sets the title larger.
     fields: dict[str, str] = section["fields"];
     movie: dict[str, any] | None = section["movie"];  # jac:ignore[W1037]
     big: bool = template == "marquee";
     on_sale: bool = movie is not None and "next" in movie;
     title: str = movie["title"] if movie is not None else fields["headline"];
+    button = "inline-flex min-h-11 w-fit items-center rounded-md px-5 font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
     # The cinema's frame and its motif breaking out of it sit around the hero (ADR-0046).
     return
         <div data-kit-slot="hero-frame" className="relative">
             <section
                 data-testid="section-hero"
-                className={"relative isolate flex items-end overflow-hidden rounded-xl border bg-card "
-                    + ("min-h-[22rem] @xl:min-h-[28rem]" if big else "min-h-[14rem]")}
+                data-design-slot="panel"
+                data-movie={movie["movie_key"] if movie is not None else ""}
+                className={"design-hero grid items-center gap-6 rounded-xl border bg-card p-5 @xl:p-8 "
+                    + (
+                        "@xl:grid-cols-[minmax(0,1fr)_12rem] @4xl:grid-cols-[minmax(0,1fr)_15rem]"
+                            if movie is not None
+                            else ""
+                    )}
             >
-                {movie is not None and <Backdrop slug={slug} movie={movie}/>}
+                <KitMark kind="group" className="kit-crest"/>
                 <div
-                    aria-hidden="true"
-                    className="absolute inset-0 -z-10 bg-linear-to-t from-card via-card/85 to-card/20"
-                />
-                <div
-                    className={"landing-rise grid w-full items-end gap-5 p-5 @xl:p-8 "
-                        + (
-                            "@xl:grid-cols-[10rem_1fr] @4xl:grid-cols-[12rem_1fr]"
-                                if movie is not None
-                                else ""
-                        )}
+                    className="design-hero-copy landing-rise flex min-w-0 flex-col gap-3"
                 >
                     {movie is not None
-                        and <div className="hidden w-full @xl:block">
-                            <Poster
-                                slug={slug}
-                                movie_key={movie["movie_key"]}
-                                has_poster={movie["has_poster"]}
-                                className="shadow-lg"
-                            />
-                        </div>}
-                    <div className="flex min-w-0 max-w-2xl flex-col gap-3">
-                        {movie is not None
-                            and fields["headline"]
-                            and <p
-                                className="text-sm font-semibold uppercase tracking-wide text-primary"
-                            >
-                                {fields["headline"]}
-                            </p>}
-                        <h2
-                            className={"font-display leading-none "
-                                + (
-                                    "text-5xl @xl:text-6xl"
-                                        if big
-                                        else "text-4xl @xl:text-5xl"
-                                )}
+                        and fields["headline"]
+                        and <p
+                            className="text-sm font-semibold uppercase tracking-wide text-primary"
                         >
-                            {title}
-                        </h2>
-                        {movie is not None
-                            and <p className="text-sm text-muted-foreground">
-                                {details_line(movie)}{movie.get("language")
-                                    and f" · {movie['language']}"}
-                            </p>}
-                        {fields["text"]
-                            and <p className="max-w-prose text-pretty">
-                                {fields["text"]}
-                            </p>}
-                        {on_sale
-                            and <div className="flex flex-wrap gap-3">
-                                <AppLink
-                                    to={f"/c/{slug}/m/{movie['movie_key']}"}
-                                    testid="hero-cta"
-                                    className="inline-flex min-h-11 w-fit items-center rounded-md bg-primary px-6 font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                                >
-                                    Book tickets
-                                </AppLink>
-                                <a
-                                    href="#showtimes"
-                                    data-testid="hero-showtimes"
-                                    className="inline-flex min-h-11 w-fit items-center rounded-md border bg-card/70 px-5 font-medium transition-colors hover:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                                >
-                                    View showtimes
-                                </a>
-                            </div>}
-                        {movie is not None
-                            and not on_sale
-                            and <p
-                                className="w-fit rounded-md bg-secondary px-3 py-1 text-sm font-medium text-secondary-foreground"
+                            {fields["headline"]}
+                        </p>}
+                    <h2
+                        data-kit-slot="heading"
+                        className={"font-display leading-none text-balance "
+                            + (
+                                "text-5xl @xl:text-6xl"
+                                    if big
+                                    else "text-4xl @xl:text-5xl"
+                            )}
+                    >
+                        {title}
+                    </h2>
+                    {movie is not None
+                        and <p
+                            data-testid="hero-details"
+                            className="text-sm text-muted-foreground"
+                        >
+                            {details_line(movie)}{movie.get("language")
+                                and f" · {movie['language']}"}
+                        </p>}
+                    {movie is not None
+                        and movie.get("synopsis")
+                        and <p className="max-w-prose text-pretty line-clamp-3">
+                            {movie["synopsis"]}
+                        </p>}
+                    {fields["text"]
+                        and <p className="max-w-prose text-pretty">{fields["text"]}</p>}
+                    {on_sale
+                        and <div
+                            className="design-hero-actions flex flex-wrap gap-3 pt-1"
+                        >
+                            <AppLink
+                                to={f"/c/{slug}/m/{movie['movie_key']}"}
+                                testid="hero-cta"
+                                className={f"{button} bg-primary text-primary-foreground hover:bg-primary/90"}
                             >
-                                Coming soon
-                            </p>}
-                    </div>
+                                Book tickets
+                            </AppLink>
+                            <a
+                                href="#showtimes"
+                                data-testid="hero-showtimes"
+                                className={f"{button} border hover:bg-muted"}
+                            >
+                                View showtimes
+                            </a>
+                        </div>}
+                    {movie is not None
+                        and not on_sale
+                        and <p
+                            className="w-fit rounded-md bg-secondary px-3 py-1 text-sm font-medium text-secondary-foreground"
+                        >
+                            {release_label(movie["release_date"])
+                                if movie.get("release_date")
+                                else "Coming soon"}
+                        </p>}
                 </div>
+                {movie is not None
+                    and <div className="design-hero-poster w-36 @xl:w-full">
+                        <Poster
+                            slug={slug}
+                            movie_key={movie["movie_key"]}
+                            has_poster={movie["has_poster"]}
+                            className="shadow-lg"
+                        />
+                    </div>}
             </section>
             <KitMark kind="group" className="kit-hero"/>
         </div>;
@@ -333,6 +341,7 @@ def Today(slug: str, section: dict[str, any], tz: str) -> JsxElement {  # jac:ig
             <ul
                 aria-live="polite"
                 data-testid="day-showtimes"
+                data-design-slot="panel"
                 className="flex flex-col divide-y rounded-xl border bg-card px-4"
             >
                 {[
@@ -575,7 +584,10 @@ def Faq(section: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     return
         <section data-testid="section-faq" className="flex flex-col gap-4">
             <SectionHeading text={heading_of(section)}/>
-            <div className="flex flex-col divide-y rounded-lg border bg-card">
+            <div
+                data-design-slot="panel"
+                className="flex flex-col divide-y rounded-lg border bg-card"
+            >
                 {[
                     <details key={f"{i}"} className="group px-4">
                         <summary
@@ -682,6 +694,7 @@ def:pub HomeBlock(
         <div
             id="visit-us"
             data-testid="visit-us"
+            data-design-slot="panel"
             className={"grid scroll-mt-24 gap-10 rounded-xl border bg-card p-5 @xl:p-8 "
                 + (
                     "@4xl:grid-cols-2"
@@ -742,124 +755,4 @@ def:pub for_venue(sections: list[dict[str, any]], venue: str) -> list[dict[str, 
         }
     }
     return narrowed;
-}
-
-def:pub FeaturedHero(
-    slug: str,
-    section: dict[str, any],  # jac:ignore[W1037]
-    under_header: bool = True
-) -> JsxElement {
-    # The Marquee template's hero (P4.1d): the featured movie full width, under the
-    # see-through header, always in the theme's dark colours. The picture is left clear
-    # except for a shade behind the words (from the bottom on phones, from the left on
-    # wide screens), so they stay readable.
-    fields: dict[str, str] = section["fields"];
-    movie: dict[str, any] | None = section["movie"];  # jac:ignore[W1037]
-    on_sale: bool = movie is not None and "next" in movie;
-    year: str = "";
-    if movie is not None and movie.get("release_date") {
-        year = movie["release_date"][:4];
-    }
-    pill = "inline-flex min-h-11 items-center rounded-full px-6 font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-    return
-        <div className="dark">
-            <section
-                data-surface="storefront"
-                data-testid="section-hero"
-                data-movie={movie["movie_key"] if movie is not None else ""}
-                className={"@container relative isolate overflow-hidden bg-background text-foreground "
-                    + ("-mt-[3.75rem]" if under_header else "rounded-xl")}
-            >
-                {movie is not None
-                    and <Backdrop key={movie["movie_key"]} slug={slug} movie={movie}/>}
-                <div
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 -z-10 h-3/4 bg-linear-to-t from-background/85 to-transparent @4xl:inset-y-0 @4xl:right-auto @4xl:h-full @4xl:w-3/5 @4xl:bg-linear-to-r @4xl:from-background/80 @4xl:via-background/40"
-                />
-                <div
-                    className={"mx-auto grid w-full max-w-5xl items-end gap-8 px-4 pb-10 "
-                        + (
-                            "min-h-[34rem] pt-28 md:min-h-[38rem]"
-                                if under_header
-                                else "min-h-[28rem] pt-10"
-                        )}
-                >
-                    <div
-                        key={movie["movie_key"] if movie is not None else "none"}
-                        className="landing-rise flex min-w-0 flex-col gap-4"
-                    >
-                        {fields["headline"]
-                            and <p
-                                className="text-sm font-semibold uppercase tracking-wide text-primary"
-                            >
-                                {fields["headline"]}
-                            </p>}
-                        <h2
-                            className="font-display text-5xl leading-none text-balance md:text-7xl"
-                        >
-                            {movie["title"]
-                                if movie is not None
-                                else fields["headline"]}
-                            <KitMark kind="group" className="kit-featured"/>
-                        </h2>
-                        {movie is not None
-                            and <p
-                                data-testid="hero-details"
-                                className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
-                            >
-                                {movie["age_rating"]
-                                    and <span
-                                        className="rounded border border-current px-1.5 text-xs font-semibold text-foreground"
-                                    >
-                                        {movie["age_rating"]}
-                                    </span>}{year and <span>{year}</span>}{movie[
-                                    "runtime_minutes"
-                                ]
-                                    and <span>
-                                        {runtime_label(movie["runtime_minutes"])}
-                                    </span>}{len(movie["genres"] or []) > 0
-                                    and <span>{", ".join(movie["genres"])}</span>}{movie.get(
-                                    "language"
-                                )
-                                    and <span>{movie["language"]}</span>}
-                            </p>}
-                        {movie is not None
-                            and movie.get("synopsis")
-                            and <p className="max-w-prose text-pretty line-clamp-4">
-                                {movie["synopsis"]}
-                            </p>}
-                        {fields["text"]
-                            and <p className="max-w-prose text-pretty">
-                                {fields["text"]}
-                            </p>}
-                        {on_sale
-                            and <div className="flex flex-wrap gap-3 pt-2">
-                                <AppLink
-                                    to={f"/c/{slug}/m/{movie['movie_key']}"}
-                                    testid="hero-cta"
-                                    className={f"{pill} bg-primary text-primary-foreground hover:bg-primary/90"}
-                                >
-                                    Book tickets
-                                </AppLink>
-                                <a
-                                    href="#showtimes"
-                                    data-testid="hero-showtimes"
-                                    className={f"{pill} bg-card/80 text-foreground hover:bg-card"}
-                                >
-                                    View showtimes
-                                </a>
-                            </div>}
-                        {movie is not None
-                            and not on_sale
-                            and <p
-                                className="w-fit rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-secondary-foreground"
-                            >
-                                {release_label(movie["release_date"])
-                                    if movie.get("release_date")
-                                    else "Coming soon"}
-                            </p>}
-                    </div>
-                </div>
-            </section>
-        </div>;
 }

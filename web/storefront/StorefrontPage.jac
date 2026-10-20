@@ -1,8 +1,8 @@
 """`/c/:slug`: a cinema's public storefront, wearing its published theme (P3.8b).
 
 Draws the cinema's published home page (public_home): its sections in its template's
-order and layout (HomeSections.jac, P4.1b), filled from the programme; Marquee's hero
-runs full width (P4.1d). The visitor's chosen venue narrows the showtimes and movies. A
+order and layout (HomeSections.jac, P4.1b), filled from the programme. The hero sits
+inside the page, laid out as the cinema's design says (ADR-0047). The visitor's chosen venue narrows the showtimes and movies. A
 movie's title leads to its page (MoviePage), a showtime to its page (ScreeningPage).
 While it loads the page shows its shape; if it can't load it says so, with Try again.
 """
@@ -12,7 +12,7 @@ import from .KitMark { KitMark, KitDivider }
 import from "@jac/runtime" { useParams }
 import from core.catalog.storefront_api { public_home }
 import from .StorefrontShell { StorefrontShell, HomeSkeleton, LoadError }
-import from .HomeSections { HomeBlock, home_blocks, for_venue, FeaturedHero }
+import from .HomeSections { HomeBlock, home_blocks, for_venue }
 import from .venue_choice { use_venue, use_title, scroll_to_hash }
 
 def:pub StorefrontPage -> JsxElement {
@@ -75,14 +75,8 @@ def:pub StorefrontPage -> JsxElement {
     template: str = found["page"]["template"];
     sections = for_venue(found["page"]["sections"], venue);
     blocks = home_blocks(sections);
-    # Marquee draws its hero full width, above the page (P4.1d).
-    hero: any = None;  # jac:ignore[W1037]
-    if template == "marquee" and len(blocks) > 0 and blocks[0][0]["type"] == "hero" {
-        hero = <FeaturedHero slug={slug} section={blocks[0][0]}/>;
-        blocks = blocks[1:];
-    }
     return
-        <StorefrontShell slug={slug} hero={hero}>
+        <StorefrontShell slug={slug}>
             <div
                 data-testid="home-page"
                 data-template={template}
@@ -91,6 +85,7 @@ def:pub StorefrontPage -> JsxElement {
             >
                 {len(sections) == 0
                     and <div
+                        data-design-slot="panel"
                         className="flex flex-col gap-1 rounded-lg border bg-card p-6"
                     >
                         <KitMark kind="single" className="kit-empty"/>

@@ -24,7 +24,7 @@ import from core.homepage.home_api {
     remove_home_photo  # jac:ignore[W2037]
 }
 import from core.theming.branding_api { public_branding }
-import from ..storefront.HomeSections { HomeBlock, home_blocks, FeaturedHero }
+import from ..storefront.HomeSections { HomeBlock, home_blocks }
 import from .home_page_model {
     SECTION_LABELS,
     TEMPLATE_INFO,
@@ -661,24 +661,13 @@ def:pub HomePageSection(slug: str) -> JsxElement {
                         )}
                 >
                     {[
-                        (
-                            <FeaturedHero
-                                key={f"{n}"}
-                                slug={slug}
-                                section={b[0]}
-                                under_header={False}
-                            />
-                        )
-                            if shown_template == "marquee"
-                                and n == 0
-                                and b[0]["type"] == "hero"
-                            else <HomeBlock
-                                key={f"{n}"}
-                                slug={slug}
-                                block={b}
-                                tz={tz}
-                                template={shown_template}
-                            /> for (n, b) in enumerate(home_blocks(shown["sections"]))
+                        <HomeBlock
+                            key={f"{n}"}
+                            slug={slug}
+                            block={b}
+                            tz={tz}
+                            template={shown_template}
+                        /> for (n, b) in enumerate(home_blocks(shown["sections"]))
                     ]}
                 </div>}
         </div>

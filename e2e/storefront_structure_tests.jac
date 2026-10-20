@@ -309,7 +309,8 @@ test "review screenshots of the storefront structure" {
     }
 }
 
-test "the full-width hero shows the featured movie under a see-through header" {
+test "the hero sits inside the page with the featured movie, under a solid header" {
+    # No full-screen backdrop (ADR-0047): the poster, title and Book tickets, in the page.
     owner = cinema_with_programme();
     (pw, browser) = shared_browser();
     try {
@@ -317,16 +318,14 @@ test "the full-width hero shows the featured movie under a see-through header" {
             page = _page(browser, pw, project);
             _home(page, owner["slug"]);
             hero = page.locator('[data-testid="section-hero"]');
-            header = page.locator('[data-testid="storefront-header"]');
-            assert header.get_attribute("data-over-hero") == "true";
             assert "Rafiki" in hero.locator("h2").inner_text();
-            # Nothing laid over the picture but the words: no thumbnails or arrows.
-            assert hero.locator("li, [aria-label='Next movie']").count() == 0;
+            assert hero.locator('[data-kit-slot="poster"]').count() == 1;
             assert hero.locator('[data-testid="hero-cta"]').is_visible();
-            page.mouse.wheel(0, 600);
-            page.wait_for_function(
-                "document.querySelector('[data-testid=storefront-header]').dataset.overHero === 'false'"
-            );
+            header_box = page.locator(
+                '[data-testid="storefront-header"]'
+            ).bounding_box();
+            hero_box = hero.bounding_box();
+            assert hero_box["y"] >= header_box["y"] + header_box["height"] , "not under the header";
             page.context.close();
         }
     } finally {

@@ -27,7 +27,12 @@ glob STOREFRONT: str = '[data-testid="storefront"]',
          "card": "notched",
          "frame": "open",
          "divider": "motif",
-         "heading": "caps"
+         "heading": "caps",
+         "fonts": "heritage",
+         "header": "centred",
+         "hero": "split",
+         "surfaces": "flat",
+         "density": "compact"
      },
      # A mark's paint, as the browser computes it.
      MASK_JS: str = """sel => { const e = document.querySelector(sel); if (!e) return ''; const s = getComputedStyle(e);
@@ -118,6 +123,23 @@ test "the storefront wears the cinema's brand kit inside its parts" {
                 "e => getComputedStyle(e).maskImage || getComputedStyle(e).webkitMaskImage"
             );
             assert "radial-gradient" in poster , "notched posters";
+            # The AI's design (ADR-0047): its fonts, hero, header and surfaces.
+            assert shell.get_attribute("data-design-hero") == "split";
+            title_font = page.locator('[data-testid="section-hero"] h2').evaluate(
+                "e => getComputedStyle(e).fontFamily"
+            );
+            assert "Cinzel" in title_font , title_font;
+            panel = page.locator('[data-testid="section-hero"]').evaluate(
+                "e => getComputedStyle(e).gridTemplateColumns"
+            );
+            if project == "desktop" {
+                assert len(panel.split(" ")) == 2 , panel;
+                logo = page.locator(
+                    '[data-testid="storefront-name"] img'
+                ).bounding_box();
+                width = page.viewport_size["width"];
+                assert abs((logo["x"] + logo["width"] / 2) - width / 2) < 40 , "logo centred";
+            }
             page.screenshot(
                 path=artifact(f"brandkit-{project}-{scheme}.png"), full_page=True
             );
@@ -138,6 +160,7 @@ test "without a brand kit none of it shows" {
         page.goto(f"{BASE_URL}/c/{owner['slug']}");
         page.wait_for_selector(STOREFRONT);
         assert (page.locator(STOREFRONT).get_attribute("data-kit") or "") == "";
+        assert page.locator(STOREFRONT).get_attribute("data-design-fonts") is None;
         assert page.evaluate(MASK_JS, ".kit-sign").startswith("none");
     } finally {
         close_contexts(browser);

@@ -38,7 +38,15 @@ A prototype (2026-10-20) rendered three very different logos with one renderer. 
    A logo that is transparent already, has mixed corners, or would be left empty or a speck is kept as uploaded.
 5. **The logo must show in the visitor's mode.** The logo's average visible colour must have a contrast of at least 2.0 with the page background in the mode visitors see. If it doesn't, the suggested theme's scheme switches to the mode where the logo stands out more. For `auto`, this applies when either mode fails.
 
+## The storefront wears the design
+The storefront root carries the choices as `data-design-fonts`, `-header`, `-hero`, `-surfaces` and `-density`. They are left off without a kit, so nothing changes for a cinema without one. `styles/design.css` turns them into the design:
+- **Fonts:** the pairing's display and body fonts, weight and spacing. The fonts are bundled from fontsource (`styles/fonts.css`), and a font file downloads only when it is used.
+- **Shapes:** the kit's card shape sets the corner radius for cards, panels, buttons and chips together.
+- **Header:** the logo sits left, or centred above the links on wide screens and larger.
+- **Hero:** one markup (`HomeSections.Hero`) laid out three ways: a framed poster beside the words, a centred crest with the group motif above, or a split with the poster filling one side. The hero always sits inside the page. The full-screen backdrop hero and the see-through header are removed, from the editor's preview too.
+- **Surfaces:** panels (marked `data-design-slot="panel"`) are outlined, filled or flat.
+- **Density:** the space between home sections, airy or compact.
+
 ## Consequences
-- The storefront renderer (next) reads the look's parts to set the fonts, header, hero, surfaces and spacing per cinema. The full-screen backdrop hero goes away.
 - The owner's controls shrink. One action designs the storefront, and the owner previews and publishes it.
 - Each part costs no extra model calls: it is the same plan call as the kit.
