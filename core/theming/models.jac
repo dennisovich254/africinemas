@@ -29,7 +29,9 @@ node Branding {
         # "look": {...}} or {} for none, and kits drawn on kit_day (KIT_DAILY).
         draft_kit: dict[str, any] = {},  # jac:ignore[W1037]
         kit_day: str = "",
-        kit_count: int = 0;
+        kit_count: int = 0,
+        # The storefront the AI wrote (ADR-0048): {"html", "css", "model"} or {} for none.
+        draft_page: dict[str, str] = {};
 }
 
 node ThemeVersion {
@@ -42,5 +44,6 @@ node ThemeVersion {
         pattern: str = "",
         pattern_style: str = "",
         kit: dict[str, any] = {},  # jac:ignore[W1037]
+        page: dict[str, str] = {},
         published_at: str = "";
 }

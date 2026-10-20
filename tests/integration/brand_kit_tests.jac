@@ -162,8 +162,13 @@ test "design my storefront puts a theme and the brand's design on the draft, pri
         );
         # The theme model fails, so the theme is built from the logo's colour.
         app.call("owner", "script_theme_model", {"outputs": ["not a theme"] * 3});
+        with open("tests/fixtures/ai_storefront.html") as f {
+            app.call("owner", "script_storefront_page", {"answer": f.read()});
+        }
         designed = _call(app, "design_storefront", {});
         assert designed["ok"] , designed;
+        assert 'data-part="header"' in designed["page"]["html"] , "the AI wrote the page";
+        assert "<script" not in designed["page"]["html"];
         assert designed["theme"]["name"] == "From your logo";
         assert designed["kit"]["look"]["hero"] == "centred_crest";
         assert designed["remaining"] == 2;
@@ -172,10 +177,18 @@ test "design my storefront puts a theme and the brand's design on the draft, pri
         ];
         assert draft["theme"]["name"] == "From your logo" , "the theme is the draft's";
         assert draft["kit"]["look"]["fonts"] == "heritage";
+        assert draft["page"]["css"].startswith(".ai-page");
         assert _public(app)["kit"] == {} , "private until published";
+        assert _public(app)["page"] == {};
+        assert _call(app, "publish_theme", {})["ok"];
+        shown = _public(app)["page"];
+        assert 'data-each="films"' in shown["html"] and "model" not in shown;
+        # A page the model can't write leaves the designed storefront in its place.
+        app.call("owner", "script_storefront_page", {"answer": ""});
         # It shares the kit's daily limit, and box office staff can't use it.
+        again = _call(app, "design_storefront", {});
+        assert again["ok"] and again["page"] == {} , again;
         assert _call(app, "draw_brand_kit", {})["ok"];
-        assert _call(app, "design_storefront", {})["ok"];
         limited = _call(app, "design_storefront", {});
         assert not limited["ok"] and limited["error"]["code"] == "kit_limit" , limited;
         hire(app, "agent", "box_office_agent", "");

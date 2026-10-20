@@ -11,9 +11,10 @@ tests/isolation/registry.jac, plus the public public_branding.
 - public_branding(slug) is public (no login): the published theme, its storefront CSS
   (built here from checked tokens only, core/theming/css.jac) and the logo as a data
   URL; the platform default until the cinema publishes.
-- design_storefront is the owner's one action (ADR-0047): from the draft logo, the AI
-  designs the theme and draws the brand kit with its design, both saved to the draft,
-  private until published. It shares KIT_DAILY with draw_brand_kit.
+- design_storefront is the owner's one action (ADR-0047, ADR-0048): from the draft logo,
+  the AI designs the theme, draws the brand kit and writes the storefront itself, all
+  saved to the draft, private until published. It shares KIT_DAILY with draw_brand_kit.
+  A page that can't be written leaves the designed storefront (ADR-0047) in its place.
 - suggest_themes asks the model for themes designed from the draft logo (ADR-0043,
   core/theming/suggest.jac): checked and repaired like any theme, never saved until
   the owner picks one, SUGGEST_DAILY a day per cinema.
@@ -48,6 +49,7 @@ import from core.theming.models { Branding, ThemeVersion }
 import from core.theming.suggest { suggest_from_logo }
 import from core.theming.logo { clear_backdrop }
 import from core.theming.brandkit { draw_kit, checked_look, DEFAULT_LOOK }
+import from core.theming.pagecode { write_page }
 import from core.audit.log { audited }
 
 glob logger = logging.getLogger(__name__),
@@ -57,8 +59,10 @@ glob logger = logging.getLogger(__name__),
      KIT_DAILY: int = 3,
      # design_storefront's theme call, beside its kit drawing.
      _designs: ThreadPoolExecutor = ThreadPoolExecutor(
-         max_workers=2, thread_name_prefix="design-storefront"
-     );
+         max_workers=4, thread_name_prefix="design-storefront"
+     ),
+     # Seconds the owner waits for the written page (a model attempt has 200 s).
+     PAGE_DEADLINE: float = 320.0;
 
 def _branding(scope: TenantScope) -> Branding | None {
     if not scope.tenant.branding_id {
@@ -133,6 +137,14 @@ def _public_kit(kit: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     };
 }
 
+def _public_page(page: dict[str, str]) -> dict[str, str] {
+    # The written page as the storefront draws it: {} for none.
+    if not page or not page.get("html") {
+        return {};
+    }
+    return {"html": page["html"], "css": page.get("css", "")};
+}
+
 def _full_look(look: any) -> dict[str, str] {  # jac:ignore[W1037]
     # Every part of the look; a kit drawn before the design parts gets the defaults.
     try {
@@ -150,7 +162,8 @@ def _view(scope: TenantScope, branding: Branding | None) -> dict[str, any] {  # 
             "theme": _draft_theme(branding),
             "has_logo": branding is not None and bool(branding.draft_logo),
             "logo": _data_url(branding.draft_logo if branding is not None else ""),
-            "kit": _public_kit(branding.draft_kit) if branding is not None else {}
+            "kit": _public_kit(branding.draft_kit) if branding is not None else {},
+            "page": dict(branding.draft_page) if branding is not None else {}
         },
         "published": {
             "version": latest.version,
@@ -343,19 +356,31 @@ def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     themed = _designs.submit(
         suggest_from_logo, raw, scope.tenant.name, _programme(scope)
     );
+    written = _designs.submit(write_page, raw, scope.tenant.name);
     kit = draw_kit(raw, scope.tenant.name);
     found = themed.result();
+    page: dict[str, str] = {};
+    try {
+        page = written.result(timeout=PAGE_DEADLINE);
+    } except Exception as e {
+        # The designed storefront (ADR-0047) shows instead; the owner can design again.
+        logger.warning(
+            "storefront page failed: %s: %s", type(e).__name__, str(e)[:300]
+        );
+    }
     idea: dict[str, any] = found["proposals"][0];  # jac:ignore[W1037]
     theme: dict[str, any] = idea["theme"];  # jac:ignore[W1037]
     def _keep(b: Branding) {
         b.draft = theme;
         b.draft_kit = kit;
+        b.draft_page = page;
     }
     _edit_draft(scope, _keep);
     return {
         "ok": True,
         "theme": theme,
         "kit": _public_kit(kit),
+        "page": page,
         "template": idea["template"],
         "from_ai": found["from_ai"],
         "remaining": KIT_DAILY - used - 1
@@ -392,6 +417,7 @@ def _remove_brand_kit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, CONFIGURE);
     def _clear(b: Branding) {
         b.draft_kit = {};
+        b.draft_page = {};
     }
     _edit_draft(scope, _clear);
     return {"ok": True};
@@ -410,9 +436,11 @@ def _publish(
     scope: TenantScope,
     theme: dict[str, any],  # jac:ignore[W1037]
     logo: str,
-    kit: dict[str, any] | None = None  # jac:ignore[W1037]
+    kit: dict[str, any] | None = None,  # jac:ignore[W1037]
+    page: dict[str, str] | None = None
 ) -> int {
-    # Publishes `theme`, `logo` and the brand kit as the next version; returns its number.
+    # Publishes `theme`, `logo`, the brand kit and the written page as the next version;
+    # returns its number.
     stamp = now().isoformat();
     me = node_id(root);
     act_as(scope.tenant.principal_root_id);
@@ -425,6 +453,7 @@ def _publish(
             theme=theme,
             logo=logo,
             kit=dict(kit or {}),
+            page=dict(page or {}),
             published_at=stamp
         );
         branding ++> published;
@@ -439,7 +468,8 @@ def _publish(
             "version": published.version,
             "theme": theme,
             "logo": logo,
-            "kit": dict(kit or {})
+            "kit": dict(kit or {}),
+            "page": dict(page or {})
         }
     );
     return published.version;
@@ -451,16 +481,22 @@ def _publish_theme(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     theme = _draft_theme(branding);
     logo = branding.draft_logo if branding is not None else "";
     kit = dict(branding.draft_kit) if branding is not None else {};
+    page = dict(branding.draft_page) if branding is not None else {};
     versions = _versions(scope, branding);
-    public = (versions[0].theme, versions[0].logo, dict(versions[0].kit))
+    public = (
+        versions[0].theme,
+        versions[0].logo,
+        dict(versions[0].kit),
+        dict(versions[0].page)
+    )
         if versions
-        else (DEFAULT_THEME.as_dict(), "", {});
-    if (theme, logo, kit) == public {
+        else (DEFAULT_THEME.as_dict(), "", {}, {});
+    if (theme, logo, kit, page) == public {
         raise Refused(
             "nothing_to_publish", "The storefront already shows this theme and logo."
         );
     }
-    return {"ok": True, "version": _publish(scope, theme, logo, kit)};
+    return {"ok": True, "version": _publish(scope, theme, logo, kit, page)};
 }
 
 def _rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore[W1037]
@@ -478,13 +514,15 @@ def _rollback_theme(tenant: str, version: int) -> dict[str, any] {  # jac:ignore
     theme = dict(earlier.theme);
     logo = earlier.logo;
     kit = dict(earlier.kit);
+    page = dict(earlier.page);
     def _set(b: Branding) {
         b.draft = theme;
         b.draft_logo = logo;
         b.draft_kit = kit;
+        b.draft_page = page;
     }
     _edit_draft(scope, _set);
-    return {"ok": True, "version": _publish(scope, theme, logo, kit)};
+    return {"ok": True, "version": _publish(scope, theme, logo, kit, page)};
 }
 
 def:protect get_branding(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
@@ -553,7 +591,9 @@ def:pub public_branding(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
             "theme": theme.as_dict(),
             "css": theme_css(theme, "storefront"),
             "logo": _data_url(logo),
-            "kit": _public_kit(shown.get("kit", {}) or {})
+            "kit": _public_kit(shown.get("kit", {}) or {}),
+            # The storefront the AI wrote, sanitized when it was written (ADR-0048).
+            "page": _public_page(shown.get("page", {}) or {})
         }
     };
 }

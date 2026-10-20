@@ -195,6 +195,12 @@ test "an overloaded model hands over to the next, each with its own time limit" 
             for t in model.tried
         ]
     );
+    # Gemini 3.x can't stop thinking, so it thinks a little; 2.5 doesn't think at all.
+    assert all([t["reasoning_effort"] == "low" for t in model.tried]);
+    older = ScriptedThemeModel(model_name="gemini/gemini-2.5-flash");
+    older.model_call_no_stream({"messages": []});
+    assert older.tried[0]["reasoning_effort"] == "disable";
+    assert older.tried[0]["max_tokens"] < model.tried[0]["max_tokens"];
     every = ScriptedThemeModel(
         model_name="test/lite",
         fallback_models=["test/flash"],

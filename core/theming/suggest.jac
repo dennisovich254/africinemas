@@ -60,11 +60,18 @@ obj ThemeModel(Model) {
             tried["timeout"] = self.attempt_timeout;
             # Our loop is the retry: no hidden retries inside one attempt.
             tried["num_retries"] = 0;
-            tried["max_tokens"] = MAX_OUTPUT_TOKENS;
             tried["temperature"] = TEMPERATURE;
-            # Gemini 2.5 Flash thinks by default, and its thinking counts against
-            # max_tokens: the theme came back cut off after 40 characters (2026-10-19).
-            tried["reasoning_effort"] = "disable";
+            # Gemini thinks by default, and its thinking counts against max_tokens: a 2.5
+            # theme came back cut off after 40 characters (2026-10-19). 2.5 can stop
+            # thinking; 3.x refuses that ("Thinking level MINIMAL is not supported",
+            # 2026-10-20), so it thinks a little, with room for it.
+            if "2.5" in name {
+                tried["reasoning_effort"] = "disable";
+                tried["max_tokens"] = MAX_OUTPUT_TOKENS;
+            } else {
+                tried["reasoning_effort"] = "low";
+                tried["max_tokens"] = MAX_OUTPUT_TOKENS + THINKING_TOKENS;
+            }
             try {
                 return self._attempt(tried);
             } except Exception as e {
@@ -84,8 +91,9 @@ obj ThemeModel(Model) {
 glob logger = logging.getLogger(__name__),
      # A model to try before the others (any Gemini model that reads images).
      MODEL_ENV: str = "AFRICINEMAS_THEME_MODEL",
-     # Gemini on our own (paid) key; one theme per request keeps each answer small.
-     MODELS: list[str] = ["gemini/gemini-2.5-flash"],
+     # Gemini on our own (paid) key; one theme per request keeps each answer small. The
+     # newest Flash (2026-10-20), then whichever Flash is latest if it is busy.
+     MODELS: list[str] = ["gemini/gemini-3.8-flash", "gemini/gemini-flash-latest"],
      theme_model: any = ThemeModel(  # jac:ignore[W1037]
          model_name=os.environ.get(MODEL_ENV) or MODELS[0],
          fallback_models=[
@@ -98,6 +106,8 @@ glob logger = logging.getLogger(__name__),
      # slow or cut off (2026-10-19); one needs about 500.
      # One theme used about 465 output tokens (2026-10-19); this leaves room.
      MAX_OUTPUT_TOKENS: int = 1200,
+     # Room for Gemini 3.x's low thinking on top of the answer.
+     THINKING_TOKENS: int = 4000,
      TEMPERATURE: float = 0.7,
      # Style directions, one picked at random per ask so asking again differs. None says
      # light or dark: the logo decides that (scheme).

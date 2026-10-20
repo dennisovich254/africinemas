@@ -1,0 +1,45 @@
+<style>
+.ai-page { --ink: #2b1d0e; --sun: #c64a29; background: #f8f5ee; color: var(--ink); font-family: "Nunito", sans-serif; }
+.ai-page h1, .ai-page h2 { font-family: 'Baloo 2', sans-serif; }
+.hero { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; border: 2px solid var(--sun); }
+.hero img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; }
+.btn { display: inline-flex; min-height: 44px; align-items: center; padding: 0 18px; background: var(--sun); color: #fff; }
+.mark { fill: url(#sunset); }
+.sneaky { background: url(https://evil.example/track.png); position: fixed; color: red; }
+@import url("https://evil.example/x.css");
+@media (max-width: 600px) { .hero { grid-template-columns: 1fr; } }
+</style>
+<header data-part="header" class="top">
+  <a data-link="home" href="https://evil.example"><img data-img="logo" src="https://evil.example/logo.png" alt="Kijiji Cinema"></a>
+  <nav><a data-link="movies">Movies</a><a data-link="showtimes">Showtimes</a><a data-link="soon">Coming soon</a><a data-link="signin">Sign in</a><a data-link="book" class="btn">Book tickets</a></nav>
+</header>
+<main data-part="home">
+  <section class="hero" data-each="featured" onclick="alert(1)">
+    <img data-img="film.poster" alt="Poster">
+    <div>
+      <svg viewBox="0 0 40 40" class="mark" aria-hidden="true"><defs><linearGradient id="sunset"><stop offset="0" stop-color="#f4c430"/></linearGradient></defs><circle cx="20" cy="20" r="18"/></svg>
+      <h1 data-text="film.title">Film title</h1>
+      <p data-text="film.details">Details</p>
+      <p data-text="film.synopsis">Synopsis</p>
+      <ul><li data-each="film.times"><a data-link="show" class="btn"><span data-text="show.time">18:15</span></a></li></ul>
+      <a data-link="film" class="btn">Book tickets</a>
+    </div>
+  </section>
+  <section id="showtimes">
+    <h2>Today</h2>
+    <ul><li data-each="today"><a data-link="show"><span data-text="show.time">18:15</span> <span data-text="show.film">Film</span> <span data-text="show.screen">Screen</span></a></li></ul>
+    <p data-empty="today">No showtimes today.</p>
+  </section>
+  <section><h2>Now showing</h2>
+    <article data-each="films"><a data-link="film"><img data-img="film.poster" alt="Poster"><h3 data-text="film.title">Title</h3></a>
+      <ul><li data-each="film.times"><a data-link="show"><span data-text="show.day">Today</span> <span data-text="show.time">18:15</span></a></li></ul>
+    </article>
+    <p data-empty="films">Nothing showing yet.</p>
+  </section>
+  <section id="coming-soon"><h2>Coming soon</h2>
+    <article data-each="soon"><h3 data-text="film.title">Title</h3><p data-text="film.release">Date</p></article>
+  </section>
+  <script>alert("never")</script>
+  <iframe src="https://evil.example"></iframe>
+</main>
+<footer data-part="footer"><p data-text="cinema.name">Kijiji Cinema</p><p>Tickets by AfriCinemas</p></footer>

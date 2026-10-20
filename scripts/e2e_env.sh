@@ -29,3 +29,5 @@ export AFRICINEMAS_AGENT_SCRIPT="${AFRICINEMAS_AGENT_SCRIPT:-$PWD/e2e/artifacts/
 # write, never the real models (core/theming/brandkit.jac, SCRIPT_ENV and PLAN_ENV).
 export AFRICINEMAS_KIT_SCRIPT="${AFRICINEMAS_KIT_SCRIPT:-$PWD/e2e/artifacts/kit_script.png}"
 export AFRICINEMAS_KIT_PLAN="${AFRICINEMAS_KIT_PLAN:-$PWD/e2e/artifacts/kit_plan.json}"
+# The storefront the AI writes (ADR-0048): the model's answer, as a file the test writes.
+export AFRICINEMAS_PAGE_SCRIPT="${AFRICINEMAS_PAGE_SCRIPT:-$PWD/e2e/artifacts/page_script.html}"
