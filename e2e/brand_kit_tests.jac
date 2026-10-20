@@ -18,7 +18,7 @@ import from e2e.support.web {
     context_options,
     artifact
 }
-import from e2e.support.api { call, owner_with_cinema }
+import from e2e.support.api { call, owner_with_cinema, PASSWORD }
 import from e2e.support.catalog { cinema_with_programme }
 
 glob STOREFRONT: str = '[data-testid="storefront"]',
@@ -51,6 +51,16 @@ def _logo_base64 -> str {
     out = io.BytesIO();
     img.save(out, "PNG");
     return base64.b64encode(out.getvalue()).decode();
+}
+
+def _scripts {
+    # The models' answers, as files the server reads (scripts/e2e_env.sh).
+    with open(os.environ["AFRICINEMAS_KIT_SCRIPT"], "wb") as f {
+        f.write(_bird_png());
+    }
+    with open(os.environ["AFRICINEMAS_KIT_PLAN"], "w") as f {
+        json.dump(PLAN, f);
+    }
 }
 
 def _kit(owner: dict[str, str]) {
@@ -129,6 +139,49 @@ test "without a brand kit none of it shows" {
         page.wait_for_selector(STOREFRONT);
         assert (page.locator(STOREFRONT).get_attribute("data-kit") or "") == "";
         assert page.evaluate(MASK_JS, ".kit-sign").startswith("none");
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "an owner draws their brand, changes its look and publishes it" {
+    owner = cinema_with_programme();
+    _scripts();
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        page.goto(BASE_URL + "/login");
+        page.fill("#email", owner["email"]);  # jac:ignore[W6002]
+        page.fill("#password", PASSWORD);  # jac:ignore[W6002]
+        page.click('button[type="submit"]');
+        page.wait_for_url("**/app");
+        page.goto(f"{BASE_URL}/app/{owner['slug']}/settings");
+        page.wait_for_selector('[data-testid="branding"]');
+        kit = '[data-testid="brand-kit"]';
+        assert page.locator(f'{kit} button:has-text("Draw my brand")').count() == 0 , "needs a logo first";
+        logo = base64.b64decode(_logo_base64());
+        page.set_input_files(
+            "#logo-file",
+            files=[{"name": "logo.png", "mimeType": "image/png", "buffer": logo}]
+        );
+        page.wait_for_selector('[data-testid="logo-preview"]');
+        page.click(f'{kit} button:has-text("Draw my brand")');
+        page.wait_for_selector('[data-testid="kit-motifs"] li', timeout=60000);
+        assert page.locator('[data-testid="kit-motifs"] li').count() == 2;
+        look = '[data-testid="kit-look"]';
+        assert page.locator(f'{look} input[value="notched"]').is_checked() , "the plan's look";
+        page.locator(f'{look} label:has-text("Rounded") input').check();
+        page.wait_for_selector('[data-testid="kit-note"]:has-text("Saved")');
+        page.click('button:has-text("Publish")');
+        page.wait_for_selector('[data-testid="branding-status"]:has-text("Version 1")');
+        page.goto(f"{BASE_URL}/c/{owner['slug']}");
+        page.wait_for_selector('[data-testid="movie-card"]');
+        assert page.locator(STOREFRONT).get_attribute("data-kit-card") == "rounded";
+        page.goto(f"{BASE_URL}/app/{owner['slug']}/settings");
+        page.wait_for_selector('[data-testid="kit-motifs"] li');
+        page.screenshot(path=artifact("brandkit-branding-page.png"), full_page=True);
     } finally {
         close_contexts(browser);
     }

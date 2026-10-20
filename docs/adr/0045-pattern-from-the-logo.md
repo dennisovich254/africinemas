@@ -1,6 +1,6 @@
 # ADR-0045: A decorative pattern drawn from the cinema's logo
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0046 (removed 2026-10-20: a pattern behind the storefront read as wallpaper, however it was placed)
 - **Date:** 2026-10-19
 - **Sub-phase:** Deferred AI features: AI brand-theme generator, phase (b)
 - **Code:** `core/theming/pattern.jac` (`pattern_prompt`, `draw_pattern`, `as_webp`, `checked_style`, `choose_style`), `core/theming/branding_api.jac` (`draw_pattern`, `remove_pattern`, `set_pattern_style`, publish and rollback), `core/theming/models.jac`, `web/backoffice/BrandingSection.jac` (Pattern from your logo), `web/storefront/StorefrontShell.jac`, `HomeSections.jac`, (`data-pattern-slot`), `styles/pattern.css`

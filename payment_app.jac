@@ -27,17 +27,13 @@ import from core.theming.branding_api {
     get_branding,  # jac:ignore[W2037]
     upload_logo,  # jac:ignore[W2037]
     suggest_themes,  # jac:ignore[W2037]
-    draw_pattern,  # jac:ignore[W2037]
     draw_brand_kit,  # jac:ignore[W2037]
     set_brand_look,  # jac:ignore[W2037]
     remove_brand_kit,  # jac:ignore[W2037]
-    remove_pattern,  # jac:ignore[W2037]
-    set_pattern_style,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
     public_branding
 }
 import core.theming.suggest as suggest_module;
-import core.theming.pattern as pattern_module;
 import core.theming.brandkit as brandkit_module;
 import from core.agent.tools { HOLDER, tool_named }
 import from jaclang.byllm.lib { MockLLM, MockToolCall }
@@ -522,24 +518,6 @@ def:pub script_brand_kit(image_base64: str, plan: str) -> bool {
     }
     brandkit_module.send = drawn;
     brandkit_module.plan_model = MockLLM(outputs=[plan] * 5);
-    return True;
-}
-
-def:pub script_pattern(image_base64: str, style: str) -> bool {
-    # The pattern model's answer (ADR-0045): this image, or a failure when it is "";
-    # and the style the model then picks for it.
-    def answer(_logo: bytes, _prompt: str) -> dict[str, any] {  # jac:ignore[W1037]
-        if not image_base64 {
-            raise pattern_module.PatternFailed("scripted failure");
-        }
-        return {
-            "candidates": [
-                {"content": {"parts": [{"inlineData": {"data": image_base64}}]}}
-            ]
-        };
-    }
-    pattern_module.send = answer;
-    pattern_module.style_model = MockLLM(outputs=[style] * 5);
     return True;
 }
 

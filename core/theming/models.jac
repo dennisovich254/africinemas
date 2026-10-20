@@ -19,8 +19,8 @@ node Branding {
         # so a cinema gets SUGGEST_DAILY a day (ADR-0043).
         suggest_day: str = "",
         suggest_count: int = 0,
-        # The pattern drawn from the logo (ADR-0045): base64 WebP ("" for none), how the
-        # storefront wears it (a pattern style), and drawings asked for on pattern_day.
+        # The pattern drawn from the logo (ADR-0045), replaced by the brand kit (ADR-0046).
+        # No longer read or written; kept so Branding nodes saved with them still load.
         draft_pattern: str = "",
         draft_pattern_style: str = "",
         pattern_day: str = "",
@@ -38,6 +38,7 @@ node ThemeVersion {
         version: int,
         theme: dict[str, any] = {},  # jac:ignore[W1037]
         logo: str = "",
+        # pattern and pattern_style: ADR-0045, no longer used; kept so saved versions load.
         pattern: str = "",
         pattern_style: str = "",
         kit: dict[str, any] = {},  # jac:ignore[W1037]

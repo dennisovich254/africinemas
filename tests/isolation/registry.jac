@@ -669,21 +669,6 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "theme.kit_removed",
              "probe": {"tenant": "{tenant}"}
          },
-         "draw_pattern": {
-             "scope": "tenant",
-             "audit": "theme.pattern_drawn",
-             "probe": {"tenant": "{tenant}", "theme": {"name": "Probe"}}
-         },
-         "remove_pattern": {
-             "scope": "tenant",
-             "audit": "theme.pattern_removed",
-             "probe": {"tenant": "{tenant}"}
-         },
-         "set_pattern_style": {
-             "scope": "tenant",
-             "audit": "theme.pattern_styled",
-             "probe": {"tenant": "{tenant}", "style": "ambient"}
-         },
          "suggest_themes": {
              "scope": "tenant",
              "audit": "theme.suggested",
