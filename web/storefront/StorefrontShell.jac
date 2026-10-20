@@ -10,6 +10,10 @@ defaults (styles/brand.css) for this cinema alone. An unknown or closed cinema g
 Every page but a showtime's (whose seat bar is fixed to the bottom) has "Ask <cinema>",
 the cinema's own chat (P8.4, ChatPanel.jac).
 
+When the AI wrote the cinema's storefront (ADR-0048, AiPage.jac), its header and footer
+replace ours on every storefront page and its home part is the home page (`home`, the
+public_home answer, given by the home page only); our own pages sit between them.
+
 The cinema's design (ADR-0047), chosen by the AI from its logo, is on the root as
 data-design-* attributes: styles/design.css sets the fonts, header, hero, surfaces and
 spacing from them. Without a design the storefront keeps the platform's look.
@@ -43,6 +47,7 @@ import from .StorefrontSearch { StorefrontSearch }
 import from .venue_choice { use_venue, choose_venue }
 import from .ChatPanel { ChatLauncher }
 import from .AccountLinks { AccountLinks }
+import from .AiPage { AiPart, ai_page_of }
 
 glob NAV_LINK: str = "inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
@@ -170,6 +175,7 @@ def FooterColumn(title: str, links: list[list[str]]) -> JsxElement {
 def:pub StorefrontShell(
     slug: str,
     chat: bool = True,
+    home: dict[str, any] | None = None,  # jac:ignore[W1037] the home page's programme
     children: any = None  # jac:ignore[W1037] pass-through children (jac-cl-organization idiom)
 ) -> JsxElement {
     [branding, set_branding] = useState(None);
@@ -224,7 +230,9 @@ def:pub StorefrontShell(
         doc: any = document;  # jac:ignore[W1037,W2001]
         tag: any = doc.createElement("style");  # jac:ignore[W1037]
         shown: dict[str, any] | None = branding;  # jac:ignore[W1037]
-        tag.textContent = shown["css"] if shown is not None else "";
+        written = ai_page_of(shown);
+        tag.textContent = (shown["css"] if shown is not None else "")
+            + ("\n" + written["css"] if written is not None else "");
         doc.head.appendChild(tag);
         return lambda { doc.head.removeChild(tag); };
     }
@@ -250,6 +258,10 @@ def:pub StorefrontShell(
             </ThemeProvider>;
     }
     look: dict[str, any] = branding;  # jac:ignore[W1037]
+    written = ai_page_of(look);
+    # Our own main area, unless the written page draws the home page itself. Kept as a
+    # flag: `a or b and <main>` would read as `a or (b and <main>)` and draw `true`.
+    our_main: bool = written is None or home is None;
     # The cinema's fixed light or dark choice, or "auto" to follow the device (ADR-0044).
     scheme: str = look["theme"]["scheme"] or "auto";
     # The brand kit (ADR-0046): its look on the root, its motifs as masks for KitMark.
@@ -297,162 +309,193 @@ def:pub StorefrontShell(
                 data-design-density={part("density")}
                 className="flex min-h-svh flex-col"
             >
-                <div className="sticky top-0 z-30">
-                    <header
-                        data-testid="storefront-header"
-                        className="border-b bg-background/95 text-foreground backdrop-blur supports-[backdrop-filter]:bg-background/85"
-                    >
-                        <div
-                            className="design-header-row mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-2"
+                {written is not None
+                    and <AiPart
+                        slug={slug}
+                        page={written}
+                        part="header"
+                        cinema={place["name"]}
+                        logo={look["logo"]}
+                    />}{written is None
+                    and <div className="sticky top-0 z-30">
+                        <header
+                            data-testid="storefront-header"
+                            className="border-b bg-background/95 text-foreground backdrop-blur supports-[backdrop-filter]:bg-background/85"
                         >
-                            <h1
-                                data-testid="storefront-name"
-                                className="design-header-brand mr-auto min-w-0 font-display text-2xl leading-none sm:text-3xl"
+                            <div
+                                className="design-header-row mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-2"
                             >
-                                <AppLink
-                                    to={f"/c/{slug}"}
-                                    className="flex min-h-11 min-w-0 items-center"
+                                <h1
+                                    data-testid="storefront-name"
+                                    className="design-header-brand mr-auto min-w-0 font-display text-2xl leading-none sm:text-3xl"
                                 >
-                                    {look["logo"]
-                                        and <img
-                                            src={look["logo"]}
-                                            alt={place["name"]}
-                                            className="design-logo h-11 w-auto max-w-[45vw] object-contain sm:h-12"
-                                        />}{not look["logo"]
-                                        and <span className="truncate">
-                                            {place["name"]}
-                                        </span>}
-                                </AppLink>
-                            </h1>
-                            <nav aria-label="Storefront" className="hidden md:block">
-                                <NavItems slug={slug}/>
-                            </nav>
-                            {several
-                                and <div className="hidden lg:block">
-                                    <VenuePicker
-                                        slug={slug}
-                                        venues={names}
-                                        testid="venue-picker"
-                                    />
-                                </div>}
-                            <div className="hidden md:block">
-                                <AccountLinks slug={slug} link_class={NAV_LINK}/>
-                            </div>
-                            <StorefrontSearch slug={slug} compact={True}/>
-                            {book}
-                            <Sheet open={menu_open} onOpenChange={set_menu_open}>
-                                <SheetTrigger asChild={True}>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className={"size-11 "
-                                            + ("lg:hidden" if several else "md:hidden")}
-                                        aria-label="Open menu"
-                                        data-testid="storefront-menu"
+                                    <AppLink
+                                        to={f"/c/{slug}"}
+                                        className="flex min-h-11 min-w-0 items-center"
                                     >
-                                        <HugeiconsIcon
-                                            icon={Menu01Icon}
-                                            strokeWidth={2}
-                                        />
-                                    </Button>
-                                </SheetTrigger>
-                                <SheetContent
-                                    side="right"
-                                    showCloseButton={False}
-                                    className="w-72 gap-4 bg-card p-4"
-                                    data-testid="storefront-menu-sheet"
+                                        {look["logo"]
+                                            and <img
+                                                src={look["logo"]}
+                                                alt={place["name"]}
+                                                className="design-logo h-11 w-auto max-w-[45vw] object-contain sm:h-12"
+                                            />}{not look["logo"]
+                                            and <span className="truncate">
+                                                {place["name"]}
+                                            </span>}
+                                    </AppLink>
+                                </h1>
+                                <nav
+                                    aria-label="Storefront"
+                                    className="hidden md:block"
                                 >
-                                    <SheetHeader
-                                        className="flex-row items-center justify-between p-0"
-                                    >
-                                        <SheetTitle
-                                            className="font-display text-2xl leading-none"
-                                        >
-                                            {place["name"]}
-                                        </SheetTitle>
-                                        <SheetClose asChild={True}>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="size-11"
-                                                aria-label="Close menu"
-                                            >
-                                                <HugeiconsIcon
-                                                    icon={Cancel01Icon}
-                                                    strokeWidth={2}
-                                                />
-                                            </Button>
-                                        </SheetClose>
-                                    </SheetHeader>
-                                    <SheetDescription className="sr-only">
-                                        The storefront's pages
-                                    </SheetDescription>
-                                    <nav aria-label="Storefront menu">
-                                        <NavItems slug={slug} block={True}/>
-                                    </nav>
-                                    <div className="border-t pt-4 md:hidden">
-                                        <AccountLinks
-                                            slug={slug}
-                                            link_class={NAV_LINK}
-                                            block={True}
-                                        />
-                                    </div>
-                                    {several
-                                        and <VenuePicker
+                                    <NavItems slug={slug}/>
+                                </nav>
+                                {several
+                                    and <div className="hidden lg:block">
+                                        <VenuePicker
                                             slug={slug}
                                             venues={names}
-                                            testid="venue-picker-menu"
-                                        />}
-                                </SheetContent>
-                            </Sheet>
-                        </div>
-                    </header>
-                </div>
-                <main
-                    className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8"
-                >
-                    {children}
-                </main>
-                {chat and <ChatLauncher slug={slug} cinema={place["name"]}/>}
-                <footer className="border-t bg-card">
-                    <div
-                        className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 text-sm text-muted-foreground sm:grid-cols-3"
+                                            testid="venue-picker"
+                                        />
+                                    </div>}
+                                <div className="hidden md:block">
+                                    <AccountLinks slug={slug} link_class={NAV_LINK}/>
+                                </div>
+                                <StorefrontSearch slug={slug} compact={True}/>
+                                {book}
+                                <Sheet open={menu_open} onOpenChange={set_menu_open}>
+                                    <SheetTrigger asChild={True}>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className={"size-11 "
+                                                + (
+                                                    "lg:hidden"
+                                                        if several
+                                                        else "md:hidden"
+                                                )}
+                                            aria-label="Open menu"
+                                            data-testid="storefront-menu"
+                                        >
+                                            <HugeiconsIcon
+                                                icon={Menu01Icon}
+                                                strokeWidth={2}
+                                            />
+                                        </Button>
+                                    </SheetTrigger>
+                                    <SheetContent
+                                        side="right"
+                                        showCloseButton={False}
+                                        className="w-72 gap-4 bg-card p-4"
+                                        data-testid="storefront-menu-sheet"
+                                    >
+                                        <SheetHeader
+                                            className="flex-row items-center justify-between p-0"
+                                        >
+                                            <SheetTitle
+                                                className="font-display text-2xl leading-none"
+                                            >
+                                                {place["name"]}
+                                            </SheetTitle>
+                                            <SheetClose asChild={True}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="size-11"
+                                                    aria-label="Close menu"
+                                                >
+                                                    <HugeiconsIcon
+                                                        icon={Cancel01Icon}
+                                                        strokeWidth={2}
+                                                    />
+                                                </Button>
+                                            </SheetClose>
+                                        </SheetHeader>
+                                        <SheetDescription className="sr-only">
+                                            The storefront's pages
+                                        </SheetDescription>
+                                        <nav aria-label="Storefront menu">
+                                            <NavItems slug={slug} block={True}/>
+                                        </nav>
+                                        <div className="border-t pt-4 md:hidden">
+                                            <AccountLinks
+                                                slug={slug}
+                                                link_class={NAV_LINK}
+                                                block={True}
+                                            />
+                                        </div>
+                                        {several
+                                            and <VenuePicker
+                                                slug={slug}
+                                                venues={names}
+                                                testid="venue-picker-menu"
+                                            />}
+                                    </SheetContent>
+                                </Sheet>
+                            </div>
+                        </header>
+                    </div>}{written is not None
+                    and home is not None
+                    and <AiPart
+                        slug={slug}
+                        page={written}
+                        part="home"
+                        cinema={place["name"]}
+                        logo={look["logo"]}
+                        home={home}
+                    />}{our_main
+                    and <main
+                        className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8"
                     >
-                        <FooterColumn
-                            title="Movies"
-                            links={[
-                                ["Now showing", f"/c/{slug}/movies"],
-                                ["Coming soon", f"/c/{slug}/movies#coming-soon"]
-                            ]}
-                        />
-                        <FooterColumn
-                            title="Tickets"
-                            links={[
-                                ["Showtimes", f"/c/{slug}#showtimes"],
-                                ["Book tickets", f"/c/{slug}#showtimes"],
-                                ["My tickets", f"/c/{slug}/my-tickets"]
-                            ]}
-                        />
-                        <FooterColumn
-                            title="Cinemas"
-                            links={[
-                                ["Find a cinema", f"/c/{slug}/cinemas"],
-                                ["Visit us", f"/c/{slug}/cinemas#visit-us"]
-                            ]}
-                        />
-                    </div>
-                    <div
-                        className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 border-t px-4 py-4 text-sm text-muted-foreground"
-                    >
-                        <span
-                            className="inline-flex items-center gap-2 font-medium text-foreground"
+                        {children}
+                    </main>}{chat
+                    and <ChatLauncher slug={slug} cinema={place["name"]}/>}{written
+                    is not None
+                    and <AiPart
+                        slug={slug}
+                        page={written}
+                        part="footer"
+                        cinema={place["name"]}
+                    />}{written is None
+                    and <footer className="border-t bg-card">
+                        <div
+                            className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 text-sm text-muted-foreground sm:grid-cols-3"
                         >
-                            <KitMark className="kit-sign"/>
-                            {place["name"]}
-                        </span>
-                        <span>Tickets by AfriCinemas</span>
-                    </div>
-                </footer>
+                            <FooterColumn
+                                title="Movies"
+                                links={[
+                                    ["Now showing", f"/c/{slug}/movies"],
+                                    ["Coming soon", f"/c/{slug}/movies#coming-soon"]
+                                ]}
+                            />
+                            <FooterColumn
+                                title="Tickets"
+                                links={[
+                                    ["Showtimes", f"/c/{slug}#showtimes"],
+                                    ["Book tickets", f"/c/{slug}#showtimes"],
+                                    ["My tickets", f"/c/{slug}/my-tickets"]
+                                ]}
+                            />
+                            <FooterColumn
+                                title="Cinemas"
+                                links={[
+                                    ["Find a cinema", f"/c/{slug}/cinemas"],
+                                    ["Visit us", f"/c/{slug}/cinemas#visit-us"]
+                                ]}
+                            />
+                        </div>
+                        <div
+                            className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 border-t px-4 py-4 text-sm text-muted-foreground"
+                        >
+                            <span
+                                className="inline-flex items-center gap-2 font-medium text-foreground"
+                            >
+                                <KitMark className="kit-sign"/>
+                                {place["name"]}
+                            </span>
+                            <span>Tickets by AfriCinemas</span>
+                        </div>
+                    </footer>}
             </div>
         </ThemeProvider>;
 }

@@ -75,8 +75,15 @@ def:pub StorefrontPage -> JsxElement {
     template: str = found["page"]["template"];
     sections = for_venue(found["page"]["sections"], venue);
     blocks = home_blocks(sections);
+    # A storefront the AI wrote draws its own home part from `home` (ADR-0048); the
+    # sections below are the designed storefront, shown otherwise.
+    narrowed: dict[str, any] = {  # jac:ignore[W1037]
+        "cinema": found["cinema"],
+        "page": {"template": template, "sections": sections},
+        "showtimes": found["showtimes"]
+    };
     return
-        <StorefrontShell slug={slug}>
+        <StorefrontShell slug={slug} home={narrowed}>
             <div
                 data-testid="home-page"
                 data-template={template}
