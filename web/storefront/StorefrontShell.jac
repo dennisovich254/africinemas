@@ -30,6 +30,7 @@ import from ...components.ui.sheet {
     SheetDescription,
     SheetClose
 }
+import from .KitMark { KitMark }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppLink { AppLink }
 import from core.theming.branding_api { public_branding }
@@ -265,6 +266,18 @@ def:pub StorefrontShell(
     # The pattern drawn from the logo, and the style the storefront wears it in (ADR-0045).
     pattern: str = look["pattern"] or "";
     pattern_style: str = look["pattern_style"] or "";
+    # The brand kit (ADR-0046): its look on the root, its motifs as masks for KitMark.
+    kit: dict[str, any] = look["kit"] or {};  # jac:ignore[W1037]
+    kit_look: dict[str, str] = kit["look"] or {};
+    motifs: list[dict[str, str]] = kit["motifs"] or [];
+    root_style: dict[str, str] = {};
+    if pattern {
+        root_style["--ac-pattern"] = f"url({pattern})";
+    }
+    if len(motifs) > 0 {
+        root_style["--kit-single"] = f"url({motifs[0]['mask']})";
+        root_style["--kit-group"] = f"url({motifs[len(motifs) - 1]['mask']})";
+    }
     over: bool = hero is not None and not scrolled;
     place: dict[str, str] = cinema;
     names: list[str] = venues;
@@ -282,7 +295,13 @@ def:pub StorefrontShell(
             <div
                 data-testid="storefront"
                 data-pattern-style={pattern_style if pattern else ""}
-                style={{"--ac-pattern": f"url({pattern})"} if pattern else {}}
+                style={root_style}
+                data-kit={"on" if kit_look else ""}
+                data-kit-motif={"on" if len(motifs) > 0 else ""}
+                data-kit-card={kit_look["card"] or ""}
+                data-kit-frame={kit_look["frame"] or ""}
+                data-kit-divider={kit_look["divider"] or ""}
+                data-kit-heading={kit_look["heading"] or ""}
                 className="flex min-h-svh flex-col"
             >
                 <div className={"sticky top-0 z-30 " + ("dark" if over else "")}>
@@ -441,7 +460,10 @@ def:pub StorefrontShell(
                     <div
                         className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 border-t px-4 py-4 text-sm text-muted-foreground"
                     >
-                        <span className="font-medium text-foreground">
+                        <span
+                            className="inline-flex items-center gap-2 font-medium text-foreground"
+                        >
+                            <KitMark className="kit-sign"/>
                             {place["name"]}
                         </span>
                         <span>Tickets by AfriCinemas</span>

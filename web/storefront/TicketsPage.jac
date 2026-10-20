@@ -8,6 +8,7 @@ whether the booking exists.
 """
 
 import from react { useState, useEffect }
+import from .KitMark { KitMark }
 import from "@jac/runtime" { useParams }
 import from core.booking.ticket_delivery { tickets_by_link }
 import from .StorefrontShell { StorefrontShell, Loading }
@@ -91,9 +92,11 @@ def:pub TicketsPage -> JsxElement {
         <StorefrontShell slug={slug}>
             <section
                 data-testid="tickets-page"
+                data-kit-slot="ticket"
                 aria-labelledby="tickets-heading"
                 className="flex flex-col gap-6"
             >
+                <KitMark kind="group" className="kit-ticket"/>
                 <div className="flex flex-col gap-1">
                     <h1
                         id="tickets-heading"

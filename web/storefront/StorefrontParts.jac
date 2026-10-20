@@ -39,6 +39,7 @@ def:pub Poster(
     return
         <div
             aria-hidden="true"
+            data-kit-slot="poster"
             className={f"aspect-[2/3] overflow-hidden rounded-md bg-muted {className}"}
         >
             {src

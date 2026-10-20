@@ -20,6 +20,7 @@ is left out. `send` makes the image call and `plan_model` the plan; tests replac
 
 import io;
 import os;
+import json;
 import base64;
 import logging;
 import httpx;
@@ -35,6 +36,8 @@ glob logger = logging.getLogger(__name__),
      # Browser tests only (scripts/e2e_env.sh; production never sets it): an image file
      # that stands in for every motif drawing.
      SCRIPT_ENV: str = "AFRICINEMAS_KIT_SCRIPT",
+     # Browser tests only, likewise: a JSON file that stands in for the plan (BrandPlan).
+     PLAN_ENV: str = "AFRICINEMAS_KIT_PLAN",
      API: str = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
      TIMEOUT: float = 60.0,
      MOTIFS_MAX: int = 2,
@@ -133,10 +136,36 @@ def checked_look(look: any) -> dict[str, str] {  # jac:ignore[W1037]
     return out;
 }
 
+obj _ScriptedPlan {
+    has motifs: list[str] = [],
+        card: str = "",
+        frame: str = "",
+        divider: str = "",
+        heading: str = "";
+}
+
+def _scripted_plan -> _ScriptedPlan | None {
+    # The browser tests' plan, when PLAN_ENV names a readable JSON file.
+    path = os.environ.get(PLAN_ENV, "");
+    if not path or not os.path.isfile(path) {
+        return None;
+    }
+    with open(path) as f {
+        data: dict[str, any] = json.load(f);  # jac:ignore[W1037]
+    }
+    return _ScriptedPlan(
+        motifs=list(data.get("motifs", [])),
+        card=str(data.get("card", "")),
+        frame=str(data.get("frame", "")),
+        divider=str(data.get("divider", "")),
+        heading=str(data.get("heading", ""))
+    );
+}
+
 def plan_kit(logo_webp: bytes, cinema: str) -> tuple[list[str], dict[str, str]] {
     # The motif names and look the model plans, or no motifs and DEFAULT_LOOK.
     try {
-        plan = _plan(Image(logo_webp), cinema);
+        plan = _scripted_plan() or _plan(Image(logo_webp), cinema);
     } except Exception as e {
         logger.warning("brand plan failed: %s: %s", type(e).__name__, str(e)[:200]);
         return ([], dict(DEFAULT_LOOK));
