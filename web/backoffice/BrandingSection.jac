@@ -1,7 +1,10 @@
 """`/app/:slug/settings`: the cinema's branding (P3.8b), on the 3.8a endpoints.
 
-Owners start from a preset or change colours, fonts, corners and the logo, watching a
-live preview of their storefront in light and dark. "Save draft" keeps the changes
+The owner uploads their logo and presses Design my storefront (ADR-0047): the AI designs
+the theme, draws the brand from the logo and picks the storefront's design, all saved to
+the draft for the owner to preview and publish. Owners who want to can still adjust
+colours, fonts and corners themselves (closed by default), watching a live preview of
+their storefront in light and dark. "Save draft" keeps the changes
 private; "Publish" puts them on the storefront (saving first). The server repairs any
 colour that would be hard to read and the page lists what it changed. Each publish is a
 version; restoring an earlier one asks first, then publishes it again.
@@ -18,9 +21,7 @@ import from core.theming.branding_api {
     get_branding,  # jac:ignore[W2037] authenticated endpoint
     save_theme,  # jac:ignore[W2037]
     upload_logo,  # jac:ignore[W2037]
-    suggest_themes,  # jac:ignore[W2037]
-    draw_brand_kit,  # jac:ignore[W2037]
-    set_brand_look,  # jac:ignore[W2037]
+    design_storefront,  # jac:ignore[W2037]
     remove_brand_kit,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]
     publish_theme,  # jac:ignore[W2037]
@@ -49,31 +50,38 @@ import from core.homepage.home_api {
 import from .form_parts { read_as_base64 }
 
 glob MODES: list[str] = ["light", "dark"],
-     IDEAS_KEPT: int = 6,
-     # The home page templates (core/homepage/page.jac), as owners read them.
-     TEMPLATE_LABELS: dict[str, str] = {
-         "marquee": "Marquee: posters first, with a big hero",
-         "schedule": "Schedule: today's showtimes first",
-         "compact": "Compact: one simple list"
-     },
-     # The brand kit's look (ADR-0046): each choice and its designed options.
-     LOOK_CHOICES: list[tuple[str, str, list[tuple[str, str]]]] = [
+     # The design the AI chose (ADR-0047), as owners read it.
+     DESIGN_LABELS: list[tuple[str, dict[str, str]]] = [
+         (
+             "fonts",
+             {
+                 "gallery": "Light, spaced capitals",
+                 "marquee": "Tall marquee capitals",
+                 "editorial": "A warm serif",
+                 "luxe": "An elegant serif",
+                 "bold": "Heavy display",
+                 "friendly": "Rounded and friendly",
+                 "modern": "Crisp and modern",
+                 "heritage": "Classical capitals"
+             }
+         ),
+         (
+             "hero",
+             {
+                 "framed_poster": "poster beside the title",
+                 "centred_crest": "centred, under your motif",
+                 "split": "poster filling one side"
+             }
+         ),
+         ("header", {"left": "logo on the left", "centred": "logo centred"}),
          (
              "card",
-             "Movie cards",
-             [("notched", "Ticket-notched"), ("sharp", "Sharp"), ("rounded", "Rounded")]
-         ),
-         (
-             "frame",
-             "Hero frame",
-             [("open", "Open, motif flying out"), ("full", "Full"), ("none", "None")]
-         ),
-         (
-             "divider",
-             "Dividers",
-             [("motif", "One motif"), ("row", "Row of three"), ("line", "Plain line")]
-         ),
-         ("heading", "Headings", [("caps", "Capitals"), ("natural", "As written")])
+             {
+                 "notched": "ticket-notched posters",
+                 "sharp": "sharp corners",
+                 "rounded": "rounded corners"
+             }
+         )
      ],
      SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm",
      LOGO_TYPES: str = "image/png,image/jpeg,image/webp";
@@ -184,57 +192,6 @@ def PresetCard(
         </label>;
 }
 
-# One theme the AI designed from the logo (ADR-0043): its mood, why, and its colours.
-def IdeaCard(
-    idea: dict[str, any],  # jac:ignore[W1037]
-    on_use: any,  # jac:ignore[W1037]
-    on_layout: any  # jac:ignore[W1037]
-) -> JsxElement {
-    layout: str = idea["template"] or "";
-    theme: dict[str, any] = idea["theme"];  # jac:ignore[W1037]
-    swatches = ["background", "surface", "accent", "ink"];
-    return
-        <div
-            className="flex h-full flex-col gap-3 rounded-lg border bg-card p-3"
-            data-testid="theme-idea"
-        >
-            <span className="font-medium">{theme["name"]}</span>
-            <span className="flex gap-1" aria-hidden="true">
-                {[
-                    <span
-                        key={f"{mode}-{role}"}
-                        className="size-5 rounded border"
-                        style={{"background": theme[mode][role]}}
-                    ></span> for mode in MODES for role in swatches
-                ]}
-            </span>
-            {idea["reason"]
-                and <p className="text-sm text-muted-foreground">{idea["reason"]}</p>}
-            {layout
-                and <p className="text-sm" data-testid="idea-layout">
-                    <span className="font-medium">Home page: </span>
-                    {TEMPLATE_LABELS[layout] or layout}
-                </p>}
-            <div className="mt-auto flex flex-wrap gap-2">
-                <Button
-                    variant="outline"
-                    className="min-h-11 px-4"
-                    onClick={lambda { on_use(idea); }}
-                >
-                    Try this theme
-                </Button>
-                {layout
-                    and <Button
-                        variant="ghost"
-                        className="min-h-11 px-4"
-                        onClick={lambda { on_layout(layout); }}
-                    >
-                        Use this home page layout
-                    </Button>}
-            </div>
-        </div>;
-}
-
 def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     [data, set_data] = useState(None);
     [failed, set_failed] = useState("");
@@ -248,10 +205,8 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     [message, set_message] = useState("");
     [adjusted, set_adjusted] = useState([]);
     [restoring, set_restoring] = useState(0);
-    [ideas, set_ideas] = useState([]);
     [kit, set_kit] = useState({});
-    [kit_note, set_kit_note] = useState("");
-    [ideas_note, set_ideas_note] = useState("");
+    [design_note, set_design_note] = useState("");
 
     def show(answer: dict[str, any]) {  # jac:ignore[W1037]
         draft: dict[str, any] = answer["branding"]["draft"];  # jac:ignore[W1037]
@@ -366,84 +321,63 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_adjusted([]);
     }
 
-    async def ask_ideas {
+    async def design {
         answer: any = None;  # jac:ignore[W1037]
-        set_busy("suggesting");
-        set_ideas_note("");
+        set_busy("designing");
+        set_design_note("");
+        set_message("");
+        set_adjusted([]);
         try {
-            answer = await suggest_themes(slug);  # jac:ignore[W2037]
+            answer = await design_storefront(slug);  # jac:ignore[W2037]
         } except Exception as e {
-            console.warn("suggest_themes failed", e);
-            set_busy("");
-            set_ideas_note(
-                "We couldn't get ideas. Check your connection and try again."
-            );
-            return;
-        }
-        set_busy("");
-        if not answer["ok"] {
-            set_ideas_note(answer["error"]["message"]);
-            return;
-        }
-        # One idea per ask (Groq's per-minute limit): newest first, earlier ones kept.
-        fresh: list[dict[str, any]] = answer["proposals"];  # jac:ignore[W1037]
-        names = [i["theme"]["name"] for i in fresh];
-        earlier: list[dict[str, any]] = ideas;  # jac:ignore[W1037]
-        kept: list[dict[str, any]] = [  # jac:ignore[W1037]
-            i
-            for i in earlier
-            if i["theme"]["name"] not in names
-        ];
-        set_ideas((fresh + kept)[:IDEAS_KEPT]);
-        left: int = answer["remaining"];
-        said = "Here's a theme made from your logo. Try it in the preview, or ask for another."
-            if answer["from_ai"]
-            else "The AI couldn't answer just now, so here's a theme made from your logo's main colour.";
-        more = " That was your last set of ideas for today."
-            if left == 0
-            else f" You can ask {left} more times today.";
-        set_ideas_note(said + more);
-    }
-
-    async def draw_kit {
-        answer: any = None;  # jac:ignore[W1037]
-        set_busy("drawing");
-        set_kit_note("");
-        try {
-            answer = await draw_brand_kit(slug);  # jac:ignore[W2037]
-        } except Exception as e {
-            console.warn("draw_brand_kit failed", e);
+            console.warn("design_storefront failed", e);
         }
         set_busy("");
         if not answer {
-            set_kit_note(
-                "We couldn't draw your brand. Check your connection and try again."
+            set_design_note(
+                "We couldn't design your storefront. Check your connection and try again."
             );
             return;
         }
         if not answer["ok"] {
-            set_kit_note(answer["error"]["message"]);
+            set_design_note(answer["error"]["message"]);
             return;
         }
+        # Saved to the draft already: the editor and preview show it as saved.
+        made: dict[str, any] = answer["theme"];  # jac:ignore[W1037]
+        set_theme(made);
+        set_saved(made);
+        set_texts(texts_for(made));
+        set_errors({});
         set_kit(answer["kit"]);
+        if made["scheme"] == "light" or made["scheme"] == "dark" {
+            set_mode(made["scheme"]);
+        }
         left: int = answer["remaining"];
-        found: list[dict[str, str]] = answer["kit"]["motifs"] or [];
-        said = "Here's your brand, drawn from your logo. Change the look if you like, then publish."
-            if len(found) > 0
-            else "Your logo has no figure to draw, so your brand uses its shapes only. Change the look if you like, then publish.";
-        set_kit_note(
+        said = "Your storefront is designed from your logo. Look at the preview, then publish to show it."
+            if answer["from_ai"]
+            else "The AI couldn't choose colours just now, so they come from your logo's main colour. Publish to show it, or design again later.";
+        more = " That was your last design for today."
+            if left == 0
+            else f" You can design {left} more times today.";
+        laid_out = False;
+        if answer["template"] {
+            laid_out = await use_layout(answer["template"]);
+        }
+        set_design_note(
             said
                 + (
-                    " That was your last drawing for today."
-                        if left == 0
-                        else f" You can draw {left} more today."
+                    " The home page layout to match is saved as a draft too."
+                        if laid_out
+                        else ""
                 )
+                + more
         );
     }
 
     async def drop_kit {
         answer: any = None;  # jac:ignore[W1037]
-        set_busy("drawing");
+        set_busy("removing");
         try {
             answer = await remove_brand_kit(slug);  # jac:ignore[W2037]
         } except Exception as e {
@@ -452,38 +386,17 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_busy("");
         if answer and answer["ok"] {
             set_kit({});
-            set_kit_note("Brand removed. Publish to take it off your storefront.");
+            set_design_note(
+                "Your brand's motifs and design are removed. Publish to take them off your storefront."
+            );
         }
     }
 
-    async def pick_look(key: str, value: str) {
-        # Shown at once; put back if the save fails.
-        before: dict[str, any] = kit;  # jac:ignore[W1037]
-        look: dict[str, str] = dict(before["look"]);
-        look[key] = value;
-        changed: dict[str, any] = dict(before);  # jac:ignore[W1037]
-        changed["look"] = look;
-        set_kit(changed);
-        answer: any = None;  # jac:ignore[W1037]
-        try {
-            answer = await set_brand_look(slug, look);  # jac:ignore[W2037]
-        } except Exception as e {
-            console.warn("set_brand_look failed", e);
-        }
-        if answer and answer["ok"] {
-            set_kit_note("Saved. Publish to show it on your storefront.");
-        } else {
-            set_kit(before);
-            set_kit_note("We couldn't save that. Check your connection and try again.");
-        }
-    }
-
-    async def use_layout(template: str) {
-        # The suggested home page layout goes to the home page's own draft: private
-        # until published from Home page, like any other home page change.
+    async def use_layout(template: str) -> bool {
+        # The home page layout that suits the design goes to the home page's own draft:
+        # private until published from Home page, like any other home page change.
         home: any = None;  # jac:ignore[W1037]
         saved: any = None;  # jac:ignore[W1037]
-        set_ideas_note("");
         try {
             home = await get_home_page(slug);  # jac:ignore[W2037]
             if home["ok"] {
@@ -494,24 +407,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         } except Exception as e {
             console.warn("home layout failed", e);
         }
-        if saved and saved["ok"] {
-            set_ideas_note(
-                "The home page layout is saved as a draft. Publish it from Home page to show it."
-            );
-        } else {
-            set_ideas_note(
-                "We couldn't change the home page layout. Check your connection and try again."
-            );
-        }
-    }
-
-    def use_idea(idea: dict[str, any]) {  # jac:ignore[W1037]
-        choose_preset(idea["theme"]);
-        set_message(
-            f"{idea['theme'][
-                'name'
-            ]} is in the editor. Adjust it, then save or publish to keep it."
-        );
+        return True if saved and saved["ok"] else False;
     }
 
     def change_scheme(value: str) {
@@ -855,70 +751,34 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         </div>
     </section>;
 
-    idea_list: list[dict[str, any]] = ideas;  # jac:ignore[W1037]
-    ideas_section = <section
-        aria-labelledby="ideas-heading"
-        className="flex flex-col gap-3"
-        data-testid="theme-ideas"
-    >
-        <h3 id="ideas-heading" className="font-semibold">Ideas from your logo</h3>
-        <p className="text-sm text-muted-foreground">
-            {"AI looks at your logo and suggests a theme made from its colours; ask again for another. Try one in the preview, then adjust it."
-                if logo
-                else "Upload your logo above, and AI will suggest themes made from its colours."}
-        </p>
-        {logo
-            and <Button
-                variant="outline"
-                className="min-h-11 self-start px-5"
-                disabled={busy != ""}
-                onClick={ask_ideas}
-            >
-                {busy == "suggesting" and <Spinner aria-hidden="true"/>}{"Looking at your logo…"
-                    if busy == "suggesting"
-                    else ("Suggest another" if len(ideas) > 0 else "Suggest a theme")}
-            </Button>}
-        {ideas_note
-            and <p
-                role="status"
-                className="text-sm text-muted-foreground"
-                data-testid="ideas-note"
-            >
-                {ideas_note}
-            </p>}
-        {len(idea_list) > 0
-            and <ul className="grid gap-3 sm:grid-cols-2">
-                {[
-                    <li key={i["theme"]["name"]}>
-                        <IdeaCard idea={i} on_use={use_idea} on_layout={use_layout}/>
-                    </li> for i in idea_list
-                ]}
-            </ul>}
-    </section>;
-
     shown_kit: dict[str, any] = kit;  # jac:ignore[W1037]
     kit_motifs: list[dict[str, str]] = shown_kit["motifs"] or [];
     kit_look: dict[str, str] = shown_kit["look"] or {};
     # In the browser an empty dict is true: a kit is known by its look's card choice.
     has_kit: bool = True if kit_look["card"] else False;
     motif_colour: str = current[mode]["accent"];
-    kit_section = <section
-        aria-labelledby="kit-heading"
-        className="flex flex-col gap-3"
+    chosen = [
+        labels[kit_look[key]]
+        for (key, labels) in DESIGN_LABELS
+        if kit_look[key] and labels[kit_look[key]]
+    ];
+    design_section = <section
+        aria-labelledby="design-heading"
+        className="flex flex-col gap-3 rounded-lg border bg-card p-4"
         data-testid="brand-kit"
     >
-        <h3 id="kit-heading" className="font-semibold">Your brand from your logo</h3>
+        <h3 id="design-heading" className="font-semibold">Design my storefront</h3>
         <p className="text-sm text-muted-foreground">
-            {"AI draws the figures in your logo, like a bird or a flower, and picks shapes that match it. Your storefront then carries them in its headings, dividers, posters, tickets and footer, in your theme's colours."
+            {"AI looks at your logo and designs your storefront from it: the colours, the fonts, the layout, and the figures in your logo, like a bird or a flower, drawn into its headings, dividers and tickets."
                 if logo
-                else "Upload your logo above, and AI can draw your brand from it."}
+                else "Upload your logo above, and AI will design your storefront from it."}
         </p>
         {len(kit_motifs) > 0
             and <ul className="flex flex-wrap gap-3" data-testid="kit-motifs">
                 {[
                     <li
                         key={m["name"]}
-                        className="flex size-20 items-center justify-center rounded-lg border bg-card"
+                        className="flex size-20 items-center justify-center rounded-lg border bg-background"
                         title={m["name"]}
                     >
                         <span
@@ -940,17 +800,21 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     </li> for m in kit_motifs
                 ]}
             </ul>}
+        {has_kit
+            and len(chosen) > 0
+            and <p className="text-sm" data-testid="design-summary">
+                {current["name"]}: {", ".join(chosen)}.
+            </p>}
         {logo
             and <div className="flex flex-wrap gap-3">
                 <Button
-                    variant="outline"
                     className="min-h-11 px-5"
                     disabled={busy != ""}
-                    onClick={draw_kit}
+                    onClick={design}
                 >
-                    {busy == "drawing" and <Spinner aria-hidden="true"/>}{"Drawing… about 15 seconds"
-                        if busy == "drawing"
-                        else ("Draw again" if has_kit else "Draw my brand")}
+                    {busy == "designing" and <Spinner aria-hidden="true"/>}{"Designing… about 20 seconds"
+                        if busy == "designing"
+                        else ("Design again" if has_kit else "Design my storefront")}
                 </Button>
                 {has_kit
                     and <Button
@@ -962,39 +826,27 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                         Remove brand
                     </Button>}
             </div>}
-        {has_kit
-            and <div className="grid gap-4 sm:grid-cols-2" data-testid="kit-look">
-                {[
-                    <fieldset key={key} className="flex flex-col gap-2">
-                        <legend className="mb-1 text-sm font-medium">{label}</legend>
-                        {[
-                            <label
-                                key={value}
-                                className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-muted"
-                            >
-                                <input
-                                    type="radio"
-                                    name={f"kit-{key}"}
-                                    value={value}
-                                    checked={kit_look[key] == value}
-                                    onChange={lambda { pick_look(key, value); }}
-                                    className="size-4"
-                                />
-                                {text}
-                            </label> for (value, text) in options
-                        ]}
-                    </fieldset> for (key, label, options) in LOOK_CHOICES
-                ]}
-            </div>}
-        {kit_note
+        {design_note
             and <p
                 role="status"
                 className="text-sm text-muted-foreground"
                 data-testid="kit-note"
             >
-                {kit_note}
+                {design_note}
             </p>}
     </section>;
+
+    adjust_section = <details
+        className="group flex flex-col gap-8 rounded-lg border p-4"
+        data-testid="adjust-yourself"
+    >
+        <summary className="flex min-h-11 cursor-pointer items-center font-semibold">
+            Adjust colours and fonts yourself
+        </summary>
+        <div className="mt-4 flex flex-col gap-8">
+            {presets}{colours}{type_and_shape}
+        </div>
+    </details>;
 
     history = <section
         aria-labelledby="history-heading"
@@ -1139,7 +991,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     </div>
                 </div>
                 <div className="flex min-w-0 flex-col gap-8 lg:order-1">
-                    {presets}{colours}{type_and_shape}{logo_section}{ideas_section}{kit_section}{actions}{history}
+                    {logo_section}{design_section}{actions}{adjust_section}{history}
                 </div>
             </div>
         </div>;
