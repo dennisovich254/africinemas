@@ -3,7 +3,8 @@
 In-process app (payment_app.jac) with the plan and image models scripted
 (script_brand_kit).
 - draw_brand_kit needs the draft logo and tenant.settings.update; the kit is the
-  draft's, private until published; set_brand_look changes its designed look.
+  draft's, private until published; set_brand_look changes parts of its designed look
+  and keeps the rest of what the AI chose (ADR-0047).
 - Publishing puts it on the storefront, masks as images; removing it and publishing
   takes it off. KIT_DAILY (3) a day per cinema.
 """
@@ -21,7 +22,13 @@ glob PLAN: str = json.dumps(
              "card": "notched",
              "frame": "open",
              "divider": "motif",
-             "heading": "caps"
+             "heading": "caps",
+             "fonts": "heritage",
+             "header": "centred",
+             "hero": "centred_crest",
+             "surfaces": "flat",
+             "density": "airy",
+             "tagline": "Stories under the acacia"
          }
      );
 
@@ -69,6 +76,9 @@ test "a kit is drawn from the logo, restyled, published, and taken off again" {
         drawn = _call(app, "draw_brand_kit", {});
         assert drawn["ok"] , drawn;
         assert drawn["kit"]["look"]["frame"] == "open";
+        assert drawn["kit"]["look"]["fonts"] == "heritage";
+        assert drawn["kit"]["look"]["hero"] == "centred_crest";
+        assert drawn["kit"]["tagline"] == "Stories under the acacia";
         motifs = drawn["kit"]["motifs"];
         assert len(motifs) == 1 and motifs[0]["name"] == "a dove in flight";
         assert motifs[0]["mask"].startswith("data:image/webp;base64,");
@@ -87,11 +97,14 @@ test "a kit is drawn from the logo, restyled, published, and taken off again" {
             }
         );
         assert restyled["ok"] and restyled["look"]["card"] == "rounded" , restyled;
+        assert restyled["look"]["fonts"] == "heritage" , "the rest of the AI's look stays";
         bad = _call(app, "set_brand_look", {"look": {"card": "blob"}});
         assert not bad["ok"] and bad["error"]["code"] == "invalid_look";
         assert _call(app, "publish_theme", {})["ok"];
         shown = _public(app)["kit"];
         assert shown["look"]["card"] == "rounded";
+        assert shown["look"]["header"] == "centred";
+        assert shown["tagline"] == "Stories under the acacia";
         assert shown["motifs"][0]["mask"].startswith("data:image/webp;base64,");
         assert _call(app, "remove_brand_kit", {})["ok"];
         assert _call(app, "publish_theme", {})["ok"];
