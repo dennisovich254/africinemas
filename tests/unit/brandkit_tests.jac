@@ -16,6 +16,11 @@ import from core.theming.brandkit {
     FrameStyle,
     DividerStyle,
     HeadingStyle,
+    FontPairing,
+    HeaderLayout,
+    HeroComposition,
+    SurfaceStyle,
+    Density,
     KitFailed,
     DEFAULT_LOOK,
     MASK_SIDE,
@@ -75,13 +80,17 @@ test "a transparent drawing keeps its transparency; blank or solid drawings are 
     }
 }
 
-test "a look is four designed choices, nothing else" {
-    good = {"card": "notched", "frame": "open", "divider": "row", "heading": "caps"};
-    assert checked_look(good) == good;
+test "a look is designed choices, nothing else; an older look gains the defaults" {
+    older = {"card": "notched", "frame": "open", "divider": "row", "heading": "caps"};
+    full = checked_look(older);
+    assert full == {** DEFAULT_LOOK, ** older};
+    assert checked_look(full) == full;
     for bad in [
         {},
         {"card": "blob", "frame": "open", "divider": "row", "heading": "caps"},
         {"card": "notched", "frame": "open", "divider": "row"},
+        {** full, "fonts": "comic sans"},
+        {** full, "hero": "fullscreen backdrop"},
         "notched"
     ] {
         try {
@@ -99,17 +108,36 @@ test "the plan keeps the model's motifs and look; a failure gives the default lo
                 card=CardStyle.NOTCHED,
                 frame=FrameStyle.OPEN,
                 divider=DividerStyle.MOTIF,
-                heading=HeadingStyle.CAPS
+                heading=HeadingStyle.CAPS,
+                fonts=FontPairing.GALLERY,
+                header=HeaderLayout.CENTRED,
+                hero=HeroComposition.SPLIT,
+                surfaces=SurfaceStyle.FLAT,
+                density=Density.COMPACT,
+                tagline='"Where Nairobi meets the movies, every single night of the week and more"'
             )
         ]
     );
-    (names, look) = plan_kit(_dove_drawing(), "Rupa's Mall");
+    (names, look, tagline) = plan_kit(_dove_drawing(), "Rupa's Mall");
     assert names == ["a dove in flight", "three doves"] , "at most two";
     assert look
-        == {"card": "notched", "frame": "open", "divider": "motif", "heading": "caps"};
+        == {
+            "card": "notched",
+            "frame": "open",
+            "divider": "motif",
+            "heading": "caps",
+            "fonts": "gallery",
+            "header": "centred",
+            "hero": "split",
+            "surfaces": "flat",
+            "density": "compact"
+        };
+    assert tagline.startswith("Where Nairobi")
+        and len(tagline) <= 60
+        and '"' not in tagline;
     brandkit.plan_model = MockLLM(outputs=["not a plan"]);
-    (none, fallback) = plan_kit(_dove_drawing(), "Rupa's Mall");
-    assert none == [] and fallback == DEFAULT_LOOK;
+    (none, fallback, no_line) = plan_kit(_dove_drawing(), "Rupa's Mall");
+    assert none == [] and fallback == DEFAULT_LOOK and no_line == "";
 }
 
 test "a kit keeps the motifs that drew; with none, the divider is a plain line" {

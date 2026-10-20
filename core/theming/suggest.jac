@@ -38,6 +38,7 @@ import from core.theming.tokens {
 }
 import from core.theming.branding { NAME_MAX, parse_theme, repair_reporting }
 import from core.homepage.page { TEMPLATES }
+import from core.theming.logo { logo_ink, readable_scheme }
 
 # The theme model: byLLM's Model with its own time limit per attempt, then other models.
 # The booking agent sets litellm's global limit to 15 s, right for a chat reply but too
@@ -415,6 +416,11 @@ def suggest_from_logo(webp: bytes, cinema: str, programme: str = "") -> dict[str
     from_ai = len(proposals) > 0;
     if not from_ai {
         proposals = [code_proposal(keys)];
+    }
+    # The mode visitors see must show the logo: a pale logo vanished on a light page.
+    ink = logo_ink(webp);
+    for p in proposals {
+        p["theme"]["scheme"] = readable_scheme(p["theme"], ink);
     }
     return {
         "proposals": proposals,

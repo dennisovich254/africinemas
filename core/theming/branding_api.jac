@@ -42,7 +42,8 @@ import from core.theming.css { theme_css, FONT_STACKS, RADIUS_REM }
 import from core.theming.branding { PRESETS, parse_theme, repair_reporting }
 import from core.theming.models { Branding, ThemeVersion }
 import from core.theming.suggest { suggest_from_logo }
-import from core.theming.brandkit { draw_kit, checked_look }
+import from core.theming.logo { clear_backdrop }
+import from core.theming.brandkit { draw_kit, checked_look, DEFAULT_LOOK }
 import from core.audit.log { audited }
 
 glob logger = logging.getLogger(__name__),
@@ -119,8 +120,18 @@ def _public_kit(kit: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
             {"name": m.get("name", ""), "mask": _data_url(m.get("mask", ""))}
             for m in kit.get("motifs", []) or []
         ],
-        "look": dict(kit.get("look", {}) or {})
+        "look": _full_look(kit.get("look", {})),
+        "tagline": str(kit.get("tagline", "") or "")
     };
+}
+
+def _full_look(look: any) -> dict[str, str] {  # jac:ignore[W1037]
+    # Every part of the look; a kit drawn before the design parts gets the defaults.
+    try {
+        return checked_look(look);
+    } except ValueError {
+        return dict(DEFAULT_LOOK);
+    }
 }
 
 def _view(scope: TenantScope, branding: Branding | None) -> dict[str, any] {  # jac:ignore[W1037]
@@ -204,7 +215,8 @@ def _save_theme(tenant: str, theme: dict[str, any]) -> dict[str, any] {  # jac:i
 def _upload_logo(tenant: str, content_type: str, data_base64: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, CONFIGURE);
     try {
-        webp = process_logo(decode_upload(data_base64), content_type);
+        # A plain backdrop is cleared, so the logo sits on the page (ADR-0047).
+        webp = clear_backdrop(process_logo(decode_upload(data_base64), content_type));
     } except PosterRejected as e {
         raise Refused(e.code, e.message);
     }
@@ -297,12 +309,18 @@ def _draw_brand_kit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
 
 def _set_brand_look(tenant: str, look: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, CONFIGURE);
+    branding = _branding(scope);
+    # The parts sent change; the rest of the AI's look stays.
+    current = dict(branding.draft_kit.get("look", {}) or {})
+        if branding is not None and branding.draft_kit
+        else {};
     try {
-        chosen = checked_look(look);
+        chosen = checked_look(
+            {** current, ** (look if isinstance(look, dict) else {"card": None})}
+        );
     } except ValueError as e {
         raise Refused("invalid_look", str(e));
     }
-    branding = _branding(scope);
     if branding is None or not branding.draft_kit {
         raise Refused("no_kit", "Draw your brand from your logo first.");
     }
