@@ -259,6 +259,9 @@ def:pub StorefrontShell(
     }
     look: dict[str, any] = branding;  # jac:ignore[W1037]
     written = ai_page_of(look);
+    # Our own main area, unless the written page draws the home page itself. Kept as a
+    # flag: `a or b and <main>` would read as `a or (b and <main>)` and draw `true`.
+    our_main: bool = written is None or home is None;
     # The cinema's fixed light or dark choice, or "auto" to follow the device (ADR-0044).
     scheme: str = look["theme"]["scheme"] or "auto";
     # The brand kit (ADR-0046): its look on the root, its motifs as masks for KitMark.
@@ -440,8 +443,7 @@ def:pub StorefrontShell(
                         cinema={place["name"]}
                         logo={look["logo"]}
                         home={home}
-                    />}{written is None
-                    or home is None
+                    />}{our_main
                     and <main
                         className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8"
                     >
