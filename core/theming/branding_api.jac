@@ -123,6 +123,19 @@ def _data_url(logo: str) -> str {
     return f"data:image/webp;base64,{logo}" if logo else "";
 }
 
+def _mask_url(motif: dict[str, any]) -> str {  # jac:ignore[W1037]
+    # A figure's mask as a data URL: an SVG traced from the logo (ADR-0049), or a WebP
+    # drawing from a kit made before that.
+    mask: str = motif.get("mask", "") or "";
+    if not mask {
+        return "";
+    }
+    if motif.get("type") == "svg" {
+        return f"data:image/svg+xml;base64,{mask}";
+    }
+    return _data_url(mask);
+}
+
 def _public_kit(kit: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     # A kit as a page shows it: each mask as a data URL; {} for no kit.
     if not kit {
@@ -130,7 +143,7 @@ def _public_kit(kit: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     }
     return {
         "motifs": [
-            {"name": m.get("name", ""), "mask": _data_url(m.get("mask", ""))}
+            {"name": m.get("name", ""), "mask": _mask_url(m)}
             for m in kit.get("motifs", []) or []
         ],
         "look": _full_look(kit.get("look", {})),
@@ -339,7 +352,6 @@ def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
             "no_logo", "Upload your logo first, then AI can design your storefront."
         );
     }
-    raw = base64.b64decode(branding.draft_logo);
     today = now().date().isoformat();
     used = branding.kit_count if branding.kit_day == today else 0;
     if used >= KIT_DAILY {
@@ -347,6 +359,15 @@ def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
             "kit_limit",
             f"You've designed your storefront {KIT_DAILY} times today. Try again tomorrow."
         );
+    }
+    # A logo uploaded before the clean-up (ADR-0047) is cleaned now, and kept cleaned.
+    raw = clear_backdrop(base64.b64decode(branding.draft_logo));
+    cleaned = base64.b64encode(raw).decode();
+    if cleaned != branding.draft_logo {
+        def _clean(b: Branding) {
+            b.draft_logo = cleaned;
+        }
+        _edit_draft(scope, _clean);
     }
     # Counted before the calls, so a slow or failed one still counts.
     def _count(b: Branding) {
@@ -383,7 +404,10 @@ def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "kit": _public_kit(kit),
         "page": page,
         "template": idea["template"],
+        # Which AI steps answered, so the owner is told when one fell back (ADR-0049).
         "from_ai": found["from_ai"],
+        "kit_from_ai": bool(kit.get("from_ai", False)),
+        "logo": _data_url(cleaned),
         "remaining": KIT_DAILY - used - 1
     };
 }

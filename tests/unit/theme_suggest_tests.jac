@@ -1,4 +1,4 @@
-"""Theme suggestions from a logo (ADR-0043), with a scripted model (MockLLM, no key).
+"""Theme suggestions from a logo (ADR-0043, ADR-0049), with a scripted model (no key).
 
 The logo's colours are read by code, exactly; whatever the model proposes is rebuilt as
 theme data, repaired and validated, so every theme an owner sees is readable and uses
@@ -7,11 +7,12 @@ only allowlisted fonts; a failing model gives one theme built from the logo inst
 
 import io;
 import from PIL { Image }
-import from jaclang.byllm.lib { MockLLM }
+import from core.ai.claude { ClaudeFailed }
 import from core.theming.tokens {
     DEFAULT_THEME,
     DISPLAY_FONTS,
     BODY_FONTS,
+    ROLES,
     validate_theme
 }
 import from core.theming.branding { parse_theme }
@@ -21,7 +22,8 @@ import from core.theming.suggest {
     ModeColours,
     logo_colours,
     checked_proposal,
-    ThemeModel,
+    theme_schema,
+    proposal_from,
     _short_name
 }
 
@@ -131,22 +133,62 @@ test "only allowlisted fonts and corners reach the owner" {
     assert shown["theme"]["radius"] == DEFAULT_THEME.radius;
 }
 
+def _answer(p: ThemeProposal) -> dict[str, any] {  # jac:ignore[W1037]
+    # A proposal as Claude's JSON answer.
+    return {
+        "mood": p.mood,
+        "reason": p.reason,
+        "light": {r: getattr(p.light, r) for r in ROLES},
+        "dark": {r: getattr(p.dark, r) for r in ROLES},
+        "display_font": p.display_font,
+        "body_font": p.body_font,
+        "radius": p.radius,
+        "scheme": p.scheme,
+        "template": p.template
+    };
+}
+
+obj Scripted {
+    # Claude's answers in order (an exception is raised); what each ask sent.
+    has answers: list[any] = [],  # jac:ignore[W1037]
+        sent: list[str] = [];
+
+    def ask(
+        content: list[dict[str, any]],  # jac:ignore[W1037]
+        schema: dict[str, any],  # jac:ignore[W1037]
+        system: str = "",
+        effort: str = "",
+        timeout: float = 0.0
+    ) -> dict[str, any] {  # jac:ignore[W1037]
+        self.sent.append(str(content) + system + str(schema));
+        answer = self.answers.pop(0);
+        if isinstance(answer, Exception) {
+            raise answer;
+        }
+        return answer;
+    }
+}
+
 test "the model's theme is checked, and a broken one gives the logo's theme" {
-    suggest.theme_model = MockLLM(
-        outputs=[
-            _proposal("A very long mood name that goes on and on and on for ever"),
-            _proposal("Broken", {"accent": "not a colour"})
+    model = Scripted(
+        answers=[
+            _answer(
+                _proposal("A very long mood name that goes on and on and on for ever")
+            ),
+            _answer(_proposal("Broken", {"accent": "not a colour"}))
         ]
     );
+    suggest.ask = model.ask;
     got = suggest.suggest_from_logo(_logo(), "Nova Cinemas");
     assert got["from_ai"] and len(got["proposals"]) == 1;
     name = got["proposals"][0]["theme"]["name"];
     assert len(name) <= 40 and not name.startswith("A ") , name;
     assert validate_theme(parse_theme(got["proposals"][0]["theme"])) == [];
     assert got["colours"][0]["hex"] == "#78141e";
-    sent = str(suggest.theme_model.sent("messages"));
+    sent = model.sent[0];
     assert "#78141e" in sent , "the model sees the logo's exact colours";
     assert "Nova Cinemas" in sent;
+    assert "'type': 'image'" in sent , "and the logo itself";
     assert any([d in sent for d in suggest.DIRECTIONS]) , "each ask has a style direction";
     # The next ask's theme is broken: the owner gets the logo's theme instead.
     again = suggest.suggest_from_logo(_logo(), "Nova Cinemas");
@@ -155,7 +197,7 @@ test "the model's theme is checked, and a broken one gives the logo's theme" {
 }
 
 test "a failing model gives one theme built from the logo" {
-    suggest.theme_model = MockLLM(outputs=["this is not a list of themes"]);
+    suggest.ask = Scripted(answers=[ClaudeFailed("the model declined")]).ask;
     got = suggest.suggest_from_logo(_logo(), "Nova Cinemas");
     assert not got["from_ai"];
     assert len(got["proposals"]) == 1;
@@ -164,60 +206,22 @@ test "a failing model gives one theme built from the logo" {
     assert validate_theme(parse_theme(theme)) == [];
     # Built on the logo's key colour (repair may darken it for contrast).
     assert theme["light"]["accent"] != DEFAULT_THEME.light.accent;
+    # An answer missing a part is a failure too, never a half theme.
+    half = _answer(_proposal("Half"));
+    half["dark"] = {"background": "#000000"};
+    suggest.ask = Scripted(answers=[half]).ask;
+    assert not suggest.suggest_from_logo(_logo(), "Nova Cinemas")["from_ai"];
 }
 
-obj ScriptedThemeModel(ThemeModel) {
-    # A ThemeModel whose attempts are scripted per model name: no network.
-    has fails: list[str] = [],
-        tried: list[dict[str, any]] = [];  # jac:ignore[W1037]
-
-    override def _attempt(params: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
-        self.tried.append(params);
-        if params["model"] in self.fails {
-            raise RuntimeError(f"{params['model']} is overloaded");
-        }
-        return {"answered_by": params["model"]};
-    }
-}
-
-test "an overloaded model hands over to the next, each with its own time limit" {
-    model = ScriptedThemeModel(
-        model_name="test/lite",
-        fallback_models=["test/flash", "test/older"],
-        fails=["test/lite"]
-    );
-    got = model.model_call_no_stream({"model": "ignored", "messages": []});
-    assert got == {"answered_by": "test/flash"};
-    assert [t["model"] for t in model.tried] == ["test/lite", "test/flash"];
-    assert all(
-        [
-            t["timeout"] == model.attempt_timeout and t["num_retries"] == 0
-            for t in model.tried
-        ]
-    );
-    # Gemini 3.x can't stop thinking, so it thinks a little; 2.5 doesn't think at all.
-    assert all([t["reasoning_effort"] == "low" for t in model.tried]);
-    older = ScriptedThemeModel(model_name="gemini/gemini-2.5-flash");
-    older.model_call_no_stream({"messages": []});
-    assert older.tried[0]["reasoning_effort"] == "disable";
-    assert older.tried[0]["max_tokens"] < model.tried[0]["max_tokens"];
-    every = ScriptedThemeModel(
-        model_name="test/lite",
-        fallback_models=["test/flash"],
-        fails=["test/lite", "test/flash"]
-    );
-    try {
-        every.model_call_no_stream({"messages": []});
-        assert False , "all models failing must raise";
-    } except RuntimeError as e {
-        assert "test/flash" in str(e);
-    }
-}
-
-test "a theme's name is short, even when the model wrote a sentence" {
-    assert _short_name("Midnight Premiere") == "Midnight Premiere";
-    assert _short_name("A bold, high-contrast theme that leans into the purples")
-        == "Bold High-contrast Theme";
-    assert len(_short_name("Supercalifragilistic " * 5)) <= 40;
-    assert _short_name("   ") == "From your logo";
+test "the schema allows only the theme's roles, fonts, corners, schemes and templates" {
+    schema = theme_schema();
+    props = schema["properties"];
+    assert props["light"]["required"] == list(ROLES);
+    assert props["display_font"]["enum"] == list(DISPLAY_FONTS);
+    assert props["body_font"]["enum"] == list(BODY_FONTS);
+    assert props["scheme"]["enum"] == ["light", "dark"];
+    assert set(props["template"]["enum"]) == {"marquee", "schedule", "compact"};
+    assert schema["additionalProperties"] == False;
+    made = proposal_from(_answer(_proposal("Golden Hour")));
+    assert made.light.accent == "#78141e" and made.template == "schedule";
 }

@@ -1,7 +1,7 @@
 """A brand kit drawn from the logo, through the endpoints (ADR-0046).
 
 In-process app (payment_app.jac) with the plan and image models scripted
-(script_brand_kit).
+(script_brand_kit): the plan is scripted, and the figure is cut from the logo itself (ADR-0049).
 - draw_brand_kit needs the draft logo and tenant.settings.update; the kit is the
   draft's, private until published; set_brand_look changes parts of its designed look
   and keeps the rest of what the AI chose (ADR-0047).
@@ -18,7 +18,14 @@ import from tests.support.payment_setup { paying_cinema, hire }
 
 glob PLAN: str = json.dumps(
          {
-             "motifs": ["a dove in flight"],
+             # The logo below, cleaned on upload, is the black disc alone: 181 x 121.
+             "motifs": [
+                 {
+                     "name": "a dove in flight",
+                     "box": [0, 0, 181, 121],
+                     "colour": "#000000"
+                 }
+             ],
              "card": "notched",
              "frame": "open",
              "divider": "motif",
@@ -58,7 +65,7 @@ def _logo(app: Served) {
     assert _call(
         app,
         "upload_logo",
-        {"content_type": "image/png", "data_base64": _png_base64(False)}
+        {"content_type": "image/png", "data_base64": _png_base64(True)}
     )["ok"];
 }
 
@@ -68,11 +75,7 @@ test "a kit is drawn from the logo, restyled, published, and taken off again" {
         refused = _call(app, "draw_brand_kit", {});
         assert not refused["ok"] and refused["error"]["code"] == "no_logo" , refused;
         _logo(app);
-        app.call(
-            "owner",
-            "script_brand_kit",
-            {"image_base64": _png_base64(True), "plan": PLAN}
-        );
+        app.call("owner", "script_brand_kit", {"plan": PLAN});
         drawn = _call(app, "draw_brand_kit", {});
         assert drawn["ok"] , drawn;
         assert drawn["kit"]["look"]["frame"] == "open";
@@ -81,7 +84,7 @@ test "a kit is drawn from the logo, restyled, published, and taken off again" {
         assert drawn["kit"]["tagline"] == "Stories under the acacia";
         motifs = drawn["kit"]["motifs"];
         assert len(motifs) == 1 and motifs[0]["name"] == "a dove in flight";
-        assert motifs[0]["mask"].startswith("data:image/webp;base64,");
+        assert motifs[0]["mask"].startswith("data:image/svg+xml;base64,");
         assert drawn["remaining"] == 2;
         assert _public(app)["kit"] == {} , "a kit is private until published";
         restyled = _call(
@@ -105,7 +108,7 @@ test "a kit is drawn from the logo, restyled, published, and taken off again" {
         assert shown["look"]["card"] == "rounded";
         assert shown["look"]["header"] == "centred";
         assert shown["tagline"] == "Stories under the acacia";
-        assert shown["motifs"][0]["mask"].startswith("data:image/webp;base64,");
+        assert shown["motifs"][0]["mask"].startswith("data:image/svg+xml;base64,");
         assert _call(app, "remove_brand_kit", {})["ok"];
         assert _call(app, "publish_theme", {})["ok"];
         assert _public(app)["kit"] == {};
@@ -118,11 +121,7 @@ test "the fourth kit in a day is refused, and box office staff can't draw one" {
     (app, _, _) = paying_cinema(["agent"]);
     try {
         _logo(app);
-        app.call(
-            "owner",
-            "script_brand_kit",
-            {"image_base64": _png_base64(True), "plan": PLAN}
-        );
+        app.call("owner", "script_brand_kit", {"plan": PLAN});
         for _ in range(3) {
             assert _call(app, "draw_brand_kit", {})["ok"];
         }
@@ -155,11 +154,7 @@ test "design my storefront puts a theme and the brand's design on the draft, pri
         refused = _call(app, "design_storefront", {});
         assert not refused["ok"] and refused["error"]["code"] == "no_logo" , refused;
         _logo(app);
-        app.call(
-            "owner",
-            "script_brand_kit",
-            {"image_base64": _png_base64(True), "plan": PLAN}
-        );
+        app.call("owner", "script_brand_kit", {"plan": PLAN});
         # The theme model fails, so the theme is built from the logo's colour.
         app.call("owner", "script_theme_model", {"outputs": ["not a theme"] * 3});
         with open("tests/fixtures/ai_storefront.html") as f {

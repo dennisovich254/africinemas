@@ -6,6 +6,8 @@ per phone number) and the payments stored for a showtime. Run with
 AFRICINEMAS_PAYMENTS=simulator.
 """
 
+import json;
+
 import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
 import from core.tenancy.storefront_accounts { customer_sign_up, my_storefront_account }
 import from core.oauth.connections {
@@ -37,6 +39,7 @@ import from core.theming.branding_api {
 import core.theming.suggest as suggest_module;
 import core.theming.brandkit as brandkit_module;
 import core.theming.pagecode as pagecode_module;
+import from core.ai.claude { ClaudeFailed }
 import from core.agent.tools { HOLDER, tool_named }
 import from jaclang.byllm.lib { MockLLM, MockToolCall }
 import from core.audit.log { Opened, collection_of, _close }
@@ -505,21 +508,38 @@ def:pub agent_mock(steps: list[any]) -> bool {  # jac:ignore[W1037]
     return True;
 }
 
-def:pub script_brand_kit(image_base64: str, plan: str) -> bool {
-    # The brand kit's models (ADR-0046): every motif drawing is this image (or fails
-    # when it is ""), and the plan is this JSON text (BrandPlan).
-    def drawn(_logo: bytes, _brief: str) -> dict[str, any] {  # jac:ignore[W1037]
-        if not image_base64 {
-            raise brandkit_module.KitFailed("scripted failure");
+def _answers(outputs: list[str]) -> any {
+    # Claude's scripted answers, in order, each JSON text (ADR-0049): one that isn't
+    # JSON, or none left, is a failed call, as a refusal or a provider error would be.
+    queue = list(outputs);
+    def answer(
+        content: any,  # jac:ignore[W1037]
+        schema: any,  # jac:ignore[W1037]
+        system: str = "",
+        effort: str = "",
+        timeout: float = 0.0
+    ) -> dict[str, any] {  # jac:ignore[W1037]
+        if not queue {
+            raise ClaudeFailed("no scripted answer left");
         }
-        return {
-            "candidates": [
-                {"content": {"parts": [{"inlineData": {"data": image_base64}}]}}
-            ]
-        };
+        text = queue.pop(0);
+        try {
+            found: any = json.loads(text);  # jac:ignore[W1037]
+        } except ValueError {
+            raise ClaudeFailed("the answer wasn't JSON");
+        }
+        if not isinstance(found, dict) {
+            raise ClaudeFailed("the answer wasn't an object");
+        }
+        return found;
     }
-    brandkit_module.send = drawn;
-    brandkit_module.plan_model = MockLLM(outputs=[plan] * 5);
+    return answer;
+}
+
+def:pub script_brand_kit(plan: str) -> bool {
+    # Claude's brand plan (ADR-0049) is this JSON text for every kit drawn, or fails
+    # when it is "". The figures are cut from the logo itself, as in production.
+    brandkit_module.ask = _answers([plan] * 10 if plan else []);
     return True;
 }
 
@@ -537,9 +557,9 @@ def:pub script_storefront_page(answer: str) -> bool {
 }
 
 def:pub script_theme_model(outputs: list[str]) -> bool {
-    # The theme suggester's model becomes a MockLLM (ADR-0043): each output is the
-    # model's next answer, as text (JSON for a list of proposals).
-    suggest_module.theme_model = MockLLM(outputs=outputs);
+    # Claude's theme answers (ADR-0043, ADR-0049): each output is the next answer, as
+    # JSON text; anything else is a failed call.
+    suggest_module.ask = _answers(outputs);
     return True;
 }
 

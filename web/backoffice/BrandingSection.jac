@@ -391,16 +391,26 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         }
         left: int = answer["remaining"];
         wrote: bool = True if (answer["page"] or {})["html"] else False;
-        said = (
-            "AI wrote your storefront from your logo. Look at it below, then publish to show it."
-                if wrote
-                else "Your storefront is designed from your logo. The AI couldn't write its own page this time, so it uses the designed layout; design again to try once more."
-        )
-            + (
-                ""
-                    if answer["from_ai"]
-                    else " Its colours come from your logo's main colour, as the AI couldn't choose them just now."
-            );
+        # Say plainly which AI step didn't answer (ADR-0049), so the owner designs again
+        # rather than publishing half a design.
+        missed: list[str] = [];
+        if not answer["kit_from_ai"] {
+            missed.append("plan your brand's figures and look");
+        }
+        if not answer["from_ai"] {
+            missed.append("choose your colours");
+        }
+        if not wrote {
+            missed.append("write your page");
+        }
+        said = "AI designed your storefront from your logo. Look at it below, then publish to show it."
+            if len(missed) == 0
+            else "The AI couldn't "
+                + " or ".join(missed)
+                + " just now, so those parts are simpler than they should be. Design again in a few minutes before you publish.";
+        if answer["logo"] {
+            set_logo(answer["logo"]);
+        }
         more = " That was your last design for today."
             if left == 0
             else f" You can design {left} more times today.";
