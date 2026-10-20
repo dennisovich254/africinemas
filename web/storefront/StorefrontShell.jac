@@ -268,6 +268,8 @@ def:pub StorefrontShell(
     pattern_style: str = look["pattern_style"] or "";
     # The brand kit (ADR-0046): its look on the root, its motifs as masks for KitMark.
     kit: dict[str, any] = look["kit"] or {};  # jac:ignore[W1037]
+    # A look always has a card choice; test that, not the dict: in the browser an
+    # empty object is true, so `if kit_look` would wrongly say there is a kit.
     kit_look: dict[str, str] = kit["look"] or {};
     motifs: list[dict[str, str]] = kit["motifs"] or [];
     root_style: dict[str, str] = {};
@@ -296,7 +298,7 @@ def:pub StorefrontShell(
                 data-testid="storefront"
                 data-pattern-style={pattern_style if pattern else ""}
                 style={root_style}
-                data-kit={"on" if kit_look else ""}
+                data-kit={"on" if kit_look["card"] else ""}
                 data-kit-motif={"on" if len(motifs) > 0 else ""}
                 data-kit-card={kit_look["card"] or ""}
                 data-kit-frame={kit_look["frame"] or ""}
