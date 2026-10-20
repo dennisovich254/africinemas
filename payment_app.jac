@@ -36,6 +36,7 @@ import from core.theming.branding_api {
 }
 import core.theming.suggest as suggest_module;
 import core.theming.brandkit as brandkit_module;
+import core.theming.pagecode as pagecode_module;
 import from core.agent.tools { HOLDER, tool_named }
 import from jaclang.byllm.lib { MockLLM, MockToolCall }
 import from core.audit.log { Opened, collection_of, _close }
@@ -519,6 +520,19 @@ def:pub script_brand_kit(image_base64: str, plan: str) -> bool {
     }
     brandkit_module.send = drawn;
     brandkit_module.plan_model = MockLLM(outputs=[plan] * 5);
+    return True;
+}
+
+def:pub script_storefront_page(answer: str) -> bool {
+    # The page writer's model (ADR-0048): every page it writes is this answer, or it
+    # fails when the answer is "".
+    def written(_logo: bytes, _prompt: str, _model: str) -> str {
+        if not answer {
+            raise pagecode_module.PageFailed("scripted failure");
+        }
+        return answer;
+    }
+    pagecode_module.send = written;
     return True;
 }
 

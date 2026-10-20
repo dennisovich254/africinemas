@@ -34,7 +34,8 @@ class KitFailed(RuntimeError) {}
 
 glob logger = logging.getLogger(__name__),
      MODEL_ENV: str = "AFRICINEMAS_PATTERN_MODEL",
-     DEFAULT_MODEL: str = "gemini-2.5-flash-image",
+     # The newest Gemini image model (2026-10-20).
+     DEFAULT_MODEL: str = "gemini-3.1-flash-image",
      # Browser tests only (scripts/e2e_env.sh; production never sets it): an image file
      # that stands in for every motif drawing.
      SCRIPT_ENV: str = "AFRICINEMAS_KIT_SCRIPT",

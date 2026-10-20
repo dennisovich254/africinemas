@@ -188,6 +188,7 @@ pillow = "~=12.3"
 segno = "~=1.6"
 # Theme suggestions read a logo's colours with Material Color Utilities (ADR-0043).
 materialyoucolor = "~=3.0"
+tinycss2 = "~=1.4"
 
 # ---------------------------------------------------------------------------
 # The AI booking agent (P8.1): Gemini through byLLM. No key here: the provider reads it
