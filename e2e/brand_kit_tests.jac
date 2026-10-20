@@ -134,6 +134,12 @@ test "the storefront wears the cinema's brand kit inside its parts" {
             panel = page.locator('[data-testid="section-hero"]').evaluate(
                 "e => getComputedStyle(e).gridTemplateColumns"
             );
+            poster_box = page.locator(
+                '[data-testid="section-hero"] [data-kit-slot="poster"]'
+            ).bounding_box();
+            if project == "mobile" {
+                assert poster_box["height"] <= 260 , "the split poster is a band on phones";
+            }
             if project == "desktop" {
                 assert len(panel.split(" ")) == 2 , panel;
                 logo = page.locator(
