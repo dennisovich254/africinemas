@@ -110,8 +110,8 @@ test "the storefront wears the cinema's brand kit inside its parts" {
             );
             # Shown (a flex item computes as block) and painted with the motif.
             assert not heading.startswith("none")
-                and "data:image/webp" in heading , heading;
-            assert "data:image/webp" in page.evaluate(MASK_JS, ".kit-sign") , "footer mark";
+                and "data:image/svg+xml" in heading , heading;
+            assert "data:image/svg+xml" in page.evaluate(MASK_JS, ".kit-sign") , "footer mark";
             divider = page.locator("[data-kit-divider-slot]").first;
             if divider.count() > 0 {
                 assert divider.evaluate("e => getComputedStyle(e).display") == "flex";
@@ -232,7 +232,7 @@ test "an owner designs their storefront from the logo with one button, then publ
         dove = page.evaluate(
             "() => { const e = document.querySelector('[data-testid=ai-home] [data-motif]'); const s = e && getComputedStyle(e); return s ? (s.maskImage || s.webkitMaskImage) : ''; }"
         );
-        assert "data:image/webp" in dove , dove;
+        assert "data:image/svg+xml" in dove , dove;
         films = page.locator('[data-testid="ai-home"] article');
         assert films.count() == 2 , "one card per film on sale";
         assert page.locator('[data-testid="ai-home"] script').count() == 0;
