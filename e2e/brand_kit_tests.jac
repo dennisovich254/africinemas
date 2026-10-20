@@ -230,6 +230,11 @@ test "an owner designs their storefront from the logo with one button, then publ
         page.wait_for_selector('[data-testid="ai-home"]');
         assert page.locator('[data-testid="storefront-header"]').count() == 0 , "the AI's header replaces ours";
         assert page.locator('[data-testid="ai-header"] img[alt]').count() == 1 , "the logo";
+        # The logo's own figures from the kit, painted where the page asked for them.
+        dove = page.evaluate(
+            "() => { const e = document.querySelector('[data-testid=ai-home] [data-motif]'); const s = e && getComputedStyle(e); return s ? (s.maskImage || s.webkitMaskImage) : ''; }"
+        );
+        assert "data:image/webp" in dove , dove;
         films = page.locator('[data-testid="ai-home"] article');
         assert films.count() == 2 , "one card per film on sale";
         assert page.locator('[data-testid="ai-home"] script').count() == 0;

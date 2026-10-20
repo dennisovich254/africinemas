@@ -6,7 +6,10 @@ allowlisted tags and attributes are drawn again, and nothing that runs is (no ev
 handlers, no src or href but ours). The slots are filled from public_home:
 - data-each repeats an element per film or showtime (featured, films, film.times,
   today, soon) and data-empty shows an element only when its list is empty;
-- data-text puts our text in, data-img our logo or a poster, data-link our routes.
+- data-text puts our text in, data-img our logo or a poster, data-link our routes;
+- data-motif paints the logo's own figure from the brand kit (ADR-0046) in the element's
+  CSS colour, through the motif's mask: "single" is the first motif, "group" the last.
+  Without a kit the element isn't drawn.
 
 AiPart draws one part (header, home or footer) inside a .ai-page wrapper, the scope of
 the template's stylesheet, so the AI's CSS never reaches our own pages (movie,
@@ -57,6 +60,15 @@ glob SVG_NS: str = "http://www.w3.org/2000/svg",
          "datetime": "dateTime",
          "for": "htmlFor"
      };
+
+def:pub kit_masks(kit: dict[str, any] | None) -> list[str] {  # jac:ignore[W1037]
+    # The brand kit's motif masks (data URLs), single figure first; [] without a kit.
+    if kit is None {
+        return [];
+    }
+    motifs: list[dict[str, str]] = kit["motifs"] or [];
+    return [m["mask"] for m in motifs];
+}
 
 def:pub ai_page_of(branding: dict[str, any] | None) -> dict[str, str] | None {  # jac:ignore[W1037]
     # The written page, or None. In the browser an empty object is true: test its html.
@@ -193,7 +205,25 @@ obj Fill {
     has slug: str,
         cinema: str,
         logo: str,
-        lists: dict[str, any];  # jac:ignore[W1037]
+        lists: dict[str, any],  # jac:ignore[W1037]
+        motifs: list[str] = [];
+}
+
+def _motif_style(mask: str) -> dict[str, str] {
+    # The figure painted in the element's own colour through its mask.
+    url = f"url({mask})";
+    return {
+        "display": "inline-block",
+        "backgroundColor": "currentColor",
+        "maskImage": url,
+        "WebkitMaskImage": url,
+        "maskSize": "contain",
+        "WebkitMaskSize": "contain",
+        "maskRepeat": "no-repeat",
+        "WebkitMaskRepeat": "no-repeat",
+        "maskPosition": "center",
+        "WebkitMaskPosition": "center"
+    };
 }
 
 def _href(fill: Fill, link: str, scope: dict[str, any]) -> str {  # jac:ignore[W1037]
@@ -281,6 +311,18 @@ def _draw(fill: Fill, el: any, scope: dict[str, any], key: str) -> any {  # jac:
     }
     props = _props(el, svg);
     props["key"] = key;
+    motif: str = el.getAttribute("data-motif") or "";
+    if motif {
+        if len(fill.motifs) == 0 {
+            return None;
+        }
+        mask = fill.motifs[0]
+            if motif == "single"
+            else fill.motifs[len(fill.motifs) - 1];
+        props["style"] = _motif_style(mask);
+        props["aria-hidden"] = "true";
+        return make(tag, props, []);
+    }
     img: str = el.getAttribute("data-img") or "";
     if tag == "img" {
         alt: str = el.getAttribute("alt") or "";
@@ -329,10 +371,12 @@ def:pub AiPart(
     part: str,
     cinema: str,
     logo: str = "",
-    home: dict[str, any] | None = None  # jac:ignore[W1037]
+    home: dict[str, any] | None = None,  # jac:ignore[W1037]
+    motifs: list[str] | None = None
 ) -> JsxElement {
     # One part of the written page (header, home or footer) inside the stylesheet's
-    # wrapper; nothing when the template has no such part.
+    # wrapper; nothing when the template has no such part. `motifs` are the brand kit's
+    # masks as data URLs, single figure first.
     win: any = window;  # jac:ignore[W1037,W2001]
     parser: any = new(win.DOMParser);  # jac:ignore[W1037]
     doc: any = parser.parseFromString(f"<body>{page['html']}</body>", "text/html");  # jac:ignore[W1037]
@@ -340,7 +384,9 @@ def:pub AiPart(
     if not found {
         return <span className="hidden"/>;
     }
-    fill = Fill(slug=slug, cinema=cinema, logo=logo, lists=ai_lists(home));
+    fill = Fill(
+        slug=slug, cinema=cinema, logo=logo, lists=ai_lists(home), motifs=motifs or []
+    );
     return
         <div className="ai-page" data-ai-part={part} data-testid={f"ai-{part}"}>
             {_draw(fill, found, {}, part)}

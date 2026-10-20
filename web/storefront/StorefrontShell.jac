@@ -47,7 +47,7 @@ import from .StorefrontSearch { StorefrontSearch }
 import from .venue_choice { use_venue, choose_venue }
 import from .ChatPanel { ChatLauncher }
 import from .AccountLinks { AccountLinks }
-import from .AiPage { AiPart, ai_page_of }
+import from .AiPage { AiPart, ai_page_of, kit_masks }
 
 glob NAV_LINK: str = "inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
@@ -313,6 +313,7 @@ def:pub StorefrontShell(
                     and <AiPart
                         slug={slug}
                         page={written}
+                        motifs={kit_masks(kit)}
                         part="header"
                         cinema={place["name"]}
                         logo={look["logo"]}
@@ -439,6 +440,7 @@ def:pub StorefrontShell(
                     and <AiPart
                         slug={slug}
                         page={written}
+                        motifs={kit_masks(kit)}
                         part="home"
                         cinema={place["name"]}
                         logo={look["logo"]}
@@ -454,6 +456,7 @@ def:pub StorefrontShell(
                     and <AiPart
                         slug={slug}
                         page={written}
+                        motifs={kit_masks(kit)}
                         part="footer"
                         cinema={place["name"]}
                     />}{written is None

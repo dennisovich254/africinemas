@@ -16,7 +16,7 @@ ADR-0047 has the AI choose each storefront's design from designed options. The o
 - **A template.** The model wrote the page with data slots, and our code filled them. All three templates came back complete, in 80 to 130 s each, and none scrolled sideways from 390 px to 1440 px.
 
 ## Decision
-1. **The model writes a template, never the data.** The model is Gemini Pro Latest (`MODELS`), then 3.8 Flash. It writes the header, the home page and the footer in its own HTML, CSS and drawn SVG ornaments. It marks where the programme goes, and the storefront fills those slots:
+1. **The model writes a template, never the data.** The model was Gemini Pro Latest at first; it is now Claude Opus 5.5 (see "Claude writes the page" below). It writes the header, the home page and the footer in its own HTML, CSS and drawn SVG ornaments. It marks where the programme goes, and the storefront fills those slots:
    - `data-each` for the lists: featured, films, a film's times, today, coming soon;
    - `data-empty` for what shows when a list is empty;
    - `data-text` for text, `data-img` for the logo and posters, `data-link` for our routes;
@@ -36,8 +36,16 @@ ADR-0047 has the AI choose each storefront's design from designed options. The o
    Font families become the bundled fonts, so no request leaves the page.
 3. **Complete, or asked again.** A template must have its three parts, the five lists, the book, sign-in, showtime and film links, the logo and "Tickets by AfriCinemas". If any is missing, the model is asked once more, with what it left out. If it still fails, there is no page.
 4. **One button.** `design_storefront` writes the page next to the theme and the kit, at the same time, and waits up to `PAGE_DEADLINE` (320 s). A failed page leaves the designed storefront from ADR-0047 in its place. The page is the draft's, private until published, and carried by versions and rollback. Remove brand removes it too. `public_branding` serves its HTML and CSS.
-5. **Cost.** A page is about 8,000 to 11,000 output tokens plus 3,000 to 16,000 of thinking, roughly $0.15 to $0.30. It is part of the 3 designs a day (`KIT_DAILY`).
+5. **Cost.** On Gemini, a page was about 8,000 to 11,000 output tokens plus 3,000 to 16,000 of thinking, roughly $0.15 to $0.30; on Claude, about $0.40. It is part of the 3 designs a day (`KIT_DAILY`).
 6. **The newest models everywhere.** Themes and the kit's plan use Gemini 3.8 Flash, then Flash Latest. Gemini 3.x can't turn thinking off (it refuses "minimal"), so 3.x thinks at "low" with 4,000 tokens of room, and 2.5 still doesn't think. Motifs are drawn by Gemini 3.1 Flash Image.
+
+## Claude writes the page (2026-10-20)
+Gemini Pro's pages were tidy but generic. The Rupa's Mall prototype the owner liked (a hero framed like the logo, with its dove flying out through a gap) was hand-designed by Claude, using the brand kit's real dove drawings. For one honest comparison, the page writer moved to **Claude Opus 5.5** (`MODEL`), through the official SDK (`anthropic`, called from the module's inline Python block, since the Jac checker can't read the SDK's HTTP library):
+- **The call:** streamed, adaptive thinking at effort `high`, `max_tokens` 64,000, server-side `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) so a declined request is retried on Anthropic's recommended model. A refusal or a cut-off answer is a failed attempt.
+- **The real motifs:** the template can place `data-motif="single"` and `data-motif="group"` slots. The storefront paints the brand kit's masks into them, in the element's CSS colour. The model no longer redraws the logo's figures as SVG.
+- **A better brief:** decide one concept rooted in the logo first, and express it in every section. The brief names the generic patterns to avoid (cream backgrounds, italic accent words, numbered section labels, monospace labels, gradient blobs, glassmorphism, emoji) and asks the logo to sit legibly on its header.
+- **Real runs on Rupa's logo:** 163 s and 147 s, about 18,600 output tokens (roughly $0.40) each. Both were complete at the first attempt, with no sideways scroll at 390 or 1440 px, and both took the framed-hero concept with doves breaking out. `PAGE_DEADLINE` is 480 s.
+- **The key:** `ANTHROPIC_API_KEY` comes from the server's environment, like `GEMINI_API_KEY`. Without it, no page is written and the designed storefront shows. Themes and the kit stay on Gemini.
 
 ## Consequences
 - Each cinema's storefront can look like nothing else, and still books through our code.
@@ -54,4 +62,4 @@ ADR-0047 has the AI choose each storefront's design from designed options. The o
 
   Posters load like any poster, and links go to our routes: the movie page, the showtime page, sign-in, my tickets, and `#showtimes` / `#coming-soon`.
 - **Its header and footer frame every storefront page.** Its home part is the home page. Each part sits in its own `.ai-page` wrapper, the stylesheet's scope, so the AI's CSS never reaches our movie, checkout or ticket pages between them. The search and venue picker of our own header aren't in a written header.
-- **Preview before publishing.** The Branding page shows the written page filled with the cinema's real programme. Designing takes about 2 minutes.
+- **Preview before publishing.** The Branding page shows the written page filled with the cinema's real programme. Designing takes about 3 minutes.
