@@ -61,8 +61,9 @@ glob logger = logging.getLogger(__name__),
      _designs: ThreadPoolExecutor = ThreadPoolExecutor(
          max_workers=4, thread_name_prefix="design-storefront"
      ),
-     # Seconds the owner waits for the written page (a model attempt has 200 s).
-     PAGE_DEADLINE: float = 320.0;
+     # Seconds the owner waits for the written page: Claude took 147 to 163 s for one
+     # (2026-10-20), and a second attempt may follow a template that lacked a part.
+     PAGE_DEADLINE: float = 480.0;
 
 def _branding(scope: TenantScope) -> Branding | None {
     if not scope.tenant.branding_id {

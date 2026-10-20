@@ -1,9 +1,10 @@
 """A cinema's storefront written by the AI from its logo (ADR-0048).
 
-The model (Gemini Pro, the newest release; `MODELS`) looks at the logo and writes the
-storefront's HTML and CSS as a TEMPLATE: its own layout, type, colours and drawn SVG
-ornaments, with data-* slots (`EACH`, `TEXT`, `IMG`, `LINK`, `PART`) where the live
-programme and our links go. It never writes the films or the links itself, and nothing it
+Claude Opus 5.5 (`MODEL`; the owner chose Claude over Gemini for design quality,
+2026-10-20) looks at the logo and writes the storefront's HTML and CSS as a TEMPLATE: its
+own concept, layout, type, colours and SVG ornaments, with data-* slots (`EACH`, `TEXT`,
+`IMG`, `LINK`, `PART`) where the live programme and our links go, and `MOTIF` slots where
+the storefront paints the logo's own figures from the brand kit (ADR-0046). It never writes the films or the links itself, and nothing it
 writes runs: the storefront fills the slots and draws the result with React, so booking,
 accounts and payment stay ours.
 
@@ -25,22 +26,23 @@ import re;
 import html;
 import base64;
 import logging;
-import httpx;
 import tinycss2;  # jac:ignore[W1102]
 
 class PageFailed(RuntimeError) {}
 
 glob logger = logging.getLogger(__name__),
      MODEL_ENV: str = "AFRICINEMAS_PAGE_MODEL",
-     # The newest Gemini Pro writes the best pages (2026-10-20); Flash if Pro is busy.
-     MODELS: list[str] = ["gemini-pro-latest", "gemini-3.8-flash"],
+     # Claude Opus 5.5 designs far closer to a hand-made page than Gemini Pro did for the
+     # same logo (2026-10-20). A declined request is retried server-side on the model
+     # Anthropic recommends for its category (`fallbacks: "default"`).
+     MODEL: str = "claude-opus-5-5",
+     FALLBACK_BETA: str = "server-side-fallback-2026-07-01",
      # Browser tests only (scripts/e2e_env.sh; production never sets it): a file whose
      # text stands in for the model's answer.
      SCRIPT_ENV: str = "AFRICINEMAS_PAGE_SCRIPT",
-     API: str = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-     # A page took 80 to 130 s and 13,000 to 27,000 output tokens (thinking included).
-     TIMEOUT: float = 200.0,
-     MAX_OUTPUT_TOKENS: int = 40000,
+     # Rupa's Mall took 163 s and 18,600 output tokens, thinking included (2026-10-20).
+     TIMEOUT: float = 400.0,
+     MAX_OUTPUT_TOKENS: int = 64000,
      ATTEMPTS: int = 2,
      # The families the model may use, and the bundled fonts they become.
      FONTS: dict[str, str] = {
@@ -83,6 +85,8 @@ glob logger = logging.getLogger(__name__),
          "show"
      ],
      PART: list[str] = ["header", "home", "footer"],
+     # The logo's figures from the brand kit: one figure, and the group or second one.
+     MOTIF: list[str] = ["single", "group"],
      BANNED_AT: list[str] = [
          "import",
          "font-face",
@@ -94,9 +98,14 @@ glob logger = logging.getLogger(__name__),
      ],
      NESTED_AT: list[str] = ["media", "supports", "container"],
      WRAPPER: str = ".ai-page",
-     BRIEF: str = """You are a world-class web designer and front-end developer. Design the storefront of this cinema's ticketing website so the whole site feels like the cinema's brand, as if a top agency designed it for this cinema alone.
+     BRIEF: str = """You are a world-class brand and web designer and front-end developer. Design the storefront of this cinema's ticketing website so the whole site is unmistakably this cinema's brand, as if a top agency designed it for this cinema alone.
 
-Study the logo first: its colours, its lettering (weight, width, spacing, serifs, case), its figures and shapes, its mood. Design a complete visual identity from it: palette, typography, layout, ornaments, details. Draw the logo's figures (birds, flowers, trees, emblems...) yourself as inline SVG in the brand's colours and use them generously but tastefully: section dividers, heading marks, frames, the hero, the footer. Be bold and distinctive; always readable and usable.
+First, study the logo closely: its colours, its lettering (weight, width, spacing, serifs, case), its figures and shapes (a frame? a crest? birds, flowers, trees?), its mood. Then decide ONE strong design concept rooted in the logo before you write anything, for example: a logo framed in a thin box becomes a hero framed the same way, with the logo's bird flying out through a gap in the frame. Every section should express that concept: the header, the hero, the dividers between sections, the cards, the footer.
+
+The logo's own figures are available to you, drawn from this logo by an illustrator as single-colour silhouettes:
+- <span data-motif="single"></span> is one figure (e.g. one bird, one flower);
+- <span data-motif="group"></span> is the group or second figure (e.g. three birds flying together).
+Our code paints each one in its CSS `color`; give it a size with width and height (it is drawn to fit, roughly square). Use them as the brand's ornaments: in section dividers, beside headings, breaking out of a frame, on the ticket, in the footer. If the logo has no figures they are simply empty. You may also draw simple SVG of your own (lines, frames, rules, geometric ornaments), but use the motif slots for the logo's figures: never redraw them.
 
 You write a TEMPLATE: our code fills it with the live programme and makes every link work. Mark data with these attributes only (never write the films' data yourself):
 
@@ -109,19 +118,21 @@ Lists (the element is repeated once per item; put it on the element to repeat, e
 - data-empty="films" / "today" / "soon"  an element shown only when that list is empty (e.g. "No showtimes today").
 
 Text (the element's text is replaced): data-text= one of
-  cinema.name | film.title | film.details (like "Drama · 2 h 04 · PG-13") | film.synopsis | film.release (coming soon date)
+  cinema.name | film.title | film.details (like "16 · 2 h 04 min · Drama") | film.synopsis | film.release (coming soon date)
   | show.time (like "18:15") | show.day (like "Today" or "Fri 24 Oct") | show.screen | show.film (the film's title)
 Images (no src; ours is set): <img data-img="logo"> or <img data-img="film.poster"> (2:3 portrait). Always give alt text.
 Links (no href; ours is set) on <a> only: data-link= home | movies | showtimes | soon | signin | tickets | book (top-level)
   | film (inside a film: its page) | show (inside a show: book that showtime).
 
 Structure (required):
-<header data-part="header"> the logo (img data-img="logo" alt = cinema name), links: movies, showtimes, soon, signin, and a book link styled as a button. It is shown on every page of the site.
-<main data-part="home"> a hero from data-each="featured" (its poster, title, details, synopsis, its times as buttons with data-link="show", and a film link "Book tickets"; no full-screen background image, the hero sits in the page), then today's showtimes (data-each="today", each with data-link="show"), now showing (data-each="films", poster, title, details, times), coming soon (data-each="soon"). Use id="showtimes" on the today section and id="coming-soon" on the soon section.
+<header data-part="header"> the logo (img data-img="logo" alt = cinema name), links: movies, showtimes, soon, signin, and a book link styled as a button. Shown on every page of the site. The logo must sit naturally on the header: give it room, size it so it reads, and make sure its colours stand out from the header's background.
+<main data-part="home"> a hero from data-each="featured" (its poster, title, details, synopsis, its times as buttons with data-link="show", and a film link "Book tickets"; no full-screen background image: the hero sits in the page), then today's showtimes (data-each="today", each with data-link="show"), now showing (data-each="films", poster, title, details, times), coming soon (data-each="soon"). Use id="showtimes" on the today section and id="coming-soon" on the soon section.
 <footer data-part="footer"> the cinema's name (data-text="cinema.name"), links, and the words "Tickets by AfriCinemas". Shown on every page.
 
+Avoid these generic patterns: a generic dark "streaming app" look unrelated to the logo; a cream or off-white background unless the logo itself is cream; italic accent words in headlines; numbered "01 / 02 / 03" section labels; monospace labels; gradient blobs, glassmorphism or glowing shadows; emoji; identical rounded cards with drop shadows everywhere. Prefer the logo's own palette, its lettering's character, and its figures.
+
 Rules:
-- Answer with exactly one <style> element followed by the <header>, <main> and <footer>; nothing else (no html, head or body tags, no markdown).
+- Answer with exactly one <style> element followed by the <header>, <main> and <footer>; nothing else (no html, head or body tags, no markdown, no commentary).
 - No JavaScript, no event attributes, no forms, no iframes, no external URLs or url() in CSS, no @import or @font-face. Fonts: only these families (already loaded): FONT_LIST, with generic fallbacks.
 - CSS: don't style html or body; put page-wide rules on .ai-page (our wrapper). No position: fixed.
 - Works from 360 px phones to 1440 px desktops, no sideways scrolling, tap targets at least 44 px, WCAG AA text contrast, visible focus styles.
@@ -130,6 +141,28 @@ Rules:
 
 ::py::
 from html.parser import HTMLParser as _HTMLParser
+# Imported here, not with Jac's imports: the Jac checker can't read the SDK's HTTP library.
+import anthropic as _anthropic
+
+
+def _claude_answer(model, content, max_tokens, timeout, betas):
+    # (stop_reason, text, error): one streamed answer, its thinking left out.
+    client = _anthropic.Anthropic(timeout=timeout, max_retries=1)
+    try:
+        with client.beta.messages.stream(
+            model=model,
+            max_tokens=max_tokens,
+            thinking={"type": "adaptive"},
+            output_config={"effort": "high"},
+            betas=betas,
+            fallbacks="default",
+            messages=[{"role": "user", "content": content}],
+        ) as stream:
+            message = stream.get_final_message()
+    except _anthropic.APIError as e:
+        return ("error", "", f"{type(e).__name__}: {str(e)[:300]}")
+    text = "".join(b.text for b in message.content if b.type == "text")
+    return (message.stop_reason, text, "")
 import html as _html
 import re as _re
 
@@ -206,6 +239,8 @@ class _Sanitizer(_HTMLParser):
             if ok:
                 self.found["links"].add(value)
             return ok
+        if name == "data-motif":
+            return tag in ("span", "div", "i") and value in s["motif"]
         if name == "data-part":
             ok = value in s["part"]
             if ok:
@@ -400,7 +435,8 @@ def sanitize(answer: str) -> dict[str, any] {  # jac:ignore[W1037]
         "text": set(TEXT),
         "img": set(IMG),
         "link": set(LINK),
-        "part": set(PART)
+        "part": set(PART),
+        "motif": set(MOTIF)
     };
     (body, css, found) = _clean_html(text, slots);
     problems: list[str] = [];
@@ -428,62 +464,45 @@ def sanitize(answer: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"html": body, "css": clean_css(str(css)), "problems": problems};
 }
 
-def _send_gemini(logo_webp: bytes, prompt: str, model: str) -> str {
-    # The model's answer, as text (its thoughts left out).
+def _send_claude(logo_webp: bytes, prompt: str, model: str) -> str {
+    # The model's answer, as text (its thinking left out). Streamed: an answer this long
+    # would outlast a plain request's time limit.
     scripted = os.environ.get(SCRIPT_ENV, "");
     if scripted and os.path.isfile(scripted) {
         with open(scripted) as f {
             return f.read();
         }
     }
-    key = os.environ.get("GEMINI_API_KEY", "").strip();
-    if not key {
-        raise PageFailed("no GEMINI_API_KEY");
+    if not os.environ.get("ANTHROPIC_API_KEY", "").strip() {
+        raise PageFailed("no ANTHROPIC_API_KEY");
     }
-    body = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "inline_data": {
-                            "mime_type": "image/webp",
-                            "data": base64.b64encode(logo_webp).decode()
-                        }
-                    },
-                    {"text": prompt}
-                ]
+    content = [
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/webp",
+                "data": base64.b64encode(logo_webp).decode()
             }
-        ],
-        "generationConfig": {"maxOutputTokens": MAX_OUTPUT_TOKENS, "temperature": 1.0}
-    };
-    try {
-        resp = httpx.post(
-            API.format(model=model),
-            headers={"x-goog-api-key": key},
-            json=body,
-            timeout=TIMEOUT
-        );
-    } except httpx.HTTPError as e {
-        raise PageFailed(f"{type(e).__name__}: {e}");
-    }
-    if resp.status_code != 200 {
-        raise PageFailed(f"{resp.status_code}: {resp.text[:300]}");
-    }
-    try {
-        parts: list[dict[str, any]] = resp.json()["candidates"][0]["content"]["parts"];  # jac:ignore[W1037]
-    } except Exception as e {
-        raise PageFailed(f"no answer: {type(e).__name__}");
-    }
-    return "".join(
-        [
-            str(p.get("text", ""))
-            for p in parts
-            if not p.get("thought")
-        ]
+        },
+        {"type": "text", "text": prompt}
+    ];
+    (stop, text, error) = _claude_answer(
+        model, content, MAX_OUTPUT_TOKENS, TIMEOUT, [FALLBACK_BETA]
     );
+    if error {
+        raise PageFailed(error);
+    }
+    if stop == "refusal" {
+        raise PageFailed("the model declined");
+    }
+    if stop == "max_tokens" {
+        raise PageFailed("the page was cut off");
+    }
+    return str(text);
 }
 
-glob send: any = _send_gemini;  # jac:ignore[W1037]
+glob send: any = _send_claude;  # jac:ignore[W1037]
 
 def brief(cinema: str) -> str {
     return BRIEF.replace("FONT_LIST", ", ".join(FONTS.keys()))
@@ -491,19 +510,13 @@ def brief(cinema: str) -> str {
 }
 
 def write_page(logo_webp: bytes, cinema: str) -> dict[str, str] {
-    # The cinema's storefront template: {"html", "css", "model"}. A model that fails or a
-    # template that lacks a part is tried again (the next model, then the same brief with
-    # what was missing); after ATTEMPTS, PageFailed.
-    models = [os.environ.get(MODEL_ENV) or MODELS[0]]
-        + [
-            m
-            for m in MODELS
-            if m != (os.environ.get(MODEL_ENV) or MODELS[0])
-        ];
+    # The cinema's storefront template: {"html", "css", "model"}. A failed call or a
+    # template that lacks a part is tried again (with what was missing named); after
+    # ATTEMPTS, PageFailed.
+    model = os.environ.get(MODEL_ENV) or MODEL;
     prompt = brief(cinema);
     failure = "no attempt";
-    for attempt in range(ATTEMPTS) {
-        model = models[min(attempt, len(models) - 1)];
+    for _ in range(ATTEMPTS) {
         try {
             answer = send(logo_webp, prompt, model);
         } except PageFailed as e {

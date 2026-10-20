@@ -42,7 +42,7 @@ import from .branding_model {
     version_label
 }
 import from .ThemePreview { ThemePreview }
-import from ..storefront.AiPage { AiPart }
+import from ..storefront.AiPage { AiPart, kit_masks }
 import from core.catalog.storefront_api { public_home }
 import from .home_page_model { with_designed_layout }
 import from core.homepage.home_api {
@@ -857,7 +857,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     disabled={busy != ""}
                     onClick={design}
                 >
-                    {busy == "designing" and <Spinner aria-hidden="true"/>}{"Designing… about 2 minutes"
+                    {busy == "designing" and <Spinner aria-hidden="true"/>}{"Designing… about 3 minutes"
                         if busy == "designing"
                         else ("Design again" if has_kit else "Design my storefront")}
                 </Button>
@@ -901,6 +901,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             <AiPart
                 slug={slug}
                 page={shown_page}
+                motifs={kit_masks(shown_kit)}
                 part="header"
                 cinema={cinema}
                 logo={logo}
@@ -908,12 +909,19 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             <AiPart
                 slug={slug}
                 page={shown_page}
+                motifs={kit_masks(shown_kit)}
                 part="home"
                 cinema={cinema}
                 logo={logo}
                 home={programme}
             />
-            <AiPart slug={slug} page={shown_page} part="footer" cinema={cinema}/>
+            <AiPart
+                slug={slug}
+                page={shown_page}
+                part="footer"
+                cinema={cinema}
+                motifs={kit_masks(shown_kit)}
+            />
         </div>
     </section>;
 

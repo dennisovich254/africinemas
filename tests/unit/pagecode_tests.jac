@@ -32,12 +32,23 @@ test "a complete template keeps its slots and drops scripts, handlers and outsid
         'data-img="logo"',
         'data-link="book"',
         'viewBox="0 0 40 40"',
+        '<span data-motif="single" class="dove">',
+        '<span data-motif="group" class="flock">',
         "<linearGradient",
         "Tickets by AfriCinemas"
     ] {
         assert kept in page , kept;
     }
-    for gone in ["<script", "alert", "onclick", "<iframe", "evil.example", "src="] {
+    for gone in [
+        "<script",
+        "alert",
+        "onclick",
+        "<iframe",
+        "evil.example",
+        "src=",
+        'data-motif="flock"',
+        '<a data-motif'
+    ] {
         assert gone not in page , gone;
     }
 }
