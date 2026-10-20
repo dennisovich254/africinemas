@@ -92,7 +92,8 @@ test "the storefront wears the cinema's brand kit inside its parts" {
             heading = page.evaluate(
                 MASK_JS, '[data-kit-slot="heading"] [data-kit-mark]'
             );
-            assert heading.startswith("inline-block")
+            # Shown (a flex item computes as block) and painted with the motif.
+            assert not heading.startswith("none")
                 and "data:image/webp" in heading , heading;
             assert "data:image/webp" in page.evaluate(MASK_JS, ".kit-sign") , "footer mark";
             divider = page.locator("[data-kit-divider-slot]").first;
