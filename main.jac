@@ -70,6 +70,7 @@ import from core.theming.branding_api {
     upload_logo,  # jac:ignore[W2037]
     suggest_themes,  # jac:ignore[W2037]
     draw_brand_kit,  # jac:ignore[W2037]
+    design_storefront,  # jac:ignore[W2037]
     set_brand_look,  # jac:ignore[W2037]
     remove_brand_kit,  # jac:ignore[W2037]
     remove_logo,  # jac:ignore[W2037]

@@ -47,6 +47,20 @@ The storefront root carries the choices as `data-design-fonts`, `-header`, `-her
 - **Surfaces:** panels (marked `data-design-slot="panel"`) are outlined, filled or flat.
 - **Density:** the space between home sections, airy or compact.
 
+## One button for the owner
+`design_storefront` is the owner's one action. It needs the draft logo and `tenant.settings.update`, and it is audited as `theme.designed`.
+- **What it does:** from the logo, it designs the theme and draws the brand kit with its design, side by side, so it takes about as long as the kit alone. Both are saved to the draft.
+- **The scheme:** the theme follows the logo-contrast rule.
+- **Daily limit:** it shares `KIT_DAILY` (3 a day) with `draw_brand_kit`.
+- **On the Branding page,** under the logo:
+  - **Design my storefront**, or **Design again** once there is a design;
+  - the motifs, painted in the theme's accent;
+  - one line describing the design ("Golden Hour: classical capitals, poster filling one side, logo centred, sharp corners");
+  - **Remove brand**.
+
+  The home page layout that suits the theme is saved to the home page's draft as well. The owner previews the result and publishes it.
+- **What's gone:** the theme-ideas list and the look pickers. Presets, colours, fonts and corners stay for owners who want them, under **Adjust colours and fonts yourself**, which is closed by default. `suggest_themes`, `draw_brand_kit` and `set_brand_look` stay as endpoints, but the page no longer calls them.
+
 ## Consequences
-- The owner's controls shrink. One action designs the storefront, and the owner previews and publishes it.
+- The owner's controls shrink to one button, a preview and Publish.
 - Each part costs no extra model calls: it is the same plan call as the kit.

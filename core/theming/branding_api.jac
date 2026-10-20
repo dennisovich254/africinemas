@@ -11,6 +11,9 @@ tests/isolation/registry.jac, plus the public public_branding.
 - public_branding(slug) is public (no login): the published theme, its storefront CSS
   (built here from checked tokens only, core/theming/css.jac) and the logo as a data
   URL; the platform default until the cinema publishes.
+- design_storefront is the owner's one action (ADR-0047): from the draft logo, the AI
+  designs the theme and draws the brand kit with its design, both saved to the draft,
+  private until published. It shares KIT_DAILY with draw_brand_kit.
 - suggest_themes asks the model for themes designed from the draft logo (ADR-0043,
   core/theming/suggest.jac): checked and repaired like any theme, never saved until
   the owner picks one, SUGGEST_DAILY a day per cinema.
@@ -20,6 +23,7 @@ tests/isolation/registry.jac, plus the public public_branding.
 
 import base64;
 import logging;
+import from concurrent.futures { ThreadPoolExecutor }
 import from core.clock { now }
 import from core.authz.context { TenantScope, scoped }
 import from core.tenancy.groups { attach_to_tenant }
@@ -50,7 +54,11 @@ glob logger = logging.getLogger(__name__),
      CONFIGURE: str = "tenant.settings.update",
      SUGGEST_DAILY: int = 5,
      # A kit is a plan and up to two drawings, about $0.09 (ADR-0046).
-     KIT_DAILY: int = 3;
+     KIT_DAILY: int = 3,
+     # design_storefront's theme call, beside its kit drawing.
+     _designs: ThreadPoolExecutor = ThreadPoolExecutor(
+         max_workers=2, thread_name_prefix="design-storefront"
+     );
 
 def _branding(scope: TenantScope) -> Branding | None {
     if not scope.tenant.branding_id {
@@ -307,6 +315,53 @@ def _draw_brand_kit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"ok": True, "kit": _public_kit(kit), "remaining": KIT_DAILY - used - 1};
 }
 
+def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The theme and the brand kit with its design, from the draft logo, onto the draft
+    # (ADR-0047). The two calls run side by side: about as long as the kit alone.
+    scope = scoped(tenant, CONFIGURE);
+    branding = _branding(scope);
+    if branding is None or not branding.draft_logo {
+        raise Refused(
+            "no_logo", "Upload your logo first, then AI can design your storefront."
+        );
+    }
+    raw = base64.b64decode(branding.draft_logo);
+    today = now().date().isoformat();
+    used = branding.kit_count if branding.kit_day == today else 0;
+    if used >= KIT_DAILY {
+        raise Refused(
+            "kit_limit",
+            f"You've designed your storefront {KIT_DAILY} times today. Try again tomorrow."
+        );
+    }
+    # Counted before the calls, so a slow or failed one still counts.
+    def _count(b: Branding) {
+        b.kit_day = today;
+        b.kit_count = used + 1;
+    }
+    _edit_draft(scope, _count);
+    themed = _designs.submit(
+        suggest_from_logo, raw, scope.tenant.name, _programme(scope)
+    );
+    kit = draw_kit(raw, scope.tenant.name);
+    found = themed.result();
+    idea: dict[str, any] = found["proposals"][0];  # jac:ignore[W1037]
+    theme: dict[str, any] = idea["theme"];  # jac:ignore[W1037]
+    def _keep(b: Branding) {
+        b.draft = theme;
+        b.draft_kit = kit;
+    }
+    _edit_draft(scope, _keep);
+    return {
+        "ok": True,
+        "theme": theme,
+        "kit": _public_kit(kit),
+        "template": idea["template"],
+        "from_ai": found["from_ai"],
+        "remaining": KIT_DAILY - used - 1
+    };
+}
+
 def _set_brand_look(tenant: str, look: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, CONFIGURE);
     branding = _branding(scope);
@@ -456,6 +511,10 @@ def _do_draw_brand_kit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _draw_brand_kit(tenant); });  # jac:ignore[W1037]
 }
 
+def _do_design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _design_storefront(tenant); });  # jac:ignore[W1037]
+}
+
 def _do_set_brand_look(tenant: str, look: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _set_brand_look(tenant, look); });  # jac:ignore[W1037]
 }
@@ -538,6 +597,16 @@ def:protect draw_brand_kit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "theme",
         "",
         lambda -> any { return _do_draw_brand_kit(tenant); }  # jac:ignore[W1037]
+    );
+}
+
+def:protect design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "theme.designed",
+        "theme",
+        "",
+        lambda -> any { return _do_design_storefront(tenant); }  # jac:ignore[W1037]
     );
 }
 

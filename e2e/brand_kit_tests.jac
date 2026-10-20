@@ -169,7 +169,9 @@ test "without a brand kit none of it shows" {
     }
 }
 
-test "an owner draws their brand, changes its look and publishes it" {
+test "an owner designs their storefront from the logo with one button, then publishes it" {
+    # The kit comes from the scripted plan and drawing; CI has no model key, so the
+    # colours are built from the logo's main colour.
     owner = cinema_with_programme();
     _scripts();
     (pw, browser) = shared_browser();
@@ -185,28 +187,38 @@ test "an owner draws their brand, changes its look and publishes it" {
         page.goto(f"{BASE_URL}/app/{owner['slug']}/settings");
         page.wait_for_selector('[data-testid="branding"]');
         kit = '[data-testid="brand-kit"]';
-        assert page.locator(f'{kit} button:has-text("Draw my brand")').count() == 0 , "needs a logo first";
+        design = f'{kit} button:has-text("Design my storefront")';
+        assert page.locator(design).count() == 0 , "needs a logo first";
+        assert not page.locator('[data-testid="adjust-yourself"]').evaluate(
+            "e => e.open"
+        ) , "the owner's own editing is closed";
         logo = base64.b64decode(_logo_base64());
         page.set_input_files(
             "#logo-file",
             files=[{"name": "logo.png", "mimeType": "image/png", "buffer": logo}]
         );
         page.wait_for_selector('[data-testid="logo-preview"]');
-        page.click(f'{kit} button:has-text("Draw my brand")');
-        page.wait_for_selector('[data-testid="kit-motifs"] li', timeout=60000);
+        page.click(design);
+        page.wait_for_selector('[data-testid="kit-motifs"] li', timeout=90000);
         assert page.locator('[data-testid="kit-motifs"] li').count() == 2;
-        look = '[data-testid="kit-look"]';
-        assert page.locator(f'{look} input[value="notched"]').is_checked() , "the plan's look";
-        page.locator(f'{look} label:has-text("Rounded") input').check();
-        page.wait_for_selector('[data-testid="kit-note"]:has-text("Saved")');
+        summary = page.inner_text('[data-testid="design-summary"]');
+        assert "Classical capitals" in summary
+            and "poster filling one side" in summary , summary;
+        assert "more times today" in page.inner_text('[data-testid="kit-note"]');
+        assert page.locator('[data-testid="kit-look"]').count() == 0 , "no look pickers";
+        assert "default"
+            in page.inner_text('[data-testid="branding-status"]').lower() , "nothing public yet";
         page.click('button:has-text("Publish")');
         page.wait_for_selector('[data-testid="branding-status"]:has-text("Version 1")');
         page.goto(f"{BASE_URL}/c/{owner['slug']}");
         page.wait_for_selector('[data-testid="movie-card"]');
-        assert page.locator(STOREFRONT).get_attribute("data-kit-card") == "rounded";
+        shell = page.locator(STOREFRONT);
+        assert shell.get_attribute("data-design-hero") == "split";
+        assert shell.get_attribute("data-design-fonts") == "heritage";
+        page.screenshot(path=artifact("design-storefront.png"), full_page=True);
         page.goto(f"{BASE_URL}/app/{owner['slug']}/settings");
         page.wait_for_selector('[data-testid="kit-motifs"] li');
-        page.screenshot(path=artifact("brandkit-branding-page.png"), full_page=True);
+        page.screenshot(path=artifact("design-branding-page.png"), full_page=True);
     } finally {
         close_contexts(browser);
     }

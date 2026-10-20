@@ -651,6 +651,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "theme.kit_drawn",
              "probe": {"tenant": "{tenant}"}
          },
+         "design_storefront": {
+             "scope": "tenant",
+             "audit": "theme.designed",
+             "probe": {"tenant": "{tenant}"}
+         },
          "set_brand_look": {
              "scope": "tenant",
              "audit": "theme.kit_styled",

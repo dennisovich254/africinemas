@@ -148,3 +148,39 @@ test "the fourth kit in a day is refused, and box office staff can't draw one" {
         app.close();
     }
 }
+
+test "design my storefront puts a theme and the brand's design on the draft, privately" {
+    (app, _, _) = paying_cinema(["agent"]);
+    try {
+        refused = _call(app, "design_storefront", {});
+        assert not refused["ok"] and refused["error"]["code"] == "no_logo" , refused;
+        _logo(app);
+        app.call(
+            "owner",
+            "script_brand_kit",
+            {"image_base64": _png_base64(True), "plan": PLAN}
+        );
+        # The theme model fails, so the theme is built from the logo's colour.
+        app.call("owner", "script_theme_model", {"outputs": ["not a theme"] * 3});
+        designed = _call(app, "design_storefront", {});
+        assert designed["ok"] , designed;
+        assert designed["theme"]["name"] == "From your logo";
+        assert designed["kit"]["look"]["hero"] == "centred_crest";
+        assert designed["remaining"] == 2;
+        draft = app.call("owner", "get_branding", {"tenant": "nova"})["branding"][
+            "draft"
+        ];
+        assert draft["theme"]["name"] == "From your logo" , "the theme is the draft's";
+        assert draft["kit"]["look"]["fonts"] == "heritage";
+        assert _public(app)["kit"] == {} , "private until published";
+        # It shares the kit's daily limit, and box office staff can't use it.
+        assert _call(app, "draw_brand_kit", {})["ok"];
+        assert _call(app, "design_storefront", {})["ok"];
+        limited = _call(app, "design_storefront", {});
+        assert not limited["ok"] and limited["error"]["code"] == "kit_limit" , limited;
+        hire(app, "agent", "box_office_agent", "");
+        assert not _call(app, "design_storefront", {}, "agent")["ok"];
+    } finally {
+        app.close();
+    }
+}
