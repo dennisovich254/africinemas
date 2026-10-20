@@ -59,7 +59,13 @@ def _logo_base64 -> str {
 }
 
 def _scripts {
-    # The models' answers, as files the server reads (scripts/e2e_env.sh).
+    # The models' answers, as files the server reads (scripts/e2e_env.sh), the written
+    # storefront (ADR-0048) among them.
+    with open("tests/fixtures/ai_storefront.html") as src {
+        with open(os.environ["AFRICINEMAS_PAGE_SCRIPT"], "w") as f {
+            f.write(src.read());
+        }
+    }
     with open(os.environ["AFRICINEMAS_KIT_SCRIPT"], "wb") as f {
         f.write(_bird_png());
     }
@@ -176,8 +182,8 @@ test "without a brand kit none of it shows" {
 }
 
 test "an owner designs their storefront from the logo with one button, then publishes it" {
-    # The kit comes from the scripted plan and drawing; CI has no model key, so the
-    # colours are built from the logo's main colour.
+    # The kit, its plan and the written page come from scripted files; CI has no model
+    # key, so the colours are built from the logo's main colour.
     owner = cinema_with_programme();
     _scripts();
     (pw, browser) = shared_browser();
@@ -207,24 +213,38 @@ test "an owner designs their storefront from the logo with one button, then publ
         page.click(design);
         page.wait_for_selector('[data-testid="kit-motifs"] li', timeout=90000);
         assert page.locator('[data-testid="kit-motifs"] li').count() == 2;
-        summary = page.inner_text('[data-testid="design-summary"]');
-        assert "Classical capitals" in summary
-            and "poster filling one side" in summary , summary;
-        assert "more times today" in page.inner_text('[data-testid="kit-note"]');
+        assert "AI wrote your storefront"
+            in page.inner_text('[data-testid="kit-note"]');
         assert page.locator('[data-testid="kit-look"]').count() == 0 , "no look pickers";
+        # The preview: the written page, filled with the cinema's real programme.
+        preview = page.locator('[data-testid="ai-preview"]');
+        preview.locator(
+            '[data-testid="ai-home"] h3:has-text("Rafiki")'
+        ).first.wait_for();
+        page.screenshot(path=artifact("ai-branding-page.png"), full_page=True);
         assert "default"
             in page.inner_text('[data-testid="branding-status"]').lower() , "nothing public yet";
         page.click('button:has-text("Publish")');
         page.wait_for_selector('[data-testid="branding-status"]:has-text("Version 1")');
         page.goto(f"{BASE_URL}/c/{owner['slug']}");
-        page.wait_for_selector('[data-testid="movie-card"]');
-        shell = page.locator(STOREFRONT);
-        assert shell.get_attribute("data-design-hero") == "split";
-        assert shell.get_attribute("data-design-fonts") == "heritage";
-        page.screenshot(path=artifact("design-storefront.png"), full_page=True);
-        page.goto(f"{BASE_URL}/app/{owner['slug']}/settings");
-        page.wait_for_selector('[data-testid="kit-motifs"] li');
-        page.screenshot(path=artifact("design-branding-page.png"), full_page=True);
+        page.wait_for_selector('[data-testid="ai-home"]');
+        assert page.locator('[data-testid="storefront-header"]').count() == 0 , "the AI's header replaces ours";
+        assert page.locator('[data-testid="ai-header"] img[alt]').count() == 1 , "the logo";
+        films = page.locator('[data-testid="ai-home"] article');
+        assert films.count() == 2 , "one card per film on sale";
+        assert page.locator('[data-testid="ai-home"] script').count() == 0;
+        assert "evil.example" not in page.content();
+        width = page.evaluate(
+            "document.documentElement.scrollWidth - document.documentElement.clientWidth"
+        );
+        assert width == 0 , "no sideways scroll";
+        page.screenshot(path=artifact("ai-storefront.png"), full_page=True);
+        # A showtime link books that showtime through our own pages, under the AI's header.
+        page.locator('[data-testid="ai-home"] #showtimes a').first.click();
+        page.wait_for_url("**/s/**");
+        page.wait_for_selector('[data-testid="ai-header"]');
+        page.wait_for_selector('[data-testid="ai-footer"]');
+        page.screenshot(path=artifact("ai-showtime-page.png"), full_page=True);
     } finally {
         close_contexts(browser);
     }

@@ -42,4 +42,16 @@ ADR-0047 has the AI choose each storefront's design from designed options. The o
 ## Consequences
 - Each cinema's storefront can look like nothing else, and still books through our code.
 - **Quality varies from run to run.** The owner previews the page before publishing, and can design again (3 a day).
-- **Next:** the storefront draws the template, filled from the programme, with its header and footer on every page. The Branding page previews the written page.
+
+## The storefront draws it
+`web/storefront/AiPage.jac` turns the stored template into the live page.
+- **Never inserted as HTML.** The template is parsed with the browser's `DOMParser` and drawn as React elements. The same allowlist applies again: no events, no `src`, and no `href` but ours. SVG attribute names are spelled the way React expects.
+- **Filled from `public_home`** (narrowed to the visitor's chosen venue):
+  - `featured` is the hero film, or else the first film on sale;
+  - `films` are the films on sale, each with its next times;
+  - `today` is the first day's showtimes;
+  - `soon` is the coming soon list.
+
+  Posters load like any poster, and links go to our routes: the movie page, the showtime page, sign-in, my tickets, and `#showtimes` / `#coming-soon`.
+- **Its header and footer frame every storefront page.** Its home part is the home page. Each part sits in its own `.ai-page` wrapper, the stylesheet's scope, so the AI's CSS never reaches our movie, checkout or ticket pages between them. The search and venue picker of our own header aren't in a written header.
+- **Preview before publishing.** The Branding page shows the written page filled with the cinema's real programme. Designing takes about 2 minutes.

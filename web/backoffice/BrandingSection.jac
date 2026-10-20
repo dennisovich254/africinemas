@@ -42,6 +42,8 @@ import from .branding_model {
     version_label
 }
 import from .ThemePreview { ThemePreview }
+import from ..storefront.AiPage { AiPart }
+import from core.catalog.storefront_api { public_home }
 import from .home_page_model { with_designed_layout }
 import from core.homepage.home_api {
     get_home_page,  # jac:ignore[W2037] authenticated endpoint
@@ -206,6 +208,9 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
     [adjusted, set_adjusted] = useState([]);
     [restoring, set_restoring] = useState(0);
     [kit, set_kit] = useState({});
+    # The storefront the AI wrote (ADR-0048) and the programme its preview is filled from.
+    [written, set_written] = useState({});
+    [programme, set_programme] = useState(None);
     [design_note, set_design_note] = useState("");
 
     def show(answer: dict[str, any]) {  # jac:ignore[W1037]
@@ -217,6 +222,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_errors({});
         set_logo(draft["logo"]);
         set_kit(draft["kit"] or {});
+        set_written(draft["page"] or {});
     }
 
     async def load -> bool {
@@ -242,6 +248,35 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         load();
     }
     useEffect(start_loading, [slug]);
+
+    async def load_programme {
+        shown: any = None;  # jac:ignore[W1037]
+        try {
+            shown = await public_home(slug);
+        } except Exception as e {
+            console.warn("programme load failed", e);
+            return;
+        }
+        if shown["ok"] {
+            set_programme(shown);
+        }
+    }
+
+    def start_programme {
+        load_programme();
+    }
+    useEffect(start_programme, [slug]);
+
+    def wear_page -> any {  # jac:ignore[W1037]
+        # The written page's stylesheet, for its preview; scoped to .ai-page.
+        doc: any = document;  # jac:ignore[W1037,W2001]
+        tag: any = doc.createElement("style");  # jac:ignore[W1037]
+        page: dict[str, str] = written;
+        tag.textContent = page["css"] or "";
+        doc.head.appendChild(tag);
+        return lambda { doc.head.removeChild(tag); };
+    }
+    useEffect(wear_page, [written]);
 
     if failed {
         return
@@ -350,13 +385,22 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_texts(texts_for(made));
         set_errors({});
         set_kit(answer["kit"]);
+        set_written(answer["page"] or {});
         if made["scheme"] == "light" or made["scheme"] == "dark" {
             set_mode(made["scheme"]);
         }
         left: int = answer["remaining"];
-        said = "Your storefront is designed from your logo. Look at the preview, then publish to show it."
-            if answer["from_ai"]
-            else "The AI couldn't choose colours just now, so they come from your logo's main colour. Publish to show it, or design again later.";
+        wrote: bool = True if (answer["page"] or {})["html"] else False;
+        said = (
+            "AI wrote your storefront from your logo. Look at it below, then publish to show it."
+                if wrote
+                else "Your storefront is designed from your logo. The AI couldn't write its own page this time, so it uses the designed layout; design again to try once more."
+        )
+            + (
+                ""
+                    if answer["from_ai"]
+                    else " Its colours come from your logo's main colour, as the AI couldn't choose them just now."
+            );
         more = " That was your last design for today."
             if left == 0
             else f" You can design {left} more times today.";
@@ -386,6 +430,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         set_busy("");
         if answer and answer["ok"] {
             set_kit({});
+            set_written({});
             set_design_note(
                 "Your brand's motifs and design are removed. Publish to take them off your storefront."
             );
@@ -812,7 +857,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     disabled={busy != ""}
                     onClick={design}
                 >
-                    {busy == "designing" and <Spinner aria-hidden="true"/>}{"Designing… about 20 seconds"
+                    {busy == "designing" and <Spinner aria-hidden="true"/>}{"Designing… about 2 minutes"
                         if busy == "designing"
                         else ("Design again" if has_kit else "Design my storefront")}
                 </Button>
@@ -834,6 +879,42 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
             >
                 {design_note}
             </p>}
+    </section>;
+
+    shown_page: dict[str, str] = written;
+    has_page: bool = True if shown_page["html"] else False;
+    page_preview = <section
+        aria-labelledby="written-heading"
+        className="flex flex-col gap-3"
+        data-testid="ai-preview"
+    >
+        <h3 id="written-heading" className="font-semibold">
+            Your storefront, written by AI
+        </h3>
+        <p className="text-sm text-muted-foreground">
+            Filled with your real programme. Links work on your storefront once you publish.
+        </p>
+        <div
+            className="pointer-events-none max-h-[42rem] overflow-auto rounded-lg border"
+            inert={True}
+        >
+            <AiPart
+                slug={slug}
+                page={shown_page}
+                part="header"
+                cinema={cinema}
+                logo={logo}
+            />
+            <AiPart
+                slug={slug}
+                page={shown_page}
+                part="home"
+                cinema={cinema}
+                logo={logo}
+                home={programme}
+            />
+            <AiPart slug={slug} page={shown_page} part="footer" cinema={cinema}/>
+        </div>
     </section>;
 
     adjust_section = <details
@@ -991,7 +1072,8 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     </div>
                 </div>
                 <div className="flex min-w-0 flex-col gap-8 lg:order-1">
-                    {logo_section}{design_section}{actions}{adjust_section}{history}
+                    {logo_section}{design_section}{has_page
+                        and page_preview}{actions}{adjust_section}{history}
                 </div>
             </div>
         </div>;
