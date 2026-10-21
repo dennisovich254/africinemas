@@ -322,6 +322,73 @@ test "each screen is designed separately, and the Screens list shows each one's 
     }
 }
 
+test "faster layouts: steppers, filling rows, columns and the grid, undo, and copying another screen" {
+    # improvements #1 to #3.
+    (pw, browser) = shared_browser();
+    try {
+        owner = _setup();
+        other = add_screen(owner, owner["venue"], "Screen 2");
+        seats = [
+            {
+                "label": f"{'ABC'[r]}{c + 1}",
+                "row": r,
+                "col": c,
+                "seat_type": "STANDARD"
+            } for r in range(3) for c in range(4)
+        ];
+        saved = call(
+            owner["token"],
+            "save_layout",
+            {
+                "tenant": owner["slug"],
+                "auditorium_id": other,
+                "rows": 3,
+                "cols": 4,
+                "seats": seats
+            }
+        );
+        assert saved["ok"] , saved;
+        page = _open_designer(browser, pw, "desktop", owner);
+        # A new screen starts at 8 x 12: one more row, one fewer column.
+        page.click('[data-testid="add-row"]');
+        page.click('[data-testid="remove-column"]');
+        page.wait_for_selector(_cell(8, 10));
+        assert page.locator(_cell(0, 11)).count() == 0;
+        assert page.input_value("#layout-rows") == "9";
+        # A row header fills the row with the chosen type; pressing it again clears it.
+        _pick(page, "STANDARD");
+        page.click(f'{GRID} [data-row-header="0"]');
+        assert [_cells(page)[f"0:{c}"] for c in range(11)] == ["STANDARD"] * 11;
+        page.click(f'{GRID} [data-row-header="0"]');
+        assert all([v == "" for v in _cells(page).values()]);
+        # A column header fills the column; Undo takes it back.
+        _pick(page, "VIP");
+        page.click(f'{GRID} [data-col-header="2"]');
+        assert [_cells(page)[f"{r}:2"] for r in range(9)] == ["VIP"] * 9;
+        page.click('[data-testid="undo"]');
+        assert all([v == "" for v in _cells(page).values()]);
+        # The whole grid at once.
+        page.click('[data-testid="fill-grid"]');
+        assert list(_cells(page).values()) == ["VIP"] * 99;
+        page.click('[data-testid="undo"]');
+        assert all([v == "" for v in _cells(page).values()]);
+        # Screen 2's layout, copied here and saved as this screen's draft.
+        page.select_option('[data-testid="copy-from"]', other);
+        page.click('[data-testid="copy-layout"]');
+        page.wait_for_function(
+            "() => document.querySelectorAll('[data-testid=\"seat-grid\"] [data-cell]').length === 12"
+        );
+        assert list(_cells(page).values()) == ["STANDARD"] * 12;
+        page.click('button:has-text("Save draft")');
+        page.wait_for_function(
+            "() => document.querySelector('[data-testid=\"save-message\"]').textContent.includes('Draft saved')"
+        );
+        assert "Draft" in page.inner_text(STATUS);
+    } finally {
+        close_contexts(browser);
+    }
+}
+
 test "phones get a read-only preview and a larger-screen notice" {
     (pw, browser) = shared_browser();
     try {

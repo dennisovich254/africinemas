@@ -193,3 +193,52 @@ def:pub without(cells: dict[str, str], removed: str) -> dict[str, str] {
 def:pub clamp(value: int, low: int, high: int) -> int {
     return max(low, min(high, value));
 }
+
+def:pub row_keys(row: int, cols: int) -> list[str] {
+    return [cell_key(row, c) for c in range(cols)];
+}
+
+def:pub col_keys(col: int, rows: int) -> list[str] {
+    return [cell_key(r, col) for r in range(rows)];
+}
+
+def:pub all_keys(rows: int, cols: int) -> list[str] {
+    keys: list[str] = [];
+    for r in range(rows) {
+        for c in range(cols) {
+            keys.append(cell_key(r, c));
+        }
+    }
+    return keys;
+}
+
+def:pub paint_many(
+    cells: dict[str, str], keys: list[str], seat_type: str
+) -> dict[str, str] {
+    # A copy of `cells` with every cell in `keys` given `seat_type`; "" clears them. When
+    # they all hold `seat_type` already, they're cleared instead, so a second press on a
+    # row header undoes the first (improvements #3).
+    every = len(keys) > 0;
+    for key in keys {
+        if key not in cells or cells[key] != seat_type {
+            every = False;
+        }
+    }
+    clear = seat_type == "" or every;
+    chosen: dict[str, bool] = {};
+    for key in keys {
+        chosen[key] = True;
+    }
+    painted: dict[str, str] = {};
+    for key in cells {
+        if not (clear and key in chosen) {
+            painted[key] = cells[key];
+        }
+    }
+    if not clear {
+        for key in keys {
+            painted[key] = seat_type;
+        }
+    }
+    return painted;
+}
