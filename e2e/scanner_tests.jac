@@ -1,7 +1,7 @@
 """P6.4 E2E: checking tickets at the door with the Scanner (simulated M-Pesa).
 
-A showtime starts in an hour, so its door is open, and a guest has paid for A1 and A2
-through the public API. The owner signs in and opens Scanner: the one open showtime is
+A showtime starts in an hour and the cinema opens its door two hours before, so its door
+is open, and a guest has paid for A1 and A2 through the public API. The owner signs in and opens Scanner: the one open showtime is
 already chosen. A typed reference is admitted, then refused as already used. The camera
 path runs through an injected decoder (window.__africinemasDecoder) that "reads" the
 codes the test hands it, so scan -> redeem -> result is tested without a camera; without
@@ -78,6 +78,12 @@ def _paid_tickets(owner: dict[str, str]) -> list[dict[str, str]] {
 }
 
 def _open_scanner(page: any, owner: dict[str, str]) {  # jac:ignore[W1037]
+    # The showtime starts in an hour: open the door two hours before (the default is
+    # 45 minutes, improvements #10).
+    doors = call(
+        owner["token"], "set_doors_open", {"tenant": owner["slug"], "minutes": 120}
+    );
+    assert doors["ok"] , doors;
     page.goto(BASE_URL + "/login");
     _type(page, "#email", owner["email"]);
     _type(page, "#password", PASSWORD);
