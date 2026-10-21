@@ -190,6 +190,7 @@ segno = "~=1.6"
 materialyoucolor = "~=3.0"
 tinycss2 = "~=1.4"
 anthropic = "~=1.15"
+potracer = "~=0.0.4"
 
 # ---------------------------------------------------------------------------
 # The AI booking agent (P8.1): Claude through byLLM (ADR-0049). No key here: the

@@ -1,6 +1,6 @@
 """Theme suggestions from the logo, through the endpoint (ADR-0043, suggest_themes).
 
-In-process app (payment_app.jac) with a scripted model (script_theme_model, MockLLM).
+In-process app (payment_app.jac) with Claude scripted (script_theme_model; ADR-0049).
 - It needs the draft logo, and tenant.settings.update like the rest of branding.
 - The theme it returns (one per ask) is readable; nothing is saved until the owner picks one.
 - A failing model still answers, with one theme built from the logo.
