@@ -867,7 +867,7 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     disabled={busy != ""}
                     onClick={design}
                 >
-                    {busy == "designing" and <Spinner aria-hidden="true"/>}{"Designing… about 3 minutes"
+                    {busy == "designing" and <Spinner aria-hidden="true"/>}{"Designing and reviewing… about 5 minutes"
                         if busy == "designing"
                         else ("Design again" if has_kit else "Design my storefront")}
                 </Button>

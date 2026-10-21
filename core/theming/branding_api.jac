@@ -55,7 +55,14 @@ import from core.theming.brandkit {
     DEFAULT_LOOK,
     FONT_FAMILIES
 }
-import from core.theming.pagecode { write_page }
+import from core.theming.pagecode { write_page, brand_brief }
+import from core.theming.pagereview {
+    review_page,
+    programme_lists,
+    sample_lists,
+    FILMS_MAX
+}
+import from core.catalog.storefront_api { public_home, public_poster }
 import from core.audit.log { audited }
 
 glob logger = logging.getLogger(__name__),
@@ -67,9 +74,10 @@ glob logger = logging.getLogger(__name__),
      _designs: ThreadPoolExecutor = ThreadPoolExecutor(
          max_workers=4, thread_name_prefix="design-storefront"
      ),
-     # Seconds the owner waits for the written page: Claude took 147 to 163 s for one
-     # (2026-10-20), and a second attempt may follow a template that lacked a part.
-     PAGE_DEADLINE: float = 480.0;
+     # Seconds the owner waits for the page: Claude wrote one in 147 to 163 s (2026-10-20),
+     # a second attempt may follow a template that lacked a part, and the review rewrites
+     # it once more from its screenshots (ADR-0050).
+     PAGE_DEADLINE: float = 780.0;
 
 def _branding(scope: TenantScope) -> Branding | None {
     if not scope.tenant.branding_id {
@@ -396,8 +404,15 @@ def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
             if _is_light(theme["light"]["background"])
             else "dark";
     }
+    # The page is written in that system, then reviewed from screenshots of it filled
+    # with the cinema's own programme (ADR-0050).
     written = _designs.submit(
-        write_page, raw, scope.tenant.name, brand_system(theme, kit)
+        _write_reviewed,
+        raw,
+        scope.tenant.name,
+        brand_system(theme, kit),
+        _review_lists(scope),
+        [_mask_url(m) for m in kit.get("motifs", []) or []]
     );
     page: dict[str, str] = {};
     try {
@@ -426,6 +441,44 @@ def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "logo": _data_url(cleaned),
         "remaining": KIT_DAILY - used - 1
     };
+}
+
+def _review_lists(scope: TenantScope) -> dict[str, any] {  # jac:ignore[W1037]
+    # The cinema's programme as the written page shows it, posters included, for the
+    # review's screenshots; a sample programme when it has published none.
+    slug = scope.tenant.slug;
+    try {
+        home = public_home(slug);
+    } except Exception as e {
+        logger.warning("review programme failed: %s", str(e)[:200]);
+        return sample_lists();
+    }
+    if not home.get("ok") or not home.get("movies") {
+        return sample_lists();
+    }
+    posters: dict[str, str] = {};
+    for m in home["movies"][:FILMS_MAX] {
+        if m.get("has_poster") {
+            shown = public_poster(slug, m["movie_key"]);
+            if shown.get("ok") {
+                posters[m["movie_key"]] = shown["poster"];
+            }
+        }
+    }
+    return programme_lists(home, posters);
+}
+
+def _write_reviewed(
+    raw: bytes,
+    cinema: str,
+    brand: dict[str, any],  # jac:ignore[W1037]
+    lists: dict[str, any],  # jac:ignore[W1037]
+    motifs: list[str]
+) -> dict[str, str] {
+    # The page written in the brand system, then reviewed (kept as written if the review
+    # can't run). PageFailed when no page could be written.
+    page = write_page(raw, cinema, brand);
+    return review_page(raw, cinema, page, lists, motifs, brand_brief(brand));
 }
 
 def _is_light(colour: str) -> bool {
