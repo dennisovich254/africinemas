@@ -14,7 +14,7 @@ import from core.authz.context {
     resolve_context,
     scoped
 }
-import from core.tenancy.models { NAME_MAX }
+import from core.tenancy.models { NAME_MAX, DOORS_OPEN_MAX }
 import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
 import from datetime { timedelta }
 import from core.clock { now }
@@ -69,6 +69,28 @@ def _do_rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[
     return {"ok": True, "name": clean};
 }
 
+def _do_set_doors_open(tenant: str, minutes: int) -> dict[str, any] {  # jac:ignore[W1037]
+    try {
+        scope = scoped(tenant, "tenant.settings.update");
+    } except NotFound {
+        return NOT_FOUND;
+    } except NoShift {
+        return NO_SHIFT;
+    } except Forbidden {
+        return FORBIDDEN;
+    }
+    if isinstance(minutes, bool)
+        or not isinstance(minutes, int)
+        or not 0 <= minutes <= DOORS_OPEN_MAX {
+        return refused(
+            "invalid_minutes",
+            f"Enter a whole number of minutes from 0 to {DOORS_OPEN_MAX}."
+        );
+    }
+    scope.tenant.doors_open_minutes = minutes;
+    return {"ok": True, "doors_open_minutes": minutes};
+}
+
 def _do_start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # Opens (or restarts) the caller's shift at `tenant` (ADR-0006). Any member may.
     try {
@@ -98,6 +120,17 @@ def:protect rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ign
         "cinema",
         tenant,
         lambda -> any { return _do_rename_cinema(tenant, name); }  # jac:ignore[W1037]
+    );
+}
+
+def:protect set_doors_open(tenant: str, minutes: int) -> dict[str, any] {  # jac:ignore[W1037]
+    # How many minutes before a showtime its tickets can be scanned (improvements #10).
+    return audited(
+        tenant,
+        "cinema.doors_changed",
+        "cinema",
+        tenant,
+        lambda -> any { return _do_set_doors_open(tenant, minutes); }  # jac:ignore[W1037]
     );
 }
 

@@ -10,7 +10,8 @@ reference (6.4's manual entry). Refusals, in the order they're checked:
 - unknown_ticket: no such ticket at this cinema (another cinema's gets the same answer);
 - wrong_showtime: the ticket is for another showtime, named (movie and start);
 - showtime_closed: the showtime isn't on (cancelled or unpublished);
-- too_early / showtime_over: the door is open from DOORS_OPEN_MINUTES before the start
+- too_early / showtime_over: the door is open from the cinema's doors_open_minutes
+  (45 unless it changed it) before the start
   until the showtime ends;
 - ticket_voided / ticket_refunded;
 - already_redeemed: with when, and who scanned it.
@@ -57,8 +58,7 @@ import from core.booking.ticket_codes { REFS, VERSION, read_qr, typed_reference 
 import from core.audit.log { audited }
 
 glob SCAN: str = "tickets.scan",
-     USED: str = "ticket-used",
-     DOORS_OPEN_MINUTES: int = 120;
+     USED: str = "ticket-used";
 
 def _reference(code: str) -> str {
     # The reference a scanned or typed code names.
@@ -124,16 +124,15 @@ def _used(tenant: Tenant, used_at: str, used_by: str) -> Refused {
     );
 }
 
-def doors_open_at(screening: Screening) -> datetime {
-    return datetime.fromisoformat(screening.starts_at)
-        - timedelta(minutes=DOORS_OPEN_MINUTES);
+def doors_open_at(screening: Screening, minutes: int) -> datetime {
+    return datetime.fromisoformat(screening.starts_at) - timedelta(minutes=minutes);
 }
 
-def door_is_open(screening: Screening, at: datetime) -> bool {
-    # The door window: from DOORS_OPEN_MINUTES before the start until the showtime
-    # ends (its ends_at, cleaning buffer included).
+def door_is_open(screening: Screening, at: datetime, minutes: int) -> bool {
+    # The door window: from `minutes` (the cinema's doors_open_minutes) before the
+    # start until the showtime ends (its ends_at, cleaning buffer included).
     return screening.state == PUBLISHED
-        and doors_open_at(screening) <= at
+        and doors_open_at(screening, minutes) <= at
         and at < datetime.fromisoformat(screening.ends_at);
 }
 
@@ -156,7 +155,7 @@ def _check_ticket(scope: TenantScope, screening: Screening, ticket: Ticket) {
         raise Refused("showtime_closed", "This showtime isn't on.");
     }
     at = now();
-    opens = doors_open_at(screening);
+    opens = doors_open_at(screening, scope.tenant.doors_open_minutes);
     if at < opens {
         raise Refused(
             "too_early",
@@ -236,7 +235,7 @@ def _door_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
             SCAN,
             Resource(tenant_id=scope.ctx.tenant_id, venue_id=s.venue_id)
         );
-        if not venue_ok or not door_is_open(s, at) {
+        if not venue_ok or not door_is_open(s, at, scope.tenant.doors_open_minutes) {
             continue;
         }
         movie = find_movie(scope.tenant, s.movie_id);
@@ -256,6 +255,7 @@ def _door_showtimes(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {
         "ok": True,
         "timezone": cinema_timezone(scope.tenant),
+        "doors_open_minutes": scope.tenant.doors_open_minutes,
         "showtimes": sorted(
             shown,
             key=lambda (s: dict[str, str]) -> str { return s["starts_at"]; }  # jac:ignore[W1037]

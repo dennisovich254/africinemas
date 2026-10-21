@@ -9,6 +9,7 @@ import from core.tenancy.signup {
 import from core.tenancy.tenant_api {
     my_access,  # jac:ignore[W2037]
     rename_cinema,  # jac:ignore[W2037]
+    set_doors_open,  # jac:ignore[W2037]
     start_shift,  # jac:ignore[W2037]
     end_shift  # jac:ignore[W2037]
 }

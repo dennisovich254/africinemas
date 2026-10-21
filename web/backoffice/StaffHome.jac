@@ -54,6 +54,13 @@ def greeting(tz: str) -> str {
     return "Good afternoon" if hour < 17 else "Good evening";
 }
 
+def browser_timezone -> str {
+    # The browser's own timezone, e.g. "Africa/Nairobi".
+    win: any = window;  # jac:ignore[W1037,W2001]
+    format_class: any = win.Intl.DateTimeFormat;  # jac:ignore[W1037]
+    return str(new(format_class).resolvedOptions().timeZone);
+}
+
 def _next_index(shows: list[dict[str, any]]) -> int {  # jac:ignore[W1037]
     # The next showtime to start; when all have started, the last one.
     at: float = new(Date).getTime();  # jac:ignore[W2001]
@@ -523,7 +530,9 @@ def:pub StaffHome(
     }
     useEffect(start_loading, [slug, shift_open]);
 
-    hello = "Welcome back";
+    # Until the cinema's day loads (or with no shift open), greet at the browser's own
+    # hour: never "Welcome back", which is wrong on a first visit.
+    hello = greeting(browser_timezone());
     today_text = "";
     if home is not None {
         loaded: dict[str, any] = home;  # jac:ignore[W1037]

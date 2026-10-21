@@ -37,6 +37,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "cinema.renamed",
              "probe": {"tenant": "{tenant}", "name": "Probe"}
          },
+         "set_doors_open": {
+             "scope": "tenant",
+             "audit": "cinema.doors_changed",
+             "probe": {"tenant": "{tenant}", "minutes": 30}
+         },
          "invite_staff": {
              "scope": "tenant",
              "audit": "staff.invited",

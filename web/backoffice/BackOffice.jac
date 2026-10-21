@@ -337,7 +337,11 @@ def:pub BackOffice -> JsxElement {
     } elif section == "box-office" {
         content = <BoxOfficeSection slug={slug} shift_open={shift_open}/>;
     } elif section == "scanner" {
-        content = <ScannerSection slug={slug} shift_open={shift_open}/>;
+        content = <ScannerSection
+            slug={slug}
+            shift_open={shift_open}
+            permissions={permissions}
+        />;
     } elif section == "snacks" and item == "import" {
         content = <SnackImportPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "stock" {

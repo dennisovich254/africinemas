@@ -139,6 +139,7 @@ glob:pub ACTIONS: list[tuple[str, str]] = [
          ("staff.removed", "Staff removed"),
          ("cinema.created", "Cinema created"),
          ("cinema.renamed", "Cinema renamed"),
+         ("cinema.doors_changed", "Door opening time changed"),
          ("prices.saved", "Prices saved"),
          ("venue.created", "Venue added"),
          ("venue.updated", "Venue changed"),
