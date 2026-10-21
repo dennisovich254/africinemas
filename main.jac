@@ -45,6 +45,7 @@ import from core.catalog.movie_api {
     upload_poster,  # jac:ignore[W2037]
     set_trailer,  # jac:ignore[W2037]
     get_poster,  # jac:ignore[W2037]
+    get_backdrop,  # jac:ignore[W2037]
     upload_backdrop,  # jac:ignore[W2037]
     remove_backdrop  # jac:ignore[W2037]
 }

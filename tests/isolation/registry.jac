@@ -211,6 +211,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"tenant": "{tenant}", "movie_id": "x"}
          },
+         "get_backdrop": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "movie_id": "x"}
+         },
          # The snack catalog (P12.1).
          "duplicate_snack_product": {
              "scope": "tenant",
