@@ -106,28 +106,34 @@ sem _converse.message = "What the customer just wrote.";
 sem _converse.history = "The conversation so far.";
 
 # Jac 0.38.0 gives a `by` function's semantic info an empty parameter list, and byLLM
-# then fails every call with IndexError before asking the model (2026-10-21). Fill the
-# list from the signature and the sems above; a fixed Jac keeps its own.
+# then fails every call with IndexError before asking the model (2026-10-21). byLLM's
+# lookup is wrapped so the list comes from the signature, with the sems above; a fixed
+# Jac keeps its own. (Filling it once at import didn't reach the served app's copy.)
 ::py::
 import inspect as _inspect
-from jaclang import JacRuntime as _Jac
-from jaclang.runtime.semantic import ParamInfo as _ParamInfo
+from jaclang.runtime.runtime import JacLLM as _JacLLM
+from jaclang.runtime.semantic import FunctionInfo as _FunctionInfo, ParamInfo as _ParamInfo
+
+_PARAM_SEMS = {
+    "message": "What the customer just wrote.",
+    "history": "The conversation so far.",
+}
+_fetch_mtir = _JacLLM.fetch_mtir
 
 
-def _restore_params(fn, sems):
-    info = _Jac.fetch_mtir(fn)
-    if info is not None and not info.params:
+def _fetch_mtir_with_params(func):
+    info = _fetch_mtir(func)
+    if isinstance(info, _FunctionInfo) and not info.params:
         info.params = [
-            _ParamInfo(name=n, semstr=sems.get(n))
-            for n in _inspect.signature(fn).parameters
+            _ParamInfo(name=n, semstr=_PARAM_SEMS.get(n))
+            for n in _inspect.signature(func).parameters
         ]
+    return info
 
 
-for _fn in (_converse, _converse_at):
-    _restore_params(
-        _fn,
-        {"message": "What the customer just wrote.", "history": "The conversation so far."},
-    )
+if not getattr(_fetch_mtir, "fills_params", False):
+    _fetch_mtir_with_params.fills_params = True
+    _JacLLM.fetch_mtir = staticmethod(_fetch_mtir_with_params)
 ::py::
 
 

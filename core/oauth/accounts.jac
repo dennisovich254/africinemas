@@ -41,7 +41,7 @@ def chat_account(
     if found is not None {
         return found;
     }
-    made: dict[str, any] = _users().create_user(  # jac:ignore[W1037]
+    made: dict[str, any] = _users().create_internal_user(  # jac:ignore[W1037]
         f"chat-{uuid.uuid4().hex}", secrets.token_urlsafe(32)
     );
     if not made.get("user_id") or not made.get("root_id") {
