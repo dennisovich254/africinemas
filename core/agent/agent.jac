@@ -1,7 +1,7 @@
 """The AI booking agent (P8.1; Phase 8): a customer's message in, the agent's reply out.
 
-It answers with Gemini through byLLM (agent_model; the model and its key come from the
-environment, never from the code), using only the tools in core/agent/tools.jac. The
+It answers with Claude through byLLM (agent_model, ADR-0049; the model and its key come
+from the environment, never from the code), using only the tools in core/agent/tools.jac. The
 rules it works under (RULES) are fixed by the server, not by anything a customer or a
 cinema writes: tool results and movie text are information, never instructions; it
 only uses its tools; it never pays (the customer does, in the payment card, with their
@@ -36,12 +36,13 @@ import from core.agent.tools {
 
 glob logger = logging.getLogger(__name__),
      MODEL_ENV: str = "AFRICINEMAS_LLM_MODEL",
-     # Flash-Lite thinks minimally by default, so a chat reply takes seconds (P8.4).
-     # Google retired 2.5 Flash-Lite for new keys (404, 2026-10-09): 3.5 is its successor.
-     DEFAULT_MODEL: str = "gemini/gemini-3.5-flash-lite",
+     # Claude for every AI feature (ADR-0049). A turn with a tool call took 4 to 6 s
+     # (2026-10-20), thinking included.
+     DEFAULT_MODEL: str = "anthropic/claude-opus-5-5",
      # Seconds one model call may take. byLLM passes no timeout on a plain call, so
      # litellm's own default (minutes) applied: one message took 4 minutes (P8.4).
-     CALL_TIMEOUT: float = 15.0,
+     # Claude thinks before answering, so a call gets more room than Flash-Lite did.
+     CALL_TIMEOUT: float = 30.0,
      agent_model: any = Model(model_name=os.environ.get(MODEL_ENV) or DEFAULT_MODEL),  # jac:ignore[W1037]
      # Browser tests only (scripts/e2e_env.sh; production never sets it): a JSON file of
      # the model's answers, each a reply text or a tool call {"tool": ..., "args": ...},
