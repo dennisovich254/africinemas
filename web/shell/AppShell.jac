@@ -58,7 +58,7 @@ glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
          "settings": Settings01Icon
      };
 
-def NavIcon(section: any) -> any {  # jac:ignore[W1037]
+def nav_icon(section: any) -> any {  # jac:ignore[W1037]
     if not isinstance(section, str) or section not in NAV_ICONS {
         return None;
     }
@@ -103,8 +103,7 @@ def NavLinks(
                             className={LINK_CLASSES}
                             onClick={on_navigate}
                         >
-                            <NavIcon section={item["key"]}/>
-                            {item["label"]}
+                            {nav_icon(item["key"])}{item["label"]}
                         </Link>
                     </li> for item in items
                 ]}
