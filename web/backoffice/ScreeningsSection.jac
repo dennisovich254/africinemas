@@ -1,11 +1,20 @@
-"""`/app/:slug/screenings`: the screenings programme, one screen at a time (P3.7b).
+"""`/app/:slug/screenings`: the programme board and scheduling (P3.7b, improvements #7).
 
-Pick a screen, then add screenings (a movie and a start time; the form opens from "Add
-screening"), publish them to the storefront, unpublish, move and cancel them (asked
-first). The server's draft and scheduled states are both shown as "Not published", and
-Publish makes both steps (P3.5a/b). Times are entered and shown in the viewer's own time
-zone and sent with its offset. Refusals (a clash, a time in the past, a screen without a
-published seat layout) are shown where they apply.
+The board shows one venue's day at a time: a strip of dates (two weeks, moved a week at
+a time), and under it each screen as a lane with that day's showtimes in time order,
+each with its poster, start and end time (running time plus cleaning) and its state,
+Draft or On sale. From a showtime: Publish (both server steps, P3.5a/b), Unpublish,
+Move (drafts only), Cancel (asked first). "Publish all drafts" puts the day's drafts on
+sale.
+
+"Schedule a movie" makes many showtimes at once: a movie, one or more screens, start
+times, a date range with chosen weekdays, and "Put on sale now". Before anything is
+sent it lists every showtime it will make, flagging those that clash with what's
+already on the board (or with each other); then it makes them one by one and says, for
+each, whether it was added or why not (a clash, a time in the past, a screen without a
+published seat layout). Every check still runs on the server.
+
+Times are entered and shown in the viewer's own time zone and sent with its offset.
 """
 
 import from react { useState, useEffect }
@@ -16,7 +25,10 @@ import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] authenticated endpoint
-import from core.catalog.movie_api { list_movies }  # jac:ignore[W2037]
+import from core.catalog.movie_api {
+    list_movies,  # jac:ignore[W2037]
+    get_poster  # jac:ignore[W2037]
+}
 import from core.catalog.screening_api {
     list_screenings,  # jac:ignore[W2037]
     create_screening,  # jac:ignore[W2037]
@@ -32,7 +44,21 @@ import from .form_parts { FieldError, ConfirmDelete, error_id, on_input, submit_
 glob SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm",
      NOT_PUBLISHED: list[str] = ["draft", "scheduled"],
      ON_STOREFRONT: list[str] = ["published", "on_sale", "sales_closed"],
-     TIME_CODES: list[str] = ["overlap", "in_past", "invalid_time", "screen_busy"];
+     # The days the strip shows at once, and the most showtimes one scheduling makes.
+     STRIP_DAYS: int = 14,
+     BATCH_MAX: int = 60,
+     # Minutes between showings on a screen (core/catalog/screening_rules.jac).
+     CLEANING_MIN: int = 15,
+     # (getDay() number, short name), Monday first.
+     WEEKDAYS: list[tuple[int, str]] = [
+         (1, "Mon"),
+         (2, "Tue"),
+         (3, "Wed"),
+         (4, "Thu"),
+         (5, "Fri"),
+         (6, "Sat"),
+         (0, "Sun")
+     ];
 
 def two(n: int) -> str {
     return f"0{n}" if n < 10 else str(n);
@@ -79,10 +105,10 @@ def:pub date_label(stamp: str) -> str {
 
 def:pub state_label(state: str) -> str {
     if state in NOT_PUBLISHED {
-        return "Not published";
+        return "Draft";
     }
     if state in ON_STOREFRONT {
-        return "On the storefront";
+        return "On sale";
     }
     if state == "cancelled" {
         return "Cancelled";
@@ -90,71 +116,222 @@ def:pub state_label(state: str) -> str {
     return "Finished";
 }
 
+def:pub add_days(day: str, n: int) -> str {
+    # "2026-10-02" plus `n` days, as YYYY-MM-DD.
+    moment: any = new(Date, f"{day}T12:00:00");  # jac:ignore[W1037,W2001]
+    moment.setDate(moment.getDate() + n);
+    return f"{moment.getFullYear()}-{two(moment.getMonth() + 1)}-{two(
+        moment.getDate()
+    )}";
+}
+
+def:pub today_iso -> str {
+    moment: any = new(Date);  # jac:ignore[W1037,W2001]
+    return f"{moment.getFullYear()}-{two(moment.getMonth() + 1)}-{two(
+        moment.getDate()
+    )}";
+}
+
+def:pub weekday_of(day: str) -> int {
+    moment: any = new(Date, f"{day}T12:00:00");  # jac:ignore[W1037,W2001]
+    return int(moment.getDay());
+}
+
+def:pub ms_of(stamp: str) -> float {
+    moment: any = new(Date, stamp);  # jac:ignore[W1037,W2001]
+    return float(moment.getTime());
+}
+
+def:pub clock_after(stamp: str, minutes: int) -> str {
+    # The local HH:MM `minutes` after an ISO time.
+    moment: any = new(Date, ms_of(stamp) + minutes * 60000);  # jac:ignore[W1037,W2001]
+    return f"{two(moment.getHours())}:{two(moment.getMinutes())}";
+}
+
+def:pub planned_showtimes(
+    from_day: str,
+    to_day: str,
+    weekdays: list[int],
+    screens: list[str],
+    times: list[str]
+) -> list[dict[str, str]] {
+    # Every (day, screen, time) the scheduling form asks for, in day and time order.
+    out: list[dict[str, str]] = [];
+    if not from_day or not to_day or to_day < from_day {
+        return out;
+    }
+    day = from_day;
+    guard = 0;
+    while day <= to_day and guard < 400 {
+        if weekday_of(day) in weekdays {
+            for clock in sorted(times) {
+                for screen in screens {
+                    starts = local_iso(day, clock);
+                    if starts {
+                        out.append(
+                            {
+                                "day": day,
+                                "clock": clock,
+                                "screen": screen,
+                                "starts": starts
+                            }
+                        );
+                    }
+                }
+            }
+        }
+        day = add_days(day, 1);
+        guard += 1;
+    }
+    return out;
+}
+
+def start_key(s: dict[str, any]) -> str {  # jac:ignore[W1037]
+    return s["starts_at"];
+}
+
+def StateBadge(state: str) -> JsxElement {
+    live = state in ON_STOREFRONT;
+    return
+        <Badge
+            variant={"default" if live else "secondary"}
+            data-testid="screening-state"
+        >
+            {state_label(state)}
+        </Badge>;
+}
+
 def:pub ScreeningsSection(slug: str) -> JsxElement {
     [venues, set_venues] = useState(None);
     [movies, set_movies] = useState([]);
-    [screen_id, set_screen_id] = useState("");
-    [screenings, set_screenings] = useState(None);
+    [posters, set_posters] = useState({});
+    [venue_id, set_venue_id] = useState("");
+    # Every screening of the chosen venue, by screen id.
+    [shows, set_shows] = useState(None);
+    [day, set_day] = useState(today_iso());
+    [strip_start, set_strip_start] = useState(today_iso());
     [failed, set_failed] = useState("");
     [busy, set_busy] = useState(False);
     [errors, set_errors] = useState({});
     [message, set_message] = useState("");
-    [adding, set_adding] = useState(False);
-    [form, set_form] = useState({"movie": "", "day": "", "clock": ""});
-    [layout_problem, set_layout_problem] = useState("");
     [moving, set_moving] = useState("");
     [move_to, set_move_to] = useState({"day": "", "clock": ""});
     [confirming, set_confirming] = useState(None);
+    # The "Schedule a movie" panel.
+    [scheduling, set_scheduling] = useState(False);
+    [plan, set_plan] = useState(
+        {
+            "movie": "",
+            "from": "",
+            "to": "",
+            "clock": "",
+            "sell": True,
+            "screens": [],
+            "times": [],
+            "weekdays": [1, 2, 3, 4, 5, 6, 0]
+        }
+    );
+    [results, set_results] = useState([]);
 
-    async def load_screenings(which: str) {
-        answer: any = None;  # jac:ignore[W1037]
-        if not which {
-            set_screenings([]);
-            return;
+    places: list[dict[str, any]] = venues or [];  # jac:ignore[W1037]
+    films: list[dict[str, any]] = movies;  # jac:ignore[W1037]
+    pictures: dict[str, str] = posters;
+    by_screen: dict[str, list[dict[str, any]]] = shows or {};  # jac:ignore[W1037]
+    field_errors: dict[str, str] = errors;
+    new_time: dict[str, str] = move_to;
+    wanted: dict[str, any] = plan;  # jac:ignore[W1037]
+    outcome: list[dict[str, any]] = results;  # jac:ignore[W1037]
+
+    def screens_of(which: str) -> list[dict[str, any]] {  # jac:ignore[W1037]
+        for v in places {
+            if v["venue_id"] == which {
+                return v["auditoriums"];
+            }
         }
-        try {
-            answer = await list_screenings(slug, which);  # jac:ignore[W2037]
-        } except Exception as e {
-            console.warn("list_screenings failed", e);
-            set_failed(
-                "We couldn't load the screenings. Refresh the page to try again."
-            );
-            return;
+        return [];
+    }
+
+    def film(movie_id: str) -> dict[str, any] | None {  # jac:ignore[W1037]
+        for m in films {
+            if m["movie_id"] == movie_id {
+                return m;
+            }
         }
-        if answer["ok"] {
-            set_screenings(answer["screenings"]);
-        } else {
-            set_failed(answer["error"]["message"]);
+        return None;
+    }
+
+    async def load_shows(which: str, from_places: list[dict[str, any]]) {  # jac:ignore[W1037]
+        found: dict[str, list[dict[str, any]]] = {};  # jac:ignore[W1037]
+        lanes: list[dict[str, any]] = [];  # jac:ignore[W1037]
+        for v in from_places {
+            if v["venue_id"] == which {
+                lanes = v["auditoriums"];
+            }
         }
+        for a in lanes {
+            answer: any = None;  # jac:ignore[W1037]
+            try {
+                answer = await list_screenings(slug, a["auditorium_id"]);  # jac:ignore[W2037]
+            } except Exception as e {
+                console.warn("list_screenings failed", e);
+                set_failed(
+                    "We couldn't load the screenings. Refresh the page to try again."
+                );
+                return;
+            }
+            found[a["auditorium_id"]] = answer["screenings"] if answer["ok"] else [];
+        }
+        set_shows(found);
+    }
+
+    async def load_posters(from_films: list[dict[str, any]]) {  # jac:ignore[W1037]
+        seen: dict[str, str] = {};
+        for m in from_films {
+            if m["has_poster"] {
+                answer: any = None;  # jac:ignore[W1037]
+                try {
+                    answer = await get_poster(slug, m["movie_id"]);  # jac:ignore[W2037]
+                } except Exception as e {
+                    console.warn("get_poster failed", e);
+                    continue;
+                }
+                if answer["ok"] {
+                    seen[m["movie_id"]] = f"data:{answer['content_type']};base64,{answer[
+                        'data_base64'
+                    ]}";
+                }
+            }
+        }
+        set_posters(seen);
     }
 
     async def load {
-        places: any = None;  # jac:ignore[W1037]
-        films: any = None;  # jac:ignore[W1037]
+        got_places: any = None;  # jac:ignore[W1037]
+        got_films: any = None;  # jac:ignore[W1037]
         try {
-            places = await list_venues(slug);  # jac:ignore[W2037]
-            films = await list_movies(slug);  # jac:ignore[W2037]
+            got_places = await list_venues(slug);  # jac:ignore[W2037]
+            got_films = await list_movies(slug);  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("loading the programme failed", e);
             set_failed("We couldn't load your screens. Refresh the page to try again.");
             return;
         }
-        if not places["ok"] {
-            set_failed(places["error"]["message"]);
+        if not got_places["ok"] {
+            set_failed(got_places["error"]["message"]);
             return;
         }
-        set_venues(places["venues"]);
-        set_movies(films["movies"] if films["ok"] else []);
+        listed_films = got_films["movies"] if got_films["ok"] else [];
+        set_venues(got_places["venues"]);
+        set_movies(listed_films);
         first = "";
-        for v in places["venues"] {
-            for a in v["auditoriums"] {
-                if not first {
-                    first = a["auditorium_id"];
-                }
+        for v in got_places["venues"] {
+            if not first and len(v["auditoriums"]) > 0 {
+                first = v["venue_id"];
             }
         }
-        set_screen_id(first);
-        await load_screenings(first);
+        set_venue_id(first);
+        await load_shows(first, got_places["venues"]);
+        load_posters(listed_films);
     }
 
     # A named function, not a one-statement lambda (JI-028).
@@ -163,9 +340,9 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
     }
     useEffect(start_loading, [slug]);
 
-    field_errors: dict[str, str] = errors;
-    values: dict[str, str] = form;
-    new_time: dict[str, str] = move_to;
+    async def reload {
+        await load_shows(venue_id, places);
+    }
 
     def only_error(field_id: str, text: str) {
         shown: dict[str, str] = {};
@@ -175,38 +352,27 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
         set_errors(shown);
     }
 
-    def change(key: str, value: str) {
-        next_form: dict[str, str] = {};
-        for k in values {
-            next_form[k] = values[k];
+    def show_day(which: str) {
+        set_day(which);
+        if which < strip_start or which >= add_days(strip_start, STRIP_DAYS) {
+            set_strip_start(which);
         }
-        next_form[key] = value;
-        set_form(next_form);
+        set_moving("");
+        set_confirming(None);
     }
 
-    def change_move(key: str, value: str) {
-        next_move: dict[str, str] = {};
-        for k in new_time {
-            next_move[k] = new_time[k];
-        }
-        next_move[key] = value;
-        set_move_to(next_move);
-    }
-
-    async def choose_screen(which: str) {
-        set_screen_id(which);
-        set_adding(False);
+    async def choose_venue(which: str) {
+        set_venue_id(which);
+        set_shows(None);
         set_moving("");
         set_confirming(None);
         set_message("");
-        set_layout_problem("");
         only_error("", "");
-        set_screenings(None);
-        await load_screenings(which);
+        await load_shows(which, places);
     }
 
     async def step(call: any, where: str, done: str) -> bool {  # jac:ignore[W1037]
-        # Runs one change for a screening; refusals show at `where` (its row).
+        # Runs one change for a showtime; refusals show at `where` (its block).
         answer: any = None;  # jac:ignore[W1037]
         set_busy(True);
         set_message("");
@@ -232,79 +398,40 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
         return True;
     }
 
-    async def add {
-        movie_id = values["movie"];
-        starts = local_iso(values["day"], values["clock"]);
-        answer: any = None;  # jac:ignore[W1037]
-        set_layout_problem("");
-        if not movie_id {
-            only_error("screening-movie", "Choose a movie.");
-            return;
-        }
-        if not starts {
-            only_error("screening-time", "Choose a date and a start time.");
-            return;
-        }
-        set_busy(True);
-        try {
-            answer = await create_screening(slug, screen_id, movie_id, starts);  # jac:ignore[W2037]
-        } except Exception as e {
-            console.warn("create_screening failed", e);
-            set_busy(False);
-            set_message(
-                "We couldn't add the screening. Check your connection and try again."
-            );
-            return;
-        }
-        set_busy(False);
-        if not answer["ok"] {
-            code = answer["error"]["code"];
-            if code in TIME_CODES {
-                only_error("screening-time", answer["error"]["message"]);
-            } elif code == "no_layout" {
-                only_error("", "");
-                set_layout_problem(answer["error"]["message"]);
-            } else {
-                only_error("", "");
-                set_message(answer["error"]["message"]);
-            }
-            return;
-        }
-        only_error("", "");
-        set_adding(False);
-        set_form({"movie": "", "day": "", "clock": ""});
-        set_message("Screening added. Publish it when you're ready to sell tickets.");
-        await load_screenings(screen_id);
-    }
-
-    async def publish(s: dict[str, any]) {  # jac:ignore[W1037]
-        sid: str = s["screening_id"];
-        where = f"problem-{sid}";
-        if s["state"] == "draft" {
+    async def put_on_sale(sid: str, state: str, where: str) -> bool {
+        # Both server steps for a draft: scheduled, then published.
+        if state == "draft" {
             ok = await step(
                 lambda -> any { return schedule_screening(slug, sid); },  # jac:ignore[W1037,W2037]
                 where,
                 ""
             );
             if not ok {
-                return;
+                return False;
             }
         }
-        await step(
+        return await step(
             lambda -> any { return publish_screening(slug, sid); },  # jac:ignore[W1037,W2037]
             where,
-            "Published: it's on your storefront now."
+            ""
         );
-        await load_screenings(screen_id);
+    }
+
+    async def publish(s: dict[str, any]) {  # jac:ignore[W1037]
+        sid: str = s["screening_id"];
+        if await put_on_sale(sid, s["state"], f"problem-{sid}") {
+            set_message("On sale: it's on your storefront now.");
+        }
+        await reload();
     }
 
     async def unpublish(sid: str) {
         await step(
             lambda -> any { return unpublish_screening(slug, sid); },  # jac:ignore[W1037,W2037]
             f"problem-{sid}",
-            "Unpublished: it's off your storefront."
+            "Taken off sale: it's off your storefront."
         );
-        await load_screenings(screen_id);
+        await reload();
     }
 
     def start_move(s: dict[str, any]) {  # jac:ignore[W1037]
@@ -312,6 +439,15 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
         set_move_to({"day": day_of(s["starts_at"]), "clock": clock_of(s["starts_at"])});
         set_confirming(None);
         only_error("", "");
+    }
+
+    def change_move(key: str, value: str) {
+        next_move: dict[str, str] = {};
+        for k in new_time {
+            next_move[k] = new_time[k];
+        }
+        next_move[key] = value;
+        set_move_to(next_move);
     }
 
     async def save_move(sid: str) {
@@ -328,7 +464,8 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
         );
         if ok {
             set_moving("");
-            await load_screenings(screen_id);
+            show_day(new_time["day"]);
+            await reload();
         }
     }
 
@@ -338,9 +475,276 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
         await step(
             lambda -> any { return cancel_screening(slug, target["id"]); },  # jac:ignore[W1037,W2037]
             f"problem-{target['id']}",
-            "Screening cancelled."
+            "Showtime cancelled."
         );
-        await load_screenings(screen_id);
+        await reload();
+    }
+
+    lanes = screens_of(venue_id);
+
+    def day_shows(screen: str, which: str) -> list[dict[str, any]] {  # jac:ignore[W1037]
+        picked: list[dict[str, any]] = [];  # jac:ignore[W1037]
+        for s in (by_screen[screen] if screen in by_screen else []) {
+            if day_of(s["starts_at"]) == which {
+                picked.append(s);
+            }
+        }
+        return sorted(picked, key=start_key);
+    }
+
+    def count_on(which: str) -> int {
+        n = 0;
+        for a in lanes {
+            for s in day_shows(a["auditorium_id"], which) {
+                if s["state"] != "cancelled" {
+                    n += 1;
+                }
+            }
+        }
+        return n;
+    }
+
+    async def publish_day_drafts {
+        failed_any = False;
+        for a in lanes {
+            for s in day_shows(a["auditorium_id"], day) {
+                if s["state"] in NOT_PUBLISHED {
+                    ok = await put_on_sale(
+                        s["screening_id"], s["state"], f"problem-{s['screening_id']}"
+                    );
+                    failed_any = failed_any or not ok;
+                }
+            }
+        }
+        set_message(
+            "Some drafts couldn't go on sale: see below."
+                if failed_any
+                else "The day's drafts are on sale."
+        );
+        await reload();
+    }
+
+    # --- Schedule a movie ---
+
+    def change_plan(key: str, value: any) {  # jac:ignore[W1037]
+        next_plan: dict[str, any] = {};  # jac:ignore[W1037]
+        for k in wanted {
+            next_plan[k] = wanted[k];
+        }
+        next_plan[key] = value;
+        set_plan(next_plan);
+    }
+
+    def toggle(key: str, item: any) {  # jac:ignore[W1037]
+        current: list[any] = wanted[key];  # jac:ignore[W1037]
+        kept: list[any] = [];  # jac:ignore[W1037]
+        found = False;
+        for x in current {
+            if x == item {
+                found = True;
+            } else {
+                kept.append(x);
+            }
+        }
+        if not found {
+            kept.append(item);
+        }
+        change_plan(key, kept);
+    }
+
+    def toggle_sell(e: any) {  # jac:ignore[W1037]
+        change_plan("sell", e.target.checked);
+    }
+
+    def add_time {
+        clock = wanted["clock"];
+        if not clock {
+            only_error("screening-time", "Choose a start time, then add it.");
+            return;
+        }
+        only_error("", "");
+        if clock not in wanted["times"] {
+            next_plan: dict[str, any] = {};  # jac:ignore[W1037]
+            for k in wanted {
+                next_plan[k] = wanted[k];
+            }
+            next_plan["times"] = sorted(wanted["times"] + [clock]);
+            next_plan["clock"] = "";
+            set_plan(next_plan);
+        }
+    }
+
+    def open_scheduling {
+        only_error("", "");
+        set_results([]);
+        set_moving("");
+        set_confirming(None);
+        single = [a["auditorium_id"] for a in lanes] if len(lanes) == 1 else [];
+        set_plan(
+            {
+                "movie": "",
+                "from": day,
+                "to": day,
+                "clock": "",
+                "sell": True,
+                "screens": single,
+                "times": [],
+                "weekdays": [1, 2, 3, 4, 5, 6, 0]
+            }
+        );
+        set_scheduling(True);
+    }
+
+    chosen_film = film(wanted["movie"]) if wanted["movie"] else None;
+    runtime = int(chosen_film["runtime_minutes"]) if chosen_film is not None else 0;
+    planned = planned_showtimes(
+        wanted["from"],
+        wanted["to"],
+        wanted["weekdays"],
+        wanted["screens"],
+        wanted["times"]
+    )
+        if scheduling
+        else [];
+
+    def screen_name(screen: str) -> str {
+        for a in lanes {
+            if a["auditorium_id"] == screen {
+                return a["name"];
+            }
+        }
+        return "";
+    }
+
+    def clash_of(item: dict[str, str], index: int) -> str {
+        # What `item` would overlap on its screen: a showing already there, or one
+        # planned before it; "" when nothing.
+        if runtime == 0 {
+            return "";
+        }
+        start = ms_of(item["starts"]);
+        end = start + (runtime + CLEANING_MIN) * 60000;
+        for s in (by_screen[item["screen"]] if item["screen"] in by_screen else []) {
+            if s["state"] == "cancelled" {
+                continue;
+            }
+            if start < ms_of(s["ends_at"]) and ms_of(s["starts_at"]) < end {
+                return f"Clashes with {s['movie_title']} at {clock_of(s['starts_at'])}";
+            }
+        }
+        for (i, other) in enumerate(planned) {
+            if i < index and other["screen"] == item["screen"] {
+                o_start = ms_of(other["starts"]);
+                if start < o_start + (runtime + CLEANING_MIN) * 60000
+                    and o_start < end {
+                    return f"Overlaps your {other['clock']} showing";
+                }
+            }
+        }
+        return "";
+    }
+
+    async def schedule {
+        if not wanted["movie"] {
+            only_error("screening-movie", "Choose a movie.");
+            return;
+        }
+        if len(wanted["screens"]) == 0 {
+            only_error("screening-screens", "Choose at least one screen.");
+            return;
+        }
+        if len(wanted["times"]) == 0 {
+            only_error("screening-time", "Add at least one start time.");
+            return;
+        }
+        if len(planned) == 0 {
+            only_error(
+                "screening-date",
+                "Choose dates (and weekdays) that include at least one day."
+            );
+            return;
+        }
+        if len(planned) > BATCH_MAX {
+            only_error(
+                "screening-date",
+                f"That's {len(planned)} showtimes; schedule up to {BATCH_MAX} at once."
+            );
+            return;
+        }
+        only_error("", "");
+        set_busy(True);
+        set_message("");
+        done: list[dict[str, any]] = [];  # jac:ignore[W1037]
+        for item in planned {
+            label = f"{date_label(item['starts'])} · {item['clock']} · {screen_name(
+                item['screen']
+            )}";
+            answer: any = None;  # jac:ignore[W1037]
+            try {
+                answer = await create_screening(
+                    slug, item["screen"], wanted["movie"], item["starts"]
+                );  # jac:ignore[W2037]
+            } except Exception as e {
+                console.warn("create_screening failed", e);
+                done.append(
+                    {
+                        "label": label,
+                        "ok": False,
+                        "why": "We couldn't reach the server.",
+                        "code": "",
+                        "screen": item["screen"]
+                    }
+                );
+                continue;
+            }
+            if not answer["ok"] {
+                done.append(
+                    {
+                        "label": label,
+                        "ok": False,
+                        "why": answer["error"]["message"],
+                        "code": answer["error"]["code"],
+                        "screen": item["screen"]
+                    }
+                );
+                continue;
+            }
+            sid: str = answer["screening"]["screening_id"];
+            note = "Added as a draft";
+            if wanted["sell"] {
+                note = "Added, on sale"
+                    if await put_on_sale(sid, "draft", "")
+                    else "Added as a draft (it couldn't go on sale)";
+            }
+            done.append(
+                {
+                    "label": label,
+                    "ok": True,
+                    "why": note,
+                    "code": "",
+                    "screen": item["screen"]
+                }
+            );
+        }
+        set_busy(False);
+        only_error("", "");
+        set_results(done);
+        made = len(
+            [
+                d
+                for d in done
+                if d["ok"]
+            ]
+        );
+        set_message(
+            f"{made} of {len(done)} showtimes added."
+                if made < len(done)
+                else f"{made} showtime{'' if made == 1 else 's'} added."
+        );
+        if made > 0 {
+            show_day(wanted["from"]);
+        }
+        await reload();
     }
 
     if failed {
@@ -356,23 +760,13 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                 Loading the programme…
             </p>;
     }
-    places: list[dict[str, any]] = venues;  # jac:ignore[W1037]
-    films: list[dict[str, any]] = movies;  # jac:ignore[W1037]
-    screen_name = "";
-    for v in places {
-        for a in v["auditoriums"] {
-            if a["auditorium_id"] == screen_id {
-                screen_name = a["name"];
-            }
-        }
-    }
-    if not screen_id {
+    if not venue_id {
         return
             <div className="flex flex-col gap-3 rounded-lg border bg-card p-6">
                 <div className="flex flex-col gap-1">
                     <h2 className="text-base font-semibold">No screens yet</h2>
                     <p className="text-sm text-muted-foreground">
-                        Screenings are scheduled on a screen. Add a venue and its screens first.
+                        Showtimes are scheduled on a screen. Add a venue and its screens first.
                     </p>
                 </div>
                 <Button asChild={True} className="min-h-11 w-fit px-5">
@@ -381,194 +775,160 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
             </div>;
     }
     asking: dict[str, str] | None = confirming;
-    time_error = field_errors["screening-time"] or "";
-    movie_error = field_errors["screening-movie"] or "";
+    with_screens = [
+        v
+        for v in places
+        if len(v["auditoriums"]) > 0
+    ];
 
-    picker = <div className="flex max-w-md flex-col gap-1.5">
-        <Label htmlFor="screening-screen">Screen</Label>
-        <select
-            id="screening-screen"
-            value={screen_id}
-            onChange={on_input(lambda (text: str) { choose_screen(text); })}
-            className={SELECT_CLASSES}
-        >
-            {[
-                <optgroup key={v["venue_id"]} label={v["name"]}>
-                    {[
-                        <option key={a["auditorium_id"]} value={a["auditorium_id"]}>
-                            {a["name"]}
-                        </option> for a in v["auditoriums"]
-                    ]}
-                </optgroup> for v in places
-            ]}
-        </select>
+    venue_picker = <div
+        className="flex flex-wrap gap-2"
+        role="group"
+        aria-label="Venue"
+    >
+        {[
+            <Button
+                key={v["venue_id"]}
+                variant={"default" if v["venue_id"] == venue_id else "outline"}
+                className="min-h-11"
+                aria-pressed={"true" if v["venue_id"] == venue_id else "false"}
+                onClick={lambda { choose_venue(v["venue_id"]); }}
+            >
+                {v["name"]}
+            </Button> for v in with_screens
+        ]}
     </div>;
 
-    add_form = <form
-        data-testid="add-screening"
-        className="grid gap-3 rounded-lg border p-4 sm:grid-cols-3"
-        noValidate={True}
-        onSubmit={submit_with(lambda { add(); })}
-    >
-        <h2 className="text-lg font-semibold sm:col-span-3">
-            Add a screening on {screen_name}
-        </h2>
-        {layout_problem
-            and <Alert variant="destructive" role="alert" className="sm:col-span-3">
-                <AlertTitle>{layout_problem}</AlertTitle>
-                <AlertDescription>
-                    <AppLink
-                        to={f"/app/{slug}/screens/{screen_id}"}
-                        className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+    strip_days = [add_days(strip_start, i) for i in range(STRIP_DAYS)];
+    strip = <nav aria-label="Days" className="flex items-center gap-2">
+        <Button
+            variant="outline"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Earlier days"
+            onClick={lambda { set_strip_start(add_days(strip_start, -7)); }}
+        >
+            ‹
+        </Button>
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+            {[
+                <button
+                    key={d}
+                    type="button"
+                    data-day={d}
+                    aria-pressed={"true" if d == day else "false"}
+                    onClick={lambda { show_day(d); }}
+                    className={"flex min-h-14 min-w-16 shrink-0 flex-col items-center justify-center rounded-lg border px-3 text-sm "
+                        + (
+                            "border-primary bg-primary text-primary-foreground"
+                                if d == day
+                                else "bg-card hover:bg-muted"
+                        )}
+                >
+                    <span className="font-medium">
+                        {"Today" if d == today_iso() else date_label(f"{d}T12:00:00")}
+                    </span>
+                    <span
+                        className={"text-xs "
+                            + ("" if d == day else "text-muted-foreground")}
                     >
-                        Open {screen_name}'s seat layout
-                    </AppLink>
-                </AlertDescription>
-            </Alert>}
-        <div className="flex flex-col gap-1.5 sm:col-span-3">
-            <Label htmlFor="screening-movie">Movie</Label>
-            <select
-                id="screening-movie"
-                value={values["movie"]}
-                autoFocus={True}
-                aria-invalid={"true" if movie_error else "false"}
-                aria-describedby={error_id("screening-movie") if movie_error else None}
-                onChange={on_input(lambda (text: str) { change("movie", text); })}
-                className={SELECT_CLASSES}
-            >
-                <option value="">Choose a movie</option>
-                {[
-                    <option key={m["movie_id"]} value={m["movie_id"]}>
-                        {m["title"]} ({m["runtime_minutes"]} min)
-                    </option> for m in films
-                ]}
-            </select>
-            {movie_error
-                and <FieldError field_id="screening-movie" error={movie_error}/>}
-            {len(films) == 0
-                and <p className="text-sm text-muted-foreground">
-                    No movies yet.{" "}
-                    <AppLink
-                        to={f"/app/{slug}/movies/new"}
-                        className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
-                    >
-                        Add one
-                    </AppLink>
-                </p>}
+                        {f"{count_on(d)} shows" if count_on(d) != 1 else "1 show"}
+                    </span>
+                </button> for d in strip_days
+            ]}
         </div>
-        <div className="flex flex-col gap-1.5">
-            <Label htmlFor="screening-date">Date</Label>
-            <Input
-                id="screening-date"
-                type="date"
-                value={values["day"]}
-                onChange={on_input(lambda (text: str) { change("day", text); })}
-                className="min-h-11"
-            />
-        </div>
-        <div className="flex flex-col gap-1.5">
-            <Label htmlFor="screening-time">Start time</Label>
-            <Input
-                id="screening-time"
-                type="time"
-                value={values["clock"]}
-                aria-invalid={"true" if time_error else "false"}
-                aria-describedby={error_id("screening-time") if time_error else None}
-                onChange={on_input(lambda (text: str) { change("clock", text); })}
-                className="min-h-11"
-            />
-        </div>
-        <div className="sm:col-span-3">
-            {time_error and <FieldError field_id="screening-time" error={time_error}/>}
-        </div>
-        <div className="flex flex-wrap gap-3 sm:col-span-3">
-            <Button type="submit" className="min-h-11 px-5" disabled={busy}>
-                Create screening
-            </Button>
-            <Button
-                type="button"
-                variant="ghost"
-                className="min-h-11 px-5"
-                onClick={lambda {
-                    set_adding(False);
-                    set_layout_problem("");
-                    only_error("", "");
-                }}
-            >
-                Cancel
-            </Button>
-        </div>
-    </form>;
+        <Button
+            variant="outline"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Later days"
+            onClick={lambda { set_strip_start(add_days(strip_start, 7)); }}
+        >
+            ›
+        </Button>
+    </nav>;
 
-    def Row(s: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+    def Block(s: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
         sid: str = s["screening_id"];
         state: str = s["state"];
         problem = field_errors[f"problem-{sid}"] or "";
         move_error = field_errors[f"move-time-{sid}"] or "";
         live = state in ON_STOREFRONT;
         open_state = state in NOT_PUBLISHED;
-        actions = <div className="flex flex-wrap gap-2">
-            {open_state
-                and <Button
-                    className="min-h-11 px-4"
-                    disabled={busy}
-                    onClick={lambda { publish(s); }}
-                >
-                    Publish
-                </Button>}{live
-                and <Button
-                    variant="outline"
-                    className="min-h-11 px-4"
-                    disabled={busy}
-                    onClick={lambda { unpublish(sid); }}
-                >
-                    Unpublish
-                </Button>}{open_state
-                and moving != sid
-                and <Button
-                    variant="outline"
-                    className="min-h-11 px-4"
-                    disabled={busy}
-                    onClick={lambda { start_move(s); }}
-                >
-                    Move
-                </Button>}{(open_state or live)
-                and <Button
-                    variant="ghost"
-                    className="min-h-11 px-4"
-                    disabled={busy}
-                    onClick={lambda {
-                        set_confirming({"id": sid, "title": s["movie_title"]});
-                        set_moving("");
-                    }}
-                >
-                    Cancel screening
-                </Button>}
-        </div>;
+        poster = pictures[s["movie_id"]] if s["movie_id"] in pictures else "";
         return
             <li
                 key={sid}
                 data-testid="screening"
-                className={"flex flex-col gap-3 rounded-lg border bg-card p-4"
-                    + (" opacity-70" if state == "cancelled" else "")}
+                className={"flex flex-col gap-3 rounded-lg border bg-card p-3"
+                    + (" opacity-60" if state == "cancelled" else "")}
             >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-col gap-1">
-                        <span className="font-medium">
-                            {s["movie_title"] or "Movie"}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                            {date_label(s["starts_at"])} · {clock_of(s["starts_at"])}
+                <div className="flex gap-3">
+                    <span
+                        className="aspect-[2/3] w-12 shrink-0 overflow-hidden rounded-md border bg-muted"
+                    >
+                        {poster
+                            and <img
+                                src={poster}
+                                alt=""
+                                className="size-full object-cover"
+                            />}
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <div
+                            className="flex flex-wrap items-start justify-between gap-2"
+                        >
+                            <span className="truncate font-medium">
+                                {s["movie_title"] or "Movie"}
+                            </span>
+                            <StateBadge state={state}/>
+                        </div>
+                        <span className="text-sm tabular-nums text-muted-foreground">
+                            {clock_of(s["starts_at"])} – {clock_of(s["ends_at"])}
                         </span>
                     </div>
-                    <Badge
-                        variant={"default" if live else "secondary"}
-                        data-testid="screening-state"
-                    >
-                        {state_label(state)}
-                    </Badge>
                 </div>
-                {(open_state or live) and actions}
+                {(open_state or live)
+                    and <div className="flex flex-wrap gap-2">
+                        {open_state
+                            and <Button
+                                className="min-h-11 px-4"
+                                disabled={busy}
+                                onClick={lambda { publish(s); }}
+                            >
+                                Publish
+                            </Button>}
+                        {live
+                            and <Button
+                                variant="outline"
+                                className="min-h-11 px-4"
+                                disabled={busy}
+                                onClick={lambda { unpublish(sid); }}
+                            >
+                                Unpublish
+                            </Button>}
+                        {open_state
+                            and moving != sid
+                            and <Button
+                                variant="outline"
+                                className="min-h-11 px-4"
+                                disabled={busy}
+                                onClick={lambda { start_move(s); }}
+                            >
+                                Move
+                            </Button>}
+                        <Button
+                            variant="ghost"
+                            className="min-h-11 px-4"
+                            disabled={busy}
+                            onClick={lambda {
+                                set_confirming({"id": sid, "title": s["movie_title"]});
+                                set_moving("");
+                            }}
+                        >
+                            Cancel screening
+                        </Button>
+                    </div>}
                 {moving == sid
                     and <form
                         className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2"
@@ -637,7 +997,7 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                         question={f"Cancel {asking['title']} on {date_label(
                             s['starts_at']
                         )} at {clock_of(s['starts_at'])}?"}
-                        detail="It comes off your storefront and can't be scheduled again. Add a new screening instead if you need one."
+                        detail="It comes off your storefront and can't be scheduled again. Schedule a new showtime instead if you need one."
                         confirm_label="Cancel screening"
                         cancel_label="Keep it"
                         on_confirm={confirm_cancel}
@@ -648,50 +1008,413 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
             </li>;
     }
 
-    listed: list[dict[str, any]] = screenings or [];  # jac:ignore[W1037]
+    drafts_today = 0;
+    for a in lanes {
+        for s in day_shows(a["auditorium_id"], day) {
+            if s["state"] in NOT_PUBLISHED {
+                drafts_today += 1;
+            }
+        }
+    }
+
+    board = <section
+        aria-labelledby="board-heading"
+        data-testid="programme-board"
+        className="flex flex-col gap-4"
+    >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="board-heading" className="text-lg font-semibold">
+                {"Today" if day == today_iso() else date_label(f"{day}T12:00:00")}
+            </h2>
+            {drafts_today > 0
+                and <Button
+                    variant="outline"
+                    className="min-h-11"
+                    data-testid="publish-day"
+                    disabled={busy}
+                    onClick={publish_day_drafts}
+                >
+                    Publish all drafts ({drafts_today})
+                </Button>}
+        </div>
+        {shows is None
+            and <p
+                role="status"
+                className="flex items-center gap-2 text-muted-foreground"
+            >
+                <Spinner aria-hidden="true"/>
+                Loading showtimes…
+            </p>}
+        {shows is not None
+            and <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {[
+                    <section
+                        key={a["auditorium_id"]}
+                        aria-labelledby={f"lane-{a['auditorium_id']}"}
+                        data-testid="screen-lane"
+                        className="flex flex-col gap-3 rounded-xl bg-muted/40 p-3"
+                    >
+                        <h3 id={f"lane-{a['auditorium_id']}"} className="font-semibold">
+                            {a["name"]}
+                        </h3>
+                        {len(day_shows(a["auditorium_id"], day)) == 0
+                            and <p className="text-sm text-muted-foreground">
+                                Nothing on {a["name"]} this day
+                            </p>}
+                        {len(day_shows(a["auditorium_id"], day)) > 0
+                            and <ul className="flex flex-col gap-3">
+                                {[Block(s) for s in day_shows(a["auditorium_id"], day)]}
+                            </ul>}
+                    </section> for a in lanes
+                ]}
+            </div>}
+    </section>;
+
+    movie_error = field_errors["screening-movie"] or "";
+    screens_error = field_errors["screening-screens"] or "";
+    time_error = field_errors["screening-time"] or "";
+    date_error = field_errors["screening-date"] or "";
+    clashing = 0;
+    for (i, item) in enumerate(planned) {
+        if clash_of(item, i) {
+            clashing += 1;
+        }
+    }
+
+    panel = <form
+        data-testid="add-screening"
+        className="flex flex-col gap-5 rounded-xl border bg-card p-5"
+        noValidate={True}
+        onSubmit={submit_with(lambda { schedule(); })}
+    >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Schedule a movie</h2>
+            <Button
+                type="button"
+                variant="ghost"
+                className="min-h-11"
+                onClick={lambda {
+                    set_scheduling(False);
+                    only_error("", "");
+                    set_results([]);
+                }}
+            >
+                Close
+            </Button>
+        </div>
+        <div className="grid gap-5 lg:grid-cols-2">
+            <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="screening-movie">Movie</Label>
+                    <div className="flex items-center gap-3">
+                        <span
+                            className="aspect-[2/3] w-12 shrink-0 overflow-hidden rounded-md border bg-muted"
+                        >
+                            {chosen_film is not None
+                                and chosen_film["movie_id"] in pictures
+                                and <img
+                                    src={pictures[chosen_film["movie_id"]]}
+                                    alt=""
+                                    className="size-full object-cover"
+                                />}
+                        </span>
+                        <select
+                            id="screening-movie"
+                            value={wanted["movie"]}
+                            autoFocus={True}
+                            aria-invalid={"true" if movie_error else "false"}
+                            aria-describedby={error_id("screening-movie")
+                                if movie_error
+                                else None}
+                            onChange={on_input(
+                                lambda (text: str) { change_plan("movie", text); }
+                            )}
+                            className={SELECT_CLASSES}
+                        >
+                            <option value="">Choose a movie</option>
+                            {[
+                                <option key={m["movie_id"]} value={m["movie_id"]}>
+                                    {m["title"]} ({m["runtime_minutes"]} min)
+                                </option> for m in films
+                            ]}
+                        </select>
+                    </div>
+                    {movie_error
+                        and <FieldError
+                            field_id="screening-movie"
+                            error={movie_error}
+                        />}
+                    {len(films) == 0
+                        and <p className="text-sm text-muted-foreground">
+                            No movies yet.{" "}
+                            <AppLink
+                                to={f"/app/{slug}/movies/new"}
+                                className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+                            >
+                                Add one
+                            </AppLink>
+                        </p>}
+                </div>
+                <fieldset className="flex flex-col gap-2">
+                    <legend className="mb-1.5 text-sm font-medium">Screens</legend>
+                    <div className="flex flex-wrap gap-2">
+                        {[
+                            <label
+                                key={a["auditorium_id"]}
+                                className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+                            >
+                                <input
+                                    type="checkbox"
+                                    data-screen={a["auditorium_id"]}
+                                    checked={a["auditorium_id"] in wanted["screens"]}
+                                    onChange={lambda { toggle(
+                                        "screens", a["auditorium_id"]
+                                    ); }}
+                                    className="size-4"
+                                />
+                                {a["name"]}
+                            </label> for a in lanes
+                        ]}
+                    </div>
+                    {screens_error
+                        and <FieldError
+                            field_id="screening-screens"
+                            error={screens_error}
+                        />}
+                </fieldset>
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="screening-time">Start times</Label>
+                    <div className="flex gap-2">
+                        <Input
+                            id="screening-time"
+                            type="time"
+                            value={wanted["clock"]}
+                            aria-invalid={"true" if time_error else "false"}
+                            aria-describedby={error_id("screening-time")
+                                if time_error
+                                else None}
+                            onChange={on_input(
+                                lambda (text: str) { change_plan("clock", text); }
+                            )}
+                            onKeyDown={lambda (e: any) { if e.key == "Enter" {  # jac:ignore[W1037]
+                                e.preventDefault();
+                                add_time();
+                            }}}
+                            className="min-h-11 w-36"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="min-h-11"
+                            data-testid="add-time"
+                            onClick={add_time}
+                        >
+                            Add time
+                        </Button>
+                    </div>
+                    {len(wanted["times"]) > 0
+                        and <ul
+                            className="flex flex-wrap gap-2"
+                            aria-label="Chosen start times"
+                        >
+                            {[
+                                <li key={t}>
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        className="min-h-11 gap-2 tabular-nums"
+                                        aria-label={f"Remove {t}"}
+                                        onClick={lambda { toggle("times", t); }}
+                                    >
+                                        {t}{" "}
+                                        <span aria-hidden="true">×</span>
+                                    </Button>
+                                </li> for t in wanted["times"]
+                            ]}
+                        </ul>}
+                    {time_error
+                        and <FieldError field_id="screening-time" error={time_error}/>}
+                </div>
+            </div>
+            <div className="flex flex-col gap-5">
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="screening-date">From</Label>
+                        <Input
+                            id="screening-date"
+                            type="date"
+                            value={wanted["from"]}
+                            aria-invalid={"true" if date_error else "false"}
+                            aria-describedby={error_id("screening-date")
+                                if date_error
+                                else None}
+                            onChange={on_input(
+                                lambda (text: str) {
+                                    next_plan: dict[str, any] = {};  # jac:ignore[W1037]
+                                    for k in wanted {
+                                        next_plan[k] = wanted[k];
+                                    }
+                                    next_plan["from"] = text;
+                                    if not wanted["to"] or wanted["to"] < text {
+                                        next_plan["to"] = text;
+                                    }
+                                    set_plan(next_plan);
+                                }
+                            )}
+                            className="min-h-11"
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="screening-until">Until</Label>
+                        <Input
+                            id="screening-until"
+                            type="date"
+                            value={wanted["to"]}
+                            onChange={on_input(
+                                lambda (text: str) { change_plan("to", text); }
+                            )}
+                            className="min-h-11"
+                        />
+                    </div>
+                </div>
+                {date_error
+                    and <FieldError field_id="screening-date" error={date_error}/>}
+                <fieldset className="flex flex-col gap-2">
+                    <legend className="mb-1.5 text-sm font-medium">
+                        On these days
+                    </legend>
+                    <div className="flex flex-wrap gap-2">
+                        {[
+                            <label
+                                key={n}
+                                className="flex min-h-11 min-w-14 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+                            >
+                                <input
+                                    type="checkbox"
+                                    data-weekday={n}
+                                    checked={n in wanted["weekdays"]}
+                                    onChange={lambda { toggle("weekdays", n); }}
+                                    className="size-4"
+                                />
+                                {name}
+                            </label> for (n, name) in WEEKDAYS
+                        ]}
+                    </div>
+                </fieldset>
+                <label
+                    className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+                >
+                    <input
+                        id="sell-now"
+                        type="checkbox"
+                        checked={wanted["sell"]}
+                        onChange={toggle_sell}
+                        className="size-4"
+                    />
+                    Put on sale now (on your storefront at once)
+                </label>
+            </div>
+        </div>
+        <section
+            aria-labelledby="schedule-preview-heading"
+            data-testid="schedule-preview"
+            className="flex flex-col gap-2 rounded-lg bg-muted/40 p-4"
+        >
+            <h3 id="schedule-preview-heading" className="font-semibold">
+                {f"{len(planned)} showtime{'' if len(planned) == 1 else 's'}"}{clashing
+                    > 0
+                    and f" · {clashing} clash{'' if clashing == 1 else 'es'}"}
+            </h3>
+            {len(planned) == 0
+                and <p className="text-sm text-muted-foreground">
+                    Choose a movie, screens, start times and days: every showtime appears here before anything is saved.
+                </p>}
+            {len(planned) > 0
+                and <ul
+                    className="flex max-h-64 flex-col gap-1 overflow-y-auto text-sm"
+                >
+                    {[
+                        <li
+                            key={f"{item['starts']}-{item['screen']}"}
+                            data-testid="planned"
+                            className="flex flex-wrap justify-between gap-2 tabular-nums"
+                        >
+                            <span>
+                                {date_label(item["starts"])} · {item["clock"]}{runtime
+                                    > 0
+                                    and f"–{clock_after(
+                                        item['starts'], runtime + CLEANING_MIN
+                                    )}"} · {screen_name(item["screen"])}
+                            </span>
+                            {clash_of(item, i)
+                                and <span className="font-medium text-destructive">
+                                    {clash_of(item, i)}
+                                </span>}
+                        </li> for (i, item) in enumerate(planned)
+                    ]}
+                </ul>}
+        </section>
+        <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" className="min-h-11 px-5" disabled={busy}>
+                {busy and <Spinner aria-hidden="true"/>}{f"Schedule {len(
+                    planned
+                )} showtime{'' if len(planned) == 1 else 's'}"
+                    if len(planned) > 0
+                    else "Schedule showtimes"}
+            </Button>
+        </div>
+        {len(outcome) > 0
+            and <section
+                aria-labelledby="schedule-results-heading"
+                data-testid="schedule-results"
+                className="flex flex-col gap-2"
+            >
+                <h3 id="schedule-results-heading" className="font-semibold">
+                    What happened
+                </h3>
+                <ul className="flex flex-col gap-2 text-sm">
+                    {[
+                        <li
+                            key={f"{r['label']}-{i}"}
+                            data-testid="schedule-result"
+                            data-ok={"true" if r["ok"] else "false"}
+                            role={"status" if r["ok"] else "alert"}
+                            className={"flex flex-col gap-1 rounded-md border p-2 "
+                                + ("" if r["ok"] else "border-destructive/50")}
+                        >
+                            <span className="font-medium">{r["label"]}</span>
+                            <span className={"" if r["ok"] else "text-destructive"}>
+                                {r["why"]}
+                            </span>
+                            {r["code"] == "no_layout"
+                                and <AppLink
+                                    to={f"/app/{slug}/screens/{r['screen']}"}
+                                    className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+                                >
+                                    Open {screen_name(r["screen"])}'s seat layout
+                                </AppLink>}
+                        </li> for (i, r) in enumerate(outcome)
+                    ]}
+                </ul>
+            </section>}
+    </form>;
+
     return
         <div className="flex flex-col gap-6" data-testid="screenings-page">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-                {picker}{not adding
+            <div className="flex flex-wrap items-center justify-between gap-4">
+                {len(with_screens) > 1 and venue_picker}{not scheduling
                     and <Button
                         className="min-h-11 w-fit px-5"
-                        onClick={lambda {
-                            set_adding(True);
-                            set_moving("");
-                            only_error("", "");
-                        }}
+                        onClick={open_scheduling}
                     >
-                        Add screening
+                        Schedule a movie
                     </Button>}
             </div>
             <p role="status" aria-live="polite" className="text-sm empty:hidden">
                 {message}
             </p>
-            {adding and add_form}
-            <section
-                aria-labelledby="programme-heading"
-                className="flex flex-col gap-3"
-            >
-                <h2 id="programme-heading" className="text-lg font-semibold">
-                    {screen_name} programme
-                </h2>
-                {screenings is None
-                    and <p
-                        role="status"
-                        className="flex items-center gap-2 text-muted-foreground"
-                    >
-                        <Spinner aria-hidden="true"/>
-                        Loading screenings…
-                    </p>}
-                {screenings is not None
-                    and len(listed) == 0
-                    and <p className="text-sm text-muted-foreground">
-                        No screenings on {screen_name} yet
-                    </p>}
-                {len(listed) > 0
-                    and <ul className="grid gap-3 lg:grid-cols-2">
-                        {[Row(s) for s in listed]}
-                    </ul>}
-            </section>
+            {scheduling and panel}
+            {strip}
+            {board}
         </div>;
 }
