@@ -1,7 +1,7 @@
 """A cinema's storefront written by the AI from its logo (ADR-0048).
 
-Claude Opus 5.5 (`MODEL`; the owner chose Claude over Gemini for design quality,
-2026-10-20) looks at the logo and writes the storefront's HTML and CSS as a TEMPLATE: its
+Claude Opus 5.5 (core/ai/claude.jac; the owner chose Claude over Gemini for design
+quality, 2026-10-20) looks at the logo and writes the storefront's HTML and CSS as a TEMPLATE: its
 own concept, layout, type, colours and SVG ornaments, with data-* slots (`EACH`, `TEXT`,
 `IMG`, `LINK`, `PART`) where the live programme and our links go, and `MOTIF` slots where
 the storefront paints the logo's own figures from the brand kit (ADR-0046). It never writes the films or the links itself, and nothing it
@@ -24,19 +24,19 @@ Nothing the model returns is trusted (`sanitize`):
 import os;
 import re;
 import html;
-import base64;
 import logging;
+import from core.ai.claude {
+    ClaudeFailed,
+    ask_text,
+    image_block,
+    text_block,
+    model_name
+}
 import tinycss2;  # jac:ignore[W1102]
 
 class PageFailed(RuntimeError) {}
 
 glob logger = logging.getLogger(__name__),
-     MODEL_ENV: str = "AFRICINEMAS_PAGE_MODEL",
-     # Claude Opus 5.5 designs far closer to a hand-made page than Gemini Pro did for the
-     # same logo (2026-10-20). A declined request is retried server-side on the model
-     # Anthropic recommends for its category (`fallbacks: "default"`).
-     MODEL: str = "claude-opus-5-5",
-     FALLBACK_BETA: str = "server-side-fallback-2026-07-01",
      # Browser tests only (scripts/e2e_env.sh; production never sets it): a file whose
      # text stands in for the model's answer.
      SCRIPT_ENV: str = "AFRICINEMAS_PAGE_SCRIPT",
@@ -141,28 +141,6 @@ Rules:
 
 ::py::
 from html.parser import HTMLParser as _HTMLParser
-# Imported here, not with Jac's imports: the Jac checker can't read the SDK's HTTP library.
-import anthropic as _anthropic
-
-
-def _claude_answer(model, content, max_tokens, timeout, betas):
-    # (stop_reason, text, error): one streamed answer, its thinking left out.
-    client = _anthropic.Anthropic(timeout=timeout, max_retries=1)
-    try:
-        with client.beta.messages.stream(
-            model=model,
-            max_tokens=max_tokens,
-            thinking={"type": "adaptive"},
-            output_config={"effort": "high"},
-            betas=betas,
-            fallbacks="default",
-            messages=[{"role": "user", "content": content}],
-        ) as stream:
-            message = stream.get_final_message()
-    except _anthropic.APIError as e:
-        return ("error", "", f"{type(e).__name__}: {str(e)[:300]}")
-    text = "".join(b.text for b in message.content if b.type == "text")
-    return (message.stop_reason, text, "")
 import html as _html
 import re as _re
 
@@ -465,41 +443,23 @@ def sanitize(answer: str) -> dict[str, any] {  # jac:ignore[W1037]
 }
 
 def _send_claude(logo_webp: bytes, prompt: str, model: str) -> str {
-    # The model's answer, as text (its thinking left out). Streamed: an answer this long
-    # would outlast a plain request's time limit.
+    # The model's answer, as text (core/ai/claude.jac; `model` is for the log).
     scripted = os.environ.get(SCRIPT_ENV, "");
     if scripted and os.path.isfile(scripted) {
         with open(scripted) as f {
             return f.read();
         }
     }
-    if not os.environ.get("ANTHROPIC_API_KEY", "").strip() {
-        raise PageFailed("no ANTHROPIC_API_KEY");
+    try {
+        return ask_text(
+            [image_block(logo_webp), text_block(prompt)],
+            effort="high",
+            max_tokens=MAX_OUTPUT_TOKENS,
+            timeout=TIMEOUT
+        );
+    } except ClaudeFailed as e {
+        raise PageFailed(f"{model}: {e}");
     }
-    content = [
-        {
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": "image/webp",
-                "data": base64.b64encode(logo_webp).decode()
-            }
-        },
-        {"type": "text", "text": prompt}
-    ];
-    (stop, text, error) = _claude_answer(
-        model, content, MAX_OUTPUT_TOKENS, TIMEOUT, [FALLBACK_BETA]
-    );
-    if error {
-        raise PageFailed(error);
-    }
-    if stop == "refusal" {
-        raise PageFailed("the model declined");
-    }
-    if stop == "max_tokens" {
-        raise PageFailed("the page was cut off");
-    }
-    return str(text);
 }
 
 glob send: any = _send_claude;  # jac:ignore[W1037]
@@ -513,7 +473,7 @@ def write_page(logo_webp: bytes, cinema: str) -> dict[str, str] {
     # The cinema's storefront template: {"html", "css", "model"}. A failed call or a
     # template that lacks a part is tried again (with what was missing named); after
     # ATTEMPTS, PageFailed.
-    model = os.environ.get(MODEL_ENV) or MODEL;
+    model = model_name();
     prompt = brief(cinema);
     failure = "no attempt";
     for _ in range(ATTEMPTS) {

@@ -25,9 +25,8 @@ export AFRICINEMAS_MEDIA_DIR="$E2E_MEDIA_DIR"
 # The storefront chat (P8.4) answers from a script the browser tests write, never the
 # real model: no key, no cost (core/agent/agent.jac, SCRIPT_ENV).
 export AFRICINEMAS_AGENT_SCRIPT="${AFRICINEMAS_AGENT_SCRIPT:-$PWD/e2e/artifacts/agent_script.json}"
-# The brand kit (ADR-0046): motif drawings and the plan come from files the browser tests
-# write, never the real models (core/theming/brandkit.jac, SCRIPT_ENV and PLAN_ENV).
-export AFRICINEMAS_KIT_SCRIPT="${AFRICINEMAS_KIT_SCRIPT:-$PWD/e2e/artifacts/kit_script.png}"
+# The brand kit (ADR-0046, ADR-0049): Claude's plan comes from a file the browser tests
+# write, never the real model (core/theming/brandkit.jac, PLAN_ENV).
 export AFRICINEMAS_KIT_PLAN="${AFRICINEMAS_KIT_PLAN:-$PWD/e2e/artifacts/kit_plan.json}"
 # The storefront the AI writes (ADR-0048): the model's answer, as a file the test writes.
 export AFRICINEMAS_PAGE_SCRIPT="${AFRICINEMAS_PAGE_SCRIPT:-$PWD/e2e/artifacts/page_script.html}"

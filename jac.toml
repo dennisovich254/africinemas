@@ -190,18 +190,20 @@ segno = "~=1.6"
 materialyoucolor = "~=3.0"
 tinycss2 = "~=1.4"
 anthropic = "~=1.15"
+potracer = "~=0.0.4"
 
 # ---------------------------------------------------------------------------
-# The AI booking agent (P8.1): Gemini through byLLM. No key here: the provider reads it
-# from the environment (GEMINI_API_KEY), never an env placeholder in this file (JI-015).
+# The AI booking agent (P8.1): Claude through byLLM (ADR-0049). No key here: the
+# provider reads it from the environment (ANTHROPIC_API_KEY), never an env placeholder in
+# this file (JI-015).
 [byllm.model]
-default_model = "gemini/gemini-3.5-flash-lite"
+default_model = "anthropic/claude-opus-5-5"
 
 [byllm.call_params]
-temperature = 0.3
+# No temperature: Claude Opus 5.5 refuses sampling parameters (a 400).
 max_output_retries = 2
 
 [byllm.fallback]
 # A slow answer becomes the agent's polite fallback, not a stuck chat.
-timeout = 25.0
+timeout = 40.0
 num_retries = 0
