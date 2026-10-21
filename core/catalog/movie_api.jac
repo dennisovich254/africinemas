@@ -389,6 +389,21 @@ def _get_poster(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1
     };
 }
 
+def _get_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The movie's backdrop, for the editor's preview (improvements #6).
+    scope = scoped(tenant, READ);
+    movie = _find(scope, movie_id);
+    data = read_media(movie.backdrop_key) if movie.backdrop_key else b"";
+    if not data {
+        raise Refused("no_backdrop", "This movie has no backdrop yet.");
+    }
+    return {
+        "ok": True,
+        "content_type": "image/webp",
+        "data_base64": base64.b64encode(data).decode()
+    };
+}
+
 def _do_create_movie(  # jac:ignore[W3030] the new-movie form: cinema and its seven fields
     tenant: str,
     title: str,
@@ -487,6 +502,10 @@ def _do_upload_poster(
 
 def:protect get_poster(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _get_poster(tenant, movie_id); });  # jac:ignore[W1037]
+}
+
+def:protect get_backdrop(tenant: str, movie_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _get_backdrop(tenant, movie_id); });  # jac:ignore[W1037]
 }
 
 def _do_upload_backdrop(

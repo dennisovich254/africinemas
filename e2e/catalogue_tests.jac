@@ -76,6 +76,12 @@ def _poster_png -> bytes {
     return out.getvalue();
 }
 
+def _backdrop_png -> bytes {
+    out = io.BytesIO();
+    Image.new("RGB", (1280, 720), "#1F3A5F").save(out, format="PNG");
+    return out.getvalue();
+}
+
 def _venue(page: any, name: str) -> any {  # jac:ignore[W1037]
     # The venue's card on the Venues page, or its group on the Screens page.
     return page.locator(f'[data-testid="venue"]:has(h2:text-is("{name}"))');
@@ -220,7 +226,12 @@ test "an owner adds a movie, fixes a mistake, uploads its poster and edits it" {
             _type(page, "#movie-genres", "Drama, Romance");
             _type(page, "#movie-language", "English, Swahili");
             page.click('button:has-text("Add movie")');
-            page.wait_for_url(f"**/app/{owner['slug']}/movies/*");
+            # The new movie's own page: "movies/*" matches /movies/new as well.
+            page.wait_for_url(
+                lambda (url: str) -> bool { return "/movies/" in url
+                    and not url.endswith("/new"); }
+            );
+            page.wait_for_selector('[role="status"]:has-text("Movie added.")');
             page.wait_for_selector("#poster-file");
             page.set_input_files(
                 "#poster-file",
@@ -242,6 +253,49 @@ test "an owner adds a movie, fixes a mistake, uploads its poster and edits it" {
             row.locator('img[data-testid="movie-poster"]').wait_for();
             page.context.close();
         }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "a new movie takes its poster, backdrop and trailer before it's added" {
+    # improvements #5, #6 and #9: one page, previews at once, one Add movie.
+    owner = owner_with_cinema();
+    (pw, browser) = shared_browser();
+    try {
+        page = _page(browser, pw, "desktop");
+        _sign_in(page, owner["email"]);
+        _open(page, owner["slug"], "movies/new", MOVIE_FORM);
+        _type(page, "#movie-title", "Supa Modo");
+        _type(page, "#movie-runtime", "74");
+        page.select_option("#movie-rating", "PG");
+        page.set_input_files(
+            "#poster-file",
+            files=[{"name": "p.png", "mimeType": "image/png", "buffer": _poster_png()}]
+        );
+        page.wait_for_selector('[data-testid="poster"] img');
+        page.set_input_files(
+            "#backdrop-file",
+            files=[
+                {"name": "b.png", "mimeType": "image/png", "buffer": _backdrop_png()}
+            ]
+        );
+        page.wait_for_selector('[data-testid="backdrop-set"] img');
+        # A file that isn't an image is refused before anything is sent.
+        page.set_input_files(
+            "#backdrop-file",
+            files=[{"name": "notes.txt", "mimeType": "text/plain", "buffer": b"hello"}]
+        );
+        page.wait_for_selector('#backdrop-file-error');
+        _type(page, "#trailer-url", "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+        page.click('button:has-text("Add movie")');
+        page.wait_for_selector('[role="status"]:has-text("Movie added.")');
+        page.wait_for_selector('[data-testid="poster"] img');
+        page.wait_for_selector('[data-testid="backdrop-set"] img');
+        assert "dQw4w9WgXcQ" in page.input_value("#trailer-url");
+        _open(page, owner["slug"], "movies", MOVIES);
+        row = page.locator('[data-testid="movie-list"] li', has_text="Supa Modo");
+        row.locator('img[data-testid="movie-poster"]').wait_for();
     } finally {
         close_contexts(browser);
     }
