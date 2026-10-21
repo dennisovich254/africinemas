@@ -17,7 +17,7 @@ import from e2e.support.web {
     context_options,
     artifact
 }
-import from e2e.support.api { owner_with_cinema, add_staff, call, PASSWORD }
+import from e2e.support.api { owner_with_cinema, add_staff, add_venue, call, PASSWORD }
 import from e2e.support.catalog { cinema_selling_tickets }
 
 glob SALE: str = "KES 1,660";
@@ -109,6 +109,42 @@ test "a new cinema's owner sees the setup checklist, quick actions and no showti
             assert _no_side_scroll(page) , f"{project}: the page scrolls sideways";
             page.context.close();
         }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "the setup guide walks a new cinema's owner from one step to the next" {
+    # improvements #4.
+    owner = owner_with_cinema();
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        _sign_in(page, owner["email"]);
+        page.goto(f"{BASE_URL}/app/{owner['slug']}");
+        guide = '[data-testid="setup-guide"]';
+        page.wait_for_selector(f'{guide}[data-step="venue"]');
+        assert "Step 1 of 7"
+            in page.text_content('[data-testid="setup-guide-progress"]');
+        page.click('[data-testid="guide-go"]');
+        page.wait_for_url(f"**/app/{owner['slug']}/venues");
+        page.wait_for_selector('[data-testid="setup-guide-here"]');
+        # Once a venue exists, the next page shows the next step.
+        add_venue(owner);
+        page.goto(f"{BASE_URL}/app/{owner['slug']}");
+        page.wait_for_selector(f'{guide}[data-step="screen"]');
+        assert "Step 2 of 7"
+            in page.text_content('[data-testid="setup-guide-progress"]');
+        # Hidden, it stays hidden until the Overview's checklist brings it back.
+        page.click('[data-testid="hide-setup-guide"]');
+        page.wait_for_selector(guide, state="detached");
+        page.reload();
+        page.wait_for_selector('[data-testid="setup-checklist"]');
+        assert page.locator(guide).count() == 0;
+        page.click('[data-testid="resume-setup-guide"]');
+        page.wait_for_selector(f'{guide}[data-step="screen"]');
     } finally {
         close_contexts(browser);
     }

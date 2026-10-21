@@ -38,6 +38,8 @@ import from ..shell.AppLink { AppLink }
 import from ..storefront.showtimes { time_label }
 import from .report_view { day_label, percent, money_label, action_label, result_label }
 import from .nav { section_path }
+import from .SetupGuide { use_guide_hidden, hide_guide }
+import from ...components.ui.button { Button }
 
 glob TILE: str = "flex flex-col gap-3 rounded-3xl bg-card p-4 ring-1 ring-foreground/10",
      PILL: str = "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2";
@@ -385,6 +387,7 @@ def SetupChecklist(
     # Until every step is done: what's done, and a link to do the rest.
     done = int(setup["done"]);
     total = int(setup["total"]);
+    hidden = use_guide_hidden(slug);
     if done >= total {
         return <span/>;
     }
@@ -446,6 +449,15 @@ def SetupChecklist(
                     </li> for step in setup["steps"]
                 ]}
             </ol>
+            {hidden
+                and <Button
+                    variant="outline"
+                    className="mx-3 min-h-11"
+                    data-testid="resume-setup-guide"
+                    onClick={lambda { hide_guide(slug, False); }}
+                >
+                    Resume the setup guide
+                </Button>}
         </section>;
 }
 
