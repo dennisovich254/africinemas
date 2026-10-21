@@ -38,6 +38,13 @@ Workaround: `JAC_DB_RO_UNITS=0`, or no write after a mid-unit `commit()`.
   - **Every Jac upgrade needs this swap again.**
 - **Candidate JI-050:** the checker rejects a lambda for Pillow's `Image.point(lut=...)` (E1053, "type _SpecialForm"); the union includes `NumpyArray`. Worked around in `core/theming/logo.jac` with 256-entry lookup lists.
 - **Candidate JI-051:** a Jac-level `import litellm;` costs about 5 to 7 minutes on **every** `jac run --dev` and `jac check`. The interface is rebuilt each time and never cached. Worked around in `core/agent/agent.jac` by importing litellm inside a `::py::` block.
+- **Candidate JI-052 (high):** in 0.38.0 every `by` function's semantic info has an empty `params` list. byLLM's `MTRuntime.factory` then raises `IndexError` (`params[idx]`) before calling the model, with a real model or `MockLLM`, so the booking chat always fell back.
+  - Repro: any `def f(message: str) -> str by model();`.
+  - Worked around in `core/agent/agent.jac`, which fills `params` from the signature at import.
+- **0.38.0 behaviour changes we hit on CI:**
+  - **`@` refused in usernames.** A username with `@` is refused with `POLICY_VIOLATION` / `USERNAME_INVALID`, and the default `max_length` is 64. Customer sign-in names are now `<slug>:<local>:<domain>`, with `[serve.auth.username] max_length = 300`.
+  - **Worker count sized from the CPU.** Pinned to `[serve.workers] count = 1`, and the real-server harness passes `-w 1`.
+  - **New wording for a fractional `TOKEN_TTL_DAYS`.** It still refuses to start, but now says "must be a number, got '0.5'".
 - **Unlogged from earlier work:**
   - checker E0076 on httpx2 and Playwright, which is why the SDK calls are in `::py::`;
   - the `jac run` + Playwright problem;

@@ -1,7 +1,8 @@
 """Signing in and up on a storefront (P8.6c): a customer account belongs to one cinema.
 
-The account's sign-in name is "<slug>:<email>" (core/tenancy/storefront_accounts.jac),
-so it never matches a back-office (staff) account or another cinema's customer, even
+The account's sign-in name is "<slug>:<local part>:<domain>"
+(core/tenancy/storefront_accounts.jac; accounts made before Jac 0.38 keep
+"<slug>:<email>", tried second), so it never matches a back-office (staff) account or another cinema's customer, even
 with the same email. Signing up goes through the server (customer_sign_up), which
 records the account's cinema; then the browser signs in with Jac's own login.
 
@@ -15,6 +16,12 @@ import from core.tenancy.storefront_accounts { customer_sign_up }
 import from ..auth.session { safe_next, remember_email }
 
 def:pub customer_identity(slug: str, email: str) -> dict[str, str] {
+    address = email.strip().lower();
+    return {"type": "username", "value": f"{slug}:{address.replace('@', ':')}"};
+}
+
+def:pub old_customer_identity(slug: str, email: str) -> dict[str, str] {
+    # An account made before Jac 0.38, which refuses "@" in a username.
     return {"type": "username", "value": f"{slug}:{email.strip().lower()}"};
 }
 
@@ -43,6 +50,9 @@ async def:pub customer_sign_in(slug: str, email: str, password: str) -> str {
     ok: bool = False;
     try {
         ok = await jacLogin(customer_identity(slug, email), password);
+        if not ok {
+            ok = await jacLogin(old_customer_identity(slug, email), password);
+        }
     } except Exception as e {
         console.warn("sign-in failed", e);
         return "offline";

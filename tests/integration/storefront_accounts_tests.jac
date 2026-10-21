@@ -27,7 +27,7 @@ def _sign_up(
 
 def _sign_in(app: Served, slug: str, password: str = TEST_PASSWORD) -> str {
     # A storefront sign-in: the cinema's customer account for EMAIL, or "" if refused.
-    resp = app.client.login(f"{slug}:{EMAIL}", password);
+    resp = app.client.login(f"{slug}:{EMAIL.replace('@', ':')}", password);
     data: dict[str, any] = resp.data if resp.ok and resp.data else {};  # jac:ignore[W1037]
     return str(data.get("token", ""));
 }

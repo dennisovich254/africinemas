@@ -63,7 +63,7 @@ obj RealServer {
         self.log_path = os.path.join(self.workdir, f"server-{self.port}.log");
         log = open(self.log_path, "w");
         self.proc = subprocess.Popen(
-            ["jac", "run", "--port", str(self.port)],
+            ["jac", "run", "--port", str(self.port), "-w", "1"],
             cwd=self.workdir,
             env=self.env,
             stdin=subprocess.DEVNULL,
