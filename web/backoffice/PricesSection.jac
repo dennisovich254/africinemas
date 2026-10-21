@@ -1,5 +1,10 @@
 """`/app/:slug/prices`: the cinema's price list (P3.7b), on the 3.6 endpoints.
 
+Four tabs along the top (#8), like the Snacks page: Ticket types, Seat zone prices (a
+grid of zones by ticket type, offering the zone names drawn in the seat layouts),
+Time-of-day extras and Service fee. They are parts of one price list, so the Save bar
+stays at the foot of every tab, and a refused save opens the first tab with a problem.
+
 Ticket types (Adult, Child, …), a price for each type in each seat zone (Standard, plus
 the zones given to seats in the seat layout designer), time-of-day extras (a named
 amount added, or taken off, on chosen days between two times) and a service fee per
@@ -7,7 +12,7 @@ ticket. Amounts are entered in shillings and stored in cents. Ticket type codes 
 made from the names, and kept once saved. A refused list shows every problem at once.
 """
 
-import from react { useState, useEffect }
+import from react { useEffect }
 import from ...components.ui.alert { Alert, AlertTitle, AlertDescription }
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
@@ -19,7 +24,13 @@ import from .form_parts { FieldError, error_id, on_input, submit_with }
 glob DAYS: list[str] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
      CODE_CHARS: str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
      DIGITS: str = "0123456789",
-     TIMEZONE: str = "Africa/Nairobi";
+     TIMEZONE: str = "Africa/Nairobi",
+     TABS: list[tuple[str, str]] = [
+         ("types", "Ticket types"),
+         ("zones", "Seat zone prices"),
+         ("extras", "Time-of-day extras"),
+         ("fee", "Service fee")
+     ];
 
 def two(n: int) -> str {
     return f"0{n}" if n < 10 else str(n);
@@ -88,6 +99,14 @@ def:pub code_for(name: str, taken: list[str]) -> str {
     return code;
 }
 
+def tab_of(field_id: str) -> str {
+    # The tab holding a marked field.
+    if field_id.startswith("price-") {
+        return "zones";
+    }
+    return "extras" if field_id.startswith("surcharge-") else "fee";
+}
+
 def start_list -> dict[str, any] {  # jac:ignore[W1037]
     # A cinema's first price list: one ticket type in the standard zone, nothing else.
     return {
@@ -150,13 +169,16 @@ def from_saved(saved: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
 }
 
 def:pub PricesSection(slug: str) -> JsxElement {
-    [draft, set_draft] = useState(None);
-    [version, set_version] = useState(0);
-    [failed, set_failed] = useState("");
-    [busy, set_busy] = useState(False);
-    [errors, set_errors] = useState({});
-    [problems, set_problems] = useState([]);
-    [message, set_message] = useState("");
+    has draft: None = None,
+        version: int = 0,
+        failed: str = "",
+        busy: bool = False,
+        errors: dict = {},
+        problems: list = [],
+        message: str = "",
+        view: str = "types",
+        layout_zones: list = [],
+        dirty: bool = False;
 
     async def load {
         answer: any = None;  # jac:ignore[W1037]
@@ -164,21 +186,13 @@ def:pub PricesSection(slug: str) -> JsxElement {
             answer = await get_price_list(slug);  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("get_price_list failed", e);
-            set_failed("We couldn't load your prices. Refresh the page to try again.");
+            failed = "We couldn't load your prices. Refresh the page to try again.";
             return;
         }
-        if not answer["ok"] {
-            set_failed(answer["error"]["message"]);
-            return;
-        }
+        if not answer["ok"] {}
+        layout_zones = answer["layout_zones"];
         saved: dict[str, any] | None = answer["price_list"];  # jac:ignore[W1037]
-        if saved is None {
-            set_draft(start_list());
-            set_version(0);
-        } else {
-            set_draft(from_saved(saved));
-            set_version(saved["version"]);
-        }
+        if saved is None {} else {}
     }
 
     # A named function, not a one-statement lambda (JI-028).
@@ -215,8 +229,9 @@ def:pub PricesSection(slug: str) -> JsxElement {
             changed[k] = state[k];
         }
         changed[key] = value;
-        set_draft(changed);
-        set_message("");
+        draft = changed;
+        dirty = True;
+        message = "";
     }
 
     def fresh_uid -> int {
@@ -231,8 +246,9 @@ def:pub PricesSection(slug: str) -> JsxElement {
         }
         changed[key] = value;
         changed["next_uid"] = state["next_uid"] + 1;
-        set_draft(changed);
-        set_message("");
+        draft = changed;
+        dirty = True;
+        message = "";
     }
 
     def rename_type(uid: int, name: str) {
@@ -268,8 +284,8 @@ def:pub PricesSection(slug: str) -> JsxElement {
         );
     }
 
-    def add_zone {
-        with_next_uid("zones", zones + [{"uid": fresh_uid(), "name": ""}]);
+    def add_zone(name: str = "") {
+        with_next_uid("zones", zones + [{"uid": fresh_uid(), "name": name}]);
     }
 
     def remove_zone(uid: int) {
@@ -409,8 +425,19 @@ def:pub PricesSection(slug: str) -> JsxElement {
         if fee is None {
             found["service-fee"] = "Enter the fee in whole shillings, like 30.";
         }
-        set_errors(found);
-        if len(Object.keys(found)) > 0 {  # jac:ignore[W2001]
+        errors = found;
+        marked: list[str] = Object.keys(found);  # jac:ignore[W2001]
+        if len(marked) > 0 {
+            # Open the first tab, in tab order, with a marked field.
+            first = "";
+            for (key, _) in TABS {
+                for f in marked {
+                    if not first and tab_of(f) == key {
+                        first = key;
+                    }
+                }
+            }
+            view = first;
             return None;
         }
         return {
@@ -423,14 +450,11 @@ def:pub PricesSection(slug: str) -> JsxElement {
 
     async def save {
         answer: any = None;  # jac:ignore[W1037]
-        set_problems([]);
-        set_message("");
+        problems = [];
+        message = "";
         payload: any = build();  # jac:ignore[W1037]
-        if payload is None {
-            set_message("Some amounts need fixing: see the marked fields.");
-            return;
-        }
-        set_busy(True);
+        if payload is None {}
+        busy = True;
         try {
             answer = await save_price_list(  # jac:ignore[W2037]
                 slug,
@@ -442,26 +466,21 @@ def:pub PricesSection(slug: str) -> JsxElement {
             );
         } except Exception as e {
             console.warn("save_price_list failed", e);
-            set_busy(False);
-            set_message("We couldn't save. Check your connection and try again.");
+            busy = False;
+            message = "We couldn't save. Check your connection and try again.";
             return;
         }
-        set_busy(False);
+        busy = False;
         if not answer["ok"] {
-            if answer["error"]["code"] == "invalid_price_list" {
-                set_problems([p["message"] for p in answer["error"]["problems"]]);
-            } else {
-                set_message(answer["error"]["message"]);
-            }
+            if answer["error"]["code"] == "invalid_price_list" {} else {}
             return;
         }
-        set_draft(from_saved(answer["price_list"]));
-        set_version(answer["price_list"]["version"]);
-        set_message(
-            f"Saved. New bookings use these prices (version {answer['price_list'][
-                'version'
-            ]})."
-        );
+        draft = from_saved(answer["price_list"]);
+        version = answer["price_list"]["version"];
+        dirty = False;
+        message = f"Saved. New bookings use these prices (version {answer['price_list'][
+            'version'
+        ]}).";
     }
 
     def money_input(
@@ -469,12 +488,15 @@ def:pub PricesSection(slug: str) -> JsxElement {
         label: str,
         value: str,
         on_text: any,  # jac:ignore[W1037]
-        negative: bool = False
+        negative: bool = False,
+        hide_label: bool = False
     ) -> JsxElement {
         problem = field_errors[field_id] or "";
         return
             <div className="flex min-w-0 flex-col gap-1.5">
-                <Label htmlFor={field_id}>{label}</Label>
+                <Label htmlFor={field_id} className={"sr-only" if hide_label else ""}>
+                    {label}
+                </Label>
                 <Input
                     id={field_id}
                     value={value}
@@ -489,17 +511,46 @@ def:pub PricesSection(slug: str) -> JsxElement {
             </div>;
     }
 
-    types_section = <section
+    def heading(key: str, title: str, hint: str) -> JsxElement {
+        return
+            <div className="flex flex-col gap-1">
+                <h2 id={f"{key}-heading"} className="text-lg font-semibold">{title}</h2>
+                <p className="max-w-prose text-sm text-muted-foreground">{hint}</p>
+            </div>;
+    }
+
+    def next_button(key: str, label: str) -> JsxElement {
+        # The way on to the next tab, so a first visit runs through all four.
+        return
+            <Button
+                type="button"
+                variant="ghost"
+                className="min-h-11 w-fit px-3"
+                onClick={lambda { view = key; }}
+            >
+                {f"Next: {label} →"}
+            </Button>;
+    }
+
+    zone_names: list[str] = [z["name"] for z in zones];
+    known_zones: list[str] = layout_zones;
+    unpriced: list[str] = [
+        name
+        for name in known_zones
+        if name not in zone_names
+    ];
+    marked_tabs: list[str] = [tab_of(f) for f in Object.keys(field_errors)];  # jac:ignore[W2001]
+
+    types_panel = <section
         aria-labelledby="types-heading"
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-4"
     >
-        <div className="flex flex-col gap-1">
-            <h2 id="types-heading" className="text-lg font-semibold">Ticket types</h2>
-            <p className="text-sm text-muted-foreground">
-                The kinds of ticket you sell, such as Adult, Child or Student.
-            </p>
-        </div>
-        <ul className="flex flex-col gap-2">
+        {heading(
+            "types",
+            "Ticket types",
+            "The kinds of ticket you sell, such as Adult, Child or Student. You set what each one costs in Seat zone prices."
+        )}
+        <ul className="flex max-w-xl flex-col gap-2">
             {[
                 <li key={t["uid"]} className="flex items-end gap-2">
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -508,6 +559,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                             id={f"ticket-name-{i}"}
                             value={t["name"]}
                             maxLength={60}
+                            placeholder="e.g. Child"
                             onChange={on_input(
                                 lambda (text: str) { rename_type(t["uid"], text); }
                             )}
@@ -527,100 +579,163 @@ def:pub PricesSection(slug: str) -> JsxElement {
                 </li> for (i, t) in enumerate(types)
             ]}
         </ul>
-        <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 w-fit px-5"
-            onClick={add_type}
-        >
-            Add ticket type
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+            <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 w-fit px-5"
+                onClick={add_type}
+            >
+                Add ticket type
+            </Button>
+            {next_button("zones", "Seat zone prices")}
+        </div>
     </section>;
 
-    prices_section = <section
-        aria-labelledby="prices-heading"
-        className="flex flex-col gap-3"
+    zones_panel = <section
+        aria-labelledby="zones-heading"
+        className="flex flex-col gap-4"
     >
-        <div className="flex flex-col gap-1">
-            <h2 id="prices-heading" className="text-lg font-semibold">
-                Prices by seat zone (KES)
-            </h2>
-            <p className="text-sm text-muted-foreground">
-                Standard is every seat without a zone. Other zones match the zone names you give seats in the seat layout designer, such as Gold. Leave a price empty if that ticket isn't sold there.
-            </p>
-        </div>
-        <ul className="flex flex-col gap-3">
-            {[
-                <li
-                    key={z["uid"]}
-                    className="flex flex-col gap-3 rounded-lg border bg-card p-4"
-                >
-                    {zi == 0 and <h3 className="font-medium">Standard</h3>}
-                    {zi > 0
-                        and <div className="flex items-end gap-2">
-                            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                <Label htmlFor={f"zone-name-{zi}"}>Zone name</Label>
-                                <Input
-                                    id={f"zone-name-{zi}"}
-                                    value={z["name"]}
-                                    maxLength={40}
-                                    onChange={on_input(
-                                        lambda (text: str) { rename_zone(
-                                            z["uid"], text
-                                        ); }
-                                    )}
-                                    className="min-h-11"
-                                />
-                            </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="min-h-11 px-3"
-                                aria-label={f"Remove zone {z['name'] or zi + 1}"}
-                                onClick={lambda { remove_zone(z["uid"]); }}
-                            >
-                                Remove
-                            </Button>
-                        </div>}
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {heading(
+            "zones",
+            "Seat zone prices (KES)",
+            "One row for each seat zone, one column for each ticket type. Standard is every seat without a zone; other zones match the names given to seats in the seat layout designer. Leave a price empty if that ticket isn't sold there."
+        )}
+        {len(unpriced) > 0
+            and <div
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed p-3"
+                data-testid="unpriced-zones"
+            >
+                <span className="text-sm text-muted-foreground">
+                    In your seat layouts but not priced yet:
+                </span>
+                {[
+                    <Button
+                        key={name}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="min-h-11 px-3"
+                        onClick={lambda { add_zone(name); }}
+                    >
+                        {f"+ {name}"}
+                    </Button> for name in unpriced
+                ]}
+            </div>}
+        <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-max text-sm">
+                <thead className="bg-muted/50">
+                    <tr>
+                        <th scope="col" className="px-3 py-2 text-left font-medium">
+                            Zone
+                        </th>
                         {[
-                            <div key={t["uid"]}>
-                                {money_input(
-                                    f"price-{zi}-{ti}",
-                                    f"{t['name'] or 'Ticket type ' + str(ti + 1)}",
-                                    cells[f"{z['uid']}|{t['uid']}"] or "",
-                                    lambda (text: str) { set_cell(
-                                        z["uid"], t["uid"], text
-                                    ); }
-                                )}
-                            </div> for (ti, t) in enumerate(types)
+                            <th
+                                key={t["uid"]}
+                                scope="col"
+                                className="px-3 py-2 text-left font-medium"
+                            >
+                                {t["name"] or f"Ticket type {ti + 1}"}
+                            </th> for (ti, t) in enumerate(types)
                         ]}
-                    </div>
-                </li> for (zi, z) in enumerate(zones)
-            ]}
-        </ul>
-        <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 w-fit px-5"
-            onClick={add_zone}
-        >
-            Add zone
-        </Button>
+                        <th scope="col" className="px-3 py-2">
+                            <span className="sr-only">Remove</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {[
+                        <tr key={z["uid"]} className="border-t align-top">
+                            <th scope="row" className="px-3 py-2 text-left font-medium">
+                                {zi == 0
+                                    and <span
+                                        className="inline-flex min-h-11 items-center"
+                                    >
+                                        Standard
+                                    </span>}{zi > 0
+                                    and <div className="flex flex-col gap-1">
+                                        <Label
+                                            htmlFor={f"zone-name-{zi}"}
+                                            className="sr-only"
+                                        >
+                                            Zone name
+                                        </Label>
+                                        <Input
+                                            id={f"zone-name-{zi}"}
+                                            value={z["name"]}
+                                            maxLength={40}
+                                            placeholder="e.g. Gold"
+                                            onChange={on_input(
+                                                lambda (text: str) { rename_zone(
+                                                    z["uid"], text
+                                                ); }
+                                            )}
+                                            className="min-h-11 w-36"
+                                        />
+                                        {z["name"]
+                                            and z["name"] not in known_zones
+                                            and <span
+                                                className="text-xs text-muted-foreground"
+                                            >
+                                                No seats use this zone yet
+                                            </span>}
+                                    </div>}
+                            </th>
+                            {[
+                                <td key={t["uid"]} className="w-32 px-3 py-2">
+                                    {money_input(
+                                        f"price-{zi}-{ti}",
+                                        f"{z['name'] or 'Standard'} {t['name']
+                                            or 'ticket type ' + str(ti + 1)} price",
+                                        cells[f"{z['uid']}|{t['uid']}"] or "",
+                                        lambda (text: str) { set_cell(
+                                            z["uid"], t["uid"], text
+                                        ); },
+                                        False,
+                                        True
+                                    )}
+                                </td> for (ti, t) in enumerate(types)
+                            ]}
+                            <td className="px-3 py-2 text-right">
+                                {zi > 0
+                                    and <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="min-h-11 px-3"
+                                        aria-label={f"Remove zone {z['name']
+                                            or zi + 1}"}
+                                        onClick={lambda { remove_zone(z["uid"]); }}
+                                    >
+                                        Remove
+                                    </Button>}
+                            </td>
+                        </tr> for (zi, z) in enumerate(zones)
+                    ]}
+                </tbody>
+            </table>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+            <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 w-fit px-5"
+                onClick={lambda { add_zone(""); }}
+            >
+                Add zone
+            </Button>
+            {next_button("extras", "Time-of-day extras")}
+        </div>
     </section>;
 
-    extras_section = <section
+    extras_panel = <section
         aria-labelledby="extras-heading"
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-4"
     >
-        <div className="flex flex-col gap-1">
-            <h2 id="extras-heading" className="text-lg font-semibold">
-                Time-of-day extras
-            </h2>
-            <p className="text-sm text-muted-foreground">
-                An amount added to every ticket for screenings starting on the chosen days between two times, such as an evening extra. A negative amount is a discount, such as a morning matinee.
-            </p>
-        </div>
+        {heading(
+            "extras",
+            "Time-of-day extras",
+            "An amount added to every ticket for screenings starting on the chosen days between two times, such as an evening extra. A negative amount is a discount, such as a morning matinee. Optional."
+        )}
         {len(extras) == 0
             and <p className="text-sm text-muted-foreground">None yet.</p>}
         <ul className="flex flex-col gap-3">
@@ -721,20 +836,39 @@ def:pub PricesSection(slug: str) -> JsxElement {
                 </li> for (k, x) in enumerate(extras)
             ]}
         </ul>
-        <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 w-fit px-5"
-            onClick={add_extra}
-        >
-            Add time-of-day extra
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+            <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 w-fit px-5"
+                onClick={add_extra}
+            >
+                Add time-of-day extra
+            </Button>
+            {next_button("fee", "Service fee")}
+        </div>
+    </section>;
+
+    fee_panel = <section aria-labelledby="fee-heading" className="flex flex-col gap-4">
+        {heading(
+            "fee",
+            "Service fee",
+            "A fixed amount added to each ticket on top of its price. Enter 0 for none."
+        )}
+        <div className="max-w-xs">
+            {money_input(
+                "service-fee",
+                "Per ticket (KES)",
+                state["fee"],
+                lambda (text: str) { update("fee", text); }
+            )}
+        </div>
     </section>;
 
     return
         <form
             data-testid="prices-page"
-            className="flex flex-col gap-8"
+            className="flex flex-col gap-6"
             noValidate={True}
             onSubmit={submit_with(lambda { save(); })}
         >
@@ -743,21 +877,46 @@ def:pub PricesSection(slug: str) -> JsxElement {
                     if version
                     else "No prices yet. Set them before putting screenings on sale."}
             </p>
-            {types_section}
-            {prices_section}
-            {extras_section}
-            <section
-                aria-labelledby="fee-heading"
-                className="flex max-w-xs flex-col gap-3"
+            <div
+                role="tablist"
+                aria-label="Prices"
+                className="flex gap-1 overflow-x-auto border-b [scrollbar-width:thin]"
             >
-                <h2 id="fee-heading" className="text-lg font-semibold">Service fee</h2>
-                {money_input(
-                    "service-fee",
-                    "Per ticket (KES)",
-                    state["fee"],
-                    lambda (text: str) { update("fee", text); }
-                )}
-            </section>
+                {[
+                    <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        id={f"prices-tab-{key}"}
+                        data-testid={f"prices-tab-{key}"}
+                        aria-selected={"true" if view == key else "false"}
+                        aria-controls={f"prices-panel-{key}"}
+                        onClick={lambda { view = key; }}
+                        className={"-mb-px inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-sm sm:px-4 "
+                            + (
+                                "border-primary font-semibold"
+                                    if view == key
+                                    else "border-transparent text-muted-foreground hover:text-foreground"
+                            )}
+                    >
+                        {label}{key in marked_tabs
+                            and <span
+                                className="size-2 rounded-full bg-destructive"
+                                aria-label="has problems"
+                            />}
+                    </button> for (key, label) in TABS
+                ]}
+            </div>
+            <div
+                role="tabpanel"
+                id={f"prices-panel-{view}"}
+                aria-labelledby={f"prices-tab-{view}"}
+                className="min-w-0"
+            >
+                {view == "types" and types_panel}{view == "zones" and zones_panel}{view
+                    == "extras"
+                    and extras_panel}{view == "fee" and fee_panel}
+            </div>
             {len(listed_problems) > 0
                 and <Alert
                     variant="destructive"
@@ -774,12 +933,19 @@ def:pub PricesSection(slug: str) -> JsxElement {
                         </ul>
                     </AlertDescription>
                 </Alert>}
-            <div className="flex flex-col gap-3">
+            <div
+                className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center gap-3 border-t bg-background/95 px-1 py-3 backdrop-blur"
+            >
                 <Button type="submit" className="min-h-11 w-fit px-5" disabled={busy}>
                     {busy and <Spinner aria-hidden="true"/>}{"Saving…"
                         if busy
                         else "Save prices"}
                 </Button>
+                {dirty
+                    and not message
+                    and <span className="text-sm text-muted-foreground">
+                        Unsaved changes
+                    </span>}
                 <p
                     role="status"
                     aria-live="polite"

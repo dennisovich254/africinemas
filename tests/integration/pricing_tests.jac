@@ -142,7 +142,8 @@ test "a price list is saved, read back and versioned" {
     s = _cinema([], with_prices=False);
     try {
         empty = s.app.call("owner", "get_price_list", {"tenant": NOVA});
-        assert empty == {"ok": True, "price_list": None} , empty;
+        assert empty
+            == {"ok": True, "price_list": None, "layout_zones": ["Gold"]} , empty;
         first = s.app.call("owner", "save_price_list", _prices());
         assert first["ok"] and first["price_list"]["version"] == 1 , first;
         got = s.app.call("owner", "get_price_list", {"tenant": NOVA})["price_list"];

@@ -2,7 +2,7 @@
 in tests/isolation/registry.jac.
 
 - get_price_list (showtimes.read, at any venue) and save_price_list (tenant.settings.update): one list
-  per cinema, checked by core/catalog/pricing.jac, its version bumped on every save.
+  per cinema (read with the zone names drawn in the seat layouts), checked by core/catalog/pricing.jac, its version bumped on every save.
 - quote_tickets (showtimes.read at the screening's venue): prices seats of a published
   screening. Each seat's zone comes from the screening's own seat slots and each price
   from the list; nothing else in the request is read, so a client can't set a price.
@@ -19,7 +19,7 @@ import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 import from core.tenancy.models { Tenant }
 import from core.catalog.models { PriceList, Screening, SeatSlot }
 import from core.catalog.answers { Refused, answer }
-import from core.catalog.venues { find_screening }
+import from core.catalog.venues { find_screening, seat_zones }
 import from core.catalog.storefront { PUBLIC_STATES }
 import from core.catalog.pricing {
     PriceTable,
@@ -70,7 +70,11 @@ def _get_price_list(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         raise Forbidden(READ);
     }
     found = _price_list(scope);
-    return {"ok": True, "price_list": _view(found) if found is not None else None};
+    return {
+        "ok": True,
+        "price_list": _view(found) if found is not None else None,
+        "layout_zones": seat_zones(scope.tenant)
+    };
 }
 
 def _save_price_list(

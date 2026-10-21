@@ -101,6 +101,34 @@ def screenings_of_cinema(tenant: Tenant) -> list[Screening] {
     return found;
 }
 
+def seat_zones(tenant: Tenant) -> list[str] {
+    # The zone names given to seats in each screen's latest layout, A to Z (#8: the
+    # Prices page offers them, so a zone priced matches a zone drawn).
+    me = node_id(root);
+    act_as(tenant.principal_root_id);
+    try {
+        names: list[str] = [];
+        for venue in [tenant-->[?:Venue]] {
+            for screen in [venue-->[?:Auditorium]] {
+                layouts = [screen-->[?:SeatLayout]];
+                if layouts {
+                    latest = max(
+                        layouts, key=lambda (l: SeatLayout) -> int { return l.version; }
+                    );
+                    for seat in latest.seats {
+                        if seat.zone and seat.zone not in names {
+                            names.append(seat.zone);
+                        }
+                    }
+                }
+            }
+        }
+    } finally {
+        restore(me);
+    }
+    return sorted(names);
+}
+
 def screenings_of_movie(tenant: Tenant, movie_id: str) -> list[Screening] {
     # Every screening of the movie, on any of the cinema's screens.
     me = node_id(root);
