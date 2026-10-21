@@ -181,6 +181,18 @@ glob logger = logging.getLogger(__name__),
          "density": "airy"
      },
      TAGLINE_MAX: int = 60,
+     # The families behind each font pairing, heading then body, exactly as
+     # styles/design.css sets them for the rest of the storefront.
+     FONT_FAMILIES: dict[str, list[str]] = {
+         "gallery": ["Raleway", "DM Sans"],
+         "marquee": ["Bebas Neue", "Outfit"],
+         "editorial": ["Fraunces", "DM Sans"],
+         "luxe": ["Cormorant Garamond", "Outfit"],
+         "bold": ["Anton", "Inter"],
+         "friendly": ["Baloo 2", "Nunito"],
+         "modern": ["Sora", "DM Sans"],
+         "heritage": ["Cinzel", "Outfit"]
+     },
      # What each part and value means, as Claude reads them in the schema.
      PART_NOTES: dict[str, str] = {
          "card": "How movie cards are shaped.",

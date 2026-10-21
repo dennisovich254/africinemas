@@ -10,7 +10,9 @@ import from core.theming.pagecode {
     sanitize,
     clean_css,
     bundled_fonts,
-    write_page
+    write_page,
+    brief,
+    brand_brief
 }
 
 glob FIXTURE: str = "tests/fixtures/ai_storefront.html";
@@ -96,4 +98,37 @@ test "write_page asks again with what was missing, then gives up" {
         write_page(b"logo", "Kijiji Cinema");
         assert False , "must fail";
     } except PageFailed {}
+}
+
+test "the page is written in the site's own colours, fonts and corners" {
+    brand = {
+        "scheme": "dark",
+        "colours": {"background": "#120f0a", "accent": "#d9b44c"},
+        "fonts": ["Raleway", "DM Sans"],
+        "corners": "sharp, almost square (2px)",
+        "figures": ["one dove in flight", "three doves"],
+        "tagline": "Where every show takes flight"
+    };
+    prompts: list[str] = [];
+    def scripted(_logo: bytes, prompt: str, _model: str) -> str {
+        prompts.append(prompt);
+        return _fixture();
+    }
+    pagecode.send = scripted;
+    write_page(b"logo", "Rupa's Mall", brand);
+    sent = prompts[0];
+    for part in [
+        "Colour scheme: dark",
+        "background: #120f0a",
+        "accent: #d9b44c",
+        "headings in Raleway, body text in DM Sans",
+        "Corners: sharp",
+        "one dove in flight; three doves",
+        "Where every show takes flight"
+    ] {
+        assert part in sent , part;
+    }
+    bare = brand_brief({** brand, "figures": []});
+    assert "no figures to place" in bare , "no motif slots without figures";
+    assert "brand system" not in brief("Rupa's Mall") , "no brand, no system";
 }
