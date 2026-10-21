@@ -39,6 +39,7 @@ import from core.theming.branding_api {
 import core.theming.suggest as suggest_module;
 import core.theming.brandkit as brandkit_module;
 import core.theming.pagecode as pagecode_module;
+import core.theming.pagereview as pagereview_module;
 import from core.ai.claude { ClaudeFailed }
 import from core.agent.tools { HOLDER, tool_named }
 import from jaclang.byllm.lib { MockLLM, MockToolCall }
@@ -553,6 +554,11 @@ def:pub script_storefront_page(answer: str) -> bool {
         return answer;
     }
     pagecode_module.send = written;
+    # No review in tests: no browser, no model (ADR-0050).
+    def no_shots(_document: str) -> list[bytes] {
+        raise pagereview_module.ReviewSkipped("scripted: no review");
+    }
+    pagereview_module.shoot = no_shots;
     return True;
 }
 
