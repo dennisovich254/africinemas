@@ -1,6 +1,6 @@
 [project]
 name = "africinemas"
-jac-version = "==0.37.25"
+jac-version = "==0.38.0"
 default-app = "web"
 
 [client.app_meta_data]
@@ -117,6 +117,18 @@ resizable = true
 # A request that loses a write race is re-run (Jac's default, up to 5 attempts); wait
 # 20 ms x attempt between tries so racing requests don't collide again at once (P3.2).
 conflict_backoff_ms = 20
+
+[serve.workers]
+# One server process, as before Jac 0.38 (which otherwise starts one per CPU core): the
+# chat's per-cinema limits, caches and the test clock live in the process, and a
+# read-only re-run after a commit (JI-042) can only happen once per process.
+count = 1
+
+[serve.auth.username]
+# A storefront customer's sign-in name is "<slug>:<email local part>:<domain>"
+# (core/tenancy/storefront_accounts.jac): up to 40 + 1 + 254 characters. Jac 0.38's
+# default limit is 64.
+max_length = 300
 
 [placement]
 # Compile modules for the Python server, never native. Jac's default ("native") compiles

@@ -6,8 +6,9 @@ that cinema's alone. It never works in the back office, never at another cinema,
 the same email can have a separate account, with its own password, at each cinema and
 as staff. Staff accounts are no one's customer.
 
-Under Jac's one identity store, a customer account is a username, "<slug>:<email>"
-(sign_in_name), so it never collides with a staff account's email or another cinema's
+Under Jac's one identity store, a customer account is a username,
+"<slug>:<local part>:<domain>" (sign_in_name; Jac 0.38 refuses an "@" in a username,
+and accounts made before it keep "<slug>:<email>"), so it never collides with a staff account's email or another cinema's
 customer. Signing up here, not through Jac's own sign-up, is what lets the server
 record which cinema owns the account (a claim on its root id): every storefront and
 back-office check asks that (cinema_of_account), never the client.
@@ -35,7 +36,14 @@ glob ACCOUNTS: str = "customer-account",
      PASSWORD_MAX: int = 128;
 
 def sign_in_name(slug: str, email: str) -> str {
-    # The account's username: its cinema, then its email.
+    # The account's username: its cinema, then its email with ":" for "@" (Jac 0.38
+    # refuses "@" in a username; EMAIL_SHAPE keeps ":" out of an address, so it's still
+    # one name per email).
+    return f"{slug}:{email.strip().lower().replace('@', ':')}";
+}
+
+def old_sign_in_name(slug: str, email: str) -> str {
+    # The username of an account made before Jac 0.38: "<slug>:<email>".
     return f"{slug}:{email.strip().lower()}";
 }
 
@@ -88,6 +96,17 @@ def require_staff_account {
     }
 }
 
+def _password_advice(violations: list[str]) -> str {
+    # What to tell the customer when Jac's password rules refuse the password.
+    if "PASSWORD_CONTAINS_IDENTIFIER" in violations {
+        return "Choose a password that doesn't contain your email.";
+    }
+    if "PASSWORD_COMMON" in violations or "PASSWORD_BREACHED" in violations {
+        return "That password is too easy to guess. Choose another one.";
+    }
+    return f"Use a password of at least {PASSWORD_MIN} characters.";
+}
+
 def _sign_up(slug: str, email: str, password: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
     cinema = open_cinema(slug);
     if cinema is None {
@@ -107,6 +126,12 @@ def _sign_up(slug: str, email: str, password: str, name: str) -> dict[str, any] 
         );
     }
     username = sign_in_name(cinema.slug, address);
+    if _users().find_user_by_identity(old_sign_in_name(cinema.slug, address)) {
+        return refused(
+            "taken",
+            f"There's already an account for this email at {cinema.name}. Sign in instead."
+        );
+    }
     made: dict[str, any] = _users().create_user_with_identities(  # jac:ignore[W1037]
         identities=[{"type": "username", "value": username}],
         credential={"type": "password", "password": password}
@@ -116,6 +141,9 @@ def _sign_up(slug: str, email: str, password: str, name: str) -> dict[str, any] 
             "taken",
             f"There's already an account for this email at {cinema.name}. Sign in instead."
         );
+    }
+    if made.get("code") == "POLICY_VIOLATION" {
+        return refused("weak_password", _password_advice(made.get("violations") or []));
     }
     if not made.get("root_id") {
         return refused("not_made", "We couldn't create your account. Try again.");

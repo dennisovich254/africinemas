@@ -95,7 +95,8 @@ test "S6: token lifetime is whole days only, so staff tokens can't be shorter th
         try {
             server.start();
         } except RuntimeError as e {
-            refused = "must be an integer" in str(e);
+            # 0.37 said "must be an integer", 0.38 "must be a number, got '0.5'".
+            refused = "TOKEN_TTL_DAYS must be" in str(e);
         }
         server.stop();
         assert refused , "a fractional token lifetime was accepted";

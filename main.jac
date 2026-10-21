@@ -1,6 +1,6 @@
 import from core.health { AppInfo, app_info }
 # Domain endpoints declare :protect (authenticated) or :pub (anonymous).
-# Plain functions, including scheduled jobs, stay internal on Jac 0.37.25.
+# Plain functions, including scheduled jobs, stay internal (private by default since Jac 0.38).
 import from core.tenancy.signup {
     create_cinema,  # jac:ignore[W2037]
     my_cinemas,  # jac:ignore[W2037]
