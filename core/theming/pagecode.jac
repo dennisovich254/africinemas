@@ -120,7 +120,7 @@ Lists (the element is repeated once per item; put it on the element to repeat, e
 Text (the element's text is replaced): data-text= one of
   cinema.name | film.title | film.details (like "16 · 2 h 04 min · Drama") | film.synopsis | film.release (coming soon date)
   | show.time (like "18:15") | show.day (like "Today" or "Fri 24 Oct") | show.screen | show.film (the film's title)
-Images (no src; ours is set): <img data-img="logo"> or <img data-img="film.poster"> (2:3 portrait). Always give alt text.
+Images (no src; ours is set): <img data-img="logo"> or <img data-img="film.poster">. Posters are always exactly 2:3 portrait, and a film without one gets a placeholder of the same shape with its title: size posters by width only (our code keeps the shape and crops to fill). Never lay a decoration over a poster (frame gaps, corners, overlays): posters are drawn on top. Always give alt text.
 Links (no href; ours is set) on <a> only: data-link= home | movies | showtimes | soon | signin | tickets | book (top-level)
   | film (inside a film: its page) | show (inside a show: book that showtime).
 

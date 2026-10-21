@@ -41,7 +41,7 @@ import from core.booking.availability {
     sellable
 }
 import from core.catalog.venues { find_screening, find_movie, slots_of }
-import from core.catalog.poster { read_media, media_key }
+import from core.catalog.poster { read_media, media_key, fit_poster }
 
 # How many of a movie's next showtimes the home page lists.
 glob NEXT_SHOWTIMES: int = 6,
@@ -49,7 +49,10 @@ glob NEXT_SHOWTIMES: int = 6,
      # How many days ahead the home page's showtimes-by-day section looks (P4.1c).
      DAYS_AHEAD: int = 7,
      # How many days ahead quick book offers showtimes (P4.1d).
-     SHOWTIME_DAYS: int = 14;
+     SHOWTIME_DAYS: int = 14,
+     # Posters stored before they were made 2:3, fitted when served (poster.fit_poster).
+     FITTED_MAX: int = 256,
+     _FITTED: dict[str, bytes] = {};
 
 def cinema_timezone(tenant: Tenant) -> str {
     # The cinema's time zone, from its price list (P3.6), for showing showtimes in the
@@ -344,6 +347,18 @@ def _public_movie(cinema: Tenant, movie_key: str) -> tuple[bool, Movie | None] {
     return (False, None);
 }
 
+def _fitted(key: str, data: bytes) -> bytes {
+    # A poster stored before posters were made 2:3, fitted once and remembered (a stored
+    # file never changes under its key: a new upload gets a new key).
+    if key not in _FITTED {
+        if len(_FITTED) >= FITTED_MAX {
+            _FITTED.clear();
+        }
+        _FITTED[key] = fit_poster(data);
+    }
+    return _FITTED[key];
+}
+
 def _image(cinema: Tenant, movie_key: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]
     # A public movie's poster or backdrop as a WebP data URL.
     (public, movie) = _public_movie(cinema, movie_key);
@@ -357,6 +372,9 @@ def _image(cinema: Tenant, movie_key: str, kind: str) -> dict[str, any] {  # jac
     data = read_media(key);
     if not data {
         return refused(f"no_{kind}", f"This movie has no {kind} yet.");
+    }
+    if kind == "poster" {
+        data = _fitted(key, data);
     }
     return {
         "ok": True,

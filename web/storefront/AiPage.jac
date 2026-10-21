@@ -131,7 +131,41 @@ def:pub ai_lists(home: dict[str, any] | None) -> dict[str, any] {  # jac:ignore[
     return lists;
 }
 
-def AiPoster(slug: str, movie_key: str, alt: str, className: str) -> JsxElement {
+# A poster is drawn above the page's own decorations: a frame's gap, made by laying a block
+# of the background over the frame line, once covered a poster's corner (warui, 2026-10-21).
+glob POSTER_BOX: dict[str, str] = {
+         "display": "block",
+         "aspectRatio": "2 / 3",
+         "objectFit": "cover",
+         "maxWidth": "100%",
+         "position": "relative",
+         "zIndex": "1"
+     },
+     POSTER_EMPTY: dict[str, str] = {
+         "display": "flex",
+         "alignItems": "flex-end",
+         "aspectRatio": "2 / 3",
+         "maxWidth": "100%",
+         "width": "100%",
+         "padding": "12px",
+         "boxSizing": "border-box",
+         "overflow": "hidden",
+         "position": "relative",
+         "zIndex": "1",
+         "background": "linear-gradient(160deg, rgba(128, 128, 128, 0.28), rgba(128, 128, 128, 0.1))"
+     },
+     POSTER_EMPTY_TITLE: dict[str, str] = {
+         "fontWeight": "600",
+         "fontSize": "0.875rem",
+         "lineHeight": "1.2",
+         "textTransform": "uppercase",
+         "letterSpacing": "0.04em",
+         "opacity": "0.85"
+     };
+
+def AiPoster(
+    slug: str, movie_key: str, alt: str, className: str, title: str = ""
+) -> JsxElement {
     # A poster for the template's <img data-img="film.poster">, loaded like any poster.
     [src, set_src] = useState("");
 
@@ -153,10 +187,27 @@ def AiPoster(slug: str, movie_key: str, alt: str, className: str) -> JsxElement 
         load();
     }
     useEffect(start_loading, [slug, movie_key]);
+    # Whatever the written CSS says, a poster keeps its 2:3 shape and fills it, and a
+    # missing one holds the same space: a row of cards stays even.
     if not src {
-        return <span role="img" aria-label={alt} className={className}></span>;
+        return
+            <span
+                role="img"
+                aria-label={alt}
+                className={className}
+                style={POSTER_EMPTY}
+            >
+                <span style={POSTER_EMPTY_TITLE}>{title or alt}</span>
+            </span>;
     }
-    return <img src={src} alt={alt} loading="lazy" className={className}/>;
+    return
+        <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            className={className}
+            style={POSTER_BOX}
+        />;
 }
 
 def _camel(name: str) -> str {
@@ -345,6 +396,7 @@ def _draw(fill: Fill, el: any, scope: dict[str, any], key: str) -> any {  # jac:
                 slug={fill.slug}
                 movie_key={scope["_poster"] or ""}
                 alt={alt or scope["film.title"] or "Poster"}
+                title={scope["film.title"] or ""}
                 className={cls}
             />;
     }

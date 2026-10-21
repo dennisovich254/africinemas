@@ -18,6 +18,7 @@ import from core.catalog.poster {
     OUT_HEIGHT,
     decode_upload,
     process_poster,
+    fit_poster,
     media_key,
     media_store,
     read_media,
@@ -140,4 +141,33 @@ test "a stored file that's gone reads as no image, not a crash" {
         }
         shutil.rmtree(media, ignore_errors=True);
     }
+}
+
+def _webp_of(size: tuple[int, int], colour: tuple[int, int, int]) -> bytes {
+    out = io.BytesIO();
+    Image.new("RGB", size, colour).save(out, "WEBP");
+    return out.getvalue();
+}
+
+test "every poster comes out 2:3: cropped when close, shown whole on a blurred fill when not" {
+    exact = _webp_of((400, 600), (200, 40, 40));
+    assert fit_poster(exact) == exact , "already 2:3: untouched";
+    near = _opened(fit_poster(_webp_of((400, 560), (200, 40, 40))));
+    assert near.size == (373, 560) , near.size;
+    # A square poster is kept whole: its colour fills the middle, the fill is darker.
+    square = Image.new("RGB", (400, 400), (230, 230, 230));
+    out = io.BytesIO();
+    square.save(out, "WEBP");
+    fitted = _opened(fit_poster(out.getvalue())).convert("RGB");
+    (w, h) = fitted.size;
+    assert abs(w * 3 - h * 2) <= 2 , fitted.size;
+    assert fitted.getpixel((w // 2, h // 2))[0] > 200 , "the poster itself, in the middle";
+    assert fitted.getpixel((w // 2, 4))[0] < 170 , "a darkened fill above it";
+    wide = _opened(fit_poster(_webp_of((1200, 600), (40, 40, 200))));
+    assert abs(wide.size[0] * 3 - wide.size[1] * 2) <= 2 , wide.size;
+}
+
+test "an upload is fitted to 2:3 as it is processed" {
+    img = _opened(process_poster(_image("PNG", (500, 500)), "image/png"));
+    assert abs(img.size[0] * 3 - img.size[1] * 2) <= 2 , img.size;
 }
