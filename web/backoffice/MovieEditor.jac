@@ -126,16 +126,18 @@ def MediaPicker(  # jac:ignore[W3030] an image field: ids, labels, preview and h
     aspect: str,
     src: str,
     busy: bool,
+    locked: bool,
     error: str,
     testid: str,
     on_file: any,  # jac:ignore[W1037]
     on_remove: any = None  # jac:ignore[W1037]
 ) -> JsxElement {
     # A poster or backdrop: its preview (or an empty frame), and a file chosen by
-    # clicking the frame or dropping a file on it.
+    # clicking the frame or dropping a file on it. `busy`: this image is uploading;
+    # `locked`: anything is being saved, so nothing new can be chosen.
     def dropped(e: any) {  # jac:ignore[W1037]
         e.preventDefault();
-        if not busy and len(e.dataTransfer.files) > 0 {
+        if not locked and len(e.dataTransfer.files) > 0 {
             on_file(e.dataTransfer.files[0]);
         }
     }
@@ -182,7 +184,7 @@ def MediaPicker(  # jac:ignore[W3030] an image field: ids, labels, preview and h
                 id={field_id}
                 type="file"
                 accept={POSTER_TYPES}
-                disabled={busy}
+                disabled={locked}
                 aria-label={f"{'Replace' if src else 'Choose'} the {title.lower()}"}
                 aria-describedby={error_id(field_id) if error else f"{field_id}-hint"}
                 onChange={picked}
@@ -206,7 +208,7 @@ def MediaPicker(  # jac:ignore[W3030] an image field: ids, labels, preview and h
                         type="button"
                         variant="ghost"
                         className="min-h-11"
-                        disabled={busy}
+                        disabled={locked}
                         onClick={on_remove}
                     >
                         Remove
@@ -723,6 +725,7 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
         aspect="aspect-[2/3]"
         src={poster_src}
         busy={busy == "poster"}
+        locked={working}
         error={field_errors["poster-file"] or ""}
         testid="poster"
         on_file={lambda (f: any) { choose_image("poster", f); }}  # jac:ignore[W1037]
@@ -736,6 +739,7 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
         aspect="aspect-video"
         src={backdrop_src}
         busy={busy == "backdrop"}
+        locked={working}
         error={field_errors["backdrop-file"] or ""}
         testid="backdrop-set"
         on_file={lambda (f: any) { choose_image("backdrop", f); }}  # jac:ignore[W1037]

@@ -226,7 +226,12 @@ test "an owner adds a movie, fixes a mistake, uploads its poster and edits it" {
             _type(page, "#movie-genres", "Drama, Romance");
             _type(page, "#movie-language", "English, Swahili");
             page.click('button:has-text("Add movie")');
-            page.wait_for_url(f"**/app/{owner['slug']}/movies/*");
+            # The new movie's own page: "movies/*" matches /movies/new as well.
+            page.wait_for_url(
+                lambda (url: str) -> bool { return "/movies/" in url
+                    and not url.endswith("/new"); }
+            );
+            page.wait_for_selector('[role="status"]:has-text("Movie added.")');
             page.wait_for_selector("#poster-file");
             page.set_input_files(
                 "#poster-file",
@@ -284,7 +289,6 @@ test "a new movie takes its poster, backdrop and trailer before it's added" {
         page.wait_for_selector('#backdrop-file-error');
         _type(page, "#trailer-url", "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
         page.click('button:has-text("Add movie")');
-        page.wait_for_url(f"**/app/{owner['slug']}/movies/*");
         page.wait_for_selector('[role="status"]:has-text("Movie added.")');
         page.wait_for_selector('[data-testid="poster"] img');
         page.wait_for_selector('[data-testid="backdrop-set"] img');
