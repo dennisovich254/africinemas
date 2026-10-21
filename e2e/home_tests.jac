@@ -126,15 +126,17 @@ test "the setup guide walks a new cinema's owner from one step to the next" {
         page.goto(f"{BASE_URL}/app/{owner['slug']}");
         guide = '[data-testid="setup-guide"]';
         page.wait_for_selector(f'{guide}[data-step="venue"]');
-        assert "Step 1 of 7" in page.inner_text('[data-testid="setup-guide-progress"]');
-        page.click('[data-testid="setup-guide-go"]');
+        assert "Step 1 of 7"
+            in page.text_content('[data-testid="setup-guide-progress"]');
+        page.click('[data-testid="guide-go"]');
         page.wait_for_url(f"**/app/{owner['slug']}/venues");
         page.wait_for_selector('[data-testid="setup-guide-here"]');
         # Once a venue exists, the next page shows the next step.
         add_venue(owner);
         page.goto(f"{BASE_URL}/app/{owner['slug']}");
         page.wait_for_selector(f'{guide}[data-step="screen"]');
-        assert "Step 2 of 7" in page.inner_text('[data-testid="setup-guide-progress"]');
+        assert "Step 2 of 7"
+            in page.text_content('[data-testid="setup-guide-progress"]');
         # Hidden, it stays hidden until the Overview's checklist brings it back.
         page.click('[data-testid="hide-setup-guide"]');
         page.wait_for_selector(guide, state="detached");

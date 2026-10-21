@@ -172,7 +172,7 @@ def:pub SetupGuide(slug: str, section: str, page: str) -> JsxElement {
                     and <Button asChild={True} className="min-h-11 shrink-0">
                         <AppLink
                             to={section_path(slug, step["section"])}
-                            testid="setup-guide-go"
+                            testid="guide-go"
                         >
                             Go to {where}
                         </AppLink>
