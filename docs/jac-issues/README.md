@@ -5,12 +5,14 @@ docs-vs-behaviour mismatches and platform limitations. Each entry is verified (r
 source/`--help` output) before it's logged. The wording is tentative where the behaviour may be intended.
 
 **Format:** one file per issue, `JI-NNN-short-slug.md`, with version, repro, expected vs actual,
-workaround, and status. Status values: `open` · `reported` (link) · `answered` · `fixed in <version>` · `wontfix/intended`.
+workaround, and status.
+
+**Paused 2026-10-21:** where we stopped and what's next is in [PROGRESS.md](PROGRESS.md). Status values: `open` · `reported` (link) · `answered` · `fixed in <version>` · `wontfix/intended`.
 
 | ID | Title | Area | Severity for us | Status |
 | --- | --- | --- | --- | --- |
 | [JI-001](JI-001-test-runner-skips-missing-local-module.md) | `jac test` may treat a missing in-project module as an optional dependency (skip, exit 0) | testing | High (silent coverage loss) | open, Discord draft ready |
-| [JI-002](JI-002-bundled-bun-requires-avx2.md) | Bundled bun crashes with "Illegal instruction" on CPUs without AVX2 | toolchain | High on our dev box (workaround in place) | open |
+| [JI-002](JI-002-bundled-bun-requires-avx2.md) | Bundled bun crashes with "Illegal instruction" on CPUs without AVX2 | toolchain | High on our dev box (workaround in place) | open (still on 0.38.0; baseline bun swapped in) |
 | [JI-003](JI-003-jac-create-overwrites-gitignore.md) | `jac create` in a non-empty directory overwrites an existing `.gitignore` | scaffold | High (can expose `.env`) | open |
 | [JI-004](JI-004-faux-labels-pub-endpoints-authenticated.md) | `jac run --faux` lists `def:pub` functions under "FUNCTIONS (Authenticated)" | server/CLI | Low (misleading output) | open |
 | [JI-005](JI-005-desktop-client-build-needs-sudo.md) | `jac build desktop --as client` still provisions the native toolchain via `sudo -n apt-get` | desktop | Medium (local builds blocked) | open |
@@ -23,7 +25,7 @@ workaround, and status. Status values: `open` · `reported` (link) · `answered`
 | [JI-012](JI-012-mobile-template-list-key-breaks-web-build.md) | The `jac create --kind mobile` template fails `jac build mobile --platform web` (`list:` key → `_jac.types.list`) | mobile/codegen | High (fresh scaffold doesn't build) | open |
 | [JI-013](JI-013-workspace-build-output-path.md) | In a workspace, `jac build web` outputs to `.jac/client/web/dist`, not `.jac/client/dist` | docs/build | Low | open |
 | [JI-014](JI-014-profile-overlay-nested-serve-table-crashes-settings.md) | The running server **ignores** profile overrides for `[serve]` settings (and the config API turns nested ones into partial dicts) | config/server | High (hardening silently not applied) | open (corrected) |
-| [JI-015](JI-015-required-env-interpolation-keeps-literal.md) | `${VAR}` / `${VAR:?msg}` keep the literal text when unset (documented error is swallowed); **verified token forgery** on a real server | config/security | High | open (counter-checked) |
+| [JI-015](JI-015-required-env-interpolation-keeps-literal.md) | `${VAR}` / `${VAR:?msg}` keep the literal text when unset (documented error is swallowed); **verified token forgery** on a real server | config/security | High | reported ([#10277](https://github.com/jaseci-labs/jac/issues/10277)); holds on 0.38.0 |
 | [JI-016](JI-016-obj-no-value-equality.md) | `obj` instances don't compare by value, but the cheatsheet and MCP pitfalls guide say `__eq__` is generated | language/docs | Medium (silent identity compares) | open |
 | [JI-017](JI-017-closing-jsx-tags-flagged-undefined.md) | `jac check` flags every closing HTML tag in JSX (`</div>`) as an undefined name (W2001) | checker | Medium (warning noise grows with the UI) | open |
 | [JI-018](JI-018-python-typeddict-keys-rejected.md) | `jac check` rejects every key of a Python-defined TypedDict (E1043), e.g. Playwright's `FloatRect` | checker | Medium (errors fail CI) | open |
@@ -50,7 +52,7 @@ workaround, and status. Status values: `open` · `reported` (link) · `answered`
 | [JI-039](JI-039-dotted-npm-package-name-unresolved-by-checker.md) | `jac check` can't resolve an npm package whose name contains a dot (`qrcode.react`): W1101 on the import, W1051 on each use | checker | Low (false warnings; build and browser fine) | open (`jac:ignore` at the two lines) |
 | [JI-040](JI-040-fstring-format-spec-loses-spaces.md) | A space inside an f-string format spec (`f"{d:%B %Y}"`) is dropped by the compiler, and `jac fmt` deletes it from the source | compiler + formatter | Medium (silently wrong text; `jac check` clean) | open (`strftime` inside the braces) |
 | [JI-041](JI-041-default-import-loses-static-methods.md) | Through an npm default import (`default as QrScanner`), the checker types the binding as `default` and loses the class's static methods (E1030 on `QrScanner.hasCamera()`) | checker | Low (false error; build and browser fine) | open (use the class through an `any` value) |
-| [JI-042](JI-042-write-after-commit-reruns-request.md) | After `commit()` inside a request, the next write makes Jac re-run the whole request from the start (the read tier), repeating work already committed | runtime | High if hit (a sale or scan done twice) | open (no graph write after a part-way commit; the audit log writes to the shared store) |
+| [JI-042](JI-042-write-after-commit-reruns-request.md) | After `commit()` inside a request, the next write makes Jac re-run the whole request from the start (the read tier), repeating work already committed | runtime | High if hit (a sale or scan done twice) | reported ([#10280](https://github.com/jaseci-labs/jac/issues/10280)); holds on 0.38.0, mechanism corrected in [PROGRESS](PROGRESS.md) |
 | [JI-043](JI-043-same-named-function-replaces-endpoint.md) | A plain function named like an endpoint in another module silently replaces the endpoint (a public endpoint answered 401) | runtime / serving | High if hit | open (unique tool names; a unit test guards it) |
 | [JI-044](JI-044-root-id-in-two-forms.md) | The same root id comes as hex from the identity store (`create_user`) and dashed from `node_id(root)` | identity / runtime | Medium (silent mismatch) | open (normalise with `uuid.UUID`) |
 | [JI-045](JI-045-function-named-take-breaks-seal.md) | A function named `take` passes `jac check` and tests but fails `jac build`'s seal step (read as the ownership built-in `take(place)`) | compiler / build | High (build breaks in CI only) | open (named `take_claim`) |

@@ -86,24 +86,22 @@ def clear_backdrop(webp: bytes) -> bytes {
     (r, g, b) = ImageChops.difference(rgb, Image.new("RGB", (w, h), backdrop)).split();
     distance = ImageChops.lighter(ImageChops.lighter(r, g), b);
     # Backdrop is what is near its colour and connected to an edge.
-    near = distance.point(lambda (d: int) -> int { return 255 if d < NEAR else 0; });
+    # Each point() takes a 256-entry lookup table: jac 0.38's checker rejects a lambda
+    # for Pillow's `lut` union, and a table maps the pixels identically.
+    near = distance.point([255 if d < NEAR else 0 for d in range(256)]);
     for xy in _edge(w, h) {
         if near.getpixel(xy) == 255 {
             ImageDraw.floodfill(near, xy, 128);
         }
     }
-    rim = near.point(lambda (v: int) -> int { return 255 if v == 128 else 0; });
+    rim = near.point([255 if v == 128 else 0 for v in range(256)]);
     # Two pixels into the logo, so its anti-aliased rim fades instead of keeping a halo.
     rim = rim.filter(ImageFilter.MaxFilter(5));
     soft = distance.point(
-        lambda (d: int) -> int { return 0
-            if d < NEAR
-            else min(255, (d - NEAR) * 255 // RAMP); }
+        [0 if d < NEAR else min(255, (d - NEAR) * 255 // RAMP) for d in range(256)]
     );
     alpha = Image.composite(soft, Image.new("L", (w, h), 255), rim);
-    box = alpha.point(
-        lambda (a: int) -> int { return 255 if a > 24 else 0; }
-    ).getbbox();
+    box = alpha.point([255 if a > 24 else 0 for a in range(256)]).getbbox();
     if box is None {
         return webp;  # all backdrop: nothing to show, keep what was uploaded
     }

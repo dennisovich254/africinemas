@@ -31,9 +31,13 @@ test "only a readable script replaces the model" {
 test "every model call has a time limit, and the default model is Claude" {
     # byLLM sets no timeout on a plain model call, so litellm's own default (minutes)
     # applied: one chat message took 4 minutes (P8.4). The agent caps every call.
-    import litellm;
+    import sys;
     import core.agent.agent as agent;
-    assert 0 < float(litellm.request_timeout) <= agent.CALL_TIMEOUT <= 40;
+    # Read through sys.modules: a Jac import of litellm takes minutes to check.
+    assert 0
+        < float(sys.modules["litellm"].request_timeout)
+        <= agent.CALL_TIMEOUT
+        <= 40;
     # Claude for every AI feature (ADR-0049).
     assert agent.DEFAULT_MODEL == "anthropic/claude-opus-5-5";
 }

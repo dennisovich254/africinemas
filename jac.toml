@@ -1,6 +1,6 @@
 [project]
 name = "africinemas"
-jac-version = "==0.37.25"
+jac-version = "==0.38.0"
 default-app = "web"
 
 [client.app_meta_data]
