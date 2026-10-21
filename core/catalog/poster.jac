@@ -9,15 +9,24 @@ WebP, at most OUT_WIDTH x OUT_HEIGHT, re-encoded from the pixels alone, so no me
 (a photo's GPS position, anything smuggled inside the file) is kept. It is stored under
 a random name in the cinema's media folder (media_key); the name never comes from the
 client.
+
+Posters are always 2:3 (`fit_poster`), the shape every storefront design is drawn for: an
+upload close to 2:3 is centre-cropped to it; any other shape (a square, a landscape still)
+is shown whole, centred on a blurred, darkened copy of itself, so nothing is cut off.
+Posters stored before this are fitted when they are served.
 """
 
 import io;
 import os;
 import base64;
 import binascii;
-import from PIL { Image, ImageOps }
+import from PIL { Image, ImageOps, ImageFilter, ImageEnhance }
 
 glob MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024,
+     # A poster's shape, width over height (2:3), and how far from it is still cropped
+     # rather than shown whole on a blurred fill.
+     POSTER_RATIO: float = 2 / 3,
+     CROP_TOLERANCE: float = 0.12,
      MIN_WIDTH: int = 200,
      MIN_HEIGHT: int = 300,
      MAX_SIDE: int = 8000,
@@ -116,10 +125,53 @@ def _sniff(data: bytes) -> str {
 }
 
 def process_poster(data: bytes, declared_type: str) -> bytes {
-    # A checked poster, re-encoded as a clean WebP. Raises PosterRejected.
-    return _process(
-        data, declared_type, (MIN_WIDTH, MIN_HEIGHT), (OUT_WIDTH, OUT_HEIGHT)
+    # A checked poster, re-encoded as a clean 2:3 WebP. Raises PosterRejected.
+    return fit_poster(
+        _process(data, declared_type, (MIN_WIDTH, MIN_HEIGHT), (OUT_WIDTH, OUT_HEIGHT))
     );
+}
+
+def fit_poster(webp: bytes) -> bytes {
+    # The poster as exactly 2:3: unchanged if it is already, centre-cropped if it is
+    # close, otherwise whole and centred on a blurred, darkened copy of itself.
+    img = Image.open(io.BytesIO(webp));
+    (w, h) = img.size;
+    if w < 2 or h < 2 {
+        return webp;
+    }
+    if abs(w * 3 - h * 2) <= 2 {
+        return webp;  # already 2:3, to the pixel
+    }
+    picture = img.convert("RGB");
+    ratio = w / h;
+    if abs(ratio - POSTER_RATIO) / POSTER_RATIO <= CROP_TOLERANCE {
+        if ratio > POSTER_RATIO {
+            width = h * 2 // 3;
+            left = (w - width) // 2;
+            fitted = picture.crop((left, 0, left + width, h));
+        } else {
+            height = w * 3 // 2;
+            top = (h - height) // 2;
+            fitted = picture.crop((0, top, w, top + height));
+        }
+    } else {
+        # The canvas keeps the picture's own sharpness: as wide as it is, or tall enough.
+        width = min(OUT_WIDTH, max(w, h * 2 // 3));
+        height = width * 3 // 2;
+        fill = ImageOps.fit(picture, (width, height), Image.Resampling.BILINEAR);
+        fill = ImageEnhance.Brightness(
+            fill.filter(ImageFilter.GaussianBlur(24))
+        ).enhance(
+            0.55
+        );
+        whole = picture.copy();
+        whole.thumbnail((width, height), Image.Resampling.LANCZOS);
+        fill.paste(whole, ((width - whole.width) // 2, (height - whole.height) // 2));
+        fitted = fill;
+    }
+    out = io.BytesIO();
+    fitted.save(out, format="WEBP", quality=WEBP_QUALITY);
+    return out.getvalue();
 }
 
 def process_logo(data: bytes, declared_type: str) -> bytes {
