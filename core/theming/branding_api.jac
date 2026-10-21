@@ -41,14 +41,20 @@ import from core.theming.tokens {
     DISPLAY_FONTS,
     BODY_FONTS,
     RADII,
-    SCHEMES
+    SCHEMES,
+    contrast_ratio
 }
 import from core.theming.css { theme_css, FONT_STACKS, RADIUS_REM }
 import from core.theming.branding { PRESETS, parse_theme, repair_reporting }
 import from core.theming.models { Branding, ThemeVersion }
 import from core.theming.suggest { suggest_from_logo }
 import from core.theming.logo { clear_backdrop }
-import from core.theming.brandkit { draw_kit, checked_look, DEFAULT_LOOK }
+import from core.theming.brandkit {
+    draw_kit,
+    checked_look,
+    DEFAULT_LOOK,
+    FONT_FAMILIES
+}
 import from core.theming.pagecode { write_page }
 import from core.audit.log { audited }
 
@@ -375,12 +381,24 @@ def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         b.kit_count = used + 1;
     }
     _edit_draft(scope, _count);
+    # The colours and the brand plan first (side by side, about 20 s), then the page in
+    # exactly that system, so the whole storefront is one design (ADR-0050).
     themed = _designs.submit(
         suggest_from_logo, raw, scope.tenant.name, _programme(scope)
     );
-    written = _designs.submit(write_page, raw, scope.tenant.name);
     kit = draw_kit(raw, scope.tenant.name);
     found = themed.result();
+    idea: dict[str, any] = found["proposals"][0];  # jac:ignore[W1037]
+    theme: dict[str, any] = dict(idea["theme"]);  # jac:ignore[W1037]
+    # One scheme for every page: the written page has one palette.
+    if theme.get("scheme") not in ("light", "dark") {
+        theme["scheme"] = "light"
+            if _is_light(theme["light"]["background"])
+            else "dark";
+    }
+    written = _designs.submit(
+        write_page, raw, scope.tenant.name, brand_system(theme, kit)
+    );
     page: dict[str, str] = {};
     try {
         page = written.result(timeout=PAGE_DEADLINE);
@@ -390,8 +408,6 @@ def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
             "storefront page failed: %s: %s", type(e).__name__, str(e)[:300]
         );
     }
-    idea: dict[str, any] = found["proposals"][0];  # jac:ignore[W1037]
-    theme: dict[str, any] = idea["theme"];  # jac:ignore[W1037]
     def _keep(b: Branding) {
         b.draft = theme;
         b.draft_kit = kit;
@@ -409,6 +425,47 @@ def _design_storefront(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "kit_from_ai": bool(kit.get("from_ai", False)),
         "logo": _data_url(cleaned),
         "remaining": KIT_DAILY - used - 1
+    };
+}
+
+def _is_light(colour: str) -> bool {
+    # Whether dark text reads better on `colour` than light text does.
+    return contrast_ratio("#000000", colour) > contrast_ratio("#FFFFFF", colour);
+}
+
+def brand_system(theme: dict[str, any], kit: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
+    # What the page writer must use (ADR-0050): the scheme's colours, the kit's font
+    # pairing and corners, the figures and the tagline.
+    mode: str = "dark" if theme.get("scheme") == "dark" else "light";
+    colours: dict[str, str] = theme[mode];
+    look: dict[str, str] = _full_look(kit.get("look", {}));
+    corners = {
+        "notched": "sharp, almost square (2px), with ticket-notched movie cards",
+        "sharp": "sharp, almost square (2px)",
+        "rounded": "soft and rounded (12 to 16px)"
+    };
+    return {
+        "scheme": mode,
+        "colours": {
+            role: colours[role]
+            for role in [
+                "background",
+                "surface",
+                "raised",
+                "border",
+                "ink",
+                "muted",
+                "accent",
+                "on_accent",
+                "accent_ink",
+                "link",
+                "focus_ring"
+            ]
+        },
+        "fonts": list(FONT_FAMILIES.get(look["fonts"], [])),
+        "corners": corners.get(look["card"], ""),
+        "figures": [str(m.get("name", "")) for m in kit.get("motifs", []) or []],
+        "tagline": str(kit.get("tagline", "") or "")
     };
 }
 

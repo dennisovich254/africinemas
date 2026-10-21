@@ -464,17 +464,60 @@ def _send_claude(logo_webp: bytes, prompt: str, model: str) -> str {
 
 glob send: any = _send_claude;  # jac:ignore[W1037]
 
-def brief(cinema: str) -> str {
-    return BRIEF.replace("FONT_LIST", ", ".join(FONTS.keys()))
-        + f"\n\nThe cinema: {cinema}.";
+def brand_brief(brand: dict[str, any]) -> str {  # jac:ignore[W1037]
+    # The site's own brand system, which the page must use exactly: the rest of the
+    # storefront (movie, checkout and ticket pages) wears the same (ADR-0050).
+    colours: dict[str, str] = brand.get("colours", {}) or {};
+    lines = [
+        "The site's brand system, already chosen from this logo. Use it exactly: the cinema's movie, checkout and ticket pages wear the same colours, fonts and corners, so your page must match them.",
+        f"- Colour scheme: {brand.get(
+            'scheme', 'dark'
+        )}. Colours (define them as CSS custom properties on .ai-page and use only these, plus transparent tints of them):"
+    ];
+    for (role, value) in colours.items() {
+        lines.append(f"  {role}: {value}");
+    }
+    fonts: list[str] = brand.get("fonts", []) or [];
+    if len(fonts) == 2 {
+        lines.append(f"- Fonts: headings in {fonts[0]}, body text in {fonts[1]}.");
+    }
+    if brand.get("corners") {
+        lines.append(f"- Corners: {brand['corners']}.");
+    }
+    figures: list[str] = brand.get("figures", []) or [];
+    if len(figures) > 0 {
+        lines.append(
+            "- The logo's figures in the motif slots: "
+                + "; ".join(figures)
+                + " (single is the first, group the last)."
+        );
+    } else {
+        lines.append(
+            "- This logo has no figures to place: leave out the motif slots, and build the ornament from the frame, lines and lettering instead."
+        );
+    }
+    if brand.get("tagline") {
+        lines.append(f"- The cinema's tagline, if you want it: {brand['tagline']}");
+    }
+    return "\n".join(lines);
 }
 
-def write_page(logo_webp: bytes, cinema: str) -> dict[str, str] {
-    # The cinema's storefront template: {"html", "css", "model"}. A failed call or a
-    # template that lacks a part is tried again (with what was missing named); after
-    # ATTEMPTS, PageFailed.
+def brief(cinema: str, brand: dict[str, any] | None = None) -> str {  # jac:ignore[W1037]
+    text = BRIEF.replace("FONT_LIST", ", ".join(FONTS.keys()))
+        + f"\n\nThe cinema: {cinema}.";
+    return text + "\n\n" + brand_brief(brand) if brand else text;
+}
+
+def write_page(
+    logo_webp: bytes,
+    cinema: str,
+    brand: dict[str, any] | None = None  # jac:ignore[W1037]
+) -> dict[str, str] {
+    # The cinema's storefront template: {"html", "css", "model"}, in the site's `brand`
+    # system when given. A failed call or a template that lacks a part is tried again
+    # (with what was missing named); after ATTEMPTS, PageFailed.
     model = model_name();
-    prompt = brief(cinema);
+    prompt = brief(cinema, brand);
     failure = "no attempt";
     for _ in range(ATTEMPTS) {
         try {
@@ -490,7 +533,7 @@ def write_page(logo_webp: bytes, cinema: str) -> dict[str, str] {
         }
         failure = "missing " + ", ".join(made["problems"]);
         logger.warning("page from %s was %s", model, failure);
-        prompt = brief(cinema)
+        prompt = brief(cinema, brand)
             + "\n\nYour last answer was missing: "
             + "; ".join(made["problems"])
             + ". Include them all this time.";
