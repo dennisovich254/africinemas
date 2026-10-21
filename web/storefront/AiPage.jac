@@ -131,11 +131,15 @@ def:pub ai_lists(home: dict[str, any] | None) -> dict[str, any] {  # jac:ignore[
     return lists;
 }
 
+# A poster is drawn above the page's own decorations: a frame's gap, made by laying a block
+# of the background over the frame line, once covered a poster's corner (warui, 2026-10-21).
 glob POSTER_BOX: dict[str, str] = {
          "display": "block",
          "aspectRatio": "2 / 3",
          "objectFit": "cover",
-         "maxWidth": "100%"
+         "maxWidth": "100%",
+         "position": "relative",
+         "zIndex": "1"
      },
      POSTER_EMPTY: dict[str, str] = {
          "display": "flex",
@@ -146,6 +150,8 @@ glob POSTER_BOX: dict[str, str] = {
          "padding": "12px",
          "boxSizing": "border-box",
          "overflow": "hidden",
+         "position": "relative",
+         "zIndex": "1",
          "background": "linear-gradient(160deg, rgba(128, 128, 128, 0.28), rgba(128, 128, 128, 0.1))"
      },
      POSTER_EMPTY_TITLE: dict[str, str] = {
