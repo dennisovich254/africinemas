@@ -41,6 +41,7 @@ import from .MoviesSection { MoviesSection }
 import from .VenuesSection { VenuesSection }
 import from .ScreeningsSection { ScreeningsSection }
 import from .ScannerSection { ScannerSection }
+import from .SetupGuide { SetupGuide }
 import from .BoxOfficeSection { BoxOfficeSection }
 import from .PricesSection { PricesSection }
 import from .SnackProductsPage { SnackProductsPage }
@@ -398,6 +399,13 @@ def:pub BackOffice -> JsxElement {
                         busy={starting}
                         failed={start_failed}
                         on_start={begin_shift}
+                    />}{shift_open
+                    and allowed
+                    and "venues.configure" in permissions
+                    and <SetupGuide
+                        slug={slug}
+                        section={section}
+                        page={f"{section}/{item}"}
                     />}{content}
             </AppShell>
         </ThemeProvider>;

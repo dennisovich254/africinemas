@@ -18,9 +18,9 @@ import os;
 import uuid;
 import base64;
 import from PIL { Image }
-import from tests.support.served { Served }
+import from tests.support.served { Served, served }
 import from tests.support.storefront_setup { add_screening, browse, code_of }
-import from tests.support.payment_setup { paying_cinema, hire }
+import from tests.support.payment_setup { APP, paying_cinema, hire }
 
 glob TICKET: int = 93000,
      STEPS: list[str] = [
@@ -200,6 +200,54 @@ test "a showtime's artwork for staff who read its showtimes, public or not" {
         # showtime that isn't one.
         assert code_of(_art(app, "elsewhere", first, "poster")) == "forbidden";
         assert code_of(_art(app, "owner", "not-a-showtime", "poster")) == "not_found";
+    } finally {
+        app.close();
+    }
+}
+
+test "the setup guide walks a new cinema through its steps, for staff who set it up" {
+    # improvements #4: setup_steps gives the steps and the next one to do.
+    app = served(APP, ["owner"]);
+    try {
+        app.call("owner", "create_cinema", {"name": "Nova Cinemas", "slug": "nova"});
+        app.call("owner", "start_shift", {"tenant": "nova"});
+        fresh = app.call("owner", "setup_steps", {"tenant": "nova"});
+        assert fresh["ok"] , fresh;
+        assert [s["key"] for s in fresh["steps"]] == STEPS;
+        assert fresh["done"] == 0 and fresh["next"] == "venue" , fresh;
+        assert fresh["steps"][0]["section"] == "venues";
+        made = app.call(
+            "owner",
+            "create_venue",
+            {
+                "tenant": "nova",
+                "name": "Westgate",
+                "city": "Nairobi",
+                "address": "Mwanzi Road"
+            }
+        );
+        assert made["ok"] , made;
+        moved = app.call("owner", "setup_steps", {"tenant": "nova"});
+        assert moved["done"] == 1 and moved["next"] == "screen" , moved;
+    } finally {
+        app.close();
+    }
+}
+
+test "the setup guide's steps are for staff who set the cinema up, on shift" {
+    (app, nova, _) = paying_cinema(["usher", "outsider"]);
+    try {
+        # Venue, screen, prices, movie and showtime are done: branding is next.
+        steps = app.call("owner", "setup_steps", {"tenant": "nova"});
+        assert steps["next"] == "branding" , steps;
+        hire(app, "usher", "usher", nova.venue);
+        assert code_of(app.call("usher", "setup_steps", {"tenant": "nova"}))
+            == "forbidden";
+        assert code_of(app.call("outsider", "setup_steps", {"tenant": "nova"}))
+            == "not_found";
+        assert app.call("owner", "end_shift", {"tenant": "nova"})["ok"];
+        assert code_of(app.call("owner", "setup_steps", {"tenant": "nova"}))
+            == "no_shift";
     } finally {
         app.close();
     }

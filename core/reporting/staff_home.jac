@@ -15,6 +15,10 @@ staff_home(tenant) answers what the caller's roles allow, for the cinema's today
 
 A part the caller may not see is None. It needs a login and an open shift (ADR-0006).
 
+setup_steps(tenant) gives the setup guide (improvements #4) the same seven steps and the
+next one to do ("" when all are done), to staff who set the cinema up; it's light enough
+to ask on every page change.
+
 showtime_art(tenant, screening_id, kind) gives the page a showtime's poster or backdrop,
 to staff who may read showtimes at its venue, before the cinema is public too.
 """
@@ -244,6 +248,34 @@ def _staff_home(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
 
 def:protect staff_home(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _staff_home(tenant); });  # jac:ignore[W1037]
+}
+
+def _setup_steps(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = on_shift(tenant);
+    require(
+        scope.ctx,
+        "venues.configure",
+        Resource(tenant_id=scope.ctx.tenant_id, venue_id=None)
+    );
+    cinema = scope.tenant;
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        setup = _setup(cinema);
+    } finally {
+        restore(me);
+    }
+    upcoming = [
+        s["key"]
+        for s in setup["steps"]
+        if not s["done"]
+    ];
+    return {"ok": True, ** setup, "next": upcoming[0] if upcoming else ""};
+}
+
+def:protect setup_steps(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The setup guide's steps, each done or not, and the next one (improvements #4).
+    return answer(lambda -> any { return _setup_steps(tenant); });  # jac:ignore[W1037]
 }
 
 def _showtime_art(tenant: str, screening_id: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]

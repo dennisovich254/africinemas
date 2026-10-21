@@ -193,7 +193,7 @@ import from core.oauth.provider {
     oauth_token
 }  # jac:ignore[W2037]
 # The staff home page: setup, today's showtimes, figures and activity (P7.4).
-import from core.reporting.staff_home { staff_home, showtime_art }  # jac:ignore[W2037]
+import from core.reporting.staff_home { staff_home, setup_steps, showtime_art }  # jac:ignore[W2037]
 # A signed-in customer's saved bookings: "My tickets" (P6.3b).
 import from core.booking.customer_tickets {
     save_booking,  # jac:ignore[W2037]
