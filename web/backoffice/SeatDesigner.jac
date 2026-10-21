@@ -5,6 +5,11 @@ then press on a cell (or drag across cells) to place seats of that type; pressin
 of the chosen type, or using the Aisle tool, clears it. The grid is one Tab stop; arrow
 keys move, Enter or Space paints. Seats are labelled automatically (seat_grid.jac).
 
+Faster layouts (improvements #1 to #3): − and + beside Rows and Columns; a row letter or
+column number fills that line with the chosen type (again clears it); "Fill the grid";
+Undo for every change; and "Copy the layout of another screen" loads that screen's
+latest layout here as unsaved changes.
+
 Save draft writes the screen's draft; Publish (after a confirmation) freezes it. Editing
 a published layout saves the next version, and screenings keep the one they were given
 (P3.2). Phones, and staff who may only read seat plans, get a read-only preview.
@@ -42,13 +47,19 @@ import from .seat_grid {
     sellable,
     seat_types_in,
     without,
-    clamp
+    clamp,
+    row_keys,
+    col_keys,
+    all_keys,
+    paint_many
 }
 
 glob AISLE: str = "AISLE",
      NEW_ROWS: int = 8,
      NEW_COLS: int = 12,
      WIDE_QUERY: str = "(min-width: 768px)",
+     # How many changes Undo can take back.
+     UNDO_DEPTH: int = 50,
      # Merged with cn() (tailwind-merge), so a smaller size passed after it wins.
      SEAT_BASE: str = "flex size-8 shrink-0 items-center justify-center rounded-t-lg rounded-b-sm border text-[10px] font-semibold leading-none",
      AISLE_BASE: str = "size-8 shrink-0 rounded-sm border border-dashed border-border";
@@ -148,6 +159,61 @@ def Legend(cells: dict[str, str]) -> JsxElement {
         </ul>;
 }
 
+def SizeStepper(
+    which: str,
+    label: str,
+    text: str,
+    value: int,
+    top: int,
+    on_type: any,  # jac:ignore[W1037]
+    on_step: any  # jac:ignore[W1037]
+) -> JsxElement {
+    # A size box with − and + beside it (improvements #1): a step changes the grid at
+    # once, and so does a typed size a layout allows.
+    one = "row" if which == "rows" else "column";
+    return
+        <div className="flex flex-col gap-1.5">
+            <Label htmlFor={f"layout-{which}"}>{label}</Label>
+            <div className="flex items-center gap-1">
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-10"
+                    data-testid={f"remove-{one}"}
+                    aria-label={f"Remove a {one}"}
+                    disabled={value <= 1}
+                    onClick={lambda { on_step(value - 1); }}
+                >
+                    −
+                </Button>
+                <Input
+                    id={f"layout-{which}"}
+                    type="number"
+                    min={1}
+                    max={top}
+                    value={text}
+                    onChange={lambda (e: any) { on_type(e.target.value, False); }}  # jac:ignore[W1037]
+                    onBlur={lambda (e: any) { on_type(e.target.value, True); }}  # jac:ignore[W1037]
+                    onKeyDown={lambda (e: any) { if e.key == "Enter" {  # jac:ignore[W1037]
+                        on_type(e.target.value, True);
+                    }}}
+                    className="h-10 w-20 text-center"
+                />
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-10"
+                    data-testid={f"add-{one}"}
+                    aria-label={f"Add a {one}"}
+                    disabled={value >= top}
+                    onClick={lambda { on_step(value + 1); }}
+                >
+                    +
+                </Button>
+            </div>
+        </div>;
+}
+
 def:pub SeatDesigner(
     slug: str, auditorium_id: str, permissions: list[str]
 ) -> JsxElement {
@@ -169,9 +235,16 @@ def:pub SeatDesigner(
     [focus_key, set_focus_key] = useState(cell_key(0, 0));
     [wide, set_wide] = useState(True);
     painting = useRef("");  # "set" or "clear" while a press is being dragged
+    # Earlier {rows, cols, cells}, newest last, for Undo (improvements #3).
+    history = useRef([]);
+    [undo_count, set_undo_count] = useState(0);
+    # The cinema's other screens, to copy a layout from (improvements #2).
+    [others, set_others] = useState([]);
+    [copy_from, set_copy_from] = useState("");
 
     grid_cells: dict[str, str] = cells;  # jac:ignore[W1037]
     info: dict[str, any] | None = meta;  # jac:ignore[W1037]
+    other_screens: list[dict[str, str]] = others;
     unsaved = snapshot(rows, cols, grid_cells) != saved;
     can_configure = "seats.configure" in permissions;
     editable = can_configure and wide;
@@ -214,13 +287,22 @@ def:pub SeatDesigner(
             return;
         }
         if venues_answer["ok"] {
+            found_others: list[dict[str, str]] = [];
             for v in venues_answer["venues"] {
                 for a in v["auditoriums"] {
                     if a["auditorium_id"] == auditorium_id {
                         set_screen({"name": a["name"], "venue": v["name"]});
+                    } else {
+                        found_others.append(
+                            {
+                                "auditorium_id": a["auditorium_id"],
+                                "label": f"{a['name']} · {v['name']}"
+                            }
+                        );
                     }
                 }
             }
+            set_others(found_others);
         }
         latest = listed["draft_version"] or listed["published_version"];
         if latest {
@@ -271,6 +353,120 @@ def:pub SeatDesigner(
     }
     useEffect(warn_before_leaving, [unsaved]);
 
+    def remember {
+        # Keeps the grid as it is now, for Undo.
+        kept: list[any] = history.current;  # jac:ignore[W1037]
+        kept = kept + [{"rows": rows, "cols": cols, "cells": grid_cells}];
+        if len(kept) > UNDO_DEPTH {
+            kept = kept[len(kept) - UNDO_DEPTH:];
+        }
+        history.current = kept;
+        set_undo_count(len(kept));
+    }
+
+    def undo {
+        kept: list[any] = history.current;  # jac:ignore[W1037]
+        if len(kept) == 0 {
+            return;
+        }
+        last: dict[str, any] = kept[len(kept) - 1];  # jac:ignore[W1037]
+        history.current = kept[:len(kept) - 1];
+        set_undo_count(len(kept) - 1);
+        set_rows(last["rows"]);
+        set_cols(last["cols"]);
+        set_rows_text(str(last["rows"]));
+        set_cols_text(str(last["cols"]));
+        set_cells(last["cells"]);
+        set_message("Undone.");
+    }
+
+    def fill(keys: list[str]) {
+        # Paints every cell in `keys` with the chosen type, or clears them with the
+        # Aisle tool (or when they all hold that type already).
+        remember();
+        set_message("");
+        set_cells(paint_many(grid_cells, keys, "" if tool == AISLE else tool));
+    }
+
+    def set_size(new_rows: int, new_cols: int) {
+        # Seats that no longer fit are removed (Undo brings them back).
+        if new_rows == rows and new_cols == cols {
+            return;
+        }
+        remember();
+        set_rows(new_rows);
+        set_cols(new_cols);
+        set_rows_text(str(new_rows));
+        set_cols_text(str(new_cols));
+        set_cells(inside(grid_cells, new_rows, new_cols));
+        set_focus_key(cell_key(0, 0));
+    }
+
+    def typed_size(which: str, text: str, done: bool) {
+        # A typed size that grows the grid applies at once; one that shrinks it (and
+        # would remove seats) waits until the box is left or Enter is pressed (`done`),
+        # so typing "15" never passes through a one-row grid.
+        if which == "rows" {
+            set_rows_text(text);
+        } else {
+            set_cols_text(text);
+        }
+        wanted = 0;
+        try {
+            wanted = int(text) if text else 0;
+        } except Exception {
+            wanted = 0;
+        }
+        top = MAX_ROWS if which == "rows" else MAX_COLS;
+        now = rows if which == "rows" else cols;
+        if 1 <= wanted <= top and (done or wanted >= now) {
+            set_size(
+                wanted if which == "rows" else rows, wanted if which == "cols" else cols
+            );
+        }
+    }
+
+    async def copy_layout {
+        # Another screen's latest layout, as unsaved changes here (improvements #2).
+        if not copy_from {
+            return;
+        }
+        listed: any = None;  # jac:ignore[W1037]
+        got: any = None;  # jac:ignore[W1037]
+        set_busy("copying");
+        set_message("");
+        try {
+            listed = await list_layouts(slug, copy_from);  # jac:ignore[W2037]
+            latest = (listed["draft_version"] or listed["published_version"])
+                if listed["ok"]
+                else 0;
+            for l in (listed["layouts"] if listed["ok"] else []) {
+                if l["version"] == latest {
+                    got = await get_layout(slug, l["layout_id"]);  # jac:ignore[W2037]
+                }
+            }
+        } except Exception as e {
+            console.warn("copying a layout failed", e);
+            set_busy("");
+            set_message("We couldn't copy that layout. Try again.");
+            return;
+        }
+        set_busy("");
+        if got is None or not got["ok"] {
+            set_message("That screen has no seat layout to copy yet.");
+            return;
+        }
+        layout: dict[str, any] = got["layout"];  # jac:ignore[W1037]
+        remember();
+        set_rows(layout["rows"]);
+        set_cols(layout["cols"]);
+        set_rows_text(str(layout["rows"]));
+        set_cols_text(str(layout["cols"]));
+        set_cells(cells_from_seats(layout["seats"]));
+        set_focus_key(cell_key(0, 0));
+        set_message("Layout copied. Change anything you need, then save the draft.");
+    }
+
     def apply_paint(key: str, action: str) {
         set_message("");
         set_cells(
@@ -293,6 +489,7 @@ def:pub SeatDesigner(
     }
 
     def press(key: str) {
+        remember();
         action = action_for(key);
         painting.current = action;
         set_focus_key(key);
@@ -319,6 +516,7 @@ def:pub SeatDesigner(
         };
         if e.key == "Enter" or e.key == " " {
             e.preventDefault();
+            remember();
             apply_paint(key, action_for(key));
             return;
         }
@@ -337,23 +535,6 @@ def:pub SeatDesigner(
         if el {
             el.focus();
         }
-    }
-
-    def resize(which: str) {
-        # Apply the typed size (clamped to what a layout allows); seats that no longer
-        # fit are removed.
-        new_rows = clamp(int(rows_text or "1"), 1, MAX_ROWS)
-            if which == "rows"
-            else rows;
-        new_cols = clamp(int(cols_text or "1"), 1, MAX_COLS)
-            if which == "cols"
-            else cols;
-        set_rows(new_rows);
-        set_cols(new_cols);
-        set_rows_text(str(new_rows));
-        set_cols_text(str(new_cols));
-        set_cells(inside(grid_cells, new_rows, new_cols));
-        set_focus_key(cell_key(0, 0));
     }
 
     async def save {
@@ -520,36 +701,82 @@ def:pub SeatDesigner(
     </div>;
 
     size_controls = <div className="flex flex-wrap items-end gap-4">
-        <div className="flex flex-col gap-1.5">
-            <Label htmlFor="layout-rows">Rows</Label>
-            <Input
-                id="layout-rows"
-                type="number"
-                min={1}
-                max={MAX_ROWS}
-                value={rows_text}
-                onChange={lambda (e: any) { set_rows_text(e.target.value); }}  # jac:ignore[W1037]
-                onBlur={lambda { resize("rows"); }}
-                onKeyDown={lambda (e: any) { if e.key == "Enter" { resize("rows"); }}}  # jac:ignore[W1037]
-                className="h-10 w-24"
-            />
-        </div>
-        <div className="flex flex-col gap-1.5">
-            <Label htmlFor="layout-cols">Columns</Label>
-            <Input
-                id="layout-cols"
-                type="number"
-                min={1}
-                max={MAX_COLS}
-                value={cols_text}
-                onChange={lambda (e: any) { set_cols_text(e.target.value); }}  # jac:ignore[W1037]
-                onBlur={lambda { resize("cols"); }}
-                onKeyDown={lambda (e: any) { if e.key == "Enter" { resize("cols"); }}}  # jac:ignore[W1037]
-                className="h-10 w-24"
-            />
-        </div>
+        <SizeStepper
+            which="rows"
+            label="Rows"
+            text={rows_text}
+            value={rows}
+            top={MAX_ROWS}
+            on_type={lambda (t: str, done: bool) { typed_size("rows", t, done); }}
+            on_step={lambda (n: int) { set_size(n, cols); }}
+        />
+        <SizeStepper
+            which="cols"
+            label="Columns"
+            text={cols_text}
+            value={cols}
+            top={MAX_COLS}
+            on_type={lambda (t: str, done: bool) { typed_size("cols", t, done); }}
+            on_step={lambda (n: int) { set_size(rows, n); }}
+        />
         <p className="pb-2 text-sm text-muted-foreground">
-            Up to {MAX_ROWS} rows and {MAX_COLS} columns. Making the grid smaller removes the seats outside it.
+            Up to {MAX_ROWS} rows and {MAX_COLS} columns. New rows go at the back and new columns on the right; making the grid smaller removes the seats outside it.
+        </p>
+    </div>;
+
+    tool_name = "an aisle" if tool == AISLE else kind_of(tool)[1];
+    quick = <div
+        className="flex flex-wrap items-center gap-3"
+        data-testid="layout-shortcuts"
+    >
+        <Button
+            variant="outline"
+            className="min-h-11"
+            data-testid="fill-grid"
+            onClick={lambda { fill(all_keys(rows, cols)); }}
+        >
+            {"Clear the grid" if tool == AISLE else f"Fill the grid with {tool_name}"}
+        </Button>
+        <Button
+            variant="outline"
+            className="min-h-11"
+            data-testid="undo"
+            disabled={undo_count == 0}
+            onClick={undo}
+        >
+            Undo
+        </Button>
+        {len(other_screens) > 0
+            and <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="copy-from" className="sr-only">
+                    Copy the layout of another screen
+                </label>
+                <select
+                    id="copy-from"
+                    data-testid="copy-from"
+                    value={copy_from}
+                    onChange={lambda (e: any) { set_copy_from(e.target.value); }}  # jac:ignore[W1037]
+                    className="h-11 rounded-md border bg-background px-3 text-sm"
+                >
+                    <option value="">Copy the layout of another screen…</option>
+                    {[
+                        <option key={o["auditorium_id"]} value={o["auditorium_id"]}>
+                            {o["label"]}
+                        </option> for o in other_screens
+                    ]}
+                </select>
+                <Button
+                    variant="outline"
+                    className="min-h-11"
+                    data-testid="copy-layout"
+                    disabled={not copy_from or busy != ""}
+                    onClick={copy_layout}
+                >
+                    {"Copying…" if busy == "copying" else "Copy"}
+                </Button>
+            </div>}
+        <p className="w-full text-sm text-muted-foreground">
+            Press a row letter or a column number to fill it with {tool_name}; press it again to clear it.
         </p>
     </div>;
 
@@ -567,13 +794,34 @@ def:pub SeatDesigner(
                 data-testid="seat-grid"
                 className="flex flex-col gap-1 select-none"
             >
+                <div role="row" className="flex items-center gap-1">
+                    <span role="columnheader" className="w-6 shrink-0"/>
+                    {[
+                        <span key={c} role="columnheader">
+                            <button
+                                type="button"
+                                data-col-header={c}
+                                aria-label={f"Fill column {c + 1} with {tool_name}"}
+                                onClick={lambda { fill(col_keys(c, rows)); }}
+                                className="flex size-8 items-center justify-center rounded-sm text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                                {c + 1}
+                            </button>
+                        </span> for c in range(cols)
+                    ]}
+                </div>
                 {[
                     <div key={r} role="row" className="flex items-center gap-1">
-                        <span
-                            role="rowheader"
-                            className="w-6 shrink-0 text-center text-xs text-muted-foreground"
-                        >
-                            {row_letters(r)}
+                        <span role="rowheader" className="w-6 shrink-0">
+                            <button
+                                type="button"
+                                data-row-header={r}
+                                aria-label={f"Fill row {row_letters(r)} with {tool_name}"}
+                                onClick={lambda { fill(row_keys(r, cols)); }}
+                                className="flex h-8 w-6 items-center justify-center rounded-sm text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                                {row_letters(r)}
+                            </button>
                         </span>
                         {[
                             <span key={c} role="gridcell">
@@ -614,6 +862,7 @@ def:pub SeatDesigner(
                                     onClick={lambda (e: any) {  # jac:ignore[W1037]
                                     # Clicks from assistive tech (no pointer press) paint too.
                                     if e.detail == 0 {
+                                        remember();
                                         apply_paint(
                                             cell_key(r, c), action_for(cell_key(r, c))
                                         );
@@ -722,6 +971,6 @@ def:pub SeatDesigner(
 
     return
         <div className="flex flex-col gap-5" data-testid="seat-designer">
-            {header}{size_controls}{tools}{grid}{actions}
+            {header}{size_controls}{tools}{quick}{grid}{actions}
         </div>;
 }
