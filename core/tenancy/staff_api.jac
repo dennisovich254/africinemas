@@ -188,6 +188,20 @@ def _do_accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ig
     if invited_venue and find_venue(tenant, invited_venue) is None {
         return INVALID_INVITE;
     }
+    # Someone already on the staff (the owner who sent it, say) can't use the link: it
+    # stays valid for the person it was meant for. Roles change on the Staff page.
+    act_as(tenant.principal_root_id);
+    try {
+        already = any([m.staff_root_id == me for m in records_of(tenant)]);
+    } finally {
+        restore(me);
+    }
+    if already {
+        return refused(
+            "already_staff",
+            f"You're already on {tenant.name}'s staff, so this invitation is for someone else. To change your roles, ask an owner to change them on the Staff page."
+        );
+    }
     # Exactly one accept wins, even when several arrive at once (ADR-0007).
     if claim(INVITE_CLAIMS, invite_id, me, CLAIM_HOLD_S) != me {
         return INVALID_INVITE;

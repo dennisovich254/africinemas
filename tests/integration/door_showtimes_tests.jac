@@ -1,7 +1,7 @@
 """P6.4: the showtimes a member of staff can check tickets for right now (door_showtimes).
 
 In-process app (payment_app.jac) with a frozen clock. The scanner page lists
-the published showtimes whose door is open (from two hours before the start until the
+the published showtimes whose door is open (from the cinema's doors_open_minutes before the start until the
 showtime ends, as redeeming checks, ADR-0021), at the venues where the caller may scan
 tickets. A box office agent, who can't scan, is refused; another cinema's showtimes
 never show.
@@ -38,8 +38,13 @@ test "the showtimes whose door is open now, with what the scanner shows" {
         assert listed[0]["movie_title"] == "Rafiki";
         assert listed[0]["starts_at"] and listed[0]["venue"] and listed[0]["screen"];
         assert shown["timezone"];
-        # Both doors open: the later one's opened (two hours before its start) while
-        # the first is still on (90 minutes plus the 15-minute cleaning buffer).
+        assert shown["doors_open_minutes"] == 45;
+        # Both doors open once the cinema opens them two hours before: the later
+        # one's opened while the first is still on (90 minutes plus the 15-minute
+        # cleaning buffer).
+        assert app.call("owner", "set_doors_open", {"tenant": "nova", "minutes": 120})[
+            "ok"
+        ];
         _at(app, first, 90);
         assert sorted([s["screening_id"] for s in _open(app, "usher")["showtimes"]])
             == sorted([first, later]);

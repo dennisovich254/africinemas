@@ -13,7 +13,11 @@ import from core.tenancy.state { TenantState, transition }
 glob ROLE_OWNER: str = "owner",
      # The one group per tenant that holds the graph grants on its nodes (ADR-0004).
      ACCESS_GROUP: str = "staff",
-     NAME_MAX: int = 80;
+     NAME_MAX: int = 80,
+     # The door opens this many minutes before a showtime starts (improvements #10);
+     # each cinema may change it, from 0 to DOORS_OPEN_MAX.
+     DOORS_OPEN_DEFAULT: int = 45,
+     DOORS_OPEN_MAX: int = 240;
 
 node Tenant {
     has slug: str,
@@ -30,7 +34,9 @@ node Tenant {
         # The cinema's Branding (P3.8a), made on first use, the same way.
         branding_id: str = "",
         # The cinema's HomePage (P4.1b), made on first save, the same way.
-        home_page_id: str = "";
+        home_page_id: str = "",
+        # Minutes before a showtime's start that its tickets can be scanned.
+        doors_open_minutes: int = DOORS_OPEN_DEFAULT;
 
     def move_to(target: TenantState) {
         self.state = transition(TenantState(self.state), target).value;

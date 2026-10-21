@@ -10,7 +10,23 @@ button on close). Colours come only from theme tokens, via the shadcn variables.
 import from react { useState }
 import from "@jac/runtime" { Link, useLocation }
 import from "@hugeicons/react" { HugeiconsIcon }
-import from "@hugeicons/core-free-icons" { Menu01Icon, Cancel01Icon }
+import from "@hugeicons/core-free-icons" {
+    Menu01Icon,
+    Cancel01Icon,
+    Home01Icon,
+    ChartLineData01Icon,
+    Building03Icon,
+    SeatSelectorIcon,
+    Film02Icon,
+    Calendar03Icon,
+    Tag01Icon,
+    Ticket02Icon,
+    PopcornIcon,
+    QrCode01Icon,
+    UserGroupIcon,
+    FileSearchIcon,
+    Settings01Icon
+}
 import from ...components.ui.button { Button }
 import from ...components.ui.sheet {
     Sheet,
@@ -22,7 +38,38 @@ import from ...components.ui.sheet {
     SheetClose
 }
 
-glob LINK_CLASSES: str = "flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
+glob LINK_CLASSES: str = "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
+
+# Each back-office section's icon, by its key (web/backoffice/nav.jac); a link whose key
+# isn't here shows its label alone.
+glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
+         "": Home01Icon,
+         "reports": ChartLineData01Icon,
+         "venues": Building03Icon,
+         "screens": SeatSelectorIcon,
+         "movies": Film02Icon,
+         "screenings": Calendar03Icon,
+         "prices": Tag01Icon,
+         "box-office": Ticket02Icon,
+         "snacks": PopcornIcon,
+         "scanner": QrCode01Icon,
+         "staff": UserGroupIcon,
+         "audit": FileSearchIcon,
+         "settings": Settings01Icon
+     };
+
+def nav_icon(section: any) -> any {  # jac:ignore[W1037]
+    if not isinstance(section, str) or section not in NAV_ICONS {
+        return None;
+    }
+    return
+        <HugeiconsIcon
+            icon={NAV_ICONS[section]}
+            size={18}
+            strokeWidth={1.75}
+            aria-hidden="true"
+        />;
+}
 
 # `on_navigate: any` is a click handler passed through to each link.
 def active_link(items: list[dict[str, str]], current: str) -> str {
@@ -56,7 +103,7 @@ def NavLinks(
                             className={LINK_CLASSES}
                             onClick={on_navigate}
                         >
-                            {item["label"]}
+                            {nav_icon(item["key"])}{item["label"]}
                         </Link>
                     </li> for item in items
                 ]}

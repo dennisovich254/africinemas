@@ -95,6 +95,25 @@ test "an invite works once" {
     }
 }
 
+test "staff can't use an invite, which stays good for the person it was meant for" {
+    # improvements #11: the owner opened their own invitation link.
+    app = _cinema(["ann", "bob"]);
+    try {
+        _hire(app, "bob", "usher");
+        token = _invite(app, "owner", "box_office_agent")["token"];
+        for who in ["owner", "bob"] {
+            refused = app.call(who, "accept_invite", {"token": token});
+            assert refused["ok"] == False
+                and refused["error"]["code"] == "already_staff" , refused;
+        }
+        roles = app.call("bob", "my_access", {"tenant": "nova"})["assignments"];
+        assert "box_office_agent" not in str(roles) , roles;
+        assert app.call("ann", "accept_invite", {"token": token})["ok"];
+    } finally {
+        app.close();
+    }
+}
+
 test "an expired invite is refused and joins nobody" {
     os.environ[TTL_ENV] = "1";
     app = _cinema(["ann"]);

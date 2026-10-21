@@ -6,7 +6,7 @@ venue redeem by its QR payload or its typed reference: the first scan marks the 
 used, a second is told it was already redeemed and when. A code this server didn't
 sign, an unknown or another cinema's reference, a ticket for another showtime, and a
 voided or refunded ticket are refused, and so is a scan outside the door's time window
-(from two hours before the start until the showtime ends). Box office agents, and
+(from the cinema's doors_open_minutes, 45 by default, before the start until the showtime ends). Box office agents, and
 ushers limited to another venue, may not scan.
 """
 
@@ -156,19 +156,29 @@ test "only staff who may scan can redeem, and only at their venues" {
     }
 }
 
-test "the door opens two hours before the start and closes when the showtime ends" {
+test "the door opens 45 minutes before the start unless the cinema changes it, and closes when the showtime ends" {
     door = _door([]);
     try {
         (a1, a2) = (door.codes[0]["qr"], door.codes[1]["qr"]);
-        _at(door.app, door.screening, -121);
+        _at(door.app, door.screening, -46);
         early = _redeem(door, a1);
         assert code_of(early) == "too_early" , early;
         assert early["error"]["opens_at"];
-        _at(door.app, door.screening, -120);
+        _at(door.app, door.screening, -45);
         assert _redeem(door, a1)["ok"];
         _at(door.app, door.screening, 24 * 60);
         assert code_of(_redeem(door, a2)) == "showtime_over";
         assert _stored(door, door.codes[1]["reference"])["status"] == "issued";
+        # The cinema opens its doors two hours before instead (improvements #10).
+        doors = lambda (who: str, minutes: any) -> any { return door.app.call(  # jac:ignore[W1037]
+            who, "set_doors_open", {"tenant": "nova", "minutes": minutes}
+        ); };
+        assert code_of(doors("owner", 241)) == "invalid_minutes";
+        assert code_of(doors("owner", -1)) == "invalid_minutes";
+        assert code_of(doors("usher", 120)) == "forbidden";
+        assert doors("owner", 120)["doors_open_minutes"] == 120;
+        _at(door.app, door.screening, -120);
+        assert _redeem(door, a2)["ok"];
     } finally {
         _close(door);
     }

@@ -28,6 +28,7 @@ import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.booking.redeem_api { door_showtimes, redeem_ticket }  # jac:ignore[W2037] authenticated endpoints
+import from core.tenancy.tenant_api { set_doors_open }  # jac:ignore[W2037] authenticated endpoint
 import from ..storefront.showtimes { time_label, long_day_label }
 
 glob REPEAT_MS: int = 4000;
@@ -266,7 +267,88 @@ def Camera(on_code: any, screening_id: str) -> JsxElement {  # jac:ignore[W1037]
         </div>;
 }
 
-def:pub ScannerSection(slug: str, shift_open: bool = True) -> JsxElement {
+def DoorsOpen(
+    slug: str,
+    minutes: int,
+    can_change: bool,
+    on_saved: any  # jac:ignore[W1037]
+) -> JsxElement {
+    # How long before a showtime its door opens (improvements #10): everyone sees it;
+    # staff who change the cinema's settings can set it.
+    [typed, set_typed] = useState(str(minutes));
+    [saving, set_saving] = useState(False);
+    [problem, set_problem] = useState("");
+
+    async def save(event: any) {  # jac:ignore[W1037]
+        event.preventDefault();
+        set_saving(True);
+        set_problem("");
+        answer: any = None;  # jac:ignore[W1037]
+        try {
+            answer = await set_doors_open(slug, int(typed.strip() or "-1"));  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("set doors open failed", e);
+            answer = {
+                "ok": False,
+                "error": {"message": "We couldn't save that. Try again."}
+            };
+        }
+        set_saving(False);
+        if answer["ok"] {
+            on_saved();
+        } else {
+            set_problem(answer["error"]["message"]);
+        }
+    }
+
+    if not can_change {
+        return
+            <p data-testid="doors-open" className="text-sm text-muted-foreground">
+                Doors open {minutes} minutes before a showtime starts.
+            </p>;
+    }
+    return
+        <form
+            data-testid="doors-open"
+            onSubmit={save}
+            noValidate={True}
+            className="flex flex-col gap-2 rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:max-w-md"
+        >
+            <Label htmlFor="doors-open-minutes">
+                Doors open (minutes before a showtime)
+            </Label>
+            <div className="flex gap-2">
+                <Input
+                    id="doors-open-minutes"
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    max="240"
+                    value={typed}
+                    onChange={lambda (e: any) { set_typed(e.target.value); }}  # jac:ignore[W1037]
+                    className="min-h-11 w-28"
+                    aria-describedby="doors-open-help"
+                />
+                <Button
+                    type="submit"
+                    variant="outline"
+                    disabled={saving}
+                    className="min-h-11"
+                >
+                    {"Saving" if saving else "Save"}
+                </Button>
+            </div>
+            <p id="doors-open-help" className="text-sm text-muted-foreground">
+                Tickets can be scanned from this many minutes before the start until the showtime ends.
+            </p>
+            {problem
+                and <p role="alert" className="text-sm text-destructive">{problem}</p>}
+        </form>;
+}
+
+def:pub ScannerSection(
+    slug: str, permissions: list[str], shift_open: bool = True
+) -> JsxElement {
     # shift_open: reload once the member starts their shift (the server refuses without).
     [door, set_door] = useState(None);
     [chosen, set_chosen] = useState("");
@@ -360,14 +442,24 @@ def:pub ScannerSection(slug: str, shift_open: bool = True) -> JsxElement {
     }
     showtimes: list[dict[str, str]] = found["showtimes"];
     tz: str = found["timezone"];
+    doors = <DoorsOpen
+        key={str(found["doors_open_minutes"])}
+        slug={slug}
+        minutes={found["doors_open_minutes"]}
+        can_change={"tenant.settings.update" in permissions}
+        on_saved={lambda { load(); }}
+    />;
     if len(showtimes) == 0 {
         return
             <div
                 data-testid="no-open-doors"
                 className="flex flex-col items-start gap-3"
             >
+                {doors}
                 <p className="text-muted-foreground">
-                    No doors are open right now. A showtime appears here from two hours before it starts until it ends.
+                    No doors are open right now. A showtime appears here from {found[
+                        "doors_open_minutes"
+                    ]} minutes before it starts until it ends.
                 </p>
                 <Button
                     variant="outline"
@@ -380,6 +472,7 @@ def:pub ScannerSection(slug: str, shift_open: bool = True) -> JsxElement {
     }
     return
         <div data-testid="scanner" className="flex max-w-xl flex-col gap-6">
+            {doors}
             <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 font-medium">Showtime you're checking</legend>
                 {[
