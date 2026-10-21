@@ -58,3 +58,17 @@ test "the mode visitors see always shows the logo" {
     ImageDraw.Draw(gold).rectangle((10, 10, 30, 30), fill=(230, 218, 107, 255));
     assert logo_ink(_webp(gold)) == pale_gold , "transparent pixels are not the logo";
 }
+
+test "a logo whose artwork touches a corner still loses its backdrop" {
+    # Most of the edge is white; the gold mark runs into one corner (Warui's logo).
+    img = Image.new("RGB", (300, 160), (255, 255, 255));
+    draw = ImageDraw.Draw(img);
+    draw.rectangle((40, 40, 160, 120), outline=(201, 164, 58), width=10);
+    draw.polygon([(230, 160), (300, 90), (300, 160)], fill=(230, 218, 107));
+    clean = Image.open(io.BytesIO(clear_backdrop(_webp(img))));
+    (w, h) = clean.size;
+    # Trimmed to the artwork, from (40, 40): (200, 50) was white backdrop.
+    assert (w, h) == (260, 120) , clean.size;
+    assert clean.getpixel((160, 10))[3] < 40 , "the white backdrop is cleared";
+    assert clean.getpixel((w - 2, h - 2))[3] > 200 , "the mark in the corner stays";
+}

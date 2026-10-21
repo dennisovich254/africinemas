@@ -1,7 +1,7 @@
-"""The storefront wears the cinema's brand kit inside its own parts (ADR-0046).
+"""The storefront wears the cinema's brand kit inside its own parts (ADR-0046, ADR-0049).
 
-The plan and the motif drawing come from files (AFRICINEMAS_KIT_PLAN, AFRICINEMAS_KIT_SCRIPT,
-scripts/e2e_env.sh), never the real models. With a kit, the motif marks the section
+Claude's plan comes from a file (AFRICINEMAS_KIT_PLAN, scripts/e2e_env.sh), never the
+real model; the figures are cut from the logo itself, as in production. With a kit, the motif marks the section
 headings, the divider and the footer, and the look shapes posters and headings; without
 one, none of it shows.
 """
@@ -23,7 +23,16 @@ import from e2e.support.catalog { cinema_with_programme }
 
 glob STOREFRONT: str = '[data-testid="storefront"]',
      PLAN: dict[str, any] = {  # jac:ignore[W1037]
-         "motifs": ["a dove in flight", "three doves"],
+         # The green bird inside the logo's frame; the logo is trimmed to the frame on
+         # upload, so the box is in the trimmed logo's pixels.
+         "motifs": [
+             {
+                 "name": "a dove in flight",
+                 "box": [180, 8, 252, 76],
+                 "colour": "#22553c"
+             },
+             {"name": "three doves", "box": [180, 8, 252, 76], "colour": "#22553c"}
+         ],
          "card": "notched",
          "frame": "open",
          "divider": "motif",
@@ -38,21 +47,13 @@ glob STOREFRONT: str = '[data-testid="storefront"]',
      MASK_JS: str = """sel => { const e = document.querySelector(sel); if (!e) return ''; const s = getComputedStyle(e);
   return s.display + ' ' + (s.maskImage || s.webkitMaskImage || ''); }""";
 
-def _bird_png -> bytes {
-    # A black bird-like silhouette on white, as the image model draws one.
-    img = Image.new("RGB", (400, 400), (255, 255, 255));
-    d = ImageDraw.Draw(img);
-    d.ellipse((140, 170, 300, 250), fill=(0, 0, 0));
-    d.polygon([(170, 190), (90, 80), (230, 180)], fill=(0, 0, 0));
-    d.polygon([(290, 200), (350, 180), (300, 230)], fill=(0, 0, 0));
-    out = io.BytesIO();
-    img.save(out, "PNG");
-    return out.getvalue();
-}
-
 def _logo_base64 -> str {
+    # A gold frame on white, with a green bird inside it.
     img = Image.new("RGB", (300, 120), (255, 255, 255));
-    ImageDraw.Draw(img).rectangle((10, 10, 290, 110), outline=(201, 164, 58), width=6);
+    d = ImageDraw.Draw(img);
+    d.rectangle((10, 10, 290, 110), outline=(201, 164, 58), width=6);
+    d.ellipse((205, 45, 255, 80), fill=(34, 85, 60));
+    d.polygon([(212, 52), (195, 22), (242, 48)], fill=(34, 85, 60));
     out = io.BytesIO();
     img.save(out, "PNG");
     return base64.b64encode(out.getvalue()).decode();
@@ -66,18 +67,12 @@ def _scripts {
             f.write(src.read());
         }
     }
-    with open(os.environ["AFRICINEMAS_KIT_SCRIPT"], "wb") as f {
-        f.write(_bird_png());
-    }
     with open(os.environ["AFRICINEMAS_KIT_PLAN"], "w") as f {
         json.dump(PLAN, f);
     }
 }
 
 def _kit(owner: dict[str, str]) {
-    with open(os.environ["AFRICINEMAS_KIT_SCRIPT"], "wb") as f {
-        f.write(_bird_png());
-    }
     with open(os.environ["AFRICINEMAS_KIT_PLAN"], "w") as f {
         json.dump(PLAN, f);
     }
@@ -115,8 +110,8 @@ test "the storefront wears the cinema's brand kit inside its parts" {
             );
             # Shown (a flex item computes as block) and painted with the motif.
             assert not heading.startswith("none")
-                and "data:image/webp" in heading , heading;
-            assert "data:image/webp" in page.evaluate(MASK_JS, ".kit-sign") , "footer mark";
+                and "data:image/svg+xml" in heading , heading;
+            assert "data:image/svg+xml" in page.evaluate(MASK_JS, ".kit-sign") , "footer mark";
             divider = page.locator("[data-kit-divider-slot]").first;
             if divider.count() > 0 {
                 assert divider.evaluate("e => getComputedStyle(e).display") == "flex";
@@ -213,8 +208,11 @@ test "an owner designs their storefront from the logo with one button, then publ
         page.click(design);
         page.wait_for_selector('[data-testid="kit-motifs"] li', timeout=90000);
         assert page.locator('[data-testid="kit-motifs"] li').count() == 2;
-        assert "AI wrote your storefront"
-            in page.inner_text('[data-testid="kit-note"]');
+        # The plan and the page are scripted; CI has no key, so only the colours fell
+        # back, and the note says exactly that (ADR-0049).
+        note = page.inner_text('[data-testid="kit-note"]');
+        assert "choose your colours" in note , note;
+        assert "plan your brand" not in note and "write your page" not in note , note;
         assert page.locator('[data-testid="kit-look"]').count() == 0 , "no look pickers";
         # The preview: the written page, filled with the cinema's real programme.
         preview = page.locator('[data-testid="ai-preview"]');
@@ -234,7 +232,7 @@ test "an owner designs their storefront from the logo with one button, then publ
         dove = page.evaluate(
             "() => { const e = document.querySelector('[data-testid=ai-home] [data-motif]'); const s = e && getComputedStyle(e); return s ? (s.maskImage || s.webkitMaskImage) : ''; }"
         );
-        assert "data:image/webp" in dove , dove;
+        assert "data:image/svg+xml" in dove , dove;
         films = page.locator('[data-testid="ai-home"] article');
         assert films.count() == 2 , "one card per film on sale";
         assert page.locator('[data-testid="ai-home"] script').count() == 0;

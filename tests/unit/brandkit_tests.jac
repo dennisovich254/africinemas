@@ -1,81 +1,95 @@
-"""A cinema's brand kit from its logo (ADR-0046): the plan, the masks, the look.
+"""A cinema's brand kit from its logo (ADR-0046, ADR-0049): the plan, the figures, the look.
 
-No network: the plan model is a MockLLM and the image call (`send`) is replaced. Only
-designed look values survive; a drawing becomes a mask (dark is shape, white is clear) or
-is dropped; a failing plan gives no motifs and the default look.
+No network: Claude (`ask`) is replaced. Only designed look values survive; a figure is
+cut out of the logo itself (its box, its colour) and traced as an SVG; a failing plan
+gives no figures and the default look, and says so.
 """
 
 import io;
-import base64;
+import re;
 import from PIL { Image, ImageDraw }
-import from jaclang.byllm.lib { MockLLM }
 import core.theming.brandkit as brandkit;
+import from core.ai.claude { ClaudeFailed }
 import from core.theming.brandkit {
-    BrandPlan,
-    CardStyle,
-    FrameStyle,
-    DividerStyle,
-    HeadingStyle,
-    FontPairing,
-    HeaderLayout,
-    HeroComposition,
-    SurfaceStyle,
-    Density,
     KitFailed,
     DEFAULT_LOOK,
-    MASK_SIDE,
-    as_mask,
+    LOOK_PARTS,
     checked_look,
+    plan_schema,
     plan_kit,
+    cut_motif,
     draw_kit
 }
 
-def _png(img: any) -> bytes {  # jac:ignore[W1037]
+glob GOLD: tuple[int, int, int] = (201, 164, 58),
+     ORANGE: tuple[int, int, int] = (231, 111, 81),
+     BIRD_BOX: list[int] = [200, 20, 290, 100],
+     PLAN: dict[str, any] = {  # jac:ignore[W1037]
+         "motifs": [
+             {"name": "a bird in flight", "box": BIRD_BOX, "colour": "#c9a43a"},
+             {"name": "a third one", "box": [0, 0, 5, 5], "colour": "#c9a43a"}
+         ],
+         "card": "notched",
+         "frame": "open",
+         "divider": "motif",
+         "heading": "caps",
+         "fonts": "gallery",
+         "header": "centred",
+         "hero": "split",
+         "surfaces": "flat",
+         "density": "compact",
+         "tagline": '"Where Nairobi meets the movies, every single night of the week and more"'
+     };
+
+def _logo -> bytes {
+    # A gold bird on an orange stripe, beside gold lettering, on a clear background.
+    img = Image.new("RGBA", (300, 120), (0, 0, 0, 0));
+    d = ImageDraw.Draw(img);
+    d.rectangle((10, 30, 150, 90), fill=GOLD + (255, ));  # the "lettering"
+    d.rectangle((190, 55, 300, 70), fill=ORANGE + (255, ));  # a sun stripe behind the bird
+    d.ellipse((215, 45, 265, 80), fill=GOLD + (255, ));  # the bird's body
+    d.polygon([(225, 50), (205, 22), (250, 48)], fill=GOLD + (255, ));  # a wing
     out = io.BytesIO();
-    img.save(out, "PNG");
+    img.save(out, "WEBP", lossless=True);
     return out.getvalue();
 }
 
-def _dove_drawing -> bytes {
-    # A black blob on white, as the image model draws a silhouette.
-    img = Image.new("RGB", (600, 600), (255, 255, 255));
-    ImageDraw.Draw(img).ellipse((150, 200, 450, 400), fill=(0, 0, 0));
-    return _png(img);
+obj Scripted {
+    has answers: list[any] = [],  # jac:ignore[W1037]
+        sent: list[str] = [];
+
+    def ask(
+        content: list[dict[str, any]],  # jac:ignore[W1037]
+        schema: dict[str, any],  # jac:ignore[W1037]
+        system: str = "",
+        effort: str = "",
+        timeout: float = 0.0
+    ) -> dict[str, any] {  # jac:ignore[W1037]
+        self.sent.append(str(content)[-400:] + system);
+        answer = self.answers.pop(0);
+        if isinstance(answer, Exception) {
+            raise answer;
+        }
+        return answer;
+    }
 }
 
-def _answer(raw: bytes) -> dict[str, any] {  # jac:ignore[W1037]
-    return {
-        "candidates": [
-            {
-                "content": {
-                    "parts": [{"inlineData": {"data": base64.b64encode(raw).decode()}}]
-                }
-            }
-        ]
-    };
-}
-
-test "a black drawing on white becomes a shape on clear, cropped and small" {
-    mask = Image.open(io.BytesIO(as_mask(_dove_drawing())));
-    assert mask.format == "WEBP" and mask.mode == "RGBA";
-    assert max(mask.size) <= MASK_SIDE;
-    (w, h) = mask.size;
-    assert mask.getpixel((w // 2, h // 2))[3] > 200 , "the middle is shape";
-    assert mask.getpixel((0, 0))[3] < 40 , "the corner is clear";
-}
-
-test "a transparent drawing keeps its transparency; blank or solid drawings are refused" {
-    clear = Image.new("RGBA", (300, 300), (0, 0, 0, 0));
-    ImageDraw.Draw(clear).ellipse((60, 60, 240, 240), fill=(0, 0, 0, 255));
-    assert Image.open(io.BytesIO(as_mask(_png(clear)))).mode == "RGBA";
-    for bad in [
-        _png(Image.new("RGB", (300, 300), (255, 255, 255))),
-        _png(Image.new("RGB", (300, 300), (0, 0, 0))),
-        b"<svg onload=alert(1)>"
-    ] {
+test "a figure is cut out of the logo itself and traced as an SVG" {
+    svg = cut_motif(_logo(), BIRD_BOX, GOLD);
+    assert svg.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ');
+    assert re.search(r'<path fill="#000" fill-rule="evenodd" d="M[0-9.]+,[0-9.]+', svg);
+    assert "C" in svg , "smooth curves, not pixel steps";
+    # The orange stripe behind the bird is left out: the traced shape is bird-sized,
+    # about as wide as tall, not a long stripe.
+    size = re.search(r'viewBox="0 0 ([0-9.]+) ([0-9.]+)"', svg);
+    assert size is not None;
+    w = float(size.group(1));
+    h = float(size.group(2));
+    assert w / h < 1.6 , (w, h);
+    for bad in [[0, 0, 4, 4], [400, 400, 500, 500]] {
         try {
-            as_mask(bad);
-            assert False , "must be refused";
+            cut_motif(_logo(), bad, GOLD);
+            assert False , bad;
         } except KitFailed {}
     }
 }
@@ -100,81 +114,49 @@ test "a look is designed choices, nothing else; an older look gains the defaults
     }
 }
 
-test "the plan keeps the model's motifs and look; a failure gives the default look" {
-    brandkit.plan_model = MockLLM(
-        outputs=[
-            BrandPlan(
-                motifs=["a dove in flight", "three doves", "a third one"],
-                card=CardStyle.NOTCHED,
-                frame=FrameStyle.OPEN,
-                divider=DividerStyle.MOTIF,
-                heading=HeadingStyle.CAPS,
-                fonts=FontPairing.GALLERY,
-                header=HeaderLayout.CENTRED,
-                hero=HeroComposition.SPLIT,
-                surfaces=SurfaceStyle.FLAT,
-                density=Density.COMPACT,
-                tagline='"Where Nairobi meets the movies, every single night of the week and more"'
-            )
-        ]
-    );
-    (names, look, tagline) = plan_kit(_dove_drawing(), "Rupa's Mall");
-    assert names == ["a dove in flight", "three doves"] , "at most two";
-    assert look
-        == {
-            "card": "notched",
-            "frame": "open",
-            "divider": "motif",
-            "heading": "caps",
-            "fonts": "gallery",
-            "header": "centred",
-            "hero": "split",
-            "surfaces": "flat",
-            "density": "compact"
-        };
+test "the schema holds every part of the look to its designed values" {
+    schema = plan_schema();
+    for (key, allowed) in LOOK_PARTS {
+        assert schema["properties"][key]["enum"] == list(allowed) , key;
+    }
+    figure = schema["properties"]["motifs"]["items"];
+    assert figure["required"] == ["name", "box", "colour"];
+    assert schema["additionalProperties"] == False;
+}
+
+test "the plan keeps Claude's figures and look; a failure gives the default look" {
+    model = Scripted(answers=[PLAN]);
+    brandkit.ask = model.ask;
+    (figures, look, tagline, from_ai) = plan_kit(_logo(), "Rupa's Mall");
+    assert from_ai;
+    assert [f["name"] for f in figures] == ["a bird in flight", "a third one"];
+    assert figures[0]["colour"] == GOLD and figures[0]["box"] == BIRD_BOX;
+    assert look["fonts"] == "gallery"
+        and look["hero"] == "split"
+        and look["card"] == "notched";
     assert tagline.startswith("Where Nairobi")
         and len(tagline) <= 60
         and '"' not in tagline;
-    brandkit.plan_model = MockLLM(outputs=["not a plan"]);
-    (none, fallback, no_line) = plan_kit(_dove_drawing(), "Rupa's Mall");
-    assert none == [] and fallback == DEFAULT_LOOK and no_line == "";
+    assert "300 x 120 pixels" in model.sent[0] , "Claude is told the logo's size for its boxes";
+    brandkit.ask = Scripted(answers=[ClaudeFailed("the model declined")]).ask;
+    (none, fallback, no_line, answered) = plan_kit(_logo(), "Rupa's Mall");
+    assert none == [] and fallback == DEFAULT_LOOK and no_line == "" and not answered;
 }
 
-test "a kit keeps the motifs that drew; with none, the divider is a plain line" {
-    brandkit.plan_model = MockLLM(
-        outputs=[
-            BrandPlan(
-                motifs=["a dove", "a blank"],
-                card=CardStyle.SHARP,
-                frame=FrameStyle.NONE,
-                divider=DividerStyle.ROW,
-                heading=HeadingStyle.NATURAL
-            )
-        ]
-    );
-    drawings = [_dove_drawing(), _png(Image.new("RGB", (200, 200), (255, 255, 255)))];
-    def scripted(_logo: bytes, _brief: str) -> dict[str, any] {  # jac:ignore[W1037]
-        return _answer(drawings.pop(0));
-    }
-    brandkit.send = scripted;
-    kit = draw_kit(_dove_drawing(), "Rupa's Mall");
-    assert [m["name"] for m in kit["motifs"]] == ["a dove"] , "the blank drawing is left out";
-    assert kit["look"]["divider"] == "row";
-    brandkit.plan_model = MockLLM(
-        outputs=[
-            BrandPlan(
-                motifs=["a blank"],
-                card=CardStyle.SHARP,
-                frame=FrameStyle.NONE,
-                divider=DividerStyle.MOTIF,
-                heading=HeadingStyle.NATURAL
-            )
-        ]
-    );
-    def blank(_logo: bytes, _brief: str) -> dict[str, any] {  # jac:ignore[W1037]
-        return _answer(_png(Image.new("RGB", (200, 200), (255, 255, 255))));
-    }
-    brandkit.send = blank;
-    bare = draw_kit(_dove_drawing(), "Rupa's Mall");
+test "a kit keeps the figures that cut; with none, the divider is a plain line" {
+    brandkit.ask = Scripted(answers=[PLAN]).ask;
+    kit = draw_kit(_logo(), "Rupa's Mall");
+    assert [m["name"] for m in kit["motifs"]] == ["a bird in flight"] , "the empty box is left out";
+    assert kit["motifs"][0]["type"] == "svg" and kit["from_ai"];
+    assert kit["look"]["divider"] == "motif";
+    nothing = {
+        ** PLAN,
+        "motifs": [{"name": "a ghost", "box": [0, 0, 5, 5], "colour": "#c9a43a"}]
+    };
+    brandkit.ask = Scripted(answers=[nothing]).ask;
+    bare = draw_kit(_logo(), "Rupa's Mall");
     assert bare["motifs"] == [] and bare["look"]["divider"] == "line";
+    brandkit.ask = Scripted(answers=[ClaudeFailed("402")]).ask;
+    failed = draw_kit(_logo(), "Rupa's Mall");
+    assert not failed["from_ai"] and failed["motifs"] == [];
 }

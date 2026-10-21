@@ -1,7 +1,7 @@
 """A cinema's logo, made to sit on its storefront (ADR-0047), as pure logic.
 
 - `clear_backdrop`: a logo uploaded on a plain backdrop (a white or coloured box) looked
-  pasted onto the page. When the four corners share one colour and the logo has no
+  pasted onto the page. When most of the edge shares one colour and the logo has no
   transparency of its own, that colour is cleared where it touches the edges, with soft
   edges, and the margins are trimmed. Inside the logo, the same colour stays: only
   backdrop connected to the edges goes.
@@ -14,7 +14,10 @@ import io;
 import from PIL { Image, ImageChops, ImageDraw, ImageFilter }
 import from core.theming.tokens { contrast_ratio }
 
-glob CORNER_SPREAD: int = 24,  # Corners further apart than this (0-255 per channel) are not one backdrop.
+# Edge pixels further than this (0-255 per channel) from the backdrop's colour aren't it.
+glob CORNER_SPREAD: int = 24,
+     # The share of the edge that must be one colour for it to be a backdrop.
+     EDGE_SHARE: float = 0.6,
      # A pixel this close to the backdrop is backdrop; ramp more is a soft edge.
      NEAR: int = 16,
      RAMP: int = 60,
@@ -28,6 +31,43 @@ def _webp(img: Image.Image) -> bytes {
     return out.getvalue();
 }
 
+def _edge(w: int, h: int) -> list[tuple[int, int]] {
+    # Every pixel on the image's edge, once.
+    top = [(x, 0) for x in range(w)];
+    bottom = [(x, h - 1) for x in range(w)];
+    sides = [(0, y) for y in range(1, h - 1)] + [(w - 1, y) for y in range(1, h - 1)];
+    return top + bottom + sides;
+}
+
+def edge_backdrop(img: Image.Image) -> tuple[int, int, int] | None {
+    # The colour at least EDGE_SHARE of the edge's pixels are near (within CORNER_SPREAD
+    # on every channel), as their average; None when the edge is mixed.
+    (w, h) = img.size;
+    pixels = [img.getpixel(xy) for xy in _edge(w, h)];
+    counts: dict[tuple[int, int, int], int] = {};
+    for p in pixels {
+        key = (p[0] // 16, p[1] // 16, p[2] // 16);
+        counts[key] = counts.get(key, 0) + 1;
+    }
+    common = max(
+        counts, key=lambda (k: tuple[int, int, int]) -> int { return counts[k]; }
+    );
+    centre = [c * 16 + 8 for c in common];
+    near = [
+        p
+        for p in pixels
+        if max([abs(p[i] - centre[i]) for i in range(3)]) <= CORNER_SPREAD
+    ];
+    if len(near) < len(pixels) * EDGE_SHARE {
+        return None;
+    }
+    return (
+        sum([p[0] for p in near]) // len(near),
+        sum([p[1] for p in near]) // len(near),
+        sum([p[2] for p in near]) // len(near)
+    );
+}
+
 def clear_backdrop(webp: bytes) -> bytes {
     # `webp` with its plain backdrop cleared and margins trimmed, or unchanged.
     img = Image.open(io.BytesIO(webp)).convert("RGBA");
@@ -35,25 +75,19 @@ def clear_backdrop(webp: bytes) -> bytes {
     if w < 8 or h < 8 or img.getchannel("A").getextrema()[0] < 250 {
         return webp;  # tiny, or transparent already: the owner made it to sit on a page
     }
-    corners = [
-        img.getpixel((1, 1)),
-        img.getpixel((w - 2, 1)),
-        img.getpixel((1, h - 2)),
-        img.getpixel((w - 2, h - 2))
-    ];
-    for i in range(3) {
-        values = [c[i] for c in corners];
-        if max(values) - min(values) > CORNER_SPREAD {
-            return webp;
-        }
+    # The backdrop is the colour most of the edge shares: a logo whose artwork touches a
+    # corner (Warui's, 2026-10-20) still has one.
+    found = edge_backdrop(img);
+    if found is None {
+        return webp;
     }
-    backdrop = tuple([sum([c[i] for c in corners]) // 4 for i in range(3)]);
+    backdrop: tuple[int, int, int] = found;
     rgb = img.convert("RGB");
     (r, g, b) = ImageChops.difference(rgb, Image.new("RGB", (w, h), backdrop)).split();
     distance = ImageChops.lighter(ImageChops.lighter(r, g), b);
     # Backdrop is what is near its colour and connected to an edge.
     near = distance.point(lambda (d: int) -> int { return 255 if d < NEAR else 0; });
-    for xy in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)] {
+    for xy in _edge(w, h) {
         if near.getpixel(xy) == 255 {
             ImageDraw.floodfill(near, xy, 128);
         }
