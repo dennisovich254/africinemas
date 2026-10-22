@@ -30,3 +30,4 @@ Only the latest `main` is supported during the hackathon.
   scanning with push protection is enabled.
 - GitHub Actions are pinned to commit SHAs, and toolchain binaries are checksum-verified.
 - Design-level security requirements: `docs/architecture.md` (for example §4 tenant isolation and §138 production config).
+- What can go wrong, what protects against it today and what's still missing: `docs/security/threat-model.md`.
