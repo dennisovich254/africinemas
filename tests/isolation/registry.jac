@@ -625,6 +625,22 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"slug": "{tenant}", "movie_key": "x"}
          },
+         # The snack menu (P12.6).
+         "public_snacks": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "screening_id": "x"}
+         },
+         "price_snacks": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "screening_id": "x", "lines": []}
+         },
+         "public_snack_image": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "product_id": "x", "image_id": "x"}
+         },
          "get_price_list": {
              "scope": "tenant",
              "audit": "",
