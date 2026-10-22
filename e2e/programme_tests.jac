@@ -1,8 +1,9 @@
 """P3.7b E2E: the screenings programme (Screenings page) and the price list (Prices page).
 
-Staff who create showtimes pick a screen, add screenings (a movie and a start time),
-publish them to the storefront, move, unpublish and cancel them. The server's draft and
-scheduled states are both "Not published" here. Staff who manage settings set the ticket
+Staff who create showtimes see a venue's day on the programme board and schedule a
+movie (screens, start times, days) from its panel, on sale at once or as drafts; they
+publish, move, unpublish and cancel them. The server's draft and scheduled states are
+both "Draft" here, its published ones "On sale". Staff who manage settings set the ticket
 types, prices per seat zone, time-of-day extras and the service fee.
 """
 
@@ -142,12 +143,23 @@ def _screening_at(owner: dict[str, str], day: str, clock: str, publish: bool) ->
     return sid;
 }
 
-def _add_screening(page: any, day: str, clock: str) {  # jac:ignore[W1037]
-    page.click('button:has-text("Add screening")');
+def _add_screening(page: any, day: str, clock: str, sell: bool = False) {  # jac:ignore[W1037]
+    # Schedules one showtime of Rafiki on the only screen (improvements #7's panel).
+    page.click('button:has-text("Schedule a movie")');
     page.select_option("#screening-movie", label="Rafiki (83 min)");
     _type(page, "#screening-date", day);
+    _type(page, "#screening-until", day);
     _type(page, "#screening-time", clock);
-    page.click('button:has-text("Create screening")');
+    page.click('[data-testid="add-time"]');
+    if not sell {
+        page.uncheck("#sell-now");
+    }
+    page.click('button:has-text("Schedule 1 showtime")');
+    page.wait_for_selector('[data-testid="schedule-results"]');
+}
+
+def _show_day(page: any, day: str) {  # jac:ignore[W1037]
+    page.click(f'button[data-day="{day}"]');
 }
 
 test "a screening is added, published and appears on the storefront" {
@@ -158,17 +170,18 @@ test "a screening is added, published and appears on the storefront" {
             page = _page(browser, pw, project);
             _sign_in(page, owner["email"]);
             _open(page, owner["slug"], "screenings", PROGRAMME);
-            page.wait_for_selector('text="No screenings on Screen 1 yet"');
-            assert page.locator("#screening-movie").count() == 0 , "the form starts folded";
+            page.wait_for_selector('text="Nothing on Screen 1 this day"');
+            assert page.locator("#screening-movie").count() == 0 , "the panel starts closed";
             _add_screening(page, _day(2), "19:30");
+            # The board moves to the day it was scheduled on.
             row = page.locator(ROW, has_text="Rafiki");
             row.wait_for();
             assert "19:30" in row.inner_text();
             assert row.locator('[data-testid="screening-state"]').inner_text()
-                == "Not published";
+                == "Draft";
             row.locator('button:has-text("Publish")').click();
             row.locator(
-                '[data-testid="screening-state"]:text-is("On the storefront")'
+                '[data-testid="screening-state"]:text-is("On sale")'
             ).wait_for();
             page.goto(f"{BASE_URL}/c/{owner['slug']}");
             page.wait_for_selector('[data-testid="storefront"] li:has-text("Rafiki")');
@@ -179,7 +192,7 @@ test "a screening is added, published and appears on the storefront" {
     }
 }
 
-test "clashing and past start times are refused under the start time" {
+test "scheduling many showtimes at once puts them on sale, and flags clashes before saving" {
     owner = _cinema();
     _screening_at(owner, _day(3), "18:00", False);
     (pw, browser) = shared_browser();
@@ -187,14 +200,40 @@ test "clashing and past start times are refused under the start time" {
         page = _page(browser, pw, "desktop");
         _sign_in(page, owner["email"]);
         _open(page, owner["slug"], "screenings", PROGRAMME);
-        _add_screening(page, _day(3), "18:30");
-        page.wait_for_selector('#screening-time-error[role="alert"]');
-        assert "already has" in page.inner_text("#screening-time-error");
-        assert page.get_attribute("#screening-time", "aria-describedby")
-            == "screening-time-error";
+        page.click('button:has-text("Schedule a movie")');
+        page.select_option("#screening-movie", label="Rafiki (83 min)");
+        _type(page, "#screening-date", _day(2));
+        _type(page, "#screening-until", _day(3));
+        for clock in ["13:00", "18:30"] {
+            _type(page, "#screening-time", clock);
+            page.click('[data-testid="add-time"]');
+        }
+        # Two days x two times; Rafiki already shows at 18:00 on the second day.
+        assert page.locator('[data-testid="planned"]').count() == 4;
+        page.wait_for_selector(
+            '[data-testid="planned"]:has-text("Clashes with Rafiki at 18:00")'
+        );
+        page.click('button:has-text("Schedule 4 showtimes")');
+        page.wait_for_selector('[data-testid="schedule-results"]');
+        assert page.locator('[data-testid="schedule-result"][data-ok="true"]').count()
+            == 3;
+        refused = page.locator('[data-testid="schedule-result"][data-ok="false"]');
+        assert refused.count() == 1 and "already has" in refused.inner_text();
+        # Put on sale now was on: the day-two showtimes are on sale.
+        _show_day(page, _day(2));
+        page.wait_for_selector(
+            f'{ROW}:has-text("13:00") [data-testid="screening-state"]:text-is("On sale")'
+        );
+        page.wait_for_selector(
+            f'{ROW}:has-text("18:30") [data-testid="screening-state"]:text-is("On sale")'
+        );
+        # A day in the past is refused by the server, and said so.
         _type(page, "#screening-date", _day(-1));
-        page.click('button:has-text("Create screening")');
-        page.wait_for_selector('#screening-time-error:has-text("future")');
+        _type(page, "#screening-until", _day(-1));
+        page.click('button:has-text("Schedule 2 showtimes")');
+        page.wait_for_selector(
+            '[data-testid="schedule-result"][data-ok="false"]:has-text("future")'
+        );
     } finally {
         close_contexts(browser);
     }
@@ -226,15 +265,12 @@ test "a screening is unpublished, moved and cancelled" {
         page = _page(browser, pw, "desktop");
         _sign_in(page, owner["email"]);
         _open(page, owner["slug"], "screenings", PROGRAMME);
+        _show_day(page, _day(4));
         row = page.locator(ROW, has_text="Rafiki");
-        row.locator(
-            '[data-testid="screening-state"]:text-is("On the storefront")'
-        ).wait_for();
+        row.locator('[data-testid="screening-state"]:text-is("On sale")').wait_for();
         assert row.locator('button:has-text("Move")').count() == 0 , "published times are fixed";
         row.locator('button:has-text("Unpublish")').click();
-        row.locator(
-            '[data-testid="screening-state"]:text-is("Not published")'
-        ).wait_for();
+        row.locator('[data-testid="screening-state"]:text-is("Draft")').wait_for();
         row.locator('button:has-text("Move")').click();
         _type(page, 'input[id^="move-time-"]', "16:45");
         row.locator('button:has-text("Save time")').click();
@@ -477,6 +513,10 @@ test "review screenshots of the Screenings and Prices pages" {
                     ("prices", PRICES, "prices")
                 ] {
                     _open(page, owner["slug"], path, ready);
+                    if path == "screenings" {
+                        _show_day(page, _day(2));
+                        page.wait_for_selector(ROW);
+                    }
                     page.evaluate("document.fonts.ready");
                     page.screenshot(
                         path=artifact(f"{name}-{width}-{scheme}.png"), full_page=True
