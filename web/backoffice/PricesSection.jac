@@ -507,7 +507,8 @@ def:pub PricesSection(slug: str) -> JsxElement {
         value: str,
         on_text: any,  # jac:ignore[W1037]
         negative: bool = False,
-        hide_label: bool = False
+        hide_label: bool = False,
+        placeholder: str = "e.g. 800"
     ) -> JsxElement {
         problem = field_errors[field_id] or "";
         return
@@ -519,7 +520,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                     id={field_id}
                     value={value}
                     inputMode={"text" if negative else "numeric"}
-                    placeholder={"-100" if negative else "Not sold"}
+                    placeholder={placeholder}
                     aria-invalid={"true" if problem else "false"}
                     aria-describedby={error_id(field_id) if problem else None}
                     onChange={on_input(on_text)}
@@ -760,9 +761,23 @@ def:pub PricesSection(slug: str) -> JsxElement {
             {[
                 <li
                     key={x["uid"]}
-                    className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4"
+                    className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3"
                 >
-                    <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-4">
+                    <div
+                        className="col-span-full flex items-center justify-between gap-2"
+                    >
+                        <h3 className="font-medium">{x["name"] or f"Extra {k + 1}"}</h3>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="min-h-11 px-3"
+                            aria-label={f"Remove {x['name'] or 'this extra'}"}
+                            onClick={lambda { remove_extra(x["uid"]); }}
+                        >
+                            Remove
+                        </Button>
+                    </div>
+                    <div className="col-span-full flex flex-col gap-1.5">
                         <Label htmlFor={f"surcharge-name-{k}"}>Name</Label>
                         <Input
                             id={f"surcharge-name-{k}"}
@@ -780,7 +795,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                     <div
                         role="group"
                         aria-labelledby={f"surcharge-days-{k}"}
-                        className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-4"
+                        className="col-span-full flex flex-col gap-1.5"
                     >
                         <span
                             id={f"surcharge-days-{k}"}
@@ -818,9 +833,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                         />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <Label htmlFor={f"surcharge-end-{k}"}>
-                            Until (midnight runs to the end of the day)
-                        </Label>
+                        <Label htmlFor={f"surcharge-end-{k}"}>Until</Label>
                         <Input
                             id={f"surcharge-end-{k}"}
                             type="time"
@@ -830,27 +843,25 @@ def:pub PricesSection(slug: str) -> JsxElement {
                                     x["uid"], "end", text
                                 ); }
                             )}
+                            aria-describedby={f"surcharge-end-hint-{k}"}
                             className="min-h-11"
                         />
+                        <p
+                            id={f"surcharge-end-hint-{k}"}
+                            className="text-xs text-muted-foreground"
+                        >
+                            12:00 AM runs to the end of the day.
+                        </p>
                     </div>
                     {money_input(
                         f"surcharge-amount-{k}",
                         "Amount (KES)",
                         x["amount"],
                         lambda (text: str) { change_extra(x["uid"], "amount", text); },
-                        True
+                        True,
+                        False,
+                        "e.g. 100, or -50 off"
                     )}
-                    <div className="flex items-end">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="min-h-11 px-3"
-                            aria-label={f"Remove {x['name'] or 'this extra'}"}
-                            onClick={lambda { remove_extra(x["uid"]); }}
-                        >
-                            Remove
-                        </Button>
-                    </div>
                 </li> for (k, x) in enumerate(extras)
             ]}
         </ul>
@@ -878,7 +889,10 @@ def:pub PricesSection(slug: str) -> JsxElement {
                 "service-fee",
                 "Per ticket (KES)",
                 state["fee"],
-                lambda (text: str) { update("fee", text); }
+                lambda (text: str) { update("fee", text); },
+                False,
+                False,
+                "e.g. 30"
             )}
         </div>
     </section>;
