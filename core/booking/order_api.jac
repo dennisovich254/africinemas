@@ -21,11 +21,19 @@ failed request releases them.
 For checkout (P4.6): public_ticket_types lists the tickets to choose from and
 quote_hold prices the holder's seats exactly as place_order would, saving nothing.
 
+Snacks (P12.7; ADR-0052): place_order may take snacks too, a cart as price_snacks takes
+it. The server prices them at the showtime's venue (core/snacks/menu.jac), keeps that
+snapshot on the order beside the tickets and adds it to the total, so the M-Pesa amount
+is the whole order. Their stock is set aside as the order is made (core/snacks/
+order_stock.jac), sold when it's paid (confirm_order) and given back when it ends
+unpaid (expire_order). The same key with different snacks is "key_reused".
+
 Still to come (Phase 5): payment, and ending an order not paid by pay_by.
 """
 
 import secrets;
 import re;
+import json;
 import from datetime { datetime, timedelta }
 import from core.clock { now }
 import from core.claims { claim, release, renew, holder as claim_holder }
@@ -48,6 +56,8 @@ import from core.catalog.pricing { PriceTable, parse_price_list }
 import from core.catalog.pricing_api { cinema_prices, price_seats }
 import from core.booking.models { Order, SeatHold }
 import from core.booking.availability { SeatState }
+import from core.snacks.menu { price_cart }
+import from core.snacks.order_stock { reserve_snacks, release_snacks }
 import from core.booking.hold_api {
     MAX_SEATS,
     seconds_from_env,
@@ -95,6 +105,34 @@ def request_lines(items: list[any]) -> list[list[str]] {  # jac:ignore[W1037]
     return sorted(pairs);
 }
 
+def snack_request(snacks: any) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # The snacks asked for, as price_cart takes them, in a form that compares equal when
+    # the same cart is sent again.
+    # Left out, the endpoint passes the default as text ("None"), not as a value.
+    if isinstance(snacks, str) {
+        snacks = json.loads(snacks) if snacks.strip().startswith("[") else [];
+    }
+    if not snacks {
+        return [];
+    }
+    if not isinstance(snacks, list) or any(not isinstance(s, dict) for s in snacks) {
+        raise Refused(
+            "invalid_snacks", "This page sent snacks it can't read. Reload it."
+        );
+    }
+    return [
+        {
+            "variant_id": str(s.get("variant_id", "")),
+            "quantity": s.get("quantity"),
+            "addons": sorted(str(a) for a in s.get("addons", []) or []),
+            "choices": [
+                [str(v) for v in c] if isinstance(c, list) else []
+                for c in s.get("choices", []) or []
+            ]
+        } for s in snacks
+    ];
+}
+
 def check_key(key: str) {
     if not isinstance(key, str) or not re.fullmatch(KEY_PATTERN, key) {
         raise Refused(
@@ -112,6 +150,8 @@ def _view(order: Order) -> dict[str, any] {  # jac:ignore[W1037]
         "currency": order.currency,
         "price_list_version": order.price_list_version,
         "lines": [dict(l) for l in order.lines],
+        "snacks": [dict(l) for l in order.snack_lines],
+        "snacks_cents": order.snacks_cents,
         "total_cents": order.total_cents,
         "created_at": order.created_at,
         "pay_by": order.pay_by
@@ -132,7 +172,11 @@ def _stored(cinema: Tenant, order_ref: str) -> Order | None {
 }
 
 def _replay(
-    cinema: Tenant, order_ref: str, screening_id: str, wanted: list[list[str]]
+    cinema: Tenant,
+    order_ref: str,
+    screening_id: str,
+    wanted: list[list[str]],
+    snacks_asked: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # The answer for a key that already names an order.
     order = _stored(cinema, order_ref);
@@ -142,7 +186,9 @@ def _replay(
             "Your order is still being placed. Try again in a moment."
         );
     }
-    if order.screening_id != screening_id or order.request != wanted {
+    if order.screening_id != screening_id
+        or order.request != wanted
+        or order.snack_request != snacks_asked {
         raise Refused(
             "key_reused", "This page sent a different order. Reload it and try again."
         );
@@ -207,25 +253,37 @@ def _place_order(
     screening_id: str,
     holder: str,
     idempotency_key: str,
-    items: list[any]  # jac:ignore[W1037]
+    items: list[any],  # jac:ignore[W1037]
+    snacks: list[any] | None = None  # jac:ignore[W1037]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     (cinema, screening) = showtime_on_sale(slug, screening_id);
     check_holder(holder);
     check_key(idempotency_key);
     wanted = request_lines(items);
+    asked = snack_request(snacks);
+    asked_text = json.dumps(asked, sort_keys=True) if asked else "";
     key_name = f"{node_id(cinema)}:{holder}:{idempotency_key}";
     existing = claim_holder(ORDER_KEYS, key_name);
     if existing is not None {
-        return _replay(cinema, existing, screening_id, wanted);
+        return _replay(cinema, existing, screening_id, wanted, asked_text);
     }
     (hold, price_list, table, slots, lines) = _priced(
         cinema, screening, holder, wanted
     );
+    venue_id = screening.venue_id;
+    (snack_lines, snacks_cents, problems) = price_cart(cinema, venue_id, asked)
+        if asked
+        else ([], 0, []);
+    if problems {
+        raise Refused(
+            "snacks_unavailable", problems[0]["message"], {"problems": problems}
+        );
+    }
     hold_id = node_id(hold);
     order_ref = fresh_node_id();
     won = claim(ORDER_KEYS, key_name, order_ref, PROVISIONAL_SECONDS);
     if won != order_ref {
-        return _replay(cinema, won, screening_id, wanted);
+        return _replay(cinema, won, screening_id, wanted, asked_text);
     }
     if claim(ORDER_HOLDS, hold_id, order_ref, PROVISIONAL_SECONDS) != order_ref {
         release(ORDER_KEYS, key_name, order_ref);
@@ -236,9 +294,11 @@ def _place_order(
     claim(OPEN_ORDERS, order_ref, node_id(cinema), PROVISIONAL_SECONDS);
     stamp = now();
     seats = list(hold.seats);
+    held: list[dict[str, any]] = [];  # jac:ignore[W1037]
     me = node_id(root);
-    act_as(cinema.principal_root_id);
     try {
+        held = reserve_snacks(cinema, venue_id, snack_lines);
+        act_as(cinema.principal_root_id);
         order = Order(
             tenant_id=node_id(cinema),
             screening_id=screening_id,
@@ -250,7 +310,12 @@ def _place_order(
             currency=table.currency,
             price_list_version=price_list.version,
             lines=lines,
-            total_cents=sum([l["total_cents"] for l in lines]),
+            total_cents=sum([l["total_cents"] for l in lines]) + snacks_cents,
+            snack_lines=snack_lines,
+            snacks_cents=snacks_cents,
+            snack_request=asked_text,
+            snack_venue_id=venue_id if asked else "",
+            snack_stock=held,
             created_at=stamp.isoformat(),
             pay_by=(
                 stamp + timedelta(seconds=seconds_from_env(PAY_ENV, PAY_SECONDS))
@@ -267,8 +332,10 @@ def _place_order(
         }
         commit_now();
     } except Exception as e {
-        # Graph work rolls back with the request; undo the claims, which don't.
+        # Graph work rolls back with the request; undo the claims and the snack stock
+        # set aside, which don't.
         restore(me);
+        release_snacks(cinema, venue_id, held);
         release(OPEN_ORDERS, order_ref, node_id(cinema));
         release(ORDER_HOLDS, hold_id, order_ref);
         release(ORDER_KEYS, key_name, order_ref);
@@ -377,11 +444,12 @@ def:pub place_order(
     screening_id: str,
     holder: str,
     idempotency_key: str,
-    items: list[any]  # jac:ignore[W1037]
+    items: list[any],  # jac:ignore[W1037]
+    snacks: list[any] | None = None  # jac:ignore[W1037]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _place_order(  # jac:ignore[W1037]
-            slug, screening_id, holder, idempotency_key, items
+            slug, screening_id, holder, idempotency_key, items, snacks
         ); }
     );
 }

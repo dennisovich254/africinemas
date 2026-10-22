@@ -35,6 +35,7 @@ import from core.booking.models { Order, SeatHold }
 import from core.booking.availability { SeatState }
 import from core.booking.hold_api { seat_namespace }
 import from core.booking.order_api { OPEN_ORDERS, ORDER_HOLDS, pending_order }
+import from core.snacks.order_stock { release_snacks }
 import from core.booking.hold_api { showtime_on_sale, check_holder }
 import from core.catalog.answers { Refused, answer }
 import from core.payments.models { PaymentIntent }
@@ -129,7 +130,7 @@ def _intents_of(cinema: Tenant, order: Order) -> list[PaymentIntent] {
 
 def expire_order(cinema: Tenant, order: Order) {
     # The order's time to pay is up: it expires, its unsettled payments fail, and its
-    # seats go back on sale.
+    # seats and the snacks set aside for it go back on sale.
     screening = find_screening(cinema, order.screening_id);
     slots: list[SeatSlot] = slots_of(cinema, screening)
         if screening is not None
@@ -170,6 +171,9 @@ def expire_order(cinema: Tenant, order: Order) {
         release(space, label, order.holder);
     }
     release(ORDER_HOLDS, order.hold_id, order_id);
+    if order.snack_stock {
+        release_snacks(cinema, order.snack_venue_id, order.snack_stock);
+    }
     active = claim_holder(ORDER_PAYMENT, order_id);
     if active is not None {
         release(ORDER_PAYMENT, order_id, active);
