@@ -9,8 +9,10 @@
   product with variants has 1 to VARIANTS_MAX, each with one value (1 to
   OPTION_VALUE_MAX) per option name and no two the same. A SKU (SKU_PATTERN, kept in
   capitals) is unique within the product; a barcode is 8 to 14 digits; a price is whole
-  cents from PRICE_MIN_CENTS to PRICE_MAX_CENTS. A draft may leave the SKU and the price
-  empty. A row keeps the id it came with; new rows get one from the endpoint.
+  cents from PRICE_MIN_CENTS to PRICE_MAX_CENTS. A draft may leave the price empty, and a
+  save fills in a missing SKU (sku_for). A row keeps the id it came with; new rows get one from the endpoint.
+- sku_for: a SKU made from a product's name and a variant's options, for a variant
+  saved without one ("Coca-Cola", 300 ml -> COCA-COLA-300ML; improvements #9).
 - publish_problems: what stops a checked product from being sold.
 
 Spaces are tidied. Every problem is reported at once, as {field, code, message}, the
@@ -316,11 +318,41 @@ def check_variants(
     return (kept, []);
 }
 
+def _sku_word(text: str, spaced: bool) -> str {
+    # The characters a SKU allows, in capitals; `spaced` keeps the gaps between words as
+    # dashes ("Small Popcorn" -> "SMALL-POPCORN", "300 ml" -> "300ML").
+    word = text.upper();
+    if spaced {
+        word = re.sub(r"\s+", "-", word);
+    }
+    word = re.sub(r"[^A-Z0-9-]", "", word);
+    return re.sub(r"-+", "-", word).strip("-");
+}
+
+def sku_for(name: str, option_values: list[str], taken: list[str]) -> str {
+    # A SKU (SKU_PATTERN) from the name and the options, not in `taken`.
+    base = _sku_word(name, True)[:20].strip("-") or "ITEM";
+    for value in option_values {
+        part = _sku_word(value, False);
+        if part {
+            base = f"{base}-{part}";
+        }
+    }
+    base = base[:28].strip("-");
+    code = base;
+    n = 2;
+    while code in taken {
+        code = f"{base}-{n}";
+        n += 1;
+    }
+    return code;
+}
+
 def publish_problems(
     category_ok: bool, variants: list[VariantFields]
 ) -> list[dict[str, str]] {
     # What stops a checked product from being sold: no category, no variants, a variant
-    # without a price or SKU, or none available.
+    # without a price, or none available. (A save gives every variant a SKU.)
     problems: list[dict[str, str]] = [];
     if not category_ok {
         problems.append(
@@ -344,13 +376,6 @@ def publish_problems(
                     f"variants[{i}].price_cents",
                     "PRICE_REQUIRED",
                     f"Enter a selling price for {label}."
-                )
-            );
-        }
-        if not v.sku {
-            problems.append(
-                _problem(
-                    f"variants[{i}].sku", "SKU_REQUIRED", f"Enter a SKU for {label}."
                 )
             );
         }

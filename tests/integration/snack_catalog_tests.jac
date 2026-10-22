@@ -196,7 +196,9 @@ test "a draft may have gaps; publishing checks it and answers by field" {
             app, "publish_snack_product", {"product_id": product["product_id"]}
         );
         assert code_of(refused) == "cannot_publish" , refused;
-        assert _fields(refused) == ["variants[1].price_cents", "variants[1].sku"];
+        assert _fields(refused) == ["variants[1].price_cents"];
+        # The save made a SKU for the one left empty (improvements #9).
+        assert [v["sku"] for v in product["variants"]] == ["POP-SM", "POPCORN-MEDIUM"];
         assert "Medium" in refused["error"]["problems"][0]["message"];
         # Fixed (the rows keep their ids), it publishes.
         ids = [v["variant_id"] for v in product["variants"]];

@@ -4,7 +4,7 @@
   Popcorn starts in the Popcorn category with Small, Medium and Large.
 - Import: a CSV with a bad row shows the row number and what to fix, and Import stays
   off; fixed, the preview lists the new products and Import makes them (as drafts).
-- Duplicate opens a new draft "Copy of …" without SKUs.
+- Duplicate opens a new draft "Copy of …" with SKUs of its own.
 - Bulk: ticking two products and Publish publishes the one that can be, and says why
   the other can't.
 Screenshots of the template picker and the import preview, mobile and desktop.
@@ -98,7 +98,7 @@ test "an import shows bad rows first, then makes the products" {
     }
 }
 
-test "duplicate opens a copy without SKUs, and bulk publish answers per product" {
+test "duplicate opens a copy with its own SKUs, and bulk publish answers per product" {
     owner = _owner();
     call(
         owner["token"],
@@ -125,7 +125,13 @@ test "duplicate opens a copy without SKUs, and bulk publish answers per product"
             "document.querySelector('#p-name')?.value === 'Copy of Popcorn'"
         );
         page.click('[data-testid="step-pricing"]');
-        assert page.input_value("#p-variants-0-sku") == "";
+        page.click('[data-testid="toggle-codes"]');
+        assert page.input_value("#p-variants-0-sku").startswith("COPY-OF-POPCORN");
+        assert page.input_value("#p-variants-0-barcode") == "";
+        # Its first price taken off, the copy can't be published.
+        page.fill("#p-variants-0-price_cents", "");  # jac:ignore[W6002]
+        page.click('[data-testid="save-product"]');
+        page.wait_for_selector('[data-testid="editor-message"]:has-text("Saved")');
         page.click('a:has-text("← Products")');
         page.locator(
             '[data-testid="product-row"]', has_text="Copy of Popcorn"

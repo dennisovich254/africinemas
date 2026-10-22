@@ -131,9 +131,10 @@ test "an owner builds a product with variants, and publishing checks it" {
         page.click('[data-testid="kind-variants"]');
         rows = page.locator('[data-testid="variant-row"]');
         assert rows.count() == 3 , "Popcorn starts with Small, Medium and Large";
+        # SKUs are hidden until asked for; one is typed, the others made by the save.
+        page.click('[data-testid="toggle-codes"]');
         _type(page, "#p-variants-0-sku", "pop-sm");
         _type(page, "#p-variants-0-price_cents", "200");
-        _type(page, "#p-variants-1-sku", "POP-MD");
         _type(page, "#p-variants-1-price_cents", "300");
         page.click('[data-testid="save-product"]');
         _said(page, "editor-message", "Saved");
@@ -142,13 +143,14 @@ test "an owner builds a product with variants, and publishing checks it" {
         page.click('[data-testid="publish"]');
         page.wait_for_selector("#p-variants-2-price_cents-error");
         assert "Large" in page.inner_text("#p-variants-2-price_cents-error");
-        page.wait_for_selector("#p-variants-2-sku-error");
-        _type(page, "#p-variants-2-sku", "POP-LG");
+        assert page.locator("#p-variants-2-sku").count() == 0 , "no SKU is asked for";
         _type(page, "#p-variants-2-price_cents", "400");
         page.click('[data-testid="publish"]');
         _said(page, "editor-message", "Published");
         assert page.inner_text('[data-testid="editor-status"]') == "Active";
+        page.click('[data-testid="toggle-codes"]');
         assert page.input_value("#p-variants-0-sku") == "POP-SM";
+        assert page.input_value("#p-variants-2-sku") == "POPCORN-LARGE";
         # The list shows it, and finds it by SKU.
         page.click('a:has-text("← Products")');
         row = page.locator('[data-testid="product-row"]', has_text="Popcorn");
@@ -157,7 +159,7 @@ test "an owner builds a product with variants, and publishing checks it" {
         assert "3 variants" in text and "Active" in text , text;
         assert "From KES 200"
             in row.locator('[data-testid="product-price"]').inner_text();
-        _type(page, "#product-search", "pop-lg");
+        _type(page, "#product-search", "popcorn-large");
         assert page.locator('[data-testid="product-row"]').count() == 1;
         _type(page, "#product-search", "nachos");
         page.wait_for_selector("text=No products match");
@@ -209,9 +211,9 @@ test "a new product adds a category on the spot and takes an image before saving
         assert len(got["images"]) == 1 , got["images"];
         assert page.locator('[data-testid="step-images"][aria-current="step"]').count()
             == 1;
-        # Fill in SKUs makes one from the name.
+        # The save made its SKU from the name.
         page.click('[data-testid="step-pricing"]');
-        page.click('[data-testid="fill-skus"]');
+        page.click('[data-testid="toggle-codes"]');
         assert page.input_value("#p-variants-0-sku") == "SAMOSA";
     } finally {
         close_contexts(browser);
@@ -235,7 +237,7 @@ test "the box office reads the catalog without editing it" {
         page.wait_for_selector('[data-testid="snack-editor"]');
         assert page.locator('[data-testid="save-product"]').count() == 0;
         page.locator('[data-testid="step-pricing"]').tap();
-        assert page.locator("#p-variants-0-sku").is_disabled();
+        assert page.locator("#p-variants-0-price_cents").is_disabled();
     } finally {
         close_contexts(browser);
     }

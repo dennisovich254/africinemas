@@ -85,45 +85,8 @@ glob IMAGE_TYPES: str = "image/png,image/jpeg,image/webp",
          "beverages": ["300 ml", "500 ml", "1 litre"]
      },
      NEW_CATEGORY: str = "__new__",
-     SKU_CHARS: str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
      STEPS: list[str] = ["details", "images", "pricing", "more"],
      DETAIL_FIELDS: list[str] = ["name", "category_id", "brand", "description", "tags"];
-
-def sku_word(text: str, spaced: bool) -> str {
-    # The characters a SKU allows: "Coca-Cola" -> "COCA-COLA", "300 ml" -> "300ML";
-    # `spaced` keeps the gaps between words as dashes ("Small Popcorn" -> "SMALL-POPCORN").
-    word = "";
-    for ch in text.upper() {
-        if ch in SKU_CHARS {
-            word += ch;
-        } elif (ch == "-" or (spaced and ch == " "))
-            and word
-            and not word.endswith("-") {
-            word += "-";
-        }
-    }
-    return word.strip("-");
-}
-
-def:pub sku_for(name: str, option_values: list[str], taken: list[str]) -> str {
-    # A SKU from a product's name and a variant's options, at most 32 characters and
-    # not in `taken`.
-    base = sku_word(name, True)[:20].strip("-") or "ITEM";
-    for v in option_values {
-        part = sku_word(v, False);
-        if part {
-            base = f"{base}-{part}";
-        }
-    }
-    base = base[:28].strip("-");
-    code = base;
-    n = 2;
-    while code in taken {
-        code = f"{base}-{n}";
-        n += 1;
-    }
-    return code;
-}
 
 def step_of(field: str) -> str {
     # The step holding a server problem's field ("" for one shown in the message only).
@@ -227,6 +190,8 @@ def:pub SnackProductEditor(
     # The name typed for a new category, or None when not adding one.
     [new_category, set_new_category] = useState(None);
     [category_error, set_category_error] = useState("");
+    # SKU and barcode columns: hidden unless asked for (a save makes the SKUs).
+    [codes_open, set_codes_open] = useState(False);
 
     async def load {
         found: any = None;  # jac:ignore[W1037]
@@ -364,27 +329,6 @@ def:pub SnackProductEditor(
             changed["rows"] = generate_rows([suggested], []) if suggested else [];
         }
         return changed;
-    }
-
-    def fill_skus {
-        # Each variant without a SKU gets one from the name and its options:
-        # "Coca-Cola", 300 ml -> COCA-COLA-300ML (unique among the rows).
-        taken: list[str] = [
-            r["sku"].strip().upper()
-            for r in rows
-            if r["sku"].strip()
-        ];
-        filled: list[dict[str, any]] = [];  # jac:ignore[W1037]
-        for r in rows {
-            if r["sku"].strip() {
-                filled.append(r);
-            } else {
-                code = sku_for(values["name"], r["option_values"], taken);
-                taken.append(code);
-                filled.append(with_field(r, "sku", code));
-            }
-        }
-        put("rows", filled);
     }
 
     def add_option {
@@ -969,8 +913,23 @@ def:pub SnackProductEditor(
 
     # Each variant is a row on a wide screen and a card on a phone: the same fields,
     # labelled on the phone, under the column headings on a wide screen.
+    # SKU and barcode show when asked for, or when one of them has a problem.
+    show_codes = codes_open
+        or len(
+            [
+                k
+                for k in Object.keys(field_errors)  # jac:ignore[W2001]
+                if k.endswith("-sku") or k.endswith("-barcode")
+            ]
+        )
+            > 0;
     # Columns share the card's width (it sits beside the side panel on a wide screen).
-    GRID = "grid gap-2 md:grid-cols-[minmax(4rem,1fr)_minmax(5rem,1.3fr)_minmax(5rem,1.3fr)_minmax(4.5rem,1fr)_4.5rem_4.5rem_5rem] md:items-start md:gap-3";
+    GRID = "grid gap-2 md:items-start md:gap-3 "
+        + (
+            "md:grid-cols-[minmax(4rem,1fr)_minmax(5rem,1.3fr)_minmax(5rem,1.3fr)_minmax(4.5rem,1fr)_4.5rem_4.5rem_5rem]"
+                if show_codes
+                else "md:grid-cols-[minmax(6rem,2fr)_minmax(6rem,1fr)_4.5rem_4.5rem_5rem]"
+        );
     CELL = "flex flex-col gap-1";
     LABEL = "text-xs font-medium text-muted-foreground md:sr-only";
 
@@ -1047,9 +1006,10 @@ def:pub SnackProductEditor(
                         </Button>}
                 </div>
                 <div className="grid grid-cols-2 gap-2 md:contents">
-                    {field("sku", "SKU", "text")}{field(
-                        "barcode", "Barcode", "numeric"
-                    )}{field("price_cents", "Price (KES)", "decimal")}
+                    {show_codes and field("sku", "SKU", "text")}{show_codes
+                        and field("barcode", "Barcode", "numeric")}{field(
+                        "price_cents", "Price (KES)", "decimal"
+                    )}
                 </div>
                 <div className="flex flex-wrap gap-x-6 md:contents">
                     {tick("available", "Available")}{tick("track_stock", "Track stock")}
@@ -1075,7 +1035,7 @@ def:pub SnackProductEditor(
                         </Button>}
                 </div>
                 {err(f"variants[{i}].option_values")
-                    and <div className="md:col-span-7">
+                    and <div className="md:col-span-full">
                         <FieldError
                             field_id={problem_id(f"variants[{i}].option_values")}
                             error={err(f"variants[{i}].option_values")}
@@ -1180,8 +1140,8 @@ def:pub SnackProductEditor(
                     className={"hidden text-sm text-muted-foreground md:grid " + GRID}
                 >
                     <span className="py-2 font-medium">Variant</span>
-                    <span className="py-2 font-medium">SKU</span>
-                    <span className="py-2 font-medium">Barcode</span>
+                    {show_codes and <span className="py-2 font-medium">SKU</span>}
+                    {show_codes and <span className="py-2 font-medium">Barcode</span>}
                     <span className="py-2 font-medium">Price (KES)</span>
                     <span className="py-2 text-center font-medium">Available</span>
                     <span className="py-2 text-center font-medium">Track stock</span>
@@ -1191,32 +1151,23 @@ def:pub SnackProductEditor(
                     {[RowCells(r, i) for (i, r) in enumerate(rows)]}
                 </ul>
             </div>}
-        {editable
-            and values["name"].strip()
-            and len(
-                [
-                    r
-                    for r in rows
-                    if not r["sku"].strip()
-                ]
-            )
-                > 0
-            and <Button
+        <div className="flex flex-col items-start gap-1 text-sm text-muted-foreground">
+            <p>
+                Leave a price empty while it's a draft; publishing needs one. Tick Track stock to count how many you have on the Stock page.
+            </p>
+            <p>
+                Each variant gets a stock code (SKU) when you save, used to match rows when you import a spreadsheet. A barcode is optional.
+            </p>
+            <Button
                 type="button"
-                variant="outline"
-                className="min-h-11 w-fit px-4"
-                data-testid="fill-skus"
-                onClick={fill_skus}
+                variant="link"
+                className="min-h-11 px-0"
+                aria-expanded={"true" if show_codes else "false"}
+                data-testid="toggle-codes"
+                onClick={lambda { set_codes_open(not show_codes); }}
             >
-                Fill in SKUs
-            </Button>}
-        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-            <p>
-                A SKU and a barcode name a variant, not each item: all 100 bottles of 300 ml Coca-Cola share one SKU and the barcode printed on them. Each size or flavour gets its own.
-            </p>
-            <p>
-                A draft can leave SKUs and prices empty; publishing needs them. Tick Track stock to count how many you have on the Stock page.
-            </p>
+                {"Hide SKU & barcode" if show_codes else "Show SKU & barcode"}
+            </Button>
         </div>
     </section>;
 
