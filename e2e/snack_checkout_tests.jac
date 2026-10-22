@@ -87,7 +87,7 @@ def _with_snacks -> dict[str, str] {
             "name": "Popcorn extras",
             "label": "Extras",
             "min_picks": 0,
-            "max_picks": 2,
+            "max_picks": 1,
             "repeatable": False,
             "options": [{"name": "Butter", "price_cents": 3000}]
         }
