@@ -1,18 +1,21 @@
 """The product editor's "At each venue" section (P12.2; design guide §3F).
 
-- Sold at: a checkbox per venue; managers save which venues sell the product (a new
-  venue sells it until switched off).
-- Per venue (chosen when the caller works at more than one): each variant's "Available
-  here" switch (a button whose pressed state matches its label), which the box office
-  can flip at their venues, and its price there: empty uses the variant's price;
+One grid (improvements #9): a row per variant and a column per venue, so every venue
+shows at once.
+- Each venue's heading has "Sold here": managers choose which venues sell the product
+  (a new venue sells it until switched off). A venue that doesn't sell it greys out.
+- Each cell has "On sale" (the box office can change it at their venues) and the
+  variant's price there: empty uses the variant's own price, shown as the placeholder;
   managers set it.
 
-Changes save one at a time and are announced; the product comes back from the server
-and replaces the editor's copy (on_change).
+Nothing saves until "Save venue changes", which sends only what changed and then
+announces it; the product comes back from the server and replaces the editor's copy
+(on_change).
 """
 
 import from react { useState, useEffect }
 import from ...components.ui.button { Button }
+import from ...components.ui.spinner { Spinner }
 import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] authenticated endpoint
 import from core.snacks.venue_api {
     set_snack_product_venues,  # jac:ignore[W2037] authenticated endpoint
@@ -22,9 +25,7 @@ import from core.snacks.venue_api {
 import from .form_parts { FieldError, on_input }
 import from .snack_view { price_text, price_cents_of, with_field }
 
-glob CELL_INPUT: str = "min-h-11 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm md:w-28",
-     # A variant is a row on a wide screen and a card on a phone.
-     ROW: str = "grid gap-2 md:grid-cols-[minmax(7rem,1fr)_auto_minmax(12rem,1fr)] md:items-start md:gap-3";
+glob CELL_INPUT: str = "min-h-11 w-28 min-w-0 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-60";
 
 def:pub SnackVenues(
     slug: str,
@@ -35,14 +36,17 @@ def:pub SnackVenues(
     can_manage = "concessions.manage" in permissions;
     can_flip = "concessions.availability" in permissions;
     [venues, set_venues] = useState([]);
-    [venue, set_venue] = useState("");
-    [sold_at, set_sold_at] = useState([]);
+    # What's typed or ticked and not saved yet: venues sold at, and by
+    # "variant_id|venue_id" each cell's On sale and price.
+    [sold_at, set_sold_at] = useState(None);
+    [on_sale, set_on_sale] = useState({});
     [prices, set_prices] = useState({});
     [errors, set_errors] = useState({});
     [message, set_message] = useState("");
     [busy, set_busy] = useState(False);
     product_id: str = product["product_id"];
     off: list[str] = product["off_at"];
+    variants: list[dict[str, any]] = product["variants"];  # jac:ignore[W1037]
 
     async def load {
         answer: any = None;  # jac:ignore[W1037]
@@ -53,20 +57,9 @@ def:pub SnackVenues(
             return;
         }
         if answer["ok"] {
-            found = [
-                {"id": v["venue_id"], "name": v["name"]} for v in answer["venues"]
-            ];
-            set_venues(found);
-            set_sold_at(
-                [
-                    v["id"]
-                    for v in found
-                    if v["id"] not in off
-                ]
+            set_venues(
+                [{"id": v["venue_id"], "name": v["name"]} for v in answer["venues"]]
             );
-            if found {
-                set_venue(found[0]["id"]);
-            }
         }
     }
 
@@ -75,49 +68,53 @@ def:pub SnackVenues(
     }
     useEffect(start_loading, [slug, product_id]);
 
-    async def run(work: any, done: str, field_id: str = "") {  # jac:ignore[W1037]
-        set_busy(True);
-        set_message("");
-        answer: any = None;  # jac:ignore[W1037]
-        try {
-            answer = await work();
-        } except Exception as e {
-            console.warn("venue change failed", e);
-        }
-        set_busy(False);
-        if answer is None {
-            set_message("We couldn't save that. Check your connection and try again.");
-            return;
-        }
-        if not answer["ok"] {
-            shown: dict[str, str] = {};
-            if field_id {
-                shown[field_id] = answer["error"]["message"];
-            } else {
-                set_message(answer["error"]["message"]);
-            }
-            set_errors(shown);
-            return;
-        }
-        set_errors({});
-        on_change(answer["product"]);
-        set_message(done);
-    }
-
     places: list[dict[str, str]] = venues;
-    chosen: list[str] = sold_at;
-    here: str = venue;
-    here_name: str = (
-        [
-            v["name"]
-            for v in places
-            if v["id"] == here
-        ]
-        + [""]
-    )[0];
+    saved_sold: list[str] = [
+        v["id"]
+        for v in places
+        if v["id"] not in off
+    ];
+    chosen: list[str] = sold_at if sold_at is not None else saved_sold;
+    ticks: dict[str, bool] = on_sale;
     drafts: dict[str, str] = prices;
     field_errors: dict[str, str] = errors;
-    variants: list[dict[str, any]] = product["variants"];  # jac:ignore[W1037]
+
+    def saved_on(v: dict[str, any], venue_id: str) -> bool {  # jac:ignore[W1037]
+        return venue_id not in v["off_at"];
+    }
+
+    def saved_price(v: dict[str, any], venue_id: str) -> str {  # jac:ignore[W1037]
+        return price_text(v["venue_prices"].get(venue_id));
+    }
+
+    def shown_on(v: dict[str, any], venue_id: str) -> bool {  # jac:ignore[W1037]
+        key = f"{v['variant_id']}|{venue_id}";
+        return ticks[key] if key in ticks else saved_on(v, venue_id);
+    }
+
+    def shown_price(v: dict[str, any], venue_id: str) -> str {  # jac:ignore[W1037]
+        key = f"{v['variant_id']}|{venue_id}";
+        return drafts[key] if key in drafts else saved_price(v, venue_id);
+    }
+
+    # What differs from the saved product, in the order it's sent.
+    # (Compared as text: in the browser two lists are never equal.)
+    sold_changed = ",".join(sorted(chosen)) != ",".join(sorted(saved_sold));
+    flips: list[tuple[dict[str, any], str, bool]] = [];  # jac:ignore[W1037]
+    repriced: list[tuple[dict[str, any], str, str]] = [];  # jac:ignore[W1037]
+    for v in variants {
+        for p in places {
+            if p["id"] in chosen {
+                if shown_on(v, p["id"]) != saved_on(v, p["id"]) {
+                    flips.append((v, p["id"], shown_on(v, p["id"])));
+                }
+                if shown_price(v, p["id"]).strip() != saved_price(v, p["id"]) {
+                    repriced.append((v, p["id"], shown_price(v, p["id"])));
+                }
+            }
+        }
+    }
+    dirty = sold_changed or len(flips) > 0 or len(repriced) > 0;
 
     def toggle_sold(venue_id: str) {
         set_sold_at(
@@ -129,127 +126,157 @@ def:pub SnackVenues(
                 if venue_id in chosen
                 else chosen + [venue_id]
         );
+        set_message("");
     }
 
-    def send_sold -> any {  # jac:ignore[W1037]
-        return set_snack_product_venues(slug, product_id, chosen);  # jac:ignore[W2037]
-    }
-
-    async def flip(v: dict[str, any], available: bool) {  # jac:ignore[W1037]
-        variant_id: str = v["variant_id"];
-        def send -> any {  # jac:ignore[W1037]
-            return set_snack_variant_availability(  # jac:ignore[W2037]
-                slug, product_id, variant_id, here, available
-            );
-        }
-        await run(
-            send,
-            f"{v['label']} is {'available' if available else 'unavailable'} at {here_name}."
+    def tick(v: dict[str, any], venue_id: str) {  # jac:ignore[W1037]
+        set_on_sale(
+            with_field(
+                ticks, f"{v['variant_id']}|{venue_id}", not shown_on(v, venue_id)
+            )
         );
+        set_message("");
     }
 
-    async def save_price(v: dict[str, any]) {  # jac:ignore[W1037]
-        variant_id: str = v["variant_id"];
-        key = f"{variant_id}|{here}";
-        typed: str = drafts[key]
-            if key in drafts
-            else price_text(v["venue_prices"].get(here));
-        cents = price_cents_of(typed);
-        field_id = f"venue-price-{variant_id}";
-        if cents == -1 {
-            shown: dict[str, str] = {};
-            shown[field_id] = "Enter whole shillings, like 350, or leave it empty.";
-            set_errors(shown);
+    def type_price(v: dict[str, any], venue_id: str, text: str) {  # jac:ignore[W1037]
+        set_prices(with_field(drafts, f"{v['variant_id']}|{venue_id}", text));
+        set_message("");
+    }
+
+    async def send(work: any) -> any {  # jac:ignore[W1037]
+        # One change: the product it answers with, or None after saying what went wrong.
+        answer: any = None;  # jac:ignore[W1037]
+        try {
+            answer = await work();
+        } except Exception as e {
+            console.warn("venue change failed", e);
+        }
+        if answer is None {
+            set_message("We couldn't save that. Check your connection and try again.");
+            return None;
+        }
+        if not answer["ok"] {
+            set_message(answer["error"]["message"]);
+            return None;
+        }
+        return answer["product"];
+    }
+
+    async def save {
+        # Prices are checked first, so nothing is half-saved over a typing slip.
+        shown: dict[str, str] = {};
+        cents_of: dict[str, any] = {};  # jac:ignore[W1037]
+        for (v, venue_id, text) in repriced {
+            key = f"{v['variant_id']}|{venue_id}";
+            cents = price_cents_of(text);
+            if cents == -1 {
+                shown[key] = "Enter whole shillings, like 350, or leave it empty.";
+            }
+            cents_of[key] = cents;
+        }
+        set_errors(shown);
+        if len(Object.keys(shown)) > 0 {  # jac:ignore[W2001]
+            set_message("Some prices need fixing: see the marked fields.");
             return;
         }
-        def send -> any {  # jac:ignore[W1037]
-            return set_snack_venue_price(slug, product_id, variant_id, here, cents);  # jac:ignore[W2037]
+        set_busy(True);
+        set_message("");
+        latest: any = None;  # jac:ignore[W1037]
+        failed = False;
+        if sold_changed and can_manage {
+            def send_sold -> any {  # jac:ignore[W1037]
+                return set_snack_product_venues(slug, product_id, chosen);  # jac:ignore[W2037]
+            }
+            latest = await send(send_sold);
+            failed = latest is None;
         }
-        await run(
-            send,
-            f"{v['label']} costs KES {price_text(cents)} at {here_name}."
-                if cents is not None
-                else f"{v['label']} uses its own price at {here_name}.",
-            field_id
-        );
+        for (v, venue_id, available) in flips {
+            if not failed {
+                variant_id: str = v["variant_id"];
+                def send_flip -> any {  # jac:ignore[W1037]
+                    return set_snack_variant_availability(  # jac:ignore[W2037]
+                        slug, product_id, variant_id, venue_id, available
+                    );
+                }
+                latest = await send(send_flip);
+                failed = latest is None;
+            }
+        }
+        for (v, venue_id, _) in repriced {
+            if not failed and can_manage {
+                variant_id: str = v["variant_id"];
+                cents: any = cents_of[f"{variant_id}|{venue_id}"];  # jac:ignore[W1037]
+                def send_price -> any {  # jac:ignore[W1037]
+                    return set_snack_venue_price(  # jac:ignore[W2037]
+                        slug, product_id, variant_id, venue_id, cents
+                    );
+                }
+                latest = await send(send_price);
+                failed = latest is None;
+            }
+        }
+        set_busy(False);
+        if latest is not None {
+            on_change(latest);
+        }
+        if not failed {
+            set_sold_at(None);
+            set_on_sale({});
+            set_prices({});
+            set_message("Saved your venue changes.");
+        }
     }
 
     if len(places) == 0 {
         return <span className="sr-only">No venues</span>;
     }
 
-    def VariantRow(v: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
-        variant_id: str = v["variant_id"];
-        on = here not in v["off_at"];
-        key = f"{variant_id}|{here}";
-        typed: str = drafts[key]
-            if key in drafts
-            else price_text(v["venue_prices"].get(here));
-        field_id = f"venue-price-{variant_id}";
+    def Cell(v: dict[str, any], p: dict[str, str]) -> JsxElement {  # jac:ignore[W1037]
+        venue_id: str = p["id"];
+        sold = venue_id in chosen;
+        key = f"{v['variant_id']}|{venue_id}";
+        field_id = f"venue-price-{v['variant_id']}-{venue_id}";
         return
-            <li
-                key={variant_id}
-                data-testid="venue-variant-row"
-                className={ROW
-                    + " rounded-md border p-3 md:rounded-none md:border-0 md:border-t md:px-0 md:py-2"}
-            >
-                <span className="text-sm font-semibold md:font-medium">
-                    {v["label"]}
-                </span>
-                <div>
-                    <Button
-                        type="button"
-                        variant={"outline" if on else "default"}
-                        aria-pressed={"false" if on else "true"}
-                        data-testid="venue-unavailable-switch"
-                        className="min-h-11 px-3"
-                        disabled={busy or not can_flip}
-                        onClick={lambda { flip(v, not on); }}
+            <td key={venue_id} className="px-3 py-2 align-top">
+                {not sold
+                    and <span
+                        className="inline-flex min-h-11 items-center text-sm text-muted-foreground"
                     >
-                        {f"Unavailable at {here_name}"}
-                    </Button>
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label
-                        htmlFor={field_id}
-                        className="text-xs font-medium text-muted-foreground md:sr-only"
-                    >
-                        {f"Price at {here_name} (KES)"}
-                    </label>
-                    <div className="flex items-center gap-2">
+                        Not sold here
+                    </span>}{sold
+                    and <div className="flex flex-col gap-1">
+                        <label className="flex min-h-11 items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                data-testid="on-sale"
+                                aria-label={f"{v['label']} on sale at {p['name']}"}
+                                checked={shown_on(v, venue_id)}
+                                disabled={busy or not can_flip}
+                                onChange={lambda { tick(v, venue_id); }}
+                                className="size-5"
+                            />
+                            On sale
+                        </label>
                         <input
                             id={field_id}
-                            aria-label={f"Price in KES for {v['label']} at {here_name}"}
-                            value={typed}
+                            data-testid="venue-price"
+                            aria-label={f"Price in KES for {v['label']} at {p['name']}"}
+                            value={shown_price(v, venue_id)}
                             placeholder={price_text(v["price_cents"]) or "No price"}
                             inputMode="decimal"
-                            disabled={not can_manage}
+                            disabled={busy or not can_manage}
                             onChange={on_input(
-                                lambda (text: str) { set_prices(
-                                    with_field(drafts, key, text)
-                                ); }
+                                lambda (text: str) { type_price(v, venue_id, text); }
                             )}
                             className={CELL_INPUT}
                         />
-                        {can_manage
-                            and <Button
-                                type="button"
-                                variant="outline"
-                                className="min-h-11 px-3"
-                                aria-label={f"Save the price of {v['label']} at {here_name}"}
-                                disabled={busy}
-                                onClick={lambda { save_price(v); }}
-                            >
-                                Save
-                            </Button>}
-                    </div>
-                    {field_errors[field_id]
-                        and <FieldError
-                            field_id={field_id}
-                            error={field_errors[field_id]}
-                        />}
-                </div>
-            </li>;
+                        {field_errors[key]
+                            and <FieldError
+                                field_id={field_id}
+                                error={field_errors[key]}
+                            />}
+                    </div>}
+            </td>;
     }
 
     return
@@ -258,7 +285,87 @@ def:pub SnackVenues(
             data-testid="snack-venues"
             className="flex flex-col gap-4 rounded-lg border bg-card p-4"
         >
-            <h3 id="venues-title" className="text-lg font-semibold">At each venue</h3>
+            <div className="flex flex-col gap-1">
+                <h3 id="venues-title" className="text-lg font-semibold">
+                    At each venue
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                    Choose where it's sold, and switch a size off where it has run out. A price left empty is the usual price, shown faintly; type one to charge more or less at that venue.
+                </p>
+            </div>
+            <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full min-w-max text-sm">
+                    <thead className="bg-muted/50">
+                        <tr>
+                            <th scope="col" className="px-3 py-2 text-left font-medium">
+                                Variant
+                            </th>
+                            {[
+                                <th
+                                    key={p["id"]}
+                                    scope="col"
+                                    className="px-3 py-2 text-left align-top font-medium"
+                                >
+                                    <span className="block">{p["name"]}</span>
+                                    {can_manage
+                                        and <label
+                                            className="flex min-h-11 items-center gap-2 font-normal text-muted-foreground"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                data-testid="sold-at"
+                                                aria-label={f"Sold at {p['name']}"}
+                                                checked={p["id"] in chosen}
+                                                disabled={busy}
+                                                onChange={lambda { toggle_sold(
+                                                    p["id"]
+                                                ); }}
+                                                className="size-5"
+                                            />
+                                            Sold here
+                                        </label>}
+                                </th> for p in places
+                            ]}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {[
+                            <tr
+                                key={v["variant_id"]}
+                                data-testid="venue-variant-row"
+                                className="border-t"
+                            >
+                                <th
+                                    scope="row"
+                                    className="px-3 py-2 text-left align-top font-medium"
+                                >
+                                    <span className="inline-flex min-h-11 items-center">
+                                        {v["label"]}
+                                    </span>
+                                </th>
+                                {[Cell(v, p) for p in places]}
+                            </tr> for v in variants
+                        ]}
+                    </tbody>
+                </table>
+            </div>
+            {(can_manage or can_flip)
+                and <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                        type="button"
+                        className="min-h-11 px-5"
+                        disabled={busy or not dirty}
+                        data-testid="save-venues"
+                        onClick={save}
+                    >
+                        {busy and <Spinner aria-hidden="true"/>}Save venue changes
+                    </Button>
+                    {dirty
+                        and not busy
+                        and <span className="text-sm text-muted-foreground">
+                            Unsaved changes
+                        </span>}
+                </div>}
             <p
                 role="status"
                 aria-live="polite"
@@ -266,71 +373,6 @@ def:pub SnackVenues(
                 className="text-sm empty:hidden"
             >
                 {message}
-            </p>
-            {can_manage
-                and <fieldset className="flex flex-col gap-1">
-                    <legend className="mb-1 text-sm font-medium">Sold at</legend>
-                    {[
-                        <label
-                            key={v["id"]}
-                            className="flex min-h-11 items-center gap-3 text-sm"
-                        >
-                            <input
-                                type="checkbox"
-                                data-testid="sold-at"
-                                checked={v["id"] in chosen}
-                                onChange={lambda { toggle_sold(v["id"]); }}
-                                className="size-5"
-                            />
-                            {v["name"]}
-                        </label> for v in places
-                    ]}
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="min-h-11 w-fit px-4"
-                        disabled={busy}
-                        onClick={lambda { run(send_sold, "Saved where it's sold."); }}
-                    >
-                        Save venues
-                    </Button>
-                </fieldset>}
-            {len(places) > 1
-                and <label className="flex min-h-11 w-fit items-center gap-2 text-sm">
-                    <span className="text-muted-foreground">Venue</span>
-                    <select
-                        data-testid="venue-choice"
-                        value={here}
-                        onChange={on_input(set_venue)}
-                        className="min-h-11 rounded-md border border-input bg-background px-2 text-sm"
-                    >
-                        {[
-                            <option key={v["id"]} value={v["id"]}>{v["name"]}</option>
-                            for v in places
-                        ]}
-                    </select>
-                </label>}
-            {here in off
-                and <p className="text-sm text-muted-foreground">
-                    {f"This product isn't sold at {here_name}. Tick it under Sold at to sell it there."}
-                </p>}
-            <div className="flex flex-col">
-                <div
-                    aria-hidden="true"
-                    className={"hidden text-sm text-muted-foreground md:grid " + ROW}
-                >
-                    <span className="py-2 font-medium">Variant</span>
-                    <span className="py-2 font-medium">Availability</span>
-                    <span className="py-2 font-medium">
-                        {f"Price at {here_name} (KES)"}
-                    </span>
-                </div>
-                <ul className="flex flex-col gap-3 md:gap-0">
-                    {[VariantRow(v) for v in variants]}
-                </ul>
-            </div>
-            <p className="text-sm text-muted-foreground">
-                An empty price uses the variant's own price.
             </p>
         </section>;
 }

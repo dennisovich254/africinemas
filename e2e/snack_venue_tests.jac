@@ -1,9 +1,10 @@
 """P12.2 E2E: snack availability and prices per venue, in the product editor.
 
-An owner with two venues opens Popcorn: under "At each venue" they stop selling it at
-Junction, mark Large unavailable at Westgate (the switch says so, pressed) and give
-Small its own Westgate price. A box office agent at Westgate sees the same section: they
-can flip availability, but the price field is read-only for them. Screenshots of the
+An owner with two venues opens Popcorn: "At each venue" is a grid of variants by venue
+(improvements #9). They untick "Sold here" for Junction (its column greys out), untick
+Large's "On sale" at Westgate and give Small its own Westgate price, then save it all
+with one "Save venue changes". A box office agent at Westgate sees the same grid: they
+can switch On sale, but the price field is read-only for them. Screenshots of the
 section on mobile and desktop.
 """
 
@@ -96,6 +97,14 @@ def _row(page: any, label: str) -> any {  # jac:ignore[W1037]
     return page.locator('[data-testid="venue-variant-row"]', has_text=label);
 }
 
+def _cell(page: any, label: str, venue: str, testid: str) -> any {  # jac:ignore[W1037]
+    # A variant's On sale box or price field at a venue, found by its label.
+    words = "on sale at" if testid == "on-sale" else "Price in KES for";
+    return _row(page, label).locator(
+        f'[data-testid="{testid}"][aria-label*="{venue}"][aria-label*="{words}" i]'
+    );
+}
+
 test "an owner sets where a product sells, availability and a venue price" {
     owner = owner_with_cinema();
     add_venue(owner, "Westgate");
@@ -107,25 +116,40 @@ test "an owner sets where a product sells, availability and a venue price" {
             **context_options(pw, "desktop", "light")
         ).new_page();
         _sign_in(page, owner["email"], owner["slug"], product);
-        page.locator('[data-testid="snack-venues"] label', has_text="Junction").locator(
-            '[data-testid="sold-at"]'
+        save = page.locator('[data-testid="save-venues"]');
+        assert save.is_disabled() , "nothing to save yet";
+        page.locator(
+            '[data-testid="sold-at"][aria-label="Sold at Junction"]'
         ).uncheck();
-        page.click('button:has-text("Save venues")');
-        _said(page, "Saved where it's sold");
-        page.select_option('[data-testid="venue-choice"]', label="Westgate");
-        large = _row(page, "Large").locator('[data-testid="venue-unavailable-switch"]');
-        assert large.get_attribute("aria-pressed") == "false";
-        large.click();
-        _said(page, "Large is unavailable at Westgate");
-        assert _row(page, "Large").locator(
-            '[data-testid="venue-unavailable-switch"]'
-        ).get_attribute(
-            "aria-pressed"
-        )
-            == "true";
-        _row(page, "Small").locator("input").fill("250");  # jac:ignore[W6002]
-        _row(page, "Small").locator('button:has-text("Save")').click();
-        _said(page, "Small costs KES 250 at Westgate");
+        assert _row(page, "Small").inner_text().count("Not sold here") == 1;
+        large = _cell(page, "Large", "Westgate", "on-sale");
+        assert large.is_checked();
+        large.uncheck();
+        small = _cell(page, "Small", "Westgate", "venue-price");
+        assert small.get_attribute("placeholder") == "200";
+        small.fill("250");  # jac:ignore[W6002]
+        assert "Unsaved changes" in page.inner_text('[data-testid="snack-venues"]');
+        save.click();
+        _said(page, "Saved your venue changes");
+        got = call(
+            owner["token"],
+            "get_snack_product",
+            {"tenant": owner["slug"], "product_id": product}
+        )["product"];
+        westgate = [
+            v["venue_id"]
+            for v in call(owner["token"], "list_venues", {"tenant": owner["slug"]})[
+                "venues"
+            ]
+            if v["name"] == "Westgate"
+        ][0];
+        assert len(got["off_at"]) == 1 and westgate not in got["off_at"] , got[
+            "off_at"
+        ];
+        by_size = {v["label"]: v for v in got["variants"]};
+        assert westgate in by_size["Large"]["off_at"];
+        assert by_size["Small"]["venue_prices"][westgate] == 25000;
+        assert save.is_disabled() , "saved, nothing left to save";
     } finally {
         close_contexts(browser);
     }
@@ -142,9 +166,10 @@ test "the box office flips availability at their venue, but can't set prices" {
         page = browser.new_context(**context_options(pw, "mobile", "light")).new_page();
         _sign_in(page, agent["email"], owner["slug"], product);
         assert page.locator('[data-testid="sold-at"]').count() == 0;
-        assert _row(page, "Small").locator("input").is_disabled();
-        _row(page, "Small").locator('[data-testid="venue-unavailable-switch"]').tap();
-        _said(page, "Small is unavailable at Westgate");
+        assert _cell(page, "Small", "Westgate", "venue-price").is_disabled();
+        _cell(page, "Small", "Westgate", "on-sale").tap();
+        page.locator('[data-testid="save-venues"]').tap();
+        _said(page, "Saved your venue changes");
     } finally {
         close_contexts(browser);
     }
