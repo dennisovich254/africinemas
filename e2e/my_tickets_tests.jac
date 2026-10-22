@@ -5,8 +5,8 @@ Customers have accounts at the cinema, made and used on its storefront (P8.6c:
 signed in when they pay finds the booking in My tickets without a click: "You're
 booked" saves it to their account by itself. A guest who pays creates an account from
 the tickets, comes back to them, and they're saved then. A customer who signed out
-signs in again from My tickets, and a back-office account is told it isn't this
-cinema's. Under a cinema's AI-written design, whose header and footer link "Sign in",
+signs in again from My tickets, and a back-office sign-in doesn't carry over to a
+storefront. Under a cinema's AI-written design, whose header and footer link "Sign in",
 a signed-in customer sees "My account" there instead. Review screenshots of the account
 pages and My tickets.
 """
@@ -156,6 +156,44 @@ test "under an AI-written design, a signed-in customer sees My account, not Sign
     }
 }
 
+test "an owner stays signed in to the back office while a customer at their own cinema" {
+    owner = cinema_selling_tickets();
+    (pw, browser) = shared_browser();
+    try {
+        context = browser.new_context(**context_options(pw, "desktop", "light"));
+        office = context.new_page();
+        office.goto(BASE_URL + "/login");
+        _type(office, "#email", owner["email"]);
+        _type(office, "#password", PASSWORD);
+        office.click('button[type="submit"]');
+        office.wait_for_url("**/app");
+        office.wait_for_selector('[data-testid="cinema-list"]');
+        # Another tab of the same browser: the owner signs up as a customer at their own
+        # cinema, with the same email (customer and staff accounts are separate).
+        shop = context.new_page();
+        home = f"/c/{owner['slug']}";
+        _sign_up(shop, owner["slug"], owner["email"], home);
+        shop.wait_for_selector('[data-testid="account-my-tickets"]');
+        # The back office is still the owner's, after a reload too.
+        office.reload();
+        office.wait_for_selector('[data-testid="cinema-list"]');
+        assert office.locator('[data-testid="no-cinemas"]').count() == 0;
+        office.goto(f"{BASE_URL}/app/{owner['slug']}");
+        office.wait_for_selector('[data-testid="shell-sidebar"]');
+        # And the storefront is still the customer's.
+        shop.reload();
+        shop.wait_for_selector('[data-testid="account-my-tickets"]');
+        # Signing out as the customer leaves the back office signed in.
+        shop.goto(f"{BASE_URL}{home}/account");
+        shop.click('[data-testid="account-sign-out"]');
+        shop.wait_for_selector('[data-testid="account-sign-in"]');
+        office.goto(BASE_URL + "/app");
+        office.wait_for_selector('[data-testid="cinema-list"]');
+    } finally {
+        close_contexts(browser);
+    }
+}
+
 test "a guest creates an account from the tickets, and they're saved on the way back" {
     owner = cinema_selling_tickets();
     email = email_for(unique("lee"));
@@ -215,7 +253,7 @@ test "a customer who signed out signs in again from My tickets" {
     }
 }
 
-test "a back-office account isn't a customer of the storefront" {
+test "a back-office sign-in doesn't carry over to the storefront" {
     owner = cinema_selling_tickets();
     slug = owner["slug"];
     email = email_for(unique("staff"));
@@ -231,8 +269,9 @@ test "a back-office account isn't a customer of the storefront" {
         page.click('button[type="submit"]');
         page.wait_for_url("**/app**");
         page.goto(f"{BASE_URL}/c/{slug}/my-tickets");
+        # The storefront keeps its own sign-in (improvements #25): signed out here.
         signed_out = page.wait_for_selector('[data-testid="my-tickets-signed-out"]');
-        assert "isn't for this cinema" in signed_out.inner_text();
+        assert "Sign in to see the tickets" in signed_out.inner_text();
         # The header offers this cinema's sign-in, not the staff account.
         page.wait_for_selector('[data-testid="account-sign-in"]');
     } finally {
