@@ -85,8 +85,45 @@ glob IMAGE_TYPES: str = "image/png,image/jpeg,image/webp",
          "beverages": ["300 ml", "500 ml", "1 litre"]
      },
      NEW_CATEGORY: str = "__new__",
+     SKU_CHARS: str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
      STEPS: list[str] = ["details", "images", "pricing", "more"],
      DETAIL_FIELDS: list[str] = ["name", "category_id", "brand", "description", "tags"];
+
+def sku_word(text: str, spaced: bool) -> str {
+    # The characters a SKU allows: "Coca-Cola" -> "COCA-COLA", "300 ml" -> "300ML";
+    # `spaced` keeps the gaps between words as dashes ("Small Popcorn" -> "SMALL-POPCORN").
+    word = "";
+    for ch in text.upper() {
+        if ch in SKU_CHARS {
+            word += ch;
+        } elif (ch == "-" or (spaced and ch == " "))
+            and word
+            and not word.endswith("-") {
+            word += "-";
+        }
+    }
+    return word.strip("-");
+}
+
+def:pub sku_for(name: str, option_values: list[str], taken: list[str]) -> str {
+    # A SKU from a product's name and a variant's options, at most 32 characters and
+    # not in `taken`.
+    base = sku_word(name, True)[:20].strip("-") or "ITEM";
+    for v in option_values {
+        part = sku_word(v, False);
+        if part {
+            base = f"{base}-{part}";
+        }
+    }
+    base = base[:28].strip("-");
+    code = base;
+    n = 2;
+    while code in taken {
+        code = f"{base}-{n}";
+        n += 1;
+    }
+    return code;
+}
 
 def step_of(field: str) -> str {
     # The step holding a server problem's field ("" for one shown in the message only).
@@ -327,6 +364,27 @@ def:pub SnackProductEditor(
             changed["rows"] = generate_rows([suggested], []) if suggested else [];
         }
         return changed;
+    }
+
+    def fill_skus {
+        # Each variant without a SKU gets one from the name and its options:
+        # "Coca-Cola", 300 ml -> COCA-COLA-300ML (unique among the rows).
+        taken: list[str] = [
+            r["sku"].strip().upper()
+            for r in rows
+            if r["sku"].strip()
+        ];
+        filled: list[dict[str, any]] = [];  # jac:ignore[W1037]
+        for r in rows {
+            if r["sku"].strip() {
+                filled.append(r);
+            } else {
+                code = sku_for(values["name"], r["option_values"], taken);
+                taken.append(code);
+                filled.append(with_field(r, "sku", code));
+            }
+        }
+        put("rows", filled);
     }
 
     def add_option {
@@ -911,7 +969,8 @@ def:pub SnackProductEditor(
 
     # Each variant is a row on a wide screen and a card on a phone: the same fields,
     # labelled on the phone, under the column headings on a wide screen.
-    GRID = "grid gap-2 md:grid-cols-[minmax(7rem,1fr)_8rem_8rem_7rem_5.5rem_5.5rem_auto] md:items-start md:gap-3";
+    # Columns share the card's width (it sits beside the side panel on a wide screen).
+    GRID = "grid gap-2 md:grid-cols-[minmax(4rem,1fr)_minmax(5rem,1.3fr)_minmax(5rem,1.3fr)_minmax(4.5rem,1fr)_4.5rem_4.5rem_5rem] md:items-start md:gap-3";
     CELL = "flex flex-col gap-1";
     LABEL = "text-xs font-medium text-muted-foreground md:sr-only";
 
@@ -964,8 +1023,8 @@ def:pub SnackProductEditor(
                 className={GRID
                     + " rounded-md border p-3 md:rounded-none md:border-0 md:border-t md:px-0 md:py-2"}
             >
-                <div className="flex items-center justify-between gap-2 md:block">
-                    <span className="text-sm font-semibold md:font-medium">
+                <div className="flex items-center justify-between gap-2 md:min-h-11">
+                    <span className="text-sm font-semibold break-words md:font-medium">
                         {label}
                     </span>
                     {editable
@@ -1132,9 +1191,33 @@ def:pub SnackProductEditor(
                     {[RowCells(r, i) for (i, r) in enumerate(rows)]}
                 </ul>
             </div>}
-        <p className="text-sm text-muted-foreground">
-            A draft can leave SKUs and prices empty; publishing needs them. Tick Track stock to count a variant on the Stock page.
-        </p>
+        {editable
+            and values["name"].strip()
+            and len(
+                [
+                    r
+                    for r in rows
+                    if not r["sku"].strip()
+                ]
+            )
+                > 0
+            and <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 w-fit px-4"
+                data-testid="fill-skus"
+                onClick={fill_skus}
+            >
+                Fill in SKUs
+            </Button>}
+        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+            <p>
+                A SKU and a barcode name a variant, not each item: all 100 bottles of 300 ml Coca-Cola share one SKU and the barcode printed on them. Each size or flavour gets its own.
+            </p>
+            <p>
+                A draft can leave SKUs and prices empty; publishing needs them. Tick Track stock to count how many you have on the Stock page.
+            </p>
+        </div>
     </section>;
 
     def send_unpublish -> any {  # jac:ignore[W1037]

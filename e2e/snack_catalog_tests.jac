@@ -209,6 +209,10 @@ test "a new product adds a category on the spot and takes an image before saving
         assert len(got["images"]) == 1 , got["images"];
         assert page.locator('[data-testid="step-images"][aria-current="step"]').count()
             == 1;
+        # Fill in SKUs makes one from the name.
+        page.click('[data-testid="step-pricing"]');
+        page.click('[data-testid="fill-skus"]');
+        assert page.input_value("#p-variants-0-sku") == "SAMOSA";
     } finally {
         close_contexts(browser);
     }
