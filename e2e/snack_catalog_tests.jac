@@ -198,8 +198,9 @@ test "a new product adds a category on the spot and takes an image before saving
         );
         _said(page, "editor-message", "uploaded when you save");
         page.click('[data-testid="save-product"]');
+        # The address starts as /snacks/new?template=blank.
         page.wait_for_url(
-            lambda (url: str) -> bool { return not url.endswith("/new"); }
+            lambda (url: str) -> bool { return "/snacks/new" not in url; }
         );
         _said(page, "editor-message", "Saved");
         product = page.url.split("/")[-1].split("?")[0];
