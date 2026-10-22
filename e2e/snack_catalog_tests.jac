@@ -6,8 +6,13 @@ two SKUs and prices and save the draft; Publish is refused and the missing Large
 and SKU show beside that row; filled in, it publishes. The list shows "3 variants",
 "From KES 200" and Active, and finds it by SKU. A box office agent sees the list and
 the product, read-only. Phone and PC, light and dark (screenshots for review).
+
+The editor runs in steps (improvements #9): a new product adds its category on the spot
+and takes images before its first save, which uploads them.
 """
 
+import io;
+import from PIL { Image }
 import from e2e.support.web {
     shared_browser,
     close_contexts,
@@ -120,12 +125,16 @@ test "an owner builds a product with variants, and publishing checks it" {
         page.wait_for_selector('[data-testid="snack-editor"]');
         _type(page, "#p-name", "Popcorn");
         page.select_option("#p-category_id", label="Popcorn");
+        # Steps (improvements #9): Details, Images, then Variants & pricing.
+        page.click('[data-testid="step-next"]');
+        page.click('[data-testid="step-next"]');
         page.click('[data-testid="kind-variants"]');
         rows = page.locator('[data-testid="variant-row"]');
         assert rows.count() == 3 , "Popcorn starts with Small, Medium and Large";
+        # SKUs are hidden until asked for; one is typed, the others made by the save.
+        page.click('[data-testid="toggle-codes"]');
         _type(page, "#p-variants-0-sku", "pop-sm");
         _type(page, "#p-variants-0-price_cents", "200");
-        _type(page, "#p-variants-1-sku", "POP-MD");
         _type(page, "#p-variants-1-price_cents", "300");
         page.click('[data-testid="save-product"]');
         _said(page, "editor-message", "Saved");
@@ -134,13 +143,14 @@ test "an owner builds a product with variants, and publishing checks it" {
         page.click('[data-testid="publish"]');
         page.wait_for_selector("#p-variants-2-price_cents-error");
         assert "Large" in page.inner_text("#p-variants-2-price_cents-error");
-        page.wait_for_selector("#p-variants-2-sku-error");
-        _type(page, "#p-variants-2-sku", "POP-LG");
+        assert page.locator("#p-variants-2-sku").count() == 0 , "no SKU is asked for";
         _type(page, "#p-variants-2-price_cents", "400");
         page.click('[data-testid="publish"]');
         _said(page, "editor-message", "Published");
         assert page.inner_text('[data-testid="editor-status"]') == "Active";
+        page.click('[data-testid="toggle-codes"]');
         assert page.input_value("#p-variants-0-sku") == "POP-SM";
+        assert page.input_value("#p-variants-2-sku") == "POPCORN-LARGE";
         # The list shows it, and finds it by SKU.
         page.click('a:has-text("← Products")');
         row = page.locator('[data-testid="product-row"]', has_text="Popcorn");
@@ -149,10 +159,63 @@ test "an owner builds a product with variants, and publishing checks it" {
         assert "3 variants" in text and "Active" in text , text;
         assert "From KES 200"
             in row.locator('[data-testid="product-price"]').inner_text();
-        _type(page, "#product-search", "pop-lg");
+        _type(page, "#product-search", "popcorn-large");
         assert page.locator('[data-testid="product-row"]').count() == 1;
         _type(page, "#product-search", "nachos");
         page.wait_for_selector("text=No products match");
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "a new product adds a category on the spot and takes an image before saving" {
+    owner = owner_with_cinema();
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        _sign_in(page, owner["email"], owner["slug"], "/new?template=blank");
+        page.wait_for_selector('[data-testid="snack-editor"]');
+        _type(page, "#p-name", "Samosa");
+        # No categories yet: the new-category field is already open.
+        _type(page, "#new-category-name", "Hot food");
+        page.click('[data-testid="add-category"]');
+        _said(page, "editor-message", "Added the Hot food category");
+        assert page.locator("#p-category_id option:checked").inner_text() == "Hot food";
+        page.click('[data-testid="step-next"]');
+        out = io.BytesIO();
+        Image.new("RGB", (300, 300), "#C8102E").save(out, format="PNG");
+        page.set_input_files(
+            '[data-testid="product-image-file"]',
+            files=[
+                {
+                    "name": "samosa.png",
+                    "mimeType": "image/png",
+                    "buffer": out.getvalue()
+                }
+            ]
+        );
+        _said(page, "editor-message", "uploaded when you save");
+        page.click('[data-testid="save-product"]');
+        # The address starts as /snacks/new?template=blank.
+        page.wait_for_url(
+            lambda (url: str) -> bool { return "/snacks/new" not in url; }
+        );
+        _said(page, "editor-message", "Saved");
+        product = page.url.split("/")[-1].split("?")[0];
+        got = call(
+            owner["token"],
+            "get_snack_product",
+            {"tenant": owner["slug"], "product_id": product}
+        )["product"];
+        assert len(got["images"]) == 1 , got["images"];
+        assert page.locator('[data-testid="step-images"][aria-current="step"]').count()
+            == 1;
+        # The save made its SKU from the name.
+        page.click('[data-testid="step-pricing"]');
+        page.click('[data-testid="toggle-codes"]');
+        assert page.input_value("#p-variants-0-sku") == "SAMOSA";
     } finally {
         close_contexts(browser);
     }
@@ -174,7 +237,8 @@ test "the box office reads the catalog without editing it" {
         row.tap();
         page.wait_for_selector('[data-testid="snack-editor"]');
         assert page.locator('[data-testid="save-product"]').count() == 0;
-        assert page.locator("#p-variants-0-sku").is_disabled();
+        page.locator('[data-testid="step-pricing"]').tap();
+        assert page.locator("#p-variants-0-price_cents").is_disabled();
     } finally {
         close_contexts(browser);
     }
@@ -199,6 +263,7 @@ test "review screenshots of the snack catalog" {
                     full_page=True
                 );
                 page.goto(f"{BASE_URL}/app/{owner['slug']}/snacks/{product}");
+                page.click('[data-testid="step-pricing"]');
                 page.wait_for_selector('[data-testid="variant-table"]');
                 page.screenshot(
                     path=artifact(f"snack-editor-{project}-{scheme}.png"),
@@ -229,7 +294,7 @@ test "every snack page fits a phone, with no sideways scroll" {
         page.wait_for_selector('[data-testid="product-row"]');
         for (rest, ready) in [
             ("", '[data-testid="product-row"]'),
-            (f"/{product}", '[data-testid="variant-table"]'),
+            (f"/{product}", '[data-testid="snack-editor"]'),
             ("/categories", '[data-testid="category-row"]'),
             ("/extras", '[data-testid="snack-extras"]'),
             ("/stock", '[data-testid="snack-stock"]'),
@@ -242,10 +307,17 @@ test "every snack page fits a phone, with no sideways scroll" {
             );
             assert wide <= 1 , f"/snacks{rest} is {wide}px wider than the phone";
         }
-        # The editor keeps Save and Publish in reach on a phone.
+        # Every editor step fits too, and keeps Save and Publish in reach.
         page.goto(f"{BASE_URL}/app/{owner['slug']}/snacks/{product}");
-        page.wait_for_selector('[data-testid="mobile-save-bar"]');
-        assert page.locator('[data-testid="mobile-save"]').is_visible();
+        page.wait_for_selector('[data-testid="save-bar"]');
+        for key in ["details", "images", "pricing", "more"] {
+            page.locator(f'[data-testid="step-{key}"]').tap();
+            wide = page.evaluate(
+                "document.documentElement.scrollWidth - document.documentElement.clientWidth"
+            );
+            assert wide <= 1 , f"the {key} step is {wide}px wider than the phone";
+            assert page.locator('[data-testid="save-product"]').is_visible();
+        }
     } finally {
         close_contexts(browser);
     }

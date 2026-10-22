@@ -20,6 +20,7 @@ import from core.snacks.catalog {
     check_product,
     check_variants,
     publish_problems,
+    sku_for,
     variant_label,
     sku_key,
     ProductFields,
@@ -144,15 +145,14 @@ test "every problem with the variants is reported by row" {
     assert check_variants("single", [], [_row([], "", None, "5012345678900")])[1] == [];
 }
 
-test "publishing needs a category, prices, SKUs and an available variant" {
+test "publishing needs a category, prices and an available variant" {
     (rows, _) = check_variants(
         "variants",
         ["Size"],
         [_row(["Small"], "POP-SM", 20000), _row(["Medium"], "", None)]
     );
     problems = publish_problems(True, rows or []);
-    assert _fields(problems)
-        == ["variants[1].price_cents", "variants[1].sku"] , problems;
+    assert _fields(problems) == ["variants[1].price_cents"] , problems;
     medium = [
         p
         for p in problems
@@ -163,6 +163,17 @@ test "publishing needs a category, prices, SKUs and an available variant" {
         == ["CATEGORY_REQUIRED", "VARIANT_REQUIRED"];
     (off, _) = check_variants("single", [], [_row([], "WATER-500", 10000, "", False)]);
     assert [p["code"] for p in publish_problems(True, off or [])] == ["NONE_AVAILABLE"];
+}
+
+test "a SKU is made from the name and the options, free of the ones taken" {
+    assert sku_for("Coca-Cola", ["300 ml"], []) == "COCA-COLA-300ML";
+    assert sku_for("Small Popcorn", [], []) == "SMALL-POPCORN";
+    assert sku_for("Popcorn", ["Large", "Caramel"], []) == "POPCORN-LARGE-CARAMEL";
+    assert sku_for("Popcorn", ["Large"], ["POPCORN-LARGE"]) == "POPCORN-LARGE-2";
+    assert sku_for("Chai ☕", [], []) == "CHAI";
+    assert sku_for("☕", [], []) == "ITEM";
+    long = sku_for("A very long product name indeed", ["Extra large bucket"], []);
+    assert len(long) <= 32 and not long.endswith("-") , long;
 }
 
 test "a variant is named by its option values" {

@@ -1,26 +1,28 @@
 """`/app/:slug/snacks/new` and `/app/:slug/snacks/:id`: the product editor (P12.1; design
 guide §3).
 
-One page with clear sections:
-1. Product information: name, category (from the Categories page), brand, description,
-   tags.
-2. Images (after the first save): up to five, the first is the main one.
+Four steps along the top, each with Back and Next (improvements #9), and a bar at the
+foot of the screen that keeps Save and Publish in reach on every step:
+1. Details: name, category (choose one, or "+ New category" adds it on the spot), brand,
+   description, tags.
+2. Images: up to five, the first is the main one. A new product holds the chosen images
+   and uploads them with its first save.
 3. Variants & pricing: "Single item" or "Has variants". With variants, up to two options
    (Size, Flavour) each with its values ("Small, Medium, Large"); "Create variants" adds
    the missing combinations as rows, never removing one; each row has its SKU, barcode,
    price, Available and Track stock, and can be removed (a combination the cinema
    doesn't sell). A new product in Popcorn or Beverages starts with the usual sizes.
-4. For a combo, what it includes; for any product, its add-ons (SnackExtrasParts.jac,
-   P12.3). At each venue (SnackVenues.jac, P12.2): where it's sold, and each variant's
-   availability and price at a venue.
-5. The side panel (below the form on a phone, where a bar fixed to the bottom of the
-   screen keeps Save and Publish in reach): status, the storefront preview (main image, name, "From KES 200"),
-   and the actions for the status: Save draft and Publish (draft), Save changes and
-   Unpublish (active), Restore (archived), Archive, and Delete (drafts only, asks first).
+4. Add-ons & venues: for a combo, what it includes; for any product, its add-ons
+   (SnackExtrasParts.jac, P12.3) and, at each venue (SnackVenues.jac, P12.2), where it's
+   sold and each variant's availability and price there. These need a saved product, so
+   Next from step 3 saves the draft first.
+The side panel (below the form on a phone): status, the storefront preview (main image,
+name, "From KES 200"), and the other actions for the status: Unpublish (active), Restore
+(archived), Archive, Delete (drafts only, asks first), Duplicate.
 
-Saving keeps the page and what was typed; problems come back by field and show beside
-it ("variants[1].price_cents" under that row's price). Leaving with unsaved changes
-asks first.
+Saving keeps the page and what was typed; problems come back by field, show beside it
+("variants[1].price_cents" under that row's price) and open the step that holds the
+first. Leaving with unsaved changes asks first.
 """
 
 import from react { useState, useEffect }
@@ -42,12 +44,16 @@ import from core.snacks.product_api {
     upload_snack_image,  # jac:ignore[W2037]
     remove_snack_image  # jac:ignore[W2037]
 }
-import from core.snacks.category_api { list_snack_categories }  # jac:ignore[W2037] authenticated endpoint
+import from core.snacks.category_api {
+    list_snack_categories,  # jac:ignore[W2037] authenticated endpoint
+    create_snack_category  # jac:ignore[W2037]
+}
 import from ..shell.AppLink { AppLink }
 import from .form_parts {
     TextField,
     FieldError,
     ConfirmDelete,
+    error_id,
     on_input,
     read_as_base64
 }
@@ -77,7 +83,21 @@ glob IMAGE_TYPES: str = "image/png,image/jpeg,image/webp",
      SUGGESTED: dict[str, list[str]] = {
          "popcorn": ["Small", "Medium", "Large"],
          "beverages": ["300 ml", "500 ml", "1 litre"]
-     };
+     },
+     NEW_CATEGORY: str = "__new__",
+     STEPS: list[str] = ["details", "images", "pricing", "more"],
+     DETAIL_FIELDS: list[str] = ["name", "category_id", "brand", "description", "tags"];
+
+def step_of(field: str) -> str {
+    # The step holding a server problem's field ("" for one shown in the message only).
+    if field in DETAIL_FIELDS {
+        return "details";
+    }
+    if field.startswith("variants") or field == "option_names" {
+        return "pricing";
+    }
+    return "";
+}
 
 def _blank_form -> dict[str, any] {  # jac:ignore[W1037]
     return {
@@ -161,6 +181,17 @@ def:pub SnackProductEditor(
     asked_template: str = query.get("template") or "";
     asked_category: str = query.get("category") or "";
     [started, set_started] = useState(not is_new or bool(asked_template));
+    # The step shown; a new product's first save carries it to the product's address.
+    [step, set_step] = useState(
+        arrived.state["step"] if arrived.state and arrived.state["step"] else "details"
+    );
+    # A new product's chosen images ({key, kind, data, src}), uploaded by its first save.
+    [pending, set_pending] = useState([]);
+    # The name typed for a new category, or None when not adding one.
+    [new_category, set_new_category] = useState(None);
+    [category_error, set_category_error] = useState("");
+    # SKU and barcode columns: hidden unless asked for (a save makes the SKUs).
+    [codes_open, set_codes_open] = useState(False);
 
     async def load {
         found: any = None;  # jac:ignore[W1037]
@@ -340,6 +371,7 @@ def:pub SnackProductEditor(
         }
         if shown {
             set_errors(shown);
+            set_step("pricing");
             return None;
         }
         return variants;
@@ -348,10 +380,17 @@ def:pub SnackProductEditor(
     def show_refusal(answer: dict[str, any]) {  # jac:ignore[W1037]
         shown: dict[str, str] = {};
         problems: list[dict[str, str]] = answer["error"].get("problems", []) or [];
+        first = "";
         for p in problems {
             shown[problem_id(p["field"])] = p["message"];
+            if not first {
+                first = step_of(p["field"]);
+            }
         }
         set_errors(shown);
+        if first {
+            set_step(first);
+        }
         count = len(problems);
         set_message(
             answer["error"]["message"]
@@ -380,7 +419,27 @@ def:pub SnackProductEditor(
         return answer;
     }
 
-    async def save(then_publish: bool) {
+    async def upload_pending(made_id: str) -> int {
+        # Uploads a new product's chosen images after its first save; how many failed.
+        held: list[dict[str, str]] = pending;
+        missed = 0;
+        for i in held {
+            answer: any = None;  # jac:ignore[W1037]
+            try {
+                answer = await upload_snack_image(  # jac:ignore[W2037]
+                    slug, made_id, i["kind"], i["data"]
+                );
+            } except Exception as e {
+                console.warn("upload_snack_image failed", e);
+            }
+            if answer is None or not answer["ok"] {
+                missed += 1;
+            }
+        }
+        return missed;
+    }
+
+    async def save(then_publish: bool, next_step: str = "") {
         variants = payload();
         if variants is None {
             return;
@@ -423,10 +482,65 @@ def:pub SnackProductEditor(
             }
         }
         if is_new {
+            if len(pending) > 0 {
+                set_busy(True);
+                missed = await upload_pending(made["product_id"]);
+                set_busy(False);
+                if missed > 0 {
+                    said = f"{said} {missed} of the images couldn't be added; add them again on the Images step.";
+                }
+            }
             nav(  # jac:ignore[W1051]
                 snack_path(slug, made["product_id"]),
-                {"replace": True, "state": {"message": said}}
+                {"replace": True, "state": {"message": said, "step": next_step or step}}
             );
+        } elif next_step {
+            set_step(next_step);
+        }
+    }
+
+    async def add_category {
+        name = (new_category or "").strip();
+        if not name {
+            set_category_error("Enter the category's name, like Popcorn.");
+            return;
+        }
+        answer: any = None;  # jac:ignore[W1037]
+        set_busy(True);
+        try {
+            answer = await create_snack_category(slug, name);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("create_snack_category failed", e);
+        }
+        set_busy(False);
+        if answer is None {
+            set_category_error(
+                "We couldn't add it. Check your connection and try again."
+            );
+            return;
+        }
+        if not answer["ok"] {
+            problems: list[dict[str, str]] = answer["error"].get("problems", []) or [];
+            set_category_error(
+                problems[0]["message"] if problems else answer["error"]["message"]
+            );
+            return;
+        }
+        made: dict[str, any] = answer["category"];  # jac:ignore[W1037]
+        kinds_now: list[dict[str, any]] = categories;  # jac:ignore[W1037]
+        set_categories(kinds_now + [made]);
+        put("category_id", made["category_id"]);
+        set_new_category(None);
+        set_category_error("");
+        set_message(f"Added the {made['name']} category.");
+    }
+
+    def pick_category(value: str) {
+        if value == NEW_CATEGORY {
+            set_new_category("");
+            set_category_error("");
+        } else {
+            put("category_id", value);
         }
     }
 
@@ -465,6 +579,18 @@ def:pub SnackProductEditor(
         }
         e.target.value = "";
         kind: str = file.type;
+        if is_new {
+            # Held until the first save, which uploads it.
+            win: any = window;  # jac:ignore[W1037,W2001]
+            src: str = win.URL.createObjectURL(file);
+            held: list[dict[str, str]] = pending;
+            set_pending(
+                held + [{"key": src, "kind": kind, "data": encoded, "src": src}]
+            );
+            set_dirty(True);
+            set_message("Image added. It's uploaded when you save.");
+            return;
+        }
         def send -> any {  # jac:ignore[W1037]
             return upload_snack_image(slug, product_id, kind, encoded);  # jac:ignore[W2037]
         }
@@ -473,6 +599,17 @@ def:pub SnackProductEditor(
             set_product(added["product"]);
             set_message("Image added.");
         }
+    }
+
+    def drop_pending(key: str) {
+        held: list[dict[str, str]] = pending;
+        set_pending(
+            [
+                i
+                for i in held
+                if i["key"] != key
+            ]
+        );
     }
 
     async def drop_image(image_id: str) {
@@ -576,6 +713,20 @@ def:pub SnackProductEditor(
         if priced
         else "No price yet";
 
+    # With no categories yet, the new-category field is already open.
+    adding_category = new_category is not None or len(kinds) == 0;
+
+    def on_category_key(e: any) {  # jac:ignore[W1037]
+        # Enter adds the category (it would otherwise do nothing in this form).
+        if e.key == "Enter" {
+            e.preventDefault();
+            add_category();
+        }
+    }
+
+    held_images: list[dict[str, str]] = pending;
+    image_count = len(images) + len(held_images);
+
     info = <section
         aria-labelledby="info-title"
         className="flex flex-col gap-4 rounded-lg border bg-card p-4"
@@ -596,30 +747,72 @@ def:pub SnackProductEditor(
                     id={problem_id("category_id")}
                     value={values["category_id"]}
                     disabled={not editable}
-                    onChange={on_input(
-                        lambda (text: str) { put("category_id", text); }
-                    )}
+                    onChange={on_input(pick_category)}
                     className={SELECT_CLASSES}
                 >
-                    <option value="">Choose a category</option>
+                    <option value="">
+                        {"Choose a category" if len(kinds) > 0 else "No categories yet"}
+                    </option>
                     {[
                         <option key={c["category_id"]} value={c["category_id"]}>
                             {c["name"]}
                         </option> for c in kinds
                     ]}
+                    {editable and <option value={NEW_CATEGORY}>+ New category…</option>}
                 </select>
                 {err("category_id")
                     and <FieldError
                         field_id={problem_id("category_id")}
                         error={err("category_id")}
                     />}
-                {len(kinds) == 0
-                    and <AppLink
-                        to={snack_path(slug, "categories")}
-                        className="text-sm font-medium underline underline-offset-4"
+                {editable
+                    and adding_category
+                    and <div
+                        className="flex flex-col gap-1.5 rounded-md border border-dashed p-3"
+                        data-testid="new-category"
                     >
-                        Add categories first
-                    </AppLink>}
+                        <Label htmlFor="new-category-name">New category</Label>
+                        <div className="flex flex-wrap gap-2">
+                            <Input
+                                id="new-category-name"
+                                value={new_category or ""}
+                                maxLength={40}
+                                placeholder="e.g. Popcorn"
+                                aria-invalid={"true" if category_error else "false"}
+                                aria-describedby={error_id("new-category-name")
+                                    if category_error
+                                    else None}
+                                onChange={on_input(
+                                    lambda (text: str) { set_new_category(text); }
+                                )}
+                                onKeyDown={on_category_key}
+                                className="min-h-11 min-w-0 flex-1"
+                            />
+                            <Button
+                                type="button"
+                                className="min-h-11 px-4"
+                                disabled={busy}
+                                data-testid="add-category"
+                                onClick={add_category}
+                            >
+                                Add
+                            </Button>
+                            {len(kinds) > 0
+                                and <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="min-h-11 px-3"
+                                    onClick={lambda { set_new_category(None); }}
+                                >
+                                    Cancel
+                                </Button>}
+                        </div>
+                        {category_error
+                            and <FieldError
+                                field_id="new-category-name"
+                                error={category_error}
+                            />}
+                    </div>}
             </div>
             <TextField
                 field_id={problem_id("brand")}
@@ -653,63 +846,90 @@ def:pub SnackProductEditor(
         className="flex flex-col gap-3 rounded-lg border bg-card p-4"
     >
         <h3 id="images-title" className="text-lg font-semibold">Images</h3>
-        {is_new
-            and <p className="text-sm text-muted-foreground">
-                Save the draft first, then add images here.
-            </p>}
-        {not is_new
-            and <div className="flex flex-wrap items-center gap-3">
-                {[
-                    <div
-                        key={i["image_id"]}
-                        className="flex flex-col items-center gap-1"
+        <div className="flex flex-wrap items-center gap-3">
+            {[
+                <div key={i["image_id"]} className="flex flex-col items-center gap-1">
+                    <ProductThumb
+                        slug={slug}
+                        product_id={product_id}
+                        image_id={i["image_id"]}
+                        size="size-20"
+                    />
+                    {n == 0
+                        and <span className="text-xs text-muted-foreground">Main</span>}
+                    {editable
+                        and <Button
+                            type="button"
+                            variant="ghost"
+                            className="min-h-11 px-3"
+                            aria-label={f"Remove image {n + 1}"}
+                            disabled={busy}
+                            onClick={lambda { drop_image(i["image_id"]); }}
+                        >
+                            Remove
+                        </Button>}
+                </div> for (n, i) in enumerate(images)
+            ]}
+            {[
+                <div key={i["key"]} className="flex flex-col items-center gap-1">
+                    <img
+                        src={i["src"]}
+                        alt={f"Image {n + 1}"}
+                        className="size-20 rounded-md border object-cover"
+                    />
+                    {n == 0
+                        and <span className="text-xs text-muted-foreground">Main</span>}
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-11 px-3"
+                        aria-label={f"Remove image {n + 1}"}
+                        onClick={lambda { drop_pending(i["key"]); }}
                     >
-                        <ProductThumb
-                            slug={slug}
-                            product_id={product_id}
-                            image_id={i["image_id"]}
-                            size="size-20"
-                        />
-                        {n == 0
-                            and <span className="text-xs text-muted-foreground">
-                                Main
-                            </span>}
-                        {editable
-                            and <Button
-                                type="button"
-                                variant="ghost"
-                                className="min-h-11 px-3"
-                                aria-label={f"Remove image {n + 1}"}
-                                disabled={busy}
-                                onClick={lambda { drop_image(i["image_id"]); }}
-                            >
-                                Remove
-                            </Button>}
-                    </div> for (n, i) in enumerate(images)
-                ]}
-                {editable
-                    and len(images) < IMAGES_MAX
-                    and <label
-                        className="inline-flex min-h-11 cursor-pointer items-center rounded-md border px-4 text-sm font-medium hover:bg-muted focus-within:outline-2 focus-within:outline-ring"
-                    >
-                        Add image
-                        <input
-                            type="file"
-                            accept={IMAGE_TYPES}
-                            data-testid="product-image-file"
-                            className="sr-only"
-                            onChange={add_image}
-                        />
-                    </label>}
-                <p className="w-full text-sm text-muted-foreground">
-                    JPEG, PNG or WebP, at least 200 x 200 pixels, up to 5 MB. The first image is the main one.
-                </p>
-            </div>}
+                        Remove
+                    </Button>
+                </div> for (n, i) in enumerate(held_images)
+            ]}
+            {editable
+                and image_count < IMAGES_MAX
+                and <label
+                    className="inline-flex min-h-11 cursor-pointer items-center rounded-md border px-4 text-sm font-medium hover:bg-muted focus-within:outline-2 focus-within:outline-ring"
+                >
+                    Add image
+                    <input
+                        type="file"
+                        accept={IMAGE_TYPES}
+                        data-testid="product-image-file"
+                        className="sr-only"
+                        onChange={add_image}
+                    />
+                </label>}
+            <p className="w-full text-sm text-muted-foreground">
+                JPEG, PNG or WebP, at least 200 x 200 pixels, up to 5 MB. The first image is the main one.{is_new
+                    and " They're uploaded when you save."}
+            </p>
+        </div>
     </section>;
 
     # Each variant is a row on a wide screen and a card on a phone: the same fields,
     # labelled on the phone, under the column headings on a wide screen.
-    GRID = "grid gap-2 md:grid-cols-[minmax(7rem,1fr)_8rem_8rem_7rem_5.5rem_5.5rem_auto] md:items-start md:gap-3";
+    # SKU and barcode show when asked for, or when one of them has a problem.
+    show_codes = codes_open
+        or len(
+            [
+                k
+                for k in Object.keys(field_errors)  # jac:ignore[W2001]
+                if k.endswith("-sku") or k.endswith("-barcode")
+            ]
+        )
+            > 0;
+    # Columns share the card's width (it sits beside the side panel on a wide screen).
+    GRID = "grid gap-2 md:items-start md:gap-3 "
+        + (
+            "md:grid-cols-[minmax(4rem,1fr)_minmax(5rem,1.3fr)_minmax(5rem,1.3fr)_minmax(4.5rem,1fr)_4.5rem_4.5rem_5rem]"
+                if show_codes
+                else "md:grid-cols-[minmax(6rem,2fr)_minmax(6rem,1fr)_4.5rem_4.5rem_5rem]"
+        );
     CELL = "flex flex-col gap-1";
     LABEL = "text-xs font-medium text-muted-foreground md:sr-only";
 
@@ -762,8 +982,8 @@ def:pub SnackProductEditor(
                 className={GRID
                     + " rounded-md border p-3 md:rounded-none md:border-0 md:border-t md:px-0 md:py-2"}
             >
-                <div className="flex items-center justify-between gap-2 md:block">
-                    <span className="text-sm font-semibold md:font-medium">
+                <div className="flex items-center justify-between gap-2 md:min-h-11">
+                    <span className="text-sm font-semibold break-words md:font-medium">
                         {label}
                     </span>
                     {editable
@@ -786,9 +1006,10 @@ def:pub SnackProductEditor(
                         </Button>}
                 </div>
                 <div className="grid grid-cols-2 gap-2 md:contents">
-                    {field("sku", "SKU", "text")}{field(
-                        "barcode", "Barcode", "numeric"
-                    )}{field("price_cents", "Price (KES)", "decimal")}
+                    {show_codes and field("sku", "SKU", "text")}{show_codes
+                        and field("barcode", "Barcode", "numeric")}{field(
+                        "price_cents", "Price (KES)", "decimal"
+                    )}
                 </div>
                 <div className="flex flex-wrap gap-x-6 md:contents">
                     {tick("available", "Available")}{tick("track_stock", "Track stock")}
@@ -814,7 +1035,7 @@ def:pub SnackProductEditor(
                         </Button>}
                 </div>
                 {err(f"variants[{i}].option_values")
-                    and <div className="md:col-span-7">
+                    and <div className="md:col-span-full">
                         <FieldError
                             field_id={problem_id(f"variants[{i}].option_values")}
                             error={err(f"variants[{i}].option_values")}
@@ -919,8 +1140,8 @@ def:pub SnackProductEditor(
                     className={"hidden text-sm text-muted-foreground md:grid " + GRID}
                 >
                     <span className="py-2 font-medium">Variant</span>
-                    <span className="py-2 font-medium">SKU</span>
-                    <span className="py-2 font-medium">Barcode</span>
+                    {show_codes and <span className="py-2 font-medium">SKU</span>}
+                    {show_codes and <span className="py-2 font-medium">Barcode</span>}
                     <span className="py-2 font-medium">Price (KES)</span>
                     <span className="py-2 text-center font-medium">Available</span>
                     <span className="py-2 text-center font-medium">Track stock</span>
@@ -930,9 +1151,24 @@ def:pub SnackProductEditor(
                     {[RowCells(r, i) for (i, r) in enumerate(rows)]}
                 </ul>
             </div>}
-        <p className="text-sm text-muted-foreground">
-            A draft can leave SKUs and prices empty; publishing needs them. Tick Track stock to count a variant on the Stock page.
-        </p>
+        <div className="flex flex-col items-start gap-1 text-sm text-muted-foreground">
+            <p>
+                Leave a price empty while it's a draft; publishing needs one. Tick Track stock to count how many you have on the Stock page.
+            </p>
+            <p>
+                Each variant gets a stock code (SKU) when you save, used to match rows when you import a spreadsheet. A barcode is optional.
+            </p>
+            <Button
+                type="button"
+                variant="link"
+                className="min-h-11 px-0"
+                aria-expanded={"true" if show_codes else "false"}
+                data-testid="toggle-codes"
+                onClick={lambda { set_codes_open(not show_codes); }}
+            >
+                {"Hide SKU & barcode" if show_codes else "Show SKU & barcode"}
+            </Button>
+        </div>
     </section>;
 
     def send_unpublish -> any {  # jac:ignore[W1037]
@@ -948,25 +1184,7 @@ def:pub SnackProductEditor(
     }
 
     actions = <div className="flex flex-col gap-2">
-        {editable
-            and status == "draft"
-            and <Button
-                className="min-h-11"
-                disabled={busy}
-                data-testid="publish"
-                onClick={lambda { save(True); }}
-            >
-                Publish
-            </Button>}{editable
-            and <Button
-                variant={"outline" if status == "draft" else "default"}
-                className="min-h-11"
-                disabled={busy}
-                data-testid="save-product"
-                onClick={lambda { save(False); }}
-            >
-                {"Save draft" if status == "draft" else "Save changes"}
-            </Button>}{can_manage
+        {can_manage
             and status == "active"
             and <Button
                 variant="outline"
@@ -1020,7 +1238,7 @@ def:pub SnackProductEditor(
             />}
     </div>;
 
-    side = <aside className="flex flex-col gap-4">
+    side = <aside className="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
         <section
             aria-labelledby="publishing-title"
             className="flex flex-col gap-3 rounded-lg border bg-card p-4"
@@ -1087,6 +1305,13 @@ def:pub SnackProductEditor(
                         image_id={images[0]["image_id"]}
                         size="size-16"
                     />}
+                {len(images) == 0
+                    and len(held_images) > 0
+                    and <img
+                        src={held_images[0]["src"]}
+                        alt=""
+                        className="size-16 rounded-md border object-cover"
+                    />}
                 <div className="flex flex-col">
                     <span className="font-medium">
                         {values["name"] or "Product name"}
@@ -1102,6 +1327,81 @@ def:pub SnackProductEditor(
         </section>
     </aside>;
 
+    # Where the shown step is in STEPS.
+    here = [
+        n
+        for (n, key) in enumerate(STEPS)
+        if key == step
+    ][0];
+
+    def step_label(key: str) -> str {
+        if key == "details" {
+            return "Details";
+        }
+        if key == "images" {
+            return "Images";
+        }
+        if key == "pricing" {
+            return "Variants & pricing";
+        }
+        return "Contents, add-ons & venues"
+            if values["kind"] == "combo"
+            else "Add-ons & venues";
+    }
+
+    def go_on_from_pricing {
+        # Add-ons and venues need a saved product: save the draft first when needed.
+        if editable and (is_new or dirty) {
+            save(False, "more");
+        } else {
+            set_step("more");
+        }
+    }
+
+    more_section = <div className="flex flex-col gap-4">
+        {shown_product is not None
+            and not dirty
+            and shown_product["kind"] == "combo"
+            and <SnackComponents
+                slug={slug}
+                product={shown_product}
+                permissions={permissions}
+                on_change={set_product}
+            />}{shown_product is not None
+            and not dirty
+            and <SnackAddonPicker
+                slug={slug}
+                product={shown_product}
+                permissions={permissions}
+                on_change={set_product}
+            />}{shown_product is not None
+            and not dirty
+            and <SnackVenues
+                slug={slug}
+                product={shown_product}
+                permissions={permissions}
+                on_change={set_product}
+            />}{(shown_product is None or dirty)
+            and <section
+                className="flex flex-col items-start gap-3 rounded-lg border bg-card p-4"
+            >
+                <p className="text-sm text-muted-foreground">
+                    {"Save the draft to choose add-ons and where it's sold."
+                        if is_new
+                        else "Save your changes to set add-ons, and availability and prices at each venue."}
+                </p>
+                {editable
+                    and <Button
+                        type="button"
+                        className="min-h-11 px-4"
+                        disabled={busy}
+                        onClick={lambda { save(False); }}
+                    >
+                        {"Save draft" if status == "draft" else "Save changes"}
+                    </Button>}
+            </section>}
+    </div>;
+
     return
         <div className="flex flex-col gap-4" data-testid="snack-editor">
             <AppLink
@@ -1114,10 +1414,6 @@ def:pub SnackProductEditor(
                 <h2 className="text-xl font-semibold">
                     {"Add product" if is_new else values["name"] or "Product"}
                 </h2>
-                {dirty
-                    and <span className="text-sm text-muted-foreground">
-                        Unsaved changes
-                    </span>}
             </div>
             <p
                 role="status"
@@ -1127,57 +1423,108 @@ def:pub SnackProductEditor(
             >
                 {message}
             </p>
-            <div className="grid gap-4 pb-24 lg:grid-cols-[1fr_20rem] lg:pb-0">
+            <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
                 <div className="flex min-w-0 flex-col gap-4">
-                    {info}{gallery}{variants_section}{shown_product is not None
-                        and not dirty
-                        and shown_product["kind"] == "combo"
-                        and <SnackComponents
-                            slug={slug}
-                            product={shown_product}
-                            permissions={permissions}
-                            on_change={set_product}
-                        />}{shown_product is not None
-                        and not dirty
-                        and <SnackAddonPicker
-                            slug={slug}
-                            product={shown_product}
-                            permissions={permissions}
-                            on_change={set_product}
-                        />}{shown_product is not None
-                        and not dirty
-                        and <SnackVenues
-                            slug={slug}
-                            product={shown_product}
-                            permissions={permissions}
-                            on_change={set_product}
-                        />}{dirty
-                        and not is_new
-                        and <p className="text-sm text-muted-foreground">
-                            Save your changes to set availability and prices at each venue.
-                        </p>}
+                    <nav aria-label="Product steps">
+                        <ol
+                            className="flex gap-1 overflow-x-auto border-b [scrollbar-width:thin]"
+                        >
+                            {[
+                                <li key={key} className="shrink-0">
+                                    <button
+                                        type="button"
+                                        data-testid={f"step-{key}"}
+                                        aria-current={"step" if step == key else None}
+                                        onClick={lambda { set_step(key); }}
+                                        className={"-mb-px inline-flex min-h-11 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-sm sm:px-4 "
+                                            + (
+                                                "border-primary font-semibold"
+                                                    if step == key
+                                                    else "border-transparent text-muted-foreground hover:text-foreground"
+                                            )}
+                                    >
+                                        <span
+                                            aria-hidden="true"
+                                            className={"inline-flex size-6 items-center justify-center rounded-full text-xs "
+                                                + (
+                                                    "bg-primary text-primary-foreground"
+                                                        if step == key
+                                                        else "bg-muted"
+                                                )}
+                                        >
+                                            {n + 1}
+                                        </span>
+                                        {step_label(key)}
+                                    </button>
+                                </li> for (n, key) in enumerate(STEPS)
+                            ]}
+                        </ol>
+                    </nav>
+                    {step == "details" and info}
+                    {step == "images" and gallery}
+                    {step == "pricing" and variants_section}
+                    {step == "more" and more_section}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {step != "details"
+                            and <Button
+                                type="button"
+                                variant="outline"
+                                className="min-h-11 px-4"
+                                data-testid="step-back"
+                                onClick={lambda { set_step(STEPS[here - 1]); }}
+                            >
+                                ← Back
+                            </Button>}{step in ["details", "images"]
+                            and <Button
+                                type="button"
+                                variant="outline"
+                                className="min-h-11 px-4"
+                                data-testid="step-next"
+                                onClick={lambda { set_step(STEPS[here + 1]); }}
+                            >
+                                {f"Next: {step_label(STEPS[here + 1])} →"}
+                            </Button>}{step == "pricing"
+                            and <Button
+                                type="button"
+                                variant="outline"
+                                className="min-h-11 px-4"
+                                data-testid="step-next"
+                                disabled={busy}
+                                onClick={go_on_from_pricing}
+                            >
+                                {f"{'Save draft and continue'
+                                    if editable and (is_new or dirty)
+                                    else 'Next'}: {step_label('more')} →"}
+                            </Button>}
+                    </div>
                 </div>
                 {side}
             </div>
             {editable
                 and <div
-                    data-testid="mobile-save-bar"
-                    className="fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t bg-card/95 p-3 backdrop-blur lg:hidden"
+                    data-testid="save-bar"
+                    className="sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t bg-card/95 px-4 py-3 backdrop-blur lg:-mx-8 lg:px-8"
                 >
+                    {dirty
+                        and <span className="mr-auto text-sm text-muted-foreground">
+                            Unsaved changes
+                        </span>}
                     <Button
                         variant={"outline" if status == "draft" else "default"}
-                        className="min-h-11 flex-1"
+                        className="min-h-11 flex-1 px-5 sm:flex-none"
                         disabled={busy}
-                        data-testid="mobile-save"
+                        data-testid="save-product"
                         onClick={lambda { save(False); }}
                     >
-                        {"Save draft" if status == "draft" else "Save changes"}
+                        {busy and <Spinner aria-hidden="true"/>}{"Save draft"
+                            if status == "draft"
+                            else "Save changes"}
                     </Button>
                     {status == "draft"
                         and <Button
-                            className="min-h-11 flex-1"
+                            className="min-h-11 flex-1 px-5 sm:flex-none"
                             disabled={busy}
-                            data-testid="mobile-publish"
+                            data-testid="publish"
                             onClick={lambda { save(True); }}
                         >
                             Publish

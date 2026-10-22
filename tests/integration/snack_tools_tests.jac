@@ -124,7 +124,7 @@ test "the export reads back as the same catalog" {
     }
 }
 
-test "duplicate copies a product as a new draft, without SKUs or stock" {
+test "duplicate copies a product as a new draft, with new SKUs and no stock" {
     (app, nova, _) = paying_cinema([]);
     try {
         _call(app, "add_default_snack_categories", {});
@@ -139,7 +139,8 @@ test "duplicate copies a product as a new draft, without SKUs or stock" {
         assert [v["option_values"] for v in made["variants"]]
             == [["300 ml"], ["500 ml"]];
         assert [v["price_cents"] for v in made["variants"]] == [10000, 15000];
-        assert [v["sku"] for v in made["variants"]] == ["", ""];
+        assert [v["sku"] for v in made["variants"]]
+            == ["COPY-OF-COCA-COLA-300ML", "COPY-OF-COCA-COLA-500ML"];
         assert made["product_id"] != coke["product_id"];
     } finally {
         app.close();
@@ -156,6 +157,23 @@ test "bulk actions answer per product" {
         copy = _call(app, "duplicate_snack_product", {"product_id": coke["product_id"]})[
             "product"
         ];
+        # The copy, its prices taken off, can't be published.
+        unpriced = _call(
+            app,
+            "save_snack_product",
+            {
+                "product_id": copy["product_id"],
+                "name": copy["name"],
+                "brand": copy["brand"],
+                "description": copy["description"],
+                "tags": copy["tags"],
+                "category_id": copy["category_id"],
+                "kind": copy["kind"],
+                "option_names": copy["option_names"],
+                "variants": [{** v, "price_cents": None} for v in copy["variants"]]
+            }
+        );
+        assert unpriced["ok"] , unpriced;
         ids = [listed["Popcorn"]["product_id"], copy["product_id"]];
         got = _call(
             app, "bulk_snack_products", {"product_ids": ids, "action": "publish"}

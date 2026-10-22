@@ -6,8 +6,9 @@ docs/snacks-guide.md §1–§3, §7, §9.
   concessions.read anywhere in the cinema; everything else needs concessions.manage.
 - save_snack_product saves the product and all its variants in one call, as the editor
   sends them. Fields are checked by core/snacks/catalog.jac and every problem comes back
-  by field (invalid_product). A draft may leave SKUs and prices empty; an active product
-  must stay sellable (cannot_publish). Variants keep their ids: a row sent with its id
+  by field (invalid_product). A variant sent without a SKU gets one made from the
+  names, free in the cinema (improvements #9). A draft may leave prices empty; an active
+  product must stay sellable (cannot_publish). Variants keep their ids: a row sent with its id
   updates that variant, a row without one is new, and a variant not sent is removed.
 - SKUs are unique in the cinema: each is an atomic claim (ADR-0007) held by its
   variant's id, provisional until the save commits; a freed SKU is released on commit.
@@ -43,6 +44,7 @@ import from core.snacks.catalog {
     check_product,
     check_variants,
     publish_problems,
+    sku_for,
     variant_label
 }
 import from core.snacks.store {
@@ -110,6 +112,32 @@ def _owner_of(tenant: Tenant, variant_id: str) -> str {
         }
     }
     return "another product";
+}
+
+def _fill_skus(tenant: Tenant, name: str, rows: list[VariantFields], ids: list[str]) {
+    # Gives each row without a SKU one from the product's name and its options, not used
+    # by another variant in the cinema (a race with another save is refused by the claim).
+    if all(r.sku for r in rows) {
+        return;
+    }
+    taken = [
+        r.sku
+        for r in rows
+        if r.sku
+    ];
+    for p in products_of(tenant) {
+        for v in variants_of(tenant, p) {
+            if v.sku and node_id(v) not in ids {
+                taken.append(v.sku);
+            }
+        }
+    }
+    for r in rows {
+        if not r.sku {
+            r.sku = sku_for(name, r.option_values, taken);
+            taken.append(r.sku);
+        }
+    }
 }
 
 def _claim_skus(
@@ -219,6 +247,7 @@ def save_product(  # jac:ignore[W3030] the editor's whole form: product fields a
     ids = [
         r.variant_id if r.variant_id in by_id else fresh_node_id() for r in kept_rows
     ];
+    _fill_skus(scope.tenant, checked.name, kept_rows, ids);
     won = _claim_skus(scope.tenant, tenant_id, kept_rows, ids);
     stamp = now().isoformat();
     keep_keys = [
