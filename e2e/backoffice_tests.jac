@@ -100,6 +100,32 @@ def _sign_out(page: any, project: str) {  # jac:ignore[W1037]
     page.wait_for_url("**/login");
 }
 
+test "on a short phone screen the whole menu is reachable, with Sign out always in view" {
+    # An owner's menu is longer than a small phone's screen: the links scroll, and the
+    # account actions stay at the bottom of the drawer.
+    owner = owner_with_cinema();
+    (pw, browser) = shared_browser();
+    try {
+        page = _page(browser, pw, "mobile");
+        page.set_viewport_size({"width": 375, "height": 560});
+        _sign_in(page, owner["email"]);
+        _open_cinema(page, owner);
+        page.click(MENU);
+        page.wait_for_selector(DRAWER, state="visible");
+        sign_out = page.locator(f'{DRAWER} button:has-text("Sign out")');
+        box = sign_out.bounding_box();
+        assert box is not None and box["y"] + box["height"] <= 560 , f"Sign out at {box}";
+        settings = page.locator(f'{DRAWER} nav a:has-text("Settings")');
+        settings.scroll_into_view_if_needed();
+        shown = settings.bounding_box();
+        assert shown is not None and shown["y"] + shown["height"] <= 560 , f"Settings at {shown}";
+        settings.click();
+        page.wait_for_url(f"**/app/{owner['slug']}/settings");
+    } finally {
+        close_contexts(browser);
+    }
+}
+
 test "an owner signs up, creates a cinema and lands on its back-office" {
     (pw, browser) = shared_browser();
     try {

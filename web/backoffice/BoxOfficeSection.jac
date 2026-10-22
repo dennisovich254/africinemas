@@ -26,14 +26,18 @@ import from core.booking.counter_api {
 import from core.payments.settlement { my_payment }
 import from ..storefront.Checkout { Checkout }
 import from ..storefront.PayPanel { TicketCard }
-import from ..storefront.checkout_rules { money, email_problem, phone_problem }
+import from ..storefront.checkout_rules {
+    money,
+    email_problem,
+    phone_problem,
+    random_id
+}
 import from .CounterPicker { CounterPicker }
 
 glob POLL_MS: int = 3000;
 
 def _counter_holder -> str {
-    win: any = window;  # jac:ignore[W1037,W2001]
-    return f"counter-{win.crypto.randomUUID()}";
+    return random_id("counter");
 }
 
 async def _call(fn: any, args: list[any]) -> any {  # jac:ignore[W1037]
