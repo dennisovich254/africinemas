@@ -12,7 +12,7 @@ ticket. Amounts are entered in shillings and stored in cents. Ticket type codes 
 made from the names, and kept once saved. A refused list shows every problem at once.
 """
 
-import from react { useEffect }
+import from react { useState, useEffect }
 import from ...components.ui.alert { Alert, AlertTitle, AlertDescription }
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
@@ -169,16 +169,16 @@ def from_saved(saved: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
 }
 
 def:pub PricesSection(slug: str) -> JsxElement {
-    has draft: None = None,
-        version: int = 0,
-        failed: str = "",
-        busy: bool = False,
-        errors: dict = {},
-        problems: list = [],
-        message: str = "",
-        view: str = "types",
-        layout_zones: list = [],
-        dirty: bool = False;
+    [draft, set_draft] = useState(None);
+    [version, set_version] = useState(0);
+    [failed, set_failed] = useState("");
+    [busy, set_busy] = useState(False);
+    [errors, set_errors] = useState({});
+    [problems, set_problems] = useState([]);
+    [message, set_message] = useState("");
+    [view, set_view] = useState("types");
+    [layout_zones, set_layout_zones] = useState([]);
+    [dirty, set_dirty] = useState(False);
 
     async def load {
         answer: any = None;  # jac:ignore[W1037]
@@ -186,13 +186,22 @@ def:pub PricesSection(slug: str) -> JsxElement {
             answer = await get_price_list(slug);  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("get_price_list failed", e);
-            failed = "We couldn't load your prices. Refresh the page to try again.";
+            set_failed("We couldn't load your prices. Refresh the page to try again.");
             return;
         }
-        if not answer["ok"] {}
-        layout_zones = answer["layout_zones"];
+        if not answer["ok"] {
+            set_failed(answer["error"]["message"]);
+            return;
+        }
+        set_layout_zones(answer["layout_zones"]);
         saved: dict[str, any] | None = answer["price_list"];  # jac:ignore[W1037]
-        if saved is None {} else {}
+        if saved is None {
+            set_draft(start_list());
+            set_version(0);
+        } else {
+            set_draft(from_saved(saved));
+            set_version(saved["version"]);
+        }
     }
 
     # A named function, not a one-statement lambda (JI-028).
@@ -229,9 +238,9 @@ def:pub PricesSection(slug: str) -> JsxElement {
             changed[k] = state[k];
         }
         changed[key] = value;
-        draft = changed;
-        dirty = True;
-        message = "";
+        set_draft(changed);
+        set_dirty(True);
+        set_message("");
     }
 
     def fresh_uid -> int {
@@ -246,9 +255,9 @@ def:pub PricesSection(slug: str) -> JsxElement {
         }
         changed[key] = value;
         changed["next_uid"] = state["next_uid"] + 1;
-        draft = changed;
-        dirty = True;
-        message = "";
+        set_draft(changed);
+        set_dirty(True);
+        set_message("");
     }
 
     def rename_type(uid: int, name: str) {
@@ -425,7 +434,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
         if fee is None {
             found["service-fee"] = "Enter the fee in whole shillings, like 30.";
         }
-        errors = found;
+        set_errors(found);
         marked: list[str] = Object.keys(found);  # jac:ignore[W2001]
         if len(marked) > 0 {
             # Open the first tab, in tab order, with a marked field.
@@ -437,7 +446,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                     }
                 }
             }
-            view = first;
+            set_view(first);
             return None;
         }
         return {
@@ -450,11 +459,14 @@ def:pub PricesSection(slug: str) -> JsxElement {
 
     async def save {
         answer: any = None;  # jac:ignore[W1037]
-        problems = [];
-        message = "";
+        set_problems([]);
+        set_message("");
         payload: any = build();  # jac:ignore[W1037]
-        if payload is None {}
-        busy = True;
+        if payload is None {
+            set_message("Some amounts need fixing: see the marked fields.");
+            return;
+        }
+        set_busy(True);
         try {
             answer = await save_price_list(  # jac:ignore[W2037]
                 slug,
@@ -466,21 +478,27 @@ def:pub PricesSection(slug: str) -> JsxElement {
             );
         } except Exception as e {
             console.warn("save_price_list failed", e);
-            busy = False;
-            message = "We couldn't save. Check your connection and try again.";
+            set_busy(False);
+            set_message("We couldn't save. Check your connection and try again.");
             return;
         }
-        busy = False;
+        set_busy(False);
         if not answer["ok"] {
-            if answer["error"]["code"] == "invalid_price_list" {} else {}
+            if answer["error"]["code"] == "invalid_price_list" {
+                set_problems([p["message"] for p in answer["error"]["problems"]]);
+            } else {
+                set_message(answer["error"]["message"]);
+            }
             return;
         }
-        draft = from_saved(answer["price_list"]);
-        version = answer["price_list"]["version"];
-        dirty = False;
-        message = f"Saved. New bookings use these prices (version {answer['price_list'][
-            'version'
-        ]}).";
+        set_draft(from_saved(answer["price_list"]));
+        set_version(answer["price_list"]["version"]);
+        set_dirty(False);
+        set_message(
+            f"Saved. New bookings use these prices (version {answer['price_list'][
+                'version'
+            ]})."
+        );
     }
 
     def money_input(
@@ -526,7 +544,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                 type="button"
                 variant="ghost"
                 className="min-h-11 w-fit px-3"
-                onClick={lambda { view = key; }}
+                onClick={lambda { set_view(key); }}
             >
                 {f"Next: {label} →"}
             </Button>;
@@ -891,7 +909,7 @@ def:pub PricesSection(slug: str) -> JsxElement {
                         data-testid={f"prices-tab-{key}"}
                         aria-selected={"true" if view == key else "false"}
                         aria-controls={f"prices-panel-{key}"}
-                        onClick={lambda { view = key; }}
+                        onClick={lambda { set_view(key); }}
                         className={"-mb-px inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-sm sm:px-4 "
                             + (
                                 "border-primary font-semibold"
