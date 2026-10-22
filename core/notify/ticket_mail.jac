@@ -4,8 +4,9 @@ From the cinema's name on our address, Reply-To the cinema's contact email when 
 one. It says what was booked (the movie, the showtime in the cinema's local time, the
 venue and screen, the order reference), shows one QR code per seat as an image inside
 the email (cid:, so it shows without loading anything), with the ticket reference under
-it for typing in at the door, and links to the tickets page. Plain text and HTML say the
-same. Everything the cinema typed is escaped.
+it for typing in at the door, and links to the tickets page. An order with snacks lists
+them with their pickup code (P12.9): its QR for the snack counter, and its reference.
+Plain text and HTML say the same. Everything the cinema typed is escaped.
 """
 
 import io;
@@ -38,7 +39,11 @@ obj TicketMail {
         place: str,
         order_reference: str,
         link: str,
-        tickets: list[MailTicket] = [];
+        tickets: list[MailTicket] = [],
+        # "2 × Popcorn · Large (Butter)" lines, and their pickup code (P12.9).
+        snacks: list[str] = [],
+        pickup_reference: str = "",
+        pickup_qr: str = "";
 }
 
 def _when(starts_at: str, timezone: str) -> str {
@@ -87,6 +92,37 @@ def ticket_mail(data: TicketMail, from_addr: str) -> OutgoingMail {
                 + "</td></tr>"
         );
     }
+    text_snacks: list[str] = [];
+    html_snacks = "";
+    if data.snacks {
+        text_snacks = ["", "Your snacks:"] + [f"- {s}" for s in data.snacks];
+        html_snacks = (
+            '<h2 style="font-size:16px;margin:24px 0 8px">Your snacks</h2><ul style="margin:0;padding-left:20px">'
+            + "".join([f"<li>{e(s)}</li>" for s in data.snacks])
+            + "</ul>"
+        );
+        if data.pickup_qr {
+            cid = f"pickup.{data.order_reference.lower()}@africinemas";
+            images.append(
+                MailImage(
+                    filename="snack-pickup.png",
+                    content=_qr_png(data.pickup_qr),
+                    content_id=cid
+                )
+            );
+            text_snacks = text_snacks
+                + [
+                    f"Pickup code: {data.pickup_reference}. Show it at the snack counter, from two hours before the showtime."
+                ];
+            html_snacks = html_snacks
+                + '<p style="margin:12px 0 8px">Show this code at the snack counter, from two hours before the showtime.</p>'
+                + f'<img src="cid:{cid}" width="{QR_SIZE_PX}" height="{QR_SIZE_PX}" '
+                + 'alt="Snack pickup code" style="display:block;margin:0 auto">'
+                + f'<p style="margin:8px 0 0;text-align:center;font-family:monospace;font-size:16px;letter-spacing:1px">{e(
+                    data.pickup_reference
+                )}</p>';
+        }
+    }
     text = "\n".join(
         [
             f"Your tickets for {data.movie_title}",
@@ -99,6 +135,7 @@ def ticket_mail(data: TicketMail, from_addr: str) -> OutgoingMail {
             ""
         ]
             + text_seats
+            + text_snacks
             + [
                 "",
                 f"Your tickets, any time: {data.link}",
@@ -119,6 +156,7 @@ def ticket_mail(data: TicketMail, from_addr: str) -> OutgoingMail {
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">'
         + "".join(html_seats)
         + "</table>"
+        + html_snacks
         + f'<p style="margin:16px 0"><a href="{e(
             data.link
         )}">Open your tickets</a> any time: {e(data.link)}</p>'

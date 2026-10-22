@@ -99,6 +99,29 @@ test "the ticket email: from the cinema on our address, one inline QR image per 
     assert "Tickets by AfriCinemas" in mail.text;
 }
 
+test "the ticket email lists the snacks with their pickup code" {
+    plain = ticket_mail(_mail(), "tickets@africinemas.example");
+    assert "Your snacks" not in plain.text and "Pickup code" not in plain.text;
+    data = _mail();
+    data.snacks = ["1 × Popcorn · Large (Butter)", "2 × Coca-Cola"];
+    data.pickup_reference = "9QXR-7K2M-P3WD-4HJN";
+    data.pickup_qr = "SNK1.9QXR7K2MP3WD4HJN.SIGNATURE";
+    mail = ticket_mail(data, "tickets@africinemas.example");
+    for line in data.snacks + ["9QXR-7K2M-P3WD-4HJN"] {
+        assert line in mail.text , line;
+    }
+    assert "Popcorn · Large (Butter)" in mail.html
+        and "9QXR-7K2M-P3WD-4HJN" in mail.html;
+    # One QR image per seat, and the pickup code's.
+    assert len(mail.images) == 3;
+    pickup = [
+        i
+        for i in mail.images
+        if i.filename == "snack-pickup.png"
+    ][0];
+    assert f'src="cid:{pickup.content_id}"' in mail.html;
+}
+
 test "the ticket email escapes what the cinema typed" {
     data = _mail();
     data.movie_title = "<script>x</script>";
