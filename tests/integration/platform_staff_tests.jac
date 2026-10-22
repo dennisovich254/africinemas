@@ -112,16 +112,28 @@ test "only a super admin from the server's settings manages super admins" {
                 "rev", "set_platform_role", {"email": "helper", "role": "super_admin"}
             )
         )
-            == "only_settings_admins";
+            == "not_allowed";
         app.call(
             "boss", "set_platform_role", {"email": "helper", "role": "super_admin"}
         );
         assert code_of(
             app.call("rev", "set_platform_role", {"email": "helper", "role": "support"})
         )
-            == "only_settings_admins";
+            == "not_allowed";
         assert code_of(app.call("rev", "remove_platform_staff", {"email": "helper"}))
-            == "only_settings_admins";
+            == "not_allowed";
+        # The refusal never says why, and the list doesn't say which super admins are
+        # the settings' to anyone but them.
+        refused = app.call(
+            "rev", "set_platform_role", {"email": "boss", "role": "support"}
+        );
+        assert refused["error"]
+            == {
+                "code": "not_allowed",
+                "message": "Your platform role can't do this."
+            } , refused;
+        assert not any(r["fixed"] for r in app.call("rev", "platform_staff")["staff"]);
+        assert any(r["fixed"] for r in app.call("boss", "platform_staff")["staff"]);
         # The settings' super admin can.
         assert app.call("boss", "remove_platform_staff", {"email": "helper"})["ok"];
     } finally {
@@ -135,9 +147,9 @@ test "the allowlist can't be changed in the app, and a customer can't be added" 
         assert code_of(
             app.call("boss", "set_platform_role", {"email": "boss", "role": "support"})
         )
-            == "fixed_admin";
+            == "not_allowed";
         assert code_of(app.call("boss", "remove_platform_staff", {"email": "boss"}))
-            == "fixed_admin";
+            == "not_allowed";
         assert code_of(
             app.call(
                 "boss",
