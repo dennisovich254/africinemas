@@ -175,6 +175,13 @@ import from core.snacks.product_api {
     upload_snack_image,  # jac:ignore[W2037]
     remove_snack_image  # jac:ignore[W2037]
 }
+# The AfriCinemas platform console: platform staff and their roles (P13.1).
+import from core.platform.staff_api {
+    platform_whoami,  # jac:ignore[W2037]
+    platform_staff,  # jac:ignore[W2037]
+    set_platform_role,  # jac:ignore[W2037]
+    remove_platform_staff  # jac:ignore[W2037]
+}
 # The storefront's snack menu and a cart's price, from the server only (P12.6).
 import from core.snacks.menu_api { public_snacks, price_snacks, public_snack_image }
 # Collecting snacks at the snack counter, by the order's pickup code (P12.9).

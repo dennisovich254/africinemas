@@ -4,6 +4,7 @@
 2. Every "tenant" endpoint, called by tenant A's owner with tenant B's selector, is
    refused with the same answer as an unknown cinema, and leaks nothing of B.
 3. "caller" endpoints never show A anything of B.
+4. "platform" endpoints refuse A's owner, who isn't platform staff, as "not_platform".
 """
 
 import json;
@@ -129,6 +130,9 @@ test "every tenant endpoint refuses another tenant's selector and leaks nothing"
                 for secret in [b.root_id, _norm(b.root_id), made_b["tenant_id"]] {
                     assert secret not in resp.text , f"{name} leaked B's internals";
                 }
+            } elif spec["scope"] == "platform" {
+                answer = _call(client, a.token, name, spec.get("probe", {}));
+                assert not answer["ok"] and answer["error"]["code"] == "not_platform" , f"{name}: a cinema owner reached the platform: {answer}";
             } elif spec["scope"] == "caller" and name != "create_cinema" {
                 answer = json.dumps(
                     _call(client, a.token, name, spec.get("probe", {}))
