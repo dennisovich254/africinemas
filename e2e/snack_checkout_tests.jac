@@ -1,5 +1,6 @@
 """P12.8 E2E: "Add snacks" on the storefront, between the tickets and paying.
 
+The snacks show as posters by category; a poster opens its choices in place.
 A cinema selling tickets (Adult KES 800 + KES 30 fee) sells Popcorn (Small KES 200,
 Large KES 400, with Butter for KES 30) and Coca-Cola, which tracks stock and has none,
 so it isn't offered. A visitor holds A1, continues to the snack step, opens Popcorn,
@@ -140,7 +141,10 @@ test "a visitor adds popcorn with butter, pays for it all, and sees it booked" {
             chips = page.locator('[data-testid="snack-category"]').all_inner_texts();
             assert chips == ["Popcorn"] , chips;
             _press(page, project, '[data-testid="snack-product"]:has-text("Popcorn")');
-            page.wait_for_selector('[data-testid="snack-sheet"]');
+            page.wait_for_selector('[data-testid="snack-options"]');
+            # The choices show in place of the posters, with a way back.
+            assert page.locator('[data-testid="snack-product"]').count() == 0;
+            assert page.locator('[data-testid="snack-options"]').is_visible();
             _press(page, project, '[data-testid="snack-variant"]:has-text("Large")');
             page.locator('[data-testid="snack-addon"]').first.check();
             assert "KES 430" in page.inner_text('[data-testid="snack-add"]');
@@ -201,8 +205,8 @@ test "review screenshots of the snack step" {
                     path=artifact(f"snack-step-{project}-{scheme}.png"), full_page=True
                 );
                 _press(page, project, '[data-testid="snack-product"]');
-                page.wait_for_selector('[data-testid="snack-sheet"]');
-                page.screenshot(path=artifact(f"snack-sheet-{project}-{scheme}.png"));
+                page.wait_for_selector('[data-testid="snack-options"]');
+                page.screenshot(path=artifact(f"snack-options-{project}-{scheme}.png"));
                 page.context.close();
             }
         }

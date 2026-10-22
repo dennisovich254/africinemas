@@ -138,6 +138,26 @@ test "an unpaid order past its time expires, and its seats can be held by others
     }
 }
 
+test "with no payment provider set, an overdue order still expires" {
+    # A server whose AFRICINEMAS_PAYMENTS is missing takes no payments, but its unpaid
+    # orders must still end: otherwise their seats stay "payment pending" for good.
+    _env({PAY_TIME: "1"});
+    (app, screening) = paying_setup();
+    try {
+        time.sleep(1.5);
+        os.environ.pop("AFRICINEMAS_PAYMENTS", None);
+        assert _resolve(app)["expired"] == 1;
+        after = _overview(app, screening);
+        assert after["orders"] == ["expired"] , after;
+        assert after["seats"]["A1"] == "available"
+            and after["seats"]["A2"] == "available";
+    } finally {
+        os.environ["AFRICINEMAS_PAYMENTS"] = "simulator";
+        _clear();
+        app.close();
+    }
+}
+
 test "an order past its time whose payment went through is confirmed, not expired" {
     _env({PAY_TIME: "2", STUCK: "3600"});
     (app, screening) = paying_setup();

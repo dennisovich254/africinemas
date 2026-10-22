@@ -156,6 +156,7 @@ def:pub planned_showtimes(
     times: list[str]
 ) -> list[dict[str, str]] {
     # Every (day, screen, time) the scheduling form asks for, in day and time order.
+    # The weekdays narrow a range of days; one day is that day, whatever they say.
     out: list[dict[str, str]] = [];
     if not from_day or not to_day or to_day < from_day {
         return out;
@@ -163,7 +164,7 @@ def:pub planned_showtimes(
     day = from_day;
     guard = 0;
     while day <= to_day and guard < 400 {
-        if weekday_of(day) in weekdays {
+        if from_day == to_day or weekday_of(day) in weekdays {
             for clock in sorted(times) {
                 for screen in screens {
                     starts = local_iso(day, clock);
@@ -1288,28 +1289,32 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                 </div>
                 {date_error
                     and <FieldError field_id="screening-date" error={date_error}/>}
-                <fieldset className="flex flex-col gap-2">
-                    <legend className="mb-1.5 text-sm font-medium">
-                        On these days
-                    </legend>
-                    <div className="flex flex-wrap gap-2">
-                        {[
-                            <label
-                                key={n}
-                                className="flex min-h-11 min-w-14 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/10"
-                            >
-                                <input
-                                    type="checkbox"
-                                    data-weekday={n}
-                                    checked={n in wanted["weekdays"]}
-                                    onChange={lambda { toggle("weekdays", n); }}
-                                    className="size-4"
-                                />
-                                {name}
-                            </label> for (n, name) in WEEKDAYS
-                        ]}
-                    </div>
-                </fieldset>
+                {wanted["from"] != wanted["to"]
+                    and <fieldset
+                        className="flex flex-col gap-2"
+                        data-testid="weekdays"
+                    >
+                        <legend className="mb-1.5 text-sm font-medium">
+                            On these days between them
+                        </legend>
+                        <div className="flex flex-wrap gap-2">
+                            {[
+                                <label
+                                    key={n}
+                                    className="flex min-h-11 min-w-14 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        data-weekday={n}
+                                        checked={n in wanted["weekdays"]}
+                                        onChange={lambda { toggle("weekdays", n); }}
+                                        className="size-4"
+                                    />
+                                    {name}
+                                </label> for (n, name) in WEEKDAYS
+                            ]}
+                        </div>
+                    </fieldset>}
                 <label
                     className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
                 >

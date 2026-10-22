@@ -1,23 +1,18 @@
 """The "Add snacks" step of checkout (P12.8; design guide §5): between the tickets and
 paying, when the showtime's venue sells snacks.
 
-The menu (public_snacks, read by Checkout) shows by category, one category at a time
-from chips along the top. A product opens a sheet to choose its size, extras (within the
-group's limits) and, for a combo, what goes in it, with a quantity; the price on its
-Add button is for guidance only. The cart below lists what was added with the server's
+The menu (public_snacks, read by Checkout) shows every category as a heading over a row
+of snack posters (picture, name, price, "Few left"), swiping sideways like the
+storefront's movie posters, so the snacks sell themselves. A poster opens the snack's
+choices in place, not in a floating sheet that a cinema's design could push off screen:
+its size, extras (within the group's limits) and, for a combo, what goes in it, with a
+quantity; the price on its Add button is for guidance only. "← All snacks" goes back. The cart below lists what was added with the server's
 prices (price_snacks, also called by Checkout) and a Remove for each. Checkout draws the
 bar with the total, Skip and Continue.
 """
 
 import from react { useState, useEffect }
 import from ...components.ui.button { Button }
-import from ...components.ui.sheet {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription
-}
 import from core.snacks.menu_api { public_snack_image }
 import from .checkout_rules { money }
 
@@ -44,7 +39,8 @@ def:pub has_snacks(menu: any) -> bool {  # jac:ignore[W1037]
 }
 
 def SnackImage(slug: str, product: dict[str, any], size: str) -> JsxElement {  # jac:ignore[W1037]
-    # A product's main image, or its initial on a tinted square.
+    # A product's main image filling `size` (a frame's classes), or its name on a tinted
+    # card, so a snack without a photo still reads as a poster.
     [src, set_src] = useState("");
 
     async def load {
@@ -72,16 +68,16 @@ def SnackImage(slug: str, product: dict[str, any], size: str) -> JsxElement {  #
             <img
                 src={src}
                 alt=""
+                loading="lazy"
                 className={f"{size} shrink-0 rounded-md object-cover"}
             />;
     }
-    name: str = product["name"];
     return
         <span
             aria-hidden="true"
-            className={f"{size} flex shrink-0 items-center justify-center rounded-md bg-muted text-lg font-semibold text-muted-foreground"}
+            className={f"{size} flex shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-primary/30 via-muted to-muted p-2 text-center font-display text-lg leading-tight text-foreground"}
         >
-            {name[:1]}
+            {product["name"]}
         </span>;
 }
 
@@ -93,22 +89,12 @@ def:pub SnackStep(
     priced: any,  # jac:ignore[W1037] price_snacks' answer, or None while it's on its way
     busy: bool
 ) -> JsxElement {
-    [shown, set_shown] = useState(menu[0]["category_id"] if len(menu) > 0 else "");
     [open, set_open] = useState(None);
     [variant, set_variant] = useState("");
     [addons, set_addons] = useState([]);
     [choices, set_choices] = useState([]);
     [quantity, set_quantity] = useState(1);
     [next_key, set_next_key] = useState(1);
-    category: dict[str, any] = (  # jac:ignore[W1037]
-        [
-            c
-            for c in menu
-            if c["category_id"] == shown
-        ]
-        + [menu[0]]
-    )[0];
-    products: list[dict[str, any]] = category["products"];  # jac:ignore[W1037]
     lines: list[dict[str, any]] = cart;  # jac:ignore[W1037]
     picked: list[str] = addons;
     chosen: list[list[str]] = choices;
@@ -126,11 +112,11 @@ def:pub SnackStep(
             ]
         );
         set_quantity(1);
-    }
-
-    def close(is_open: bool) {
-        if not is_open {
-            set_open(None);
+        # The choices replace the posters: bring the step's top into view.
+        win: any = window;  # jac:ignore[W1037,W2001]
+        heading: any = win.document.getElementById("snacks-heading");  # jac:ignore[W1037,W6001] client-only
+        if heading {
+            heading.scrollIntoView({"block": "start", "behavior": "smooth"});
         }
     }
 
@@ -240,7 +226,7 @@ def:pub SnackStep(
         }
         unit = current["price_cents"] + extras_cents;
         return
-            <div className="flex flex-col gap-5" data-testid="snack-sheet">
+            <div className="flex flex-col gap-5" data-testid="snack-options">
                 {len(variants) > 1
                     and <fieldset className="flex flex-col gap-2">
                         <legend className="mb-1 text-sm font-semibold">
@@ -410,51 +396,95 @@ def:pub SnackStep(
                     Collect them at the snack counter. Or skip this.
                 </p>
             </div>
-            <nav
-                aria-label="Snack categories"
-                className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]"
-            >
-                {[
+            {shown_product is not None
+                and <div className="flex flex-col gap-4" data-testid="snack-chooser">
                     <Button
-                        key={c["category_id"]}
                         type="button"
-                        variant={"default"
-                            if c["category_id"] == category["category_id"]
-                            else "outline"}
-                        aria-pressed={"true"
-                            if c["category_id"] == category["category_id"]
-                            else "false"}
-                        data-testid="snack-category"
-                        className="min-h-11 shrink-0 px-4"
-                        onClick={lambda { set_shown(c["category_id"]); }}
+                        variant="ghost"
+                        data-testid="snack-back"
+                        className="min-h-11 w-fit px-3"
+                        onClick={lambda { set_open(None); }}
                     >
-                        {c["name"]}
-                    </Button> for c in menu
-                ]}
-            </nav>
-            <ul className="grid gap-3 sm:grid-cols-2">
-                {[
-                    <li key={p["product_id"]}>
-                        <button
-                            type="button"
-                            data-testid="snack-product"
-                            onClick={lambda { start_product(p); }}
-                            className="flex min-h-20 w-full items-center gap-3 rounded-lg border bg-background p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                        >
-                            <SnackImage slug={slug} product={p} size="size-14"/>
-                            <span className="flex min-w-0 flex-col">
-                                <span className="font-medium">{p["name"]}</span>
-                                <span
-                                    className="text-sm text-muted-foreground tabular-nums"
-                                >
-                                    {("From " if len(p["variants"]) > 1 else "")
-                                        + money(p["from_cents"], CURRENCY)}
-                                </span>
-                            </span>
-                        </button>
-                    </li> for p in products
-                ]}
-            </ul>
+                        ← All snacks
+                    </Button>
+                    <div className="flex items-start gap-4">
+                        <SnackImage
+                            slug={slug}
+                            product={shown_product}
+                            size="aspect-[4/5] w-28 sm:w-36"
+                        />
+                        <div className="flex min-w-0 flex-col gap-1">
+                            <h4 className="font-display text-2xl leading-tight">
+                                {shown_product["name"]}
+                            </h4>
+                            {shown_product["description"]
+                                and <p className="text-sm text-muted-foreground">
+                                    {shown_product["description"]}
+                                </p>}
+                        </div>
+                    </div>
+                    {Sheet_body(shown_product)}
+                </div>}
+            {shown_product is None
+                and <div className="flex flex-col gap-6">
+                    {[
+                        <div key={c["category_id"]} className="flex flex-col gap-3">
+                            <h4
+                                className="text-base font-semibold"
+                                data-testid="snack-category"
+                            >
+                                {c["name"]}
+                            </h4>
+                            <ul
+                                className="-mx-1 flex snap-x gap-4 overflow-x-auto px-1 pb-2"
+                            >
+                                {[
+                                    <li
+                                        key={p["product_id"]}
+                                        className="w-36 shrink-0 snap-start sm:w-40"
+                                    >
+                                        <button
+                                            type="button"
+                                            data-testid="snack-product"
+                                            onClick={lambda { start_product(p); }}
+                                            className="group flex w-full flex-col gap-2 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                        >
+                                            <span className="relative block">
+                                                <SnackImage
+                                                    slug={slug}
+                                                    product={p}
+                                                    size="aspect-[4/5] w-full transition group-hover:opacity-90"
+                                                />
+                                                {any(
+                                                    v["left"] is not None
+                                                    for v in p["variants"]
+                                                )
+                                                    and <span
+                                                        className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-semibold"
+                                                    >
+                                                        Few left
+                                                    </span>}
+                                            </span>
+                                            <span className="font-medium leading-tight">
+                                                {p["name"]}
+                                            </span>
+                                            <span
+                                                className="text-sm text-muted-foreground tabular-nums"
+                                            >
+                                                {(
+                                                    "From "
+                                                        if len(p["variants"]) > 1
+                                                        else ""
+                                                )
+                                                    + money(p["from_cents"], CURRENCY)}
+                                            </span>
+                                        </button>
+                                    </li> for p in c["products"]
+                                ]}
+                            </ul>
+                        </div> for c in menu
+                    ]}
+                </div>}
             {len(lines) > 0
                 and <div className="flex flex-col gap-2 border-t pt-3">
                     <h4 className="text-sm font-semibold">Your snacks</h4>
@@ -504,30 +534,5 @@ def:pub SnackStep(
                         ]}
                     </ul>
                 </div>}
-            <Sheet open={shown_product is not None} onOpenChange={close}>
-                <SheetContent
-                    side="bottom"
-                    className="max-h-[85svh] gap-4 overflow-y-auto bg-card p-4 sm:mx-auto sm:max-w-lg sm:rounded-t-lg"
-                >
-                    {shown_product is not None
-                        and <SheetHeader
-                            className="flex-row items-center gap-3 p-0 pr-10"
-                        >
-                            <SnackImage
-                                slug={slug}
-                                product={shown_product}
-                                size="size-16"
-                            />
-                            <div className="flex min-w-0 flex-col gap-1">
-                                <SheetTitle>{shown_product["name"]}</SheetTitle>
-                                <SheetDescription>
-                                    {shown_product["description"]
-                                        or "Choose and add it to your order."}
-                                </SheetDescription>
-                            </div>
-                        </SheetHeader>}{shown_product is not None
-                        and Sheet_body(shown_product)}
-                </SheetContent>
-            </Sheet>
         </section>;
 }

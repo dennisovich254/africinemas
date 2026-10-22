@@ -202,8 +202,11 @@ test "scheduling many showtimes at once puts them on sale, and flags clashes bef
         _open(page, owner["slug"], "screenings", PROGRAMME);
         page.click('button:has-text("Schedule a movie")');
         page.select_option("#screening-movie", label="Rafiki (83 min)");
+        # One day: no weekdays to choose; a range of days: the weekdays appear.
+        assert page.locator('[data-testid="weekdays"]').count() == 0;
         _type(page, "#screening-date", _day(2));
         _type(page, "#screening-until", _day(3));
+        page.wait_for_selector('[data-testid="weekdays"]');
         for clock in ["13:00", "18:30"] {
             _type(page, "#screening-time", clock);
             page.click('[data-testid="add-time"]');

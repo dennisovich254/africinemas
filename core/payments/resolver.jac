@@ -194,14 +194,19 @@ def _order(cinema: Tenant, order_id: str) -> Order | None {
 }
 
 def resolve -> dict[str, int] {
-    # One pass: open payments, then open orders past their time to pay.
+    # One pass: open payments, then open orders past their time to pay. Without a
+    # payment provider no payment can have started, but overdue orders still expire:
+    # otherwise their seats stay "payment pending" for good.
+    provider: PaymentProvider | None = None;
     try {
         provider = payment_provider();
     } except ProviderNotConfigured {
-        return {"payments": 0, "expired": 0};
+        provider = None;
     }
     settled = 0;
-    for (ref, tenant_id, age) in claims_in(OPEN_PAYMENTS) {
+    for (ref, tenant_id, age) in (
+        claims_in(OPEN_PAYMENTS) if provider is not None else []
+    ) {
         cinema = tenant_by_id(tenant_id);
         intent = stored_intent(cinema, ref) if cinema is not None else None;
         if cinema is None or intent is None {
@@ -210,7 +215,9 @@ def resolve -> dict[str, int] {
             }
             continue;
         }
-        state = resolve_payment(cinema as Tenant, intent as PaymentIntent, provider);
+        state = resolve_payment(
+            cinema as Tenant, intent as PaymentIntent, provider as PaymentProvider
+        );
         if is_final(PaymentState(state)) {
             release(OPEN_PAYMENTS, ref, tenant_id);
             settled += 1;
@@ -234,9 +241,11 @@ def resolve -> dict[str, int] {
             continue;
         }
         # Last chance: a payment that went through wins over expiry.
-        for p in _intents_of(cinema as Tenant, order as Order) {
-            if not is_final(PaymentState(p.state)) and p.checkout_request_id {
-                settle(cinema as Tenant, p, provider);
+        if provider is not None {
+            for p in _intents_of(cinema as Tenant, order as Order) {
+                if not is_final(PaymentState(p.state)) and p.checkout_request_id {
+                    settle(cinema as Tenant, p, provider as PaymentProvider);
+                }
             }
         }
         # Read it again: settling may have confirmed it.
