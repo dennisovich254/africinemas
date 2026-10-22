@@ -425,6 +425,13 @@ def _my_payment(slug: str, screening_id: str, holder: str) -> dict[str, any] {  
     view = payment_view(intent);
     paid = intent.state == "success";
     view["tickets"] = _tickets(cinema, order) if paid else [];
+    # The snacks bought with them (P12.8), collected at the snack counter.
+    view["snacks"] = [
+        {"name": l["name"], "quantity": l["quantity"], "addons": l["addons"]}
+        for l in order.snack_lines
+    ]
+        if paid
+        else [];
     # Where the tickets live, and where they were emailed (P6.3).
     view["link"] = link_path(cinema, order) if paid else "";
     view["email"] = masked_email(order.email) if paid and order.email else "";

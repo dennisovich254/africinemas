@@ -68,6 +68,7 @@ def:pub TicketCard(ticket: dict[str, str]) -> JsxElement {
 def:pub Tickets(payment: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     # A paid order's tickets: one card per seat, with its QR code and reference.
     tickets: list[dict[str, str]] = payment["tickets"];
+    snacks: list[dict[str, any]] = payment["snacks"] or [];  # jac:ignore[W1037]
     link: str = payment["link"] or "";
     return
         <section
@@ -88,6 +89,30 @@ def:pub Tickets(payment: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
             <ul className="grid gap-3 sm:grid-cols-2">
                 {[<TicketCard key={t["reference"]} ticket={t}/> for t in tickets]}
             </ul>
+            {len(snacks) > 0
+                and <div
+                    className="flex flex-col gap-2 rounded-md border p-3"
+                    data-testid="booked-snacks"
+                >
+                    <h4 className="text-sm font-semibold">Your snacks</h4>
+                    <ul className="flex flex-col gap-1 text-sm">
+                        {[
+                            <li key={f"snack-{n}"}>
+                                {f"{s['quantity']} × {s['name']}"
+                                    + (
+                                        f" ({', '.join(
+                                            [a['name'] for a in s['addons']]
+                                        )})"
+                                            if len(s["addons"]) > 0
+                                            else ""
+                                    )}
+                            </li> for (n, s) in enumerate(snacks)
+                        ]}
+                    </ul>
+                    <p className="text-xs text-muted-foreground">
+                        Collect them at the snack counter with your ticket.
+                    </p>
+                </div>}
             {len(link) > 0
                 and <TicketDelivery
                     link={link}

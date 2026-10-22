@@ -8,8 +8,13 @@
    cinema's limit; WCAG 2.2.1); if it does run out, the seats go back and so does the
    visitor, with a message. Each seat gets a ticket type; the server prices them
    (quote_hold) and the bar shows the total. "Change seats" gives the hold back.
-3. Pay: places the order (place_order) with an idempotency key made for this order and
-   reused if the request is sent again, then pays it with M-Pesa (PayPanel, P5.6): a PIN
+3. Snacks (P12.8): when the venue sells snacks (public_snacks), the tickets' button
+   leads to the "Add snacks" step (SnackStep): the menu, a sheet per product, and the
+   cart priced by the server (price_snacks), with Skip as plain as Continue. Without
+   snacks it goes straight to paying.
+4. Pay: places the order (place_order) with an idempotency key made for this order and
+   reused if the request is sent again, with the snack cart, then pays it with M-Pesa
+   (PayPanel, P5.6): a PIN
    prompt on the phone, the status live, and the tickets once paid (Tickets).
 
 In the chat (P8.5) the booking card passes `suggested` seats: they start chosen, not
@@ -30,7 +35,9 @@ import from core.booking.order_api {
     quote_hold,
     public_ticket_types
 }
+import from core.snacks.menu_api { public_snacks, price_snacks }
 import from .SeatMap { SeatMap }
+import from .SnackStep { SnackStep, cart_lines, has_snacks }
 import from .PayPanel { PayPanel, Tickets }
 import from core.payments.settlement { my_payment }
 import from core.payments.resolver { end_my_order }
@@ -138,6 +145,17 @@ def Ordered(order: dict[str, any], tz: str, at_counter: bool = False) -> JsxElem
                             {money(line["total_cents"], order["currency"])}
                         </span>
                     </li> for line in order["lines"]
+                ]}{[
+                    <li
+                        key={f"snack-{n}"}
+                        data-testid="order-snack"
+                        className="flex items-center justify-between gap-3 py-2"
+                    >
+                        <span>{f"{line['quantity']} × {line['name']}"}</span>
+                        <span className="tabular-nums">
+                            {money(line["line_cents"], order["currency"])}
+                        </span>
+                    </li> for (n, line) in enumerate(order["snacks"] or [])
                 ]}
             </ul>
             <p className="flex items-center justify-between text-lg font-semibold">
@@ -185,7 +203,14 @@ def:pub Checkout(
     [news, set_news] = useState("");
     [now_ms, set_now_ms] = useState(Date.now());  # jac:ignore[W2001]
     [warned, set_warned] = useState(False);
+    # Snacks (P12.8): the venue's menu, whether the snack step is showing, the cart and
+    # its price from the server.
+    [menu, set_menu] = useState(None);
+    [snack_step, set_snack_step] = useState(False);
+    [cart, set_cart] = useState([]);
+    [snack_price, set_snack_price] = useState(None);
     asked_count = useRef(0);
+    snacks_asked = useRef(0);
     picked: list[str] = chosen;
     lines: list[dict[str, str]] = items;
     tickets: list[dict[str, str]] = types;
@@ -208,7 +233,14 @@ def:pub Checkout(
         }
     }
 
+    async def load_menu {
+        found = await call(public_snacks, [slug, screening_id]);
+        set_menu(found["categories"] if found is not None and found["ok"] else []);
+    }
+
     def begin_tickets(held: dict[str, any], codes: list[dict[str, str]]) {  # jac:ignore[W1037]
+        load_menu();
+        set_snack_step(False);
         set_hold(held);
         set_chosen(held["seats"]);
         set_items(_items(held["seats"], codes[0]["code"] if codes else ""));
@@ -363,6 +395,34 @@ def:pub Checkout(
     }
     useEffect(reprice, [items, hold]);
 
+    async def price_cart(wanted: list[dict[str, any]]) {  # jac:ignore[W1037]
+        # The cart's price from the server; only the latest request's answer counts.
+        if len(wanted) == 0 {
+            set_snack_price({"lines": [], "total_cents": 0});
+            return;
+        }
+        asked = snacks_asked.current + 1;
+        snacks_asked.current = asked;
+        priced = await call(price_snacks, [slug, screening_id, cart_lines(wanted)]);
+        if asked != snacks_asked.current {
+            return;
+        }
+        if priced is not None and priced["ok"] {
+            set_snack_price(priced);
+            set_problem("");
+        } else {
+            set_snack_price(None);
+            set_problem(_message(priced));
+        }
+    }
+
+    def reprice_snacks {
+        if snack_step {
+            price_cart(cart);
+        }
+    }
+    useEffect(reprice_snacks, [cart, snack_step]);
+
     def toggle(label: str) {
         # From React's latest list, not this render's: two quick taps (or Enter then
         # Space) can come before a re-render, and the second would undo the first.
@@ -442,13 +502,18 @@ def:pub Checkout(
         load_map();
     }
 
-    async def pay {
+    async def pay(snacks: list[dict[str, any]]) {  # jac:ignore[W1037]
         set_busy(True);
-        placed = await call(place_order, [slug, screening_id, holder, key, items]);
+        sent = cart_lines(snacks);
+        placed = await call(
+            place_order, [slug, screening_id, holder, key, items, sent]
+        );
         if _code(placed) == "order_in_progress" {
             # The same order is still being made: ask again with the same key.
             await new(Promise, lambda (done: any) { setTimeout(done, 1000); });  # jac:ignore[W1037,W2001]
-            placed = await call(place_order, [slug, screening_id, holder, key, items]);
+            placed = await call(
+                place_order, [slug, screening_id, holder, key, items, sent]
+            );
         }
         set_busy(False);
         if placed is not None and placed["ok"] {
@@ -462,7 +527,22 @@ def:pub Checkout(
             set_quote(None);
             load_map();
         }
+        if _code(placed) == "snacks_unavailable" {
+            # Something sold out: the snack step shows the cart, repriced, to change.
+            set_snack_step(True);
+            price_cart(cart);
+        }
         set_problem(_message(placed));
+    }
+
+    def to_snacks_or_pay {
+        if has_snacks(menu) {
+            set_snack_step(True);
+            set_problem("");
+            set_news("Add snacks, or skip this.");
+        } else {
+            pay([]);
+        }
     }
 
     status_line = <p aria-live="polite" className="sr-only" data-testid="checkout-news">
@@ -588,6 +668,90 @@ def:pub Checkout(
                     </BottomBar>}
             </div>;
     }
+    if snack_step and has_snacks(menu) {
+        tickets_cents: int = priced_now["total_cents"] if priced_now is not None else 0;
+        snacks_priced: dict[str, any] | None = snack_price;  # jac:ignore[W1037]
+        in_cart: list[dict[str, any]] = cart;  # jac:ignore[W1037]
+        return
+            <div data-testid="checkout" className="flex flex-col gap-4">
+                {status_line}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Button
+                        variant="ghost"
+                        data-testid="back-to-tickets"
+                        disabled={busy}
+                        onClick={lambda { set_snack_step(False); }}
+                        className="min-h-11 w-fit px-3"
+                    >
+                        ← Tickets
+                    </Button>
+                    <p
+                        data-testid="hold-timer"
+                        className={"flex items-center gap-1.5 text-sm font-medium tabular-nums "
+                            + (
+                                "text-[var(--ac-warning)]"
+                                    if left <= WARN_SECONDS
+                                    else "text-muted-foreground"
+                            )}
+                    >
+                        <HugeiconsIcon
+                            icon={Clock01Icon}
+                            strokeWidth={2}
+                            className="size-4"
+                            aria-hidden="true"
+                        />
+                        {f"Seats held for {countdown(left)}"}
+                    </p>
+                </div>
+                <SnackStep
+                    slug={slug}
+                    menu={menu}
+                    cart={cart}
+                    on_cart={set_cart}
+                    priced={snack_price}
+                    busy={busy}
+                />
+                {problem_box}
+                <BottomBar>
+                    <div className="flex min-w-0 flex-col">
+                        <span className="text-xs text-muted-foreground">
+                            {"Tickets and snacks" if len(in_cart) > 0 else "Tickets"}
+                        </span>
+                        <span
+                            data-testid="checkout-total"
+                            className="text-lg font-semibold tabular-nums"
+                        >
+                            {money(
+                                tickets_cents + snacks_priced["total_cents"], currency
+                            )
+                                if snacks_priced is not None
+                                else "…"}
+                        </span>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                        <Button
+                            variant="outline"
+                            data-testid="skip-snacks"
+                            disabled={busy}
+                            onClick={lambda { pay([]); }}
+                            className="min-h-11 px-4"
+                        >
+                            Skip
+                        </Button>
+                        <Button
+                            data-testid="snacks-continue"
+                            disabled={busy
+                                or len(in_cart) == 0
+                                or snacks_priced is None}
+                            onClick={lambda { pay(in_cart); }}
+                            className="min-h-11 px-4"
+                        >
+                            {"Placing order…" if busy else "Continue"}
+                        </Button>
+                    </div>
+                </BottomBar>
+            </div>;
+    }
     return
         <div data-testid="checkout" className="flex flex-col gap-4">
             {status_line}
@@ -708,11 +872,13 @@ def:pub Checkout(
                 </div>
                 <Button
                     data-testid="pay"
-                    disabled={busy or quote is None}
-                    onClick={pay}
+                    disabled={busy or quote is None or menu is None}
+                    onClick={to_snacks_or_pay}
                     className="min-h-11 shrink-0 px-5"
                 >
-                    {"Placing order…" if busy else "Proceed to pay"}
+                    {"Placing order…"
+                        if busy
+                        else ("Continue" if has_snacks(menu) else "Proceed to pay")}
                 </Button>
             </BottomBar>
         </div>;
