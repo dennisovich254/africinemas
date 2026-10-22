@@ -6,11 +6,9 @@ headings, the divider and the footer, and the look shapes posters and headings; 
 one, none of it shows.
 """
 
-import io;
 import os;
 import json;
 import base64;
-import from PIL { Image, ImageDraw }
 import from e2e.support.web {
     shared_browser,
     close_contexts,
@@ -20,67 +18,22 @@ import from e2e.support.web {
 }
 import from e2e.support.api { call, owner_with_cinema, PASSWORD }
 import from e2e.support.catalog { cinema_with_programme }
+import from e2e.support.designs { KIT_PLAN, logo_base64, script_design }
 
 glob STOREFRONT: str = '[data-testid="storefront"]',
-     PLAN: dict[str, any] = {  # jac:ignore[W1037]
-         # The green bird inside the logo's frame; the logo is trimmed to the frame on
-         # upload, so the box is in the trimmed logo's pixels.
-         "motifs": [
-             {
-                 "name": "a dove in flight",
-                 "box": [180, 8, 252, 76],
-                 "colour": "#22553c"
-             },
-             {"name": "three doves", "box": [180, 8, 252, 76], "colour": "#22553c"}
-         ],
-         "card": "notched",
-         "frame": "open",
-         "divider": "motif",
-         "heading": "caps",
-         "fonts": "heritage",
-         "header": "centred",
-         "hero": "split",
-         "surfaces": "flat",
-         "density": "compact"
-     },
      # A mark's paint, as the browser computes it.
      MASK_JS: str = """sel => { const e = document.querySelector(sel); if (!e) return ''; const s = getComputedStyle(e);
   return s.display + ' ' + (s.maskImage || s.webkitMaskImage || ''); }""";
 
-def _logo_base64 -> str {
-    # A gold frame on white, with a green bird inside it.
-    img = Image.new("RGB", (300, 120), (255, 255, 255));
-    d = ImageDraw.Draw(img);
-    d.rectangle((10, 10, 290, 110), outline=(201, 164, 58), width=6);
-    d.ellipse((205, 45, 255, 80), fill=(34, 85, 60));
-    d.polygon([(212, 52), (195, 22), (242, 48)], fill=(34, 85, 60));
-    out = io.BytesIO();
-    img.save(out, "PNG");
-    return base64.b64encode(out.getvalue()).decode();
-}
-
-def _scripts {
-    # The models' answers, as files the server reads (scripts/e2e_env.sh), the written
-    # storefront (ADR-0048) among them.
-    with open("tests/fixtures/ai_storefront.html") as src {
-        with open(os.environ["AFRICINEMAS_PAGE_SCRIPT"], "w") as f {
-            f.write(src.read());
-        }
-    }
-    with open(os.environ["AFRICINEMAS_KIT_PLAN"], "w") as f {
-        json.dump(PLAN, f);
-    }
-}
-
 def _kit(owner: dict[str, str]) {
     with open(os.environ["AFRICINEMAS_KIT_PLAN"], "w") as f {
-        json.dump(PLAN, f);
+        json.dump(KIT_PLAN, f);
     }
     tenant = {"tenant": owner["slug"]};
     assert call(
         owner["token"],
         "upload_logo",
-        {** tenant, "content_type": "image/png", "data_base64": _logo_base64()}
+        {** tenant, "content_type": "image/png", "data_base64": logo_base64()}
     )["ok"];
     drawn = call(owner["token"], "draw_brand_kit", tenant);
     assert drawn["ok"] and len(drawn["kit"]["motifs"]) == 2 , drawn;
@@ -180,7 +133,7 @@ test "an owner designs their storefront from the logo with one button, then publ
     # The kit, its plan and the written page come from scripted files; CI has no model
     # key, so the colours are built from the logo's main colour.
     owner = cinema_with_programme();
-    _scripts();
+    script_design();
     (pw, browser) = shared_browser();
     try {
         page = browser.new_context(
@@ -199,7 +152,7 @@ test "an owner designs their storefront from the logo with one button, then publ
         assert not page.locator('[data-testid="adjust-yourself"]').evaluate(
             "e => e.open"
         ) , "the owner's own editing is closed";
-        logo = base64.b64decode(_logo_base64());
+        logo = base64.b64decode(logo_base64());
         page.set_input_files(
             "#logo-file",
             files=[{"name": "logo.png", "mimeType": "image/png", "buffer": logo}]
