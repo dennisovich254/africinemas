@@ -3,8 +3,8 @@
 - Add-on groups: extras customers add to a product ("Popcorn extras": butter +KES 30,
   caramel +KES 50; optional, up to 2). Managers add, edit and delete groups (one offered
   with a product can't be deleted); each says how many products offer it. Each add-on
-  has an "Unavailable at <venue>" switch for the venue chosen above, for the box office
-  too. Groups are given to products in the product editor.
+  has an "On sale at <venue>" box for every venue (improvements #9: ticked means sold
+  there), saved at once and announced, for the box office too. Groups are given to products in the product editor.
 - Combos: the cinema's combo products, each opening in the product editor, and "Add
   combo" (a product whose type is Combo).
 
@@ -85,7 +85,6 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
     [groups, set_groups] = useState(None);
     [combos, set_combos] = useState([]);
     [venues, set_venues] = useState([]);
-    [venue, set_venue] = useState("");
     [failed, set_failed] = useState("");
     [busy, set_busy] = useState(False);
     [message, set_message] = useState("");
@@ -128,9 +127,6 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
                 {"id": v["venue_id"], "name": v["name"]} for v in places["venues"]
             ];
             set_venues(found);
-            if found and not venue {
-                set_venue(found[0]["id"]);
-            }
         }
     }
 
@@ -234,16 +230,24 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
         }
     }
 
-    async def flip(group_id: str, o: dict[str, any], available: bool) {  # jac:ignore[W1037]
+    async def flip(
+        group_id: str,
+        o: dict[str, any],  # jac:ignore[W1037]
+        place: dict[str, str],
+        available: bool
+    ) {
         option_id: str = o["option_id"];
-        here: str = venue;
+        venue_id: str = place["id"];
         def send -> any {  # jac:ignore[W1037]
             return set_snack_addon_availability(  # jac:ignore[W2037]
-                slug, group_id, option_id, here, available
+                slug, group_id, option_id, venue_id, available
             );
         }
         await run(
-            send, f"{o['name']} is {'available' if available else 'unavailable'} here."
+            send,
+            f"{o['name']} is {'on sale' if available else 'off sale'} at {place[
+                'name'
+            ]}."
         );
     }
 
@@ -273,15 +277,6 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
     listed: list[dict[str, any]] = groups;  # jac:ignore[W1037]
     combo_list: list[dict[str, any]] = combos;  # jac:ignore[W1037]
     places: list[dict[str, str]] = venues;
-    here: str = venue;
-    here_name: str = (
-        [
-            v["name"]
-            for v in places
-            if v["id"] == here
-        ]
-        + [""]
-    )[0];
     asking: dict[str, str] | None = confirming;
 
     def err(field: str) -> str {
@@ -461,23 +456,29 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
                                         else "Free"}
                                 </span>
                             </span>
-                            {here
-                                and <Button
-                                    variant={"default"
-                                        if here in o["off_at"]
-                                        else "outline"}
-                                    aria-pressed={"true"
-                                        if here in o["off_at"]
-                                        else "false"}
-                                    data-testid="addon-unavailable-switch"
-                                    className="min-h-11 px-3"
-                                    disabled={busy or not can_flip}
-                                    onClick={lambda { flip(
-                                        gid, o, here in o["off_at"]
-                                    ); }}
-                                >
-                                    {f"Unavailable at {here_name}"}
-                                </Button>}
+                            <div className="flex flex-wrap gap-x-4">
+                                {[
+                                    <label
+                                        key={v["id"]}
+                                        className="flex min-h-11 items-center gap-2 text-sm"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            data-testid="addon-on-sale"
+                                            aria-label={f"{o['name']} on sale at {v[
+                                                'name'
+                                            ]}"}
+                                            checked={v["id"] not in o["off_at"]}
+                                            disabled={busy or not can_flip}
+                                            onChange={lambda { flip(
+                                                gid, o, v, v["id"] in o["off_at"]
+                                            ); }}
+                                            className="size-5"
+                                        />
+                                        {f"On sale at {v['name']}"}
+                                    </label> for v in places
+                                ]}
+                            </div>
                         </li> for o in g["options"]
                     ]}
                 </ul>
@@ -526,21 +527,6 @@ def:pub SnackExtrasPage(slug: str, permissions: list[str]) -> JsxElement {
             >
                 {message}
             </p>
-            {len(places) > 1
-                and <label className="flex min-h-11 w-fit items-center gap-2 text-sm">
-                    <span className="text-muted-foreground">Availability for</span>
-                    <select
-                        data-testid="extras-venue"
-                        value={here}
-                        onChange={on_input(set_venue)}
-                        className="min-h-11 rounded-md border border-input bg-background px-2 text-sm"
-                    >
-                        {[
-                            <option key={v["id"]} value={v["id"]}>{v["name"]}</option>
-                            for v in places
-                        ]}
-                    </select>
-                </label>}
             <section aria-labelledby="addons-title" className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
                     <h2 id="addons-title" className="text-xl font-semibold">Add-ons</h2>

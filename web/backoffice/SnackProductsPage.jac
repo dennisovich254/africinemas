@@ -171,7 +171,11 @@ def:pub SnackProductsPage(slug: str, permissions: list[str]) -> JsxElement {
     def facts(p: dict[str, any]) -> str {  # jac:ignore[W1037]
         count: int = p["variant_count"];
         words = "1 variant" if count == 1 else f"{count} variants";
-        return f"{words} · {p['first_sku']}" if p["first_sku"] else words;
+        # A SKU names one variant, so only a single item's is shown (each size has its
+        # own; search finds a product by any of them).
+        return f"{words} · {p['first_sku']}"
+            if count == 1 and p["first_sku"]
+            else words;
     }
 
     def price(p: dict[str, any]) -> str {  # jac:ignore[W1037]

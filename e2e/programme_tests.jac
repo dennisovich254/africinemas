@@ -227,10 +227,16 @@ test "scheduling many showtimes at once puts them on sale, and flags clashes bef
         page.wait_for_selector(
             f'{ROW}:has-text("18:30") [data-testid="screening-state"]:text-is("On sale")'
         );
+        # The times are cleared once scheduled, so nothing "clashes" with the
+        # showtimes just made (they'd each clash with themselves).
+        assert page.locator('[data-testid="planned"]').count() == 0;
+        assert "Clashes with" not in page.inner_text(PROGRAMME);
         # A day in the past is refused by the server, and said so.
         _type(page, "#screening-date", _day(-1));
         _type(page, "#screening-until", _day(-1));
-        page.click('button:has-text("Schedule 2 showtimes")');
+        _type(page, "#screening-time", "13:00");
+        page.click('[data-testid="add-time"]');
+        page.click('button:has-text("Schedule 1 showtime")');
         page.wait_for_selector(
             '[data-testid="schedule-result"][data-ok="false"]:has-text("future")'
         );

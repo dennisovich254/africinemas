@@ -8,6 +8,9 @@ shows at once.
   variant's price there: empty uses the variant's own price, shown as the placeholder;
   managers set it.
 
+A variant that tracks stock sells only while it has some: its cell says how many, or
+that none means it isn't on sale, with a link to the Stock page.
+
 Nothing saves until "Save venue changes", which sends only what changed and then
 announces it; the product comes back from the server and replaces the editor's copy
 (on_change).
@@ -22,8 +25,10 @@ import from core.snacks.venue_api {
     set_snack_variant_availability,  # jac:ignore[W2037]
     set_snack_venue_price  # jac:ignore[W2037]
 }
+import from core.snacks.inventory_api { snack_stock_levels }  # jac:ignore[W2037] authenticated endpoint
+import from ..shell.AppLink { AppLink }
 import from .form_parts { FieldError, on_input }
-import from .snack_view { price_text, price_cents_of, with_field }
+import from .snack_view { price_text, price_cents_of, with_field, snack_path }
 
 glob CELL_INPUT: str = "min-h-11 w-28 min-w-0 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-60";
 
@@ -44,6 +49,7 @@ def:pub SnackVenues(
     [errors, set_errors] = useState({});
     [message, set_message] = useState("");
     [busy, set_busy] = useState(False);
+    [stock, set_stock] = useState({});
     product_id: str = product["product_id"];
     off: list[str] = product["off_at"];
     variants: list[dict[str, any]] = product["variants"];  # jac:ignore[W1037]
@@ -57,9 +63,26 @@ def:pub SnackVenues(
             return;
         }
         if answer["ok"] {
-            set_venues(
-                [{"id": v["venue_id"], "name": v["name"]} for v in answer["venues"]]
-            );
+            found = [
+                {"id": v["venue_id"], "name": v["name"]} for v in answer["venues"]
+            ];
+            set_venues(found);
+            # Each venue's stock of the tracked variants, by "variant_id|venue_id".
+            counts: dict[str, any] = {};  # jac:ignore[W1037]
+            for place in found {
+                levels: any = None;  # jac:ignore[W1037]
+                try {
+                    levels = await snack_stock_levels(slug, place["id"]);  # jac:ignore[W2037]
+                } except Exception as e {
+                    console.warn("snack_stock_levels failed", e);
+                }
+                if levels is not None and levels["ok"] {
+                    for l in levels["levels"] {
+                        counts[f"{l['variant_id']}|{place['id']}"] = l;
+                    }
+                }
+            }
+            set_stock(counts);
         }
     }
 
@@ -231,6 +254,35 @@ def:pub SnackVenues(
         return <span className="sr-only">No venues</span>;
     }
 
+    counted: dict[str, any] = stock;  # jac:ignore[W1037]
+
+    def stock_note(key: str) -> JsxElement {
+        # How many a tracked variant has there; with none (and stopping at zero), it
+        # isn't on sale, which is easy to miss after ticking Track stock.
+        level: any = counted[key] if key in counted else None;  # jac:ignore[W1037]
+        left: int = level["available"] if level is not None else 0;
+        allowed = level is not None and level["at_zero"] == "allow";
+        if left > 0 or allowed {
+            return
+                <span
+                    className="text-xs text-muted-foreground"
+                    data-testid="venue-stock"
+                >
+                    {f"{left} in stock"}
+                </span>;
+        }
+        return
+            <span className="text-xs text-destructive" data-testid="venue-stock">
+                None in stock, so it isn't on sale.
+                <AppLink
+                    to={snack_path(slug, "stock")}
+                    className="ml-1 underline underline-offset-2"
+                >
+                    Add stock
+                </AppLink>
+            </span>;
+    }
+
     def Cell(v: dict[str, any], p: dict[str, str]) -> JsxElement {  # jac:ignore[W1037]
         venue_id: str = p["id"];
         sold = venue_id in chosen;
@@ -275,6 +327,7 @@ def:pub SnackVenues(
                                 field_id={field_id}
                                 error={field_errors[key]}
                             />}
+                        {v["track_stock"] and stock_note(key)}
                     </div>}
             </td>;
     }

@@ -729,6 +729,15 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
         set_busy(False);
         only_error("", "");
         set_results(done);
+        # The times are used up: left in the form they'd be checked against the
+        # showtimes just made, and each would "clash" with itself. The results say what
+        # wasn't added, to add again.
+        cleared: dict[str, any] = {};  # jac:ignore[W1037]
+        for k in wanted {
+            cleared[k] = wanted[k];
+        }
+        cleared["times"] = [];
+        set_plan(cleared);
         made = len(
             [
                 d
