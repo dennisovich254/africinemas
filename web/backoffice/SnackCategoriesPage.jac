@@ -1,8 +1,10 @@
 """`/app/:slug/snacks/categories`: snack categories (P12.1; design guide §6).
 
 Each category shows how many products it has and where it sits in the storefront's
-order. Managers add categories (a new catalog is offered the usual six in one tap),
-rename them in place, move them up and down, and archive or restore them; an archived
+order. Managers add categories: a new catalog is offered the usual six as ticked boxes
+to untick what it doesn't sell, and afterwards the usual ones it lacks are one-tap
+suggestions (improvements #9); what was added is named and marked New. They rename them
+in place, move them up and down, and archive or restore them; an archived
 category keeps its products for reports and leaves the storefront. Problems show beside
 their field.
 """
@@ -38,6 +40,16 @@ def:pub swapped(ids: list[str], at: int, step: int) -> list[str] {
     return out;
 }
 
+def:pub and_list(names: list[str]) -> str {
+    # ["A", "B", "C"] -> "A, B and C".
+    if len(names) < 2 {
+        return "".join(names);
+    }
+    # (No negative indexes: in the browser names[-1] is undefined.)
+    last = len(names) - 1;
+    return ", ".join(names[:last]) + " and " + names[last];
+}
+
 def:pub SnackCategoriesPage(slug: str, permissions: list[str]) -> JsxElement {
     can_manage = "concessions.manage" in permissions;
     [categories, set_categories] = useState(None);
@@ -48,6 +60,11 @@ def:pub SnackCategoriesPage(slug: str, permissions: list[str]) -> JsxElement {
     [new_name, set_new_name] = useState("");
     [renaming, set_renaming] = useState("");
     [rename_to, set_rename_to] = useState("");
+    # The usual names the cinema has no category for, those ticked to add (None: all of
+    # them), and the categories just added (marked New).
+    [usual, set_usual] = useState([]);
+    [picked, set_picked] = useState(None);
+    [fresh, set_fresh] = useState([]);
 
     async def load {
         answer: any = None;  # jac:ignore[W1037]
@@ -65,6 +82,7 @@ def:pub SnackCategoriesPage(slug: str, permissions: list[str]) -> JsxElement {
             return;
         }
         set_categories(answer["categories"]);
+        set_usual(answer["usual"]);
     }
 
     def start_loading {
@@ -119,8 +137,61 @@ def:pub SnackCategoriesPage(slug: str, permissions: list[str]) -> JsxElement {
     ids = [c["category_id"] for c in listed];
     field_errors: dict[str, str] = errors;
 
-    def send_defaults -> any {  # jac:ignore[W1037]
-        return add_default_snack_categories(slug);  # jac:ignore[W2037]
+    left: list[str] = usual;
+    ticked: list[str] = picked if picked is not None else left;
+    new_ids: list[str] = fresh;
+
+    def tick(name: str) {
+        set_picked(
+            [
+                n
+                for n in ticked
+                if n != name
+            ]
+                if name in ticked
+                else [
+                    n
+                    for n in left
+                    if n in ticked or n == name
+                ]
+        );
+    }
+
+    async def add_usual(names: list[str]) {
+        answer: any = None;  # jac:ignore[W1037]
+        set_busy(True);
+        set_message("");
+        try {
+            answer = await add_default_snack_categories(slug, names);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("add_default_snack_categories failed", e);
+        }
+        set_busy(False);
+        if answer is None {
+            set_message("We couldn't add them. Check your connection and try again.");
+            return;
+        }
+        if not answer["ok"] {
+            set_message(answer["error"]["message"]);
+            return;
+        }
+        added: list[str] = answer["added"];
+        made: list[dict[str, any]] = answer["categories"];  # jac:ignore[W1037]
+        set_categories(made);
+        set_usual(answer["usual"]);
+        set_picked(None);
+        set_fresh(
+            [
+                c["category_id"]
+                for c in made
+                if c["name"] in added
+            ]
+        );
+        set_message(
+            f"Added {and_list(added)}. Rename, reorder or archive them below."
+                if len(added) > 0
+                else "Those categories are already here."
+        );
     }
 
     async def add {
@@ -211,6 +282,7 @@ def:pub SnackCategoriesPage(slug: str, permissions: list[str]) -> JsxElement {
                         {"1 product" if count == 1 else f"{count} products"}
                     </span>
                 </div>
+                {cid in new_ids and <Badge data-testid="category-new">New</Badge>}
                 {c["status"] == "archived"
                     and <Badge variant="outline">Archived</Badge>}
                 {can_manage
@@ -283,17 +355,40 @@ def:pub SnackCategoriesPage(slug: str, permissions: list[str]) -> JsxElement {
                 and <div className="flex flex-col gap-3 rounded-lg border bg-card p-6">
                     <h3 className="text-base font-semibold">No categories yet</h3>
                     <p className="text-sm text-muted-foreground">
-                        Start with Popcorn, Beverages, Crisps & Chips, Candy & Chocolates, Hot Food and Combos & Deals. You can rename or archive them later.
+                        {"Tick the ones you sell to start with. You can rename, reorder or archive them later, or add your own below."
+                            if can_manage
+                            else "A manager adds them."}
                     </p>
+                    {can_manage
+                        and <fieldset className="flex flex-col gap-1">
+                            <legend className="sr-only">Usual categories</legend>
+                            {[
+                                <label
+                                    key={name}
+                                    className="flex min-h-11 items-center gap-3 text-sm"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        data-testid="usual-category"
+                                        checked={name in ticked}
+                                        disabled={busy}
+                                        onChange={lambda { tick(name); }}
+                                        className="size-5"
+                                    />
+                                    {name}
+                                </label> for name in left
+                            ]}
+                        </fieldset>}
                     {can_manage
                         and <Button
                             className="min-h-11 w-fit px-5"
-                            disabled={busy}
-                            onClick={lambda { run(
-                                send_defaults, "Added the usual categories."
-                            ); }}
+                            disabled={busy or len(ticked) == 0}
+                            data-testid="add-usual"
+                            onClick={lambda { add_usual(ticked); }}
                         >
-                            Add the usual categories
+                            {busy and <Spinner aria-hidden="true"/>}{"Add 1 category"
+                                if len(ticked) == 1
+                                else f"Add {len(ticked)} categories"}
                         </Button>}
                 </div>}
             {len(listed) > 0
@@ -335,6 +430,28 @@ def:pub SnackCategoriesPage(slug: str, permissions: list[str]) -> JsxElement {
                             field_id="new-category"
                             error={field_errors["new-category"]}
                         />}
+                    {len(listed) > 0
+                        and len(left) > 0
+                        and <div
+                            className="flex flex-wrap items-center gap-2 pt-2"
+                            data-testid="usual-suggestions"
+                        >
+                            <span className="text-sm text-muted-foreground">
+                                Or add a usual one:
+                            </span>
+                            {[
+                                <Button
+                                    key={name}
+                                    type="button"
+                                    variant="outline"
+                                    className="min-h-11 px-3"
+                                    disabled={busy}
+                                    onClick={lambda { add_usual([name]); }}
+                                >
+                                    {f"+ {name}"}
+                                </Button> for name in left
+                            ]}
+                        </div>}
                 </form>}
         </div>;
 }
