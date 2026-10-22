@@ -6,7 +6,10 @@ Large KES 400, with Butter for KES 30) and Coca-Cola, which tracks stock and has
 so it isn't offered. A visitor holds A1, continues to the snack step, opens Popcorn,
 picks Large with Butter and adds it: the cart says so and the total is KES 1,260. They
 pay with M-Pesa for KES 1,260 and "You're booked" lists the popcorn. Another skips the
-step: the order is the ticket alone. Phone and desktop; screenshots for review.
+step: the order is the ticket alone. Under a cinema's AI-written design (ADR-0048 to
+ADR-0050, e2e/support/designs.jac), whose header, footer and styles wrap the showtime
+page, the posters, the snack's choices and the bar stay on screen and work: a design
+once pushed a floating sheet out of sight. Phone and desktop; screenshots for review.
 """
 
 import from e2e.support.web {
@@ -19,8 +22,18 @@ import from e2e.support.web {
 }
 import from e2e.support.api { call }
 import from e2e.support.catalog { cinema_selling_tickets }
+import from e2e.support.designs { ai_designed }
 
-glob SETTLE_MS: int = 30000;
+glob SETTLE_MS: int = 30000,
+     # "ok" when the element is on screen, has a size and nothing covers its middle (it
+     # takes clicks there); otherwise what's wrong.
+     ON_SCREEN_JS: str = """s => { const e = document.querySelector(s); if (!e) return 'missing';
+  e.scrollIntoView({block: 'center'}); const r = e.getBoundingClientRect();
+  if (r.width === 0 || r.height === 0) return 'no size';
+  if (r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth) return 'off screen';
+  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  return hit && (hit === e || e.contains(hit)) ? 'ok' : 'covered by ' + (hit ? hit.outerHTML.slice(0, 80) : 'nothing'); }""",
+     WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth";
 
 def _made(owner: dict[str, str], name: str, args: dict[str, any]) -> any {  # jac:ignore[W1037]
     got = call(owner["token"], name, {"tenant": owner["slug"], ** args});
@@ -186,6 +199,53 @@ test "skipping the snacks orders the ticket alone" {
         page.wait_for_selector('[data-testid="pay-panel"]');
         assert page.locator('[data-testid="order-snack"]').count() == 0;
         assert "KES 830" in page.inner_text('[data-testid="order-total"]');
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "under a cinema's AI-written design the snack step stays on screen and works" {
+    (pw, browser) = shared_browser();
+    try {
+        for project in PROJECTS {
+            owner = _with_snacks();
+            ai_designed(owner);
+            page = browser.new_context(
+                **context_options(pw, project, "light"), reduced_motion="reduce"
+            ).new_page();
+            _to_snacks(page, project, owner, "A4");
+            # The written design wraps the page, or this test proves nothing.
+            assert page.locator('[data-testid="ai-header"]').count() == 1;
+            assert page.locator('[data-testid="storefront-header"]').count() == 0;
+            where = f"{project}: ";
+            for part in [
+                '[data-testid="snack-product"]',
+                '[data-testid="skip-snacks"]'
+            ] {
+                assert page.evaluate(ON_SCREEN_JS, part) == "ok" , where + part;
+            }
+            _press(page, project, '[data-testid="snack-product"]');
+            page.wait_for_selector('[data-testid="snack-options"]');
+            for part in [
+                '[data-testid="snack-variant"]',
+                '[data-testid="snack-add"]',
+                '[data-testid="snack-back"]'
+            ] {
+                assert page.evaluate(ON_SCREEN_JS, part) == "ok" , where + part;
+            }
+            _press(page, project, '[data-testid="snack-add"]');
+            page.wait_for_selector('[data-testid="snack-cart"]');
+            _total(page, "KES 1,030");
+            assert page.evaluate(ON_SCREEN_JS, '[data-testid="snacks-continue"]')
+                == "ok" , where + "continue";
+            assert page.evaluate(WIDE_JS) <= 1 , where + "scrolls sideways";
+            page.screenshot(
+                path=artifact(f"snack-step-ai-design-{project}.png"), full_page=True
+            );
+            _press(page, project, '[data-testid="snacks-continue"]');
+            page.wait_for_selector('[data-testid="pay-panel"]');
+            page.context.close();
+        }
     } finally {
         close_contexts(browser);
     }
