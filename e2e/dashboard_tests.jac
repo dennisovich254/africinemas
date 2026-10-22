@@ -155,14 +155,25 @@ test "the audit log lists the sale, pages, and narrows by action and search" {
         assert pages.startswith("Page 1 of ")
             and int(pages.split(" of ")[1]) >= 3 , pages;
         assert page.locator('[data-testid="audit-prev"]').is_disabled();
-        first = rows.nth(0).inner_text();
         # Pages (improvements #12).
         page.click('[data-testid="audit-next"]');
         page.wait_for_selector('[data-testid="audit-page"]:has-text("Page 2 of")');
+        # (The shift restarts read alike, so the count tells the pages apart.)
         assert _text(page, "audit-count").startswith("26–50 of ");
-        assert rows.nth(0).inner_text() != first;
-        page.click('[data-testid="audit-prev"]');
-        page.wait_for_selector('[data-testid="audit-page"]:has-text("Page 1 of")');
+        total = int(pages.split(" of ")[1]);
+        for n in range(3, total + 1) {
+            page.click('[data-testid="audit-next"]');
+            page.wait_for_selector(
+                f'[data-testid="audit-page"]:has-text("Page {n} of")'
+            );
+        }
+        assert page.locator('[data-testid="audit-next"]').is_disabled() , "the last page";
+        for n in range(total - 1, 0, -1) {
+            page.click('[data-testid="audit-prev"]');
+            page.wait_for_selector(
+                f'[data-testid="audit-page"]:has-text("Page {n} of")'
+            );
+        }
         # The action list narrows as you type.
         page.click('[data-testid="audit-action"]');
         page.keyboard.type("cash s");

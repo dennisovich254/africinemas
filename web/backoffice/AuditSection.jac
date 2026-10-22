@@ -95,8 +95,8 @@ def:pub AuditSection(slug: str, shift_open: bool = True) -> JsxElement {
                 set_search(typed.strip());
             }
         }
-        timer: any = win.setTimeout(run, SEARCH_PAUSE_MS);  # jac:ignore[W1037]
-        return lambda { win.clearTimeout(timer); };
+        timer: any = win.setTimeout(run, SEARCH_PAUSE_MS);  # jac:ignore[W1037,W6001] client-only debounce
+        return lambda { win.clearTimeout(timer); };  # jac:ignore[W6001]
     }
     useEffect(wait_for_pause, [typed]);
 
