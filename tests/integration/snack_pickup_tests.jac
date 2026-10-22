@@ -116,8 +116,21 @@ test "a paid order with snacks gets a pickup code, and the counter hands it over
         assert shown["snacks"][0]["addons"] == ["Butter"];
         assert shown["snacks"][1]["choices"]
             == ["Popcorn · Large", "Coca-Cola", "Fanta"];
+        # The tickets page (and the email and My tickets, which share its view) lists
+        # the snacks with the pickup code.
+        token = counter.payment["link"].split("/")[-1];
+        page = browse(counter.app, "tickets_by_link", {"slug": "nova", "token": token});
+        assert page["ok"] , page;
+        assert [s["name"] for s in page["booking"]["snacks"]]
+            == ["Popcorn · Large", "Movie Night Combo"];
+        assert page["booking"]["pickup"] == pickup;
+        assert not page["booking"]["snacks_collected"];
         handed = _call(counter, "hand_over_snacks", pickup["qr"]);
         assert handed["ok"] and handed["pickup"]["collected_at"] , handed;
+        after = browse(
+            counter.app, "tickets_by_link", {"slug": "nova", "token": token}
+        );
+        assert after["booking"]["snacks_collected"];
         again = _call(counter, "hand_over_snacks", pickup["qr"]);
         assert code_of(again) == "already_collected" , again;
         assert again["error"]["collected_at"] == handed["pickup"]["collected_at"];

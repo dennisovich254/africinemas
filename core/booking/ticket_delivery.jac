@@ -137,6 +137,16 @@ def booking_view(cinema: Tenant, order: Order) -> dict[str, any] {  # jac:ignore
         "venue": venue,
         "screen": screen,
         "email": masked_email(order.email) if order.email else "",
+        # The snacks bought with them and their pickup code (P12.9), as my_payment
+        # gives them.
+        "snacks": [
+            {"name": l["name"], "quantity": l["quantity"], "addons": l["addons"]}
+            for l in order.snack_lines
+        ],
+        "pickup": {"reference": order.pickup_reference, "qr": order.pickup_qr}
+            if order.pickup_reference
+            else None,
+        "snacks_collected": bool(order.snacks_collected_at),
         "tickets": [
             {
                 "seat_label": t.seat_label,
@@ -169,6 +179,16 @@ def _mail_for(cinema: Tenant, order: Order, address: str) -> TicketMail {
         place=place,
         order_reference=order.reference,
         link=f"{base}{link_path(cinema, order)}",
+        snacks=[
+            f"{s['quantity']} × {s['name']}"
+                + (
+                    f" ({', '.join([a['name'] for a in s['addons']])})"
+                        if s["addons"]
+                        else ""
+                ) for s in view["snacks"]
+        ],
+        pickup_reference=order.pickup_reference,
+        pickup_qr=order.pickup_qr,
         tickets=[
             MailTicket(
                 seat_label=t["seat_label"],

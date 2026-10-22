@@ -6,7 +6,9 @@ signed in when they pay finds the booking in My tickets without a click: "You're
 booked" saves it to their account by itself. A guest who pays creates an account from
 the tickets, comes back to them, and they're saved then. A customer who signed out
 signs in again from My tickets, and a back-office account is told it isn't this
-cinema's. Review screenshots of the account pages and My tickets.
+cinema's. Under a cinema's AI-written design, whose header and footer link "Sign in",
+a signed-in customer sees "My account" there instead. Review screenshots of the account
+pages and My tickets.
 """
 
 import from e2e.support.web {
@@ -19,6 +21,7 @@ import from e2e.support.web {
 }
 import from e2e.support.api { register, unique, email_for, PASSWORD }
 import from e2e.support.catalog { cinema_selling_tickets }
+import from e2e.support.designs { ai_designed }
 
 glob CONSOLE: list[str] = [],
      SETTLE_MS: int = 30000,
@@ -124,6 +127,30 @@ test "a signed-in customer's booking is in My tickets without a click" {
             assert page.locator('[data-testid="ticket"]').count() == 2;
             page.context.close();
         }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "under an AI-written design, a signed-in customer sees My account, not Sign in" {
+    owner = cinema_selling_tickets();
+    ai_designed(owner);
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        home = f"/c/{owner['slug']}";
+        page.goto(BASE_URL + home);
+        page.wait_for_selector('[data-testid="ai-header"]');
+        assert "Sign in" in page.inner_text('[data-testid="ai-header"]');
+        _sign_up(page, owner["slug"], email_for(unique("kim")), home);
+        page.wait_for_selector('[data-testid="ai-header"] [data-testid="ai-account"]');
+        for part in ["ai-header", "ai-footer"] {
+            assert "Sign in" not in page.inner_text(f'[data-testid="{part}"]') , part;
+        }
+        page.click('[data-testid="ai-header"] [data-testid="ai-account"]');
+        page.wait_for_selector('[data-testid="account"]');
     } finally {
         close_contexts(browser);
     }

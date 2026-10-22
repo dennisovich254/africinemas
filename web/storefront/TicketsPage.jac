@@ -14,7 +14,7 @@ import from core.booking.ticket_delivery { tickets_by_link }
 import from .StorefrontShell { StorefrontShell, Loading }
 import from .venue_choice { use_title }
 import from .showtimes { long_day_label, time_label }
-import from .PayPanel { TicketCard }
+import from .PayPanel { TicketCard, PickupCard }
 import from .TicketDelivery { TicketDelivery }
 import from ..shell.AppLink { AppLink }
 
@@ -119,6 +119,18 @@ def:pub TicketsPage -> JsxElement {
                 <ul className="grid gap-3 sm:grid-cols-2">
                     {[<TicketCard key={t["reference"]} ticket={t}/> for t in tickets]}
                 </ul>
+                {len(booking["snacks"] or []) > 0
+                    and <PickupCard
+                        snacks={booking["snacks"]}
+                        pickup={booking["pickup"]}
+                    />}
+                {booking["snacks_collected"]
+                    and <p
+                        className="text-sm text-muted-foreground"
+                        data-testid="snacks-collected"
+                    >
+                        Your snacks have been collected.
+                    </p>}
                 <TicketDelivery
                     link={f"/c/{slug}/tickets/{token}"}
                     email={booking["email"]}

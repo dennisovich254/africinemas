@@ -21,6 +21,7 @@ import from react { createElement, useState, useEffect }
 # createElement for any tag the template names; its typed overloads expect one tag each.
 glob make: any = createElement;  # jac:ignore[W1037]
 import from "@jac/runtime" { Link }
+import from .AccountLinks { use_customer }
 import from core.catalog.storefront_api { public_poster }
 import from .showtimes {
     details_line,
@@ -257,7 +258,8 @@ obj Fill {
         cinema: str,
         logo: str,
         lists: dict[str, any],  # jac:ignore[W1037]
-        motifs: list[str] = [];
+        motifs: list[str] = [],
+        signed_in: bool = False;
 }
 
 def _motif_style(mask: str) -> dict[str, str] {
@@ -405,6 +407,13 @@ def _draw(fill: Fill, el: any, scope: dict[str, any], key: str) -> any {  # jac:
         if text
         else _kids(fill, el, scope, key);
     link: str = el.getAttribute("data-link") or "";
+    if tag == "a" and link == "signin" and fill.signed_in {
+        # Signed in with this cinema's account: the template's Sign in becomes the
+        # account page (My tickets, sign out), as in our own header.
+        props["to"] = f"/c/{fill.slug}/account";
+        props["data-testid"] = "ai-account";
+        return make(Link, props, ["My account"]);
+    }
     if tag == "a" {
         to = _href(fill, link, scope);
         if "#" in to {
@@ -429,6 +438,8 @@ def:pub AiPart(
     # One part of the written page (header, home or footer) inside the stylesheet's
     # wrapper; nothing when the template has no such part. `motifs` are the brand kit's
     # masks as data URLs, single figure first.
+    # Who's signed in, before anything returns (a hook runs on every render).
+    mine = use_customer(slug);
     win: any = window;  # jac:ignore[W1037,W2001]
     parser: any = new(win.DOMParser);  # jac:ignore[W1037]
     doc: any = parser.parseFromString(f"<body>{page['html']}</body>", "text/html");  # jac:ignore[W1037]
@@ -437,7 +448,12 @@ def:pub AiPart(
         return <span className="hidden"/>;
     }
     fill = Fill(
-        slug=slug, cinema=cinema, logo=logo, lists=ai_lists(home), motifs=motifs or []
+        slug=slug,
+        cinema=cinema,
+        logo=logo,
+        lists=ai_lists(home),
+        motifs=motifs or [],
+        signed_in=mine == "customer"
     );
     return
         <div className="ai-page" data-ai-part={part} data-testid={f"ai-{part}"}>

@@ -28,6 +28,7 @@ def BookingRow(booking: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
         ]
     );
     count: int = len(tickets);
+    snacks: list[dict[str, any]] = booking["snacks"] or [];  # jac:ignore[W1037]
     return
         <li
             data-testid="saved-booking"
@@ -42,13 +43,23 @@ def BookingRow(booking: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 <p className="text-sm text-muted-foreground">
                     {f"{count} {'ticket' if count == 1 else 'tickets'} · Seats {seats}"}
                 </p>
+                {len(snacks) > 0
+                    and <p
+                        className="text-sm text-muted-foreground"
+                        data-testid="saved-snacks"
+                    >
+                        {"Snacks: "
+                            + ", ".join(
+                                [f"{s['quantity']} × {s['name']}" for s in snacks]
+                            )}
+                    </p>}
             </div>
             <AppLink
                 to={booking["link"]}
                 testid="open-saved-booking"
                 className="inline-flex min-h-11 w-fit items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
             >
-                Open tickets
+                {"Open tickets and snacks" if len(snacks) > 0 else "Open tickets"}
             </AppLink>
         </li>;
 }
