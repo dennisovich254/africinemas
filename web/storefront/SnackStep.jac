@@ -1,9 +1,9 @@
 """The "Add snacks" step of checkout (P12.8; design guide §5): between the tickets and
 paying, when the showtime's venue sells snacks.
 
-The menu (public_snacks, read by Checkout) shows every category as a heading over a row
-of snack posters (picture, name, price, "Few left"), swiping sideways like the
-storefront's movie posters, so the snacks sell themselves. A poster opens the snack's
+The menu (public_snacks, read by Checkout) shows every snack as a poster (picture, its
+category, name, price, "Few left") on one grid, in the menu's category order: two
+across on a phone, up to four on a desktop, so the snacks sell themselves. A poster opens the snack's
 choices in place, not in a floating sheet that a cinema's design could push off screen:
 its size, extras (within the group's limits) and, for a combo, what goes in it, with a
 quantity; the price on its Add button is for guidance only. "← All snacks" goes back. The cart below lists what was added with the server's
@@ -28,6 +28,16 @@ def:pub cart_lines(cart: list[dict[str, any]]) -> list[dict[str, any]] {  # jac:
             "choices": c["choices"]
         } for c in cart
     ];
+}
+
+def with_category(product: dict[str, any], name: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A copy of the product with its category's name (no dict(**x, k=v) in the browser).
+    out: dict[str, any] = {};  # jac:ignore[W1037]
+    for k in product {
+        out[k] = product[k];
+    }
+    out["category"] = name;
+    return out;
 }
 
 def:pub has_snacks(menu: any) -> bool {  # jac:ignore[W1037]
@@ -382,6 +392,13 @@ def:pub SnackStep(
         if priced is not None
         else [];
     shown_product: dict[str, any] | None = open;  # jac:ignore[W1037]
+    # Every snack on one grid, in the menu's category order, each with its category.
+    posters: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for c in menu {
+        for p in c["products"] {
+            posters.append(with_category(p, c["name"]));
+        }
+    }
     return
         <section
             aria-labelledby="snacks-heading"
@@ -426,65 +443,50 @@ def:pub SnackStep(
                     {Sheet_body(shown_product)}
                 </div>}
             {shown_product is None
-                and <div className="flex flex-col gap-6">
+                and <ul
+                    data-testid="snack-grid"
+                    className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4"
+                >
                     {[
-                        <div key={c["category_id"]} className="flex flex-col gap-3">
-                            <h4
-                                className="text-base font-semibold"
-                                data-testid="snack-category"
+                        <li key={p["product_id"]} className="min-w-0">
+                            <button
+                                type="button"
+                                data-testid="snack-product"
+                                onClick={lambda { start_product(p); }}
+                                className="group flex w-full flex-col gap-1.5 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                             >
-                                {c["name"]}
-                            </h4>
-                            <ul
-                                className="-mx-1 flex snap-x gap-4 overflow-x-auto px-1 pb-2"
-                            >
-                                {[
-                                    <li
-                                        key={p["product_id"]}
-                                        className="w-36 shrink-0 snap-start sm:w-40"
-                                    >
-                                        <button
-                                            type="button"
-                                            data-testid="snack-product"
-                                            onClick={lambda { start_product(p); }}
-                                            className="group flex w-full flex-col gap-2 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                <span className="relative block">
+                                    <SnackImage
+                                        slug={slug}
+                                        product={p}
+                                        size="aspect-[4/5] w-full transition group-hover:opacity-90"
+                                    />
+                                    {any(v["left"] is not None for v in p["variants"])
+                                        and <span
+                                            className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-semibold"
                                         >
-                                            <span className="relative block">
-                                                <SnackImage
-                                                    slug={slug}
-                                                    product={p}
-                                                    size="aspect-[4/5] w-full transition group-hover:opacity-90"
-                                                />
-                                                {any(
-                                                    v["left"] is not None
-                                                    for v in p["variants"]
-                                                )
-                                                    and <span
-                                                        className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-semibold"
-                                                    >
-                                                        Few left
-                                                    </span>}
-                                            </span>
-                                            <span className="font-medium leading-tight">
-                                                {p["name"]}
-                                            </span>
-                                            <span
-                                                className="text-sm text-muted-foreground tabular-nums"
-                                            >
-                                                {(
-                                                    "From "
-                                                        if len(p["variants"]) > 1
-                                                        else ""
-                                                )
-                                                    + money(p["from_cents"], CURRENCY)}
-                                            </span>
-                                        </button>
-                                    </li> for p in c["products"]
-                                ]}
-                            </ul>
-                        </div> for c in menu
+                                            Few left
+                                        </span>}
+                                </span>
+                                <span
+                                    className="text-xs text-muted-foreground"
+                                    data-testid="snack-category"
+                                >
+                                    {p["category"]}
+                                </span>
+                                <span className="font-medium leading-tight">
+                                    {p["name"]}
+                                </span>
+                                <span
+                                    className="text-sm text-muted-foreground tabular-nums"
+                                >
+                                    {("From " if len(p["variants"]) > 1 else "")
+                                        + money(p["from_cents"], CURRENCY)}
+                                </span>
+                            </button>
+                        </li> for p in posters
                     ]}
-                </div>}
+                </ul>}
             {len(lines) > 0
                 and <div className="flex flex-col gap-2 border-t pt-3">
                     <h4 className="text-sm font-semibold">Your snacks</h4>

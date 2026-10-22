@@ -150,6 +150,11 @@ test "a visitor adds popcorn with butter, pays for it all, and sees it booked" {
                 **context_options(pw, project, "light")
             ).new_page();
             _to_snacks(page, project, owner, "A1");
+            # The snacks are posters on one grid, each with its category.
+            assert page.locator(
+                '[data-testid="snack-grid"] [data-testid="snack-product"]'
+            ).count()
+                == 1;
             # Coca-Cola has no stock, so Beverages isn't offered.
             chips = page.locator('[data-testid="snack-category"]').all_inner_texts();
             assert chips == ["Popcorn"] , chips;
