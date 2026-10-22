@@ -64,6 +64,39 @@ def _cash_sale(app: Served, screening: str) -> str {
     return sold["payment"]["tickets"][0]["qr"];
 }
 
+test "the log is searched by who or what, ignoring case, and counted" {
+    (app, nova, _) = paying_cinema(["agent"]);
+    try {
+        hire(app, "agent", "box_office_agent", nova.venue);
+        every = _log(app, "owner");
+        assert every["total"] == len(every["events"]) , every;
+        joined = [
+            e
+            for e in every["events"]
+            if e["action"] == "staff.joined"
+        ][0];
+        # Part of the actor's name, in other capitals (improvements #12).
+        part = joined["actor"][:5].swapcase();
+        found = app.call(
+            "owner", "audit_log", {"tenant": "nova", "limit": 50, "search": part}
+        );
+        assert found["ok"] and found["total"] == len(found["events"]) > 0 , found;
+        assert all(
+            part.lower() in (e["actor"] + e["detail"]).lower() for e in found["events"]
+        );
+        # % and _ are themselves, not wildcards.
+        none = app.call(
+            "owner", "audit_log", {"tenant": "nova", "limit": 50, "search": "%"}
+        );
+        assert none["total"] == 0 and none["events"] == [] , none;
+        # A page of one still counts them all.
+        one = app.call("owner", "audit_log", {"tenant": "nova", "limit": 1});
+        assert len(one["events"]) == 1 and one["total"] == every["total"];
+    } finally {
+        app.close();
+    }
+}
+
 test "creating the cinema and staff joining are recorded" {
     (app, nova, _) = paying_cinema(["agent"]);
     try {

@@ -177,21 +177,49 @@ def record(
     _open(tenant, action, resource_type, resource_id, result, detail);
 }
 
+def _like(search: str) -> str {
+    # `search` as an ILIKE pattern matching it anywhere ("" for no search); its own %, _
+    # and \ match themselves.
+    text = search.strip();
+    if not text {
+        return "";
+    }
+    for ch in ["\\", "%", "_"] {
+        text = text.replace(ch, "\\" + ch);
+    }
+    return f"%{text}%";
+}
+
+# Who did it or what it was done to (the actor's name, the event's detail).
+glob MATCHES: str = """
+          AND (:a = '' OR doc->>'action' = :a)
+          AND (:q = '' OR doc->>'actor' ILIKE :q OR doc->>'detail' ILIKE :q)
+""";
+
 def events(
-    tenant_id: str, before: str, limit: int, action: str
+    tenant_id: str, before: str, limit: int, action: str, search: str = ""
 ) -> list[dict[str, str]] {
     # Up to `limit` of the cinema's events older than the event `before` ("" for the
-    # newest), newest first, of one `action` when given.
+    # newest), newest first, of one `action` when given, and whose actor or detail
+    # contains `search` when given.
     found = _store().rows(
         """
         SELECT id, doc FROM jac_docs
         WHERE collection = :c
           AND (:b = '' OR id < :b)
-          AND (:a = '' OR doc->>'action' = :a)
+        """
+            + MATCHES
+            + """
         ORDER BY id DESC
         LIMIT :n
         """,
-        {"c": collection_of(tenant_id), "b": before, "a": action, "n": limit}
+        {
+            "c": collection_of(tenant_id),
+            "b": before,
+            "a": action,
+            "q": _like(search),
+            "n": limit
+        }
     );
     shown: list[dict[str, str]] = [];
     for (event_id, doc) in found {
@@ -201,6 +229,15 @@ def events(
         shown.append(view);
     }
     return shown;
+}
+
+def count_events(tenant_id: str, action: str, search: str = "") -> int {
+    # How many events `events` would page through with this action and search.
+    found = _store().rows(
+        "SELECT count(*) FROM jac_docs WHERE collection = :c" + MATCHES,
+        {"c": collection_of(tenant_id), "a": action, "q": _like(search)}
+    );
+    return int(found[0][0]) if found else 0;
 }
 
 def has_event(tenant_id: str, event_id: str) -> bool {

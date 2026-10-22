@@ -4,8 +4,9 @@ A cinema selling tickets (Rafiki in two days; 11 seats on sale, Adult KES 800 + 
 fee) sells A1 and A2 for cash at the box office: KES 1,660, taken today. Reports shows
 it on the day the money came in ("Today") and on the showtime's day ("Next 7 days":
 2 tickets, 18.2% full); on a phone the tiles stack and nothing scrolls sideways; the
-chart answers a tap or hover. The audit log lists the sale, filters by action and pages
-with "Load more". A box office agent sees neither. Review screenshots of both pages.
+chart answers a tap or hover. The audit log lists the sale, pages with Previous and
+Next, and narrows by action (a list that filters as you type) and by search. A box
+office agent sees neither. Review screenshots of both pages.
 """
 
 import uuid;
@@ -134,11 +135,11 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
     }
 }
 
-test "the audit log lists the sale, filters by action and pages with Load more" {
+test "the audit log lists the sale, pages, and narrows by action and search" {
     (pw, browser) = shared_browser();
     try {
         owner = _cinema_with_a_sale();
-        # Enough events for two pages (50 each): restarting a shift is recorded.
+        # Enough events for three pages (25 each): restarting a shift is recorded.
         for _ in range(50) {
             assert call(owner["token"], "start_shift", {"tenant": owner["slug"]})["ok"];
         }
@@ -148,20 +149,46 @@ test "the audit log lists the sale, filters by action and pages with Load more" 
         _sign_in(page, owner["email"]);
         page.goto(f"{BASE_URL}/app/{owner['slug']}/audit");
         page.wait_for_selector('[data-testid="audit-log"]');
-        page.wait_for_selector('[data-testid="audit-more"]');
         rows = page.locator('[data-testid="responsive-table"] tbody tr');
-        assert rows.count() == 50;
-        page.click('[data-testid="audit-more"]');
-        page.wait_for_function(
-            "document.querySelectorAll('[data-testid=responsive-table] tbody tr').length > 50"
-        );
-        assert page.locator('[data-testid="audit-more"]').count() == 0;
-        page.select_option('[data-testid="audit-action"]', "sale.cash");
+        assert rows.count() == 25;
+        pages = _text(page, "audit-page");
+        assert pages.startswith("Page 1 of ")
+            and int(pages.split(" of ")[1]) >= 3 , pages;
+        assert page.locator('[data-testid="audit-prev"]').is_disabled();
+        # Pages (improvements #12).
+        page.click('[data-testid="audit-next"]');
+        page.wait_for_selector('[data-testid="audit-page"]:has-text("Page 2 of")');
+        # (The shift restarts read alike, so the count tells the pages apart.)
+        assert _text(page, "audit-count").startswith("26–50 of ");
+        total = int(pages.split(" of ")[1]);
+        for n in range(3, total + 1) {
+            page.click('[data-testid="audit-next"]');
+            page.wait_for_selector(
+                f'[data-testid="audit-page"]:has-text("Page {n} of")'
+            );
+        }
+        assert page.locator('[data-testid="audit-next"]').is_disabled() , "the last page";
+        for n in range(total - 1, 0, -1) {
+            page.click('[data-testid="audit-prev"]');
+            page.wait_for_selector(
+                f'[data-testid="audit-page"]:has-text("Page {n} of")'
+            );
+        }
+        # The action list narrows as you type.
+        page.click('[data-testid="audit-action"]');
+        page.keyboard.type("cash s");
+        page.click('[role="option"]:has-text("Cash sale")');
         page.wait_for_function(
             "document.querySelectorAll('[data-testid=responsive-table] tbody tr').length === 1"
         );
         sale = _text(page, "responsive-table");
         assert "Cash sale" in sale and "Done" in sale , sale;
+        assert _text(page, "audit-page") == "Page 1 of 1";
+        # A search with no match says so.
+        page.fill('[data-testid="audit-search"]', "no such person");  # jac:ignore[W6002]
+        page.wait_for_selector(
+            '[data-testid="audit-empty"]:has-text("Nothing matches")'
+        );
     } finally {
         close_contexts(browser);
     }
