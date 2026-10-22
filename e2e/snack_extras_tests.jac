@@ -181,17 +181,18 @@ test "the box office marks an add-on unavailable at their venue" {
     try {
         page = browser.new_context(**context_options(pw, "mobile", "light")).new_page();
         _sign_in(page, agent["email"], owner["slug"], "extras");
-        toggle = page.locator('[data-testid="addon"]', has_text="Caramel").locator(
-            '[data-testid="addon-unavailable-switch"]'
+        # Ticked means on sale there (improvements #9); unticking saves and says so.
+        on_sale = page.locator('[data-testid="addon"]', has_text="Caramel").locator(
+            '[data-testid="addon-on-sale"]'
         );
-        toggle.tap();
-        _said(page, "extras-message", "Caramel is unavailable");
-        assert page.locator('[data-testid="addon"]', has_text="Caramel").locator(
-            '[data-testid="addon-unavailable-switch"]'
-        ).get_attribute(
-            "aria-pressed"
-        )
-            == "true";
+        assert on_sale.is_checked();
+        assert "On sale at"
+            in page.locator('[data-testid="addon"]', has_text="Caramel").inner_text();
+        on_sale.tap();
+        _said(page, "extras-message", "Caramel is off sale at");
+        assert not page.locator('[data-testid="addon"]', has_text="Caramel").locator(
+            '[data-testid="addon-on-sale"]'
+        ).is_checked();
         assert page.locator('button:has-text("Add an add-on group")').count() == 0;
     } finally {
         close_contexts(browser);

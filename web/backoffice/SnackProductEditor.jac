@@ -1186,7 +1186,7 @@ def:pub SnackProductEditor(
             </div>}
         <div className="flex flex-col items-start gap-1 text-sm text-muted-foreground">
             <p>
-                Leave a price empty while it's a draft; publishing needs one. Tick Track stock to count how many you have on the Stock page.
+                Leave a price empty while it's a draft; publishing needs one. Track stock counts how many you have (on the Stock page), and a tracked item sells only while you have some, so add its stock before selling it.
             </p>
             <p>
                 Each variant gets a stock code (SKU) when you save, used to match rows when you import a spreadsheet. A barcode is optional.
