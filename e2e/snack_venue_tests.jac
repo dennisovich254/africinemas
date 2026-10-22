@@ -29,6 +29,7 @@ def _sign_in(page: any, email: str, slug: str, product: str) {  # jac:ignore[W10
     page.click('button[type="submit"]');
     page.wait_for_url("**/app");
     page.goto(f"{BASE_URL}/app/{slug}/snacks/{product}");
+    page.click('[data-testid="step-more"]');
     page.wait_for_selector('[data-testid="snack-venues"]');
 }
 

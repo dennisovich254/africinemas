@@ -60,8 +60,9 @@ test "a template starts Popcorn with its sizes in its category" {
         page.wait_for_selector('[data-testid="template-picker"]');
         page.locator('[data-testid="template-popcorn"]').tap();
         page.wait_for_selector('[data-testid="snack-editor"]');
-        assert page.locator('[data-testid="variant-row"]').count() == 3;
         assert page.locator("#p-category_id option:checked").inner_text() == "Popcorn";
+        page.locator('[data-testid="step-pricing"]').tap();
+        assert page.locator('[data-testid="variant-row"]').count() == 3;
     } finally {
         close_contexts(browser);
     }
@@ -123,6 +124,7 @@ test "duplicate opens a copy without SKUs, and bulk publish answers per product"
         page.wait_for_function(
             "document.querySelector('#p-name')?.value === 'Copy of Popcorn'"
         );
+        page.click('[data-testid="step-pricing"]');
         assert page.input_value("#p-variants-0-sku") == "";
         page.click('a:has-text("← Products")');
         page.locator(

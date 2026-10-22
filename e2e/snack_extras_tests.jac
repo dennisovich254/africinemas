@@ -125,6 +125,7 @@ test "an owner makes add-ons, gives them to a product, and builds a combo" {
         assert "+KES 30" in page.inner_text('[data-testid="addon-group"]');
         # Popcorn offers them.
         page.goto(f"{BASE_URL}/app/{owner['slug']}/snacks/{menu['popcorn']}");
+        page.click('[data-testid="step-more"]');
         page.locator(
             '[data-testid="product-addons"] label', has_text="Popcorn extras"
         ).locator(
@@ -134,6 +135,7 @@ test "an owner makes add-ons, gives them to a product, and builds a combo" {
         page.wait_for_selector("text=Saved the add-ons.");
         # The combo: Large Popcorn, and two drinks chosen from Coke and Fanta.
         page.goto(f"{BASE_URL}/app/{owner['slug']}/snacks/{menu['combo']}");
+        page.click('[data-testid="step-more"]');
         page.wait_for_selector('[data-testid="combo-components"]');
         _type(page, "#p-components-0-label", "Popcorn");
         first = page.locator('[data-testid="combo-component"]').nth(0);
@@ -215,6 +217,7 @@ test "review screenshots of combos and add-ons" {
                     full_page=True
                 );
                 page.goto(f"{BASE_URL}/app/{owner['slug']}/snacks/{menu['combo']}");
+                page.click('[data-testid="step-more"]');
                 page.wait_for_selector('[data-testid="combo-components"]');
                 page.screenshot(
                     path=artifact(f"snack-combo-{project}-{scheme}.png"), full_page=True
