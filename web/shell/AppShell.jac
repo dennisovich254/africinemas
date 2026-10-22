@@ -23,6 +23,7 @@ import from "@hugeicons/core-free-icons" {
     Ticket02Icon,
     PopcornIcon,
     QrCode01Icon,
+    PackageDeliveredIcon,
     UserGroupIcon,
     FileSearchIcon,
     Settings01Icon
@@ -53,6 +54,7 @@ glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
          "box-office": Ticket02Icon,
          "snacks": PopcornIcon,
          "scanner": QrCode01Icon,
+         "snack-counter": PackageDeliveredIcon,
          "staff": UserGroupIcon,
          "audit": FileSearchIcon,
          "settings": Settings01Icon

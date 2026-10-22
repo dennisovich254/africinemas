@@ -131,6 +131,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                     "Box office",
                     "Snacks",
                     "Scanner",
+                    "Snack counter",
                     "Staff",
                     "Audit log",
                     "Settings"

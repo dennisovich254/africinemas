@@ -32,7 +32,10 @@ node Order {
     # price_cart lines), snacks_cents their total (in total_cents too), snack_request
     # what was asked (for replays), snack_venue_id where they're sold, and snack_stock
     # the units set aside for it ([{variant_id, quantity}]), sold when it's paid and
-    # given back when it ends unpaid.
+    # given back when it ends unpaid. A paid order with snacks has a pickup code
+    # (P12.9): pickup_reference (claimed, core/booking/ticket_codes.jac) and its signed
+    # pickup_qr; snacks_collected_at and snacks_collected_by say when they were handed
+    # over at the snack counter, and by which staff member.
     has tenant_id: str,
         screening_id: str,
         holder: str,
@@ -52,7 +55,11 @@ node Order {
         snacks_cents: int = 0,
         snack_request: str = "",
         snack_venue_id: str = "",
-        snack_stock: list[dict[str, any]] = [];  # jac:ignore[W1037]
+        snack_stock: list[dict[str, any]] = [],  # jac:ignore[W1037]
+        pickup_reference: str = "",
+        pickup_qr: str = "",
+        snacks_collected_at: str = "",
+        snacks_collected_by: str = "";
 }
 
 node Ticket {

@@ -200,6 +200,7 @@ glob:pub ACTIONS: list[tuple[str, str]] = [
          ("snack_product.addons_set", "Snack product's add-ons changed"),
          ("snack_product.components_set", "Combo contents changed"),
          ("snack_stock.adjusted", "Snack stock adjusted"),
+         ("snacks.handed_over", "Snacks handed over"),
          ("snack_stock.rules_set", "Snack stock alert changed"),
          ("snack_product.duplicated", "Snack product duplicated"),
          ("snack_catalog.imported", "Snack catalog imported"),

@@ -26,7 +26,13 @@ import from core.catalog.models { SeatSlot }
 import from core.catalog.venues { find_screening, slots_of }
 import from core.booking.models { Order, SeatHold, Ticket }
 import from core.booking.availability { SeatState }
-import from core.booking.ticket_codes { REFS, reserve_reference, qr_payload }
+import from core.booking.ticket_codes {
+    REFS,
+    PICKUPS,
+    reserve_reference,
+    qr_payload,
+    pickup_payload
+}
 import from core.booking.ticket_delivery { claim_link, keep_link, queue_mail }
 import from core.payments.ledger { record_entry }
 import from core.snacks.order_stock { sell_snacks }
@@ -62,6 +68,15 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
         reference = reserve_reference(owner, PROVISIONAL_SECONDS);
         codes.append([ticket_id, owner, reference, qr_payload(reference)]);
     }
+    # An order with snacks gets its pickup code (P12.9), claimed the same way.
+    pickup: list[str] = [];
+    if order.snack_lines {
+        pickup_owner = f"{tenant_id}|{node_id(order)}";
+        pickup_ref = reserve_reference(
+            pickup_owner, PROVISIONAL_SECONDS, namespace=PICKUPS
+        );
+        pickup = [pickup_owner, pickup_ref, pickup_payload(pickup_ref)];
+    }
     claim_link(cinema, order, PROVISIONAL_SECONDS);
     me = node_id(root);
     act_as(cinema.principal_root_id);
@@ -70,6 +85,10 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
             also();
         }
         order.status = "confirmed";
+        if pickup {
+            order.pickup_reference = pickup[1];
+            order.pickup_qr = pickup[2];
+        }
         hold: any = jobj(order.hold_id);  # jac:ignore[W1037]
         if isinstance(hold, SeatHold) {
             (hold as SeatHold).status = "paid";
@@ -121,6 +140,9 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
     }
     for code in codes {
         make_permanent(REFS, code[2], code[1]);
+    }
+    if pickup {
+        make_permanent(PICKUPS, pickup[1], pickup[0]);
     }
     # The ticket link for good, and the tickets on their way by email (P6.3).
     keep_link(cinema, order);

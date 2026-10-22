@@ -65,6 +65,63 @@ def:pub TicketCard(ticket: dict[str, str]) -> JsxElement {
         </li>;
 }
 
+def:pub PickupCard(
+    snacks: list[dict[str, any]],  # jac:ignore[W1037]
+    pickup: any  # jac:ignore[W1037] {reference, qr}, or None before 12.9's codes
+) -> JsxElement {
+    # The snacks bought with the tickets and their pickup code (P12.9): the QR the snack
+    # counter scans, dark on white in either theme like a ticket's, and the reference to
+    # read out when a scan fails.
+    qr: str = pickup["qr"] if pickup is not None else "";
+    return
+        <div
+            className="flex flex-col gap-3 rounded-md border p-3"
+            data-testid="booked-snacks"
+        >
+            <h4 className="text-sm font-semibold">Your snacks</h4>
+            <ul className="flex flex-col gap-1 text-sm">
+                {[
+                    <li key={f"snack-{n}"}>
+                        {f"{s['quantity']} × {s['name']}"
+                            + (
+                                f" ({', '.join([a['name'] for a in s['addons']])})"
+                                    if len(s["addons"]) > 0
+                                    else ""
+                            )}
+                    </li> for (n, s) in enumerate(snacks)
+                ]}
+            </ul>
+            {len(qr) > 0
+                and <div className="flex flex-col items-center gap-2">
+                    <div className="rounded-md bg-white p-2">
+                        <QRCodeSVG  # jac:ignore[W1051]
+                            value={qr}
+                            size={160}
+                            level="M"
+                            marginSize={2}
+                            bgColor="#FFFFFF"
+                            fgColor="#000000"
+                            role="img"
+                            aria-label={f"Snack pickup code {pickup['reference']}"}
+                            data-testid="pickup-qr"
+                            data-payload={qr}
+                        />
+                    </div>
+                    <p
+                        className="font-mono text-base tracking-wider"
+                        data-testid="pickup-reference"
+                    >
+                        {pickup["reference"]}
+                    </p>
+                </div>}
+            <p className="text-xs text-muted-foreground">
+                {"Show this code at the snack counter, from two hours before the showtime."
+                    if len(qr) > 0
+                    else "Collect them at the snack counter with your ticket."}
+            </p>
+        </div>;
+}
+
 def:pub Tickets(payment: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     # A paid order's tickets: one card per seat, with its QR code and reference.
     tickets: list[dict[str, str]] = payment["tickets"];
@@ -90,29 +147,7 @@ def:pub Tickets(payment: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 {[<TicketCard key={t["reference"]} ticket={t}/> for t in tickets]}
             </ul>
             {len(snacks) > 0
-                and <div
-                    className="flex flex-col gap-2 rounded-md border p-3"
-                    data-testid="booked-snacks"
-                >
-                    <h4 className="text-sm font-semibold">Your snacks</h4>
-                    <ul className="flex flex-col gap-1 text-sm">
-                        {[
-                            <li key={f"snack-{n}"}>
-                                {f"{s['quantity']} × {s['name']}"
-                                    + (
-                                        f" ({', '.join(
-                                            [a['name'] for a in s['addons']]
-                                        )})"
-                                            if len(s["addons"]) > 0
-                                            else ""
-                                    )}
-                            </li> for (n, s) in enumerate(snacks)
-                        ]}
-                    </ul>
-                    <p className="text-xs text-muted-foreground">
-                        Collect them at the snack counter with your ticket.
-                    </p>
-                </div>}
+                and <PickupCard snacks={snacks} pickup={payment["pickup"]}/>}
             {len(link) > 0
                 and <TicketDelivery
                     link={link}

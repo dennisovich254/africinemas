@@ -432,6 +432,10 @@ def _my_payment(slug: str, screening_id: str, holder: str) -> dict[str, any] {  
     ]
         if paid
         else [];
+    # Their pickup code (P12.9): shown at the snack counter.
+    view["pickup"] = {"reference": order.pickup_reference, "qr": order.pickup_qr}
+        if paid and order.pickup_reference
+        else None;
     # Where the tickets live, and where they were emailed (P6.3).
     view["link"] = link_path(cinema, order) if paid else "";
     view["email"] = masked_email(order.email) if paid and order.email else "";

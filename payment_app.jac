@@ -116,6 +116,7 @@ import from core.snacks.product_api {
     remove_snack_image  # jac:ignore[W2037]
 }
 import from core.snacks.menu_api { public_snacks, price_snacks, public_snack_image }
+import from core.snacks.pickup_api { snack_pickup, hand_over_snacks }  # jac:ignore[W2037]
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
 import from core.catalog.movie_api { create_movie, upload_poster, set_trailer }  # jac:ignore[W2037]
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]

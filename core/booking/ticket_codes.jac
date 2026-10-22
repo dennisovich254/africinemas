@@ -11,6 +11,10 @@ HMAC-SHA256 over "TKT1.<reference>" with the server's ticket key
 descriptive is in it. "TKT1" is the format and key version, so the key can be rotated
 later. read_qr only says the payload was made by this server; whether the ticket is
 valid, for this showtime and unused is the server's answer at the door (6.2).
+
+A snack pickup code (P12.9; ADR-0053) is the same kind of reference, claimed in its own
+namespace (PICKUPS, owner "<tenant id>|<order id>"), and its QR is "SNK1.<reference>.
+<signature>", signed under its own version: neither scanner can take the other's code.
 """
 
 import os;
@@ -24,6 +28,8 @@ glob KEY_ENV: str = "AFRICINEMAS_TICKET_KEY",
      KEY_MIN_LENGTH: int = 32,
      VERSION: str = "TKT1",
      REFS: str = "ticket-ref",
+     PICKUP_VERSION: str = "SNK1",
+     PICKUPS: str = "snack-pickup",
      ALPHABET: str = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ",
      REFERENCE_LENGTH: int = 16,
      SIGNATURE_LENGTH: int = 26,
@@ -48,22 +54,28 @@ def new_reference -> str {
     return "-".join([picked[i:i + 4] for i in range(0, REFERENCE_LENGTH, 4)]);
 }
 
-def _signature(compact: str) -> str {
+def _signature(compact: str, version: str = VERSION) -> str {
     mac = hmac.new(
-        ticket_key(), f"{VERSION}.{compact}".encode("utf-8"), hashlib.sha256
+        ticket_key(), f"{version}.{compact}".encode("utf-8"), hashlib.sha256
     ).digest();
     return base64.b32encode(mac[:16]).decode("ascii").rstrip("=");
 }
 
-def qr_payload(reference: str) -> str {
+def qr_payload(reference: str, version: str = VERSION) -> str {
     compact = reference.replace("-", "");
-    return f"{VERSION}.{compact}.{_signature(compact)}";
+    return f"{version}.{compact}.{_signature(compact, version)}";
 }
 
-def read_qr(payload: str) -> str | None {
-    # The reference a payload was signed for, or None if this server didn't sign it.
+def pickup_payload(reference: str) -> str {
+    # A snack pickup code's QR (P12.9).
+    return qr_payload(reference, PICKUP_VERSION);
+}
+
+def read_qr(payload: str, version: str = VERSION) -> str | None {
+    # The reference a payload was signed for, or None if this server didn't sign it
+    # (as `version`: a ticket's by default, PICKUP_VERSION for a snack pickup).
     parts = payload.split(".");
-    if len(parts) != 3 or parts[0] != VERSION {
+    if len(parts) != 3 or parts[0] != version {
         return None;
     }
     (_, compact, given) = parts;
@@ -72,7 +84,7 @@ def read_qr(payload: str) -> str | None {
         or any([ch not in ALPHABET for ch in compact]) {
         return None;
     }
-    if not hmac.compare_digest(_signature(compact), given) {
+    if not hmac.compare_digest(_signature(compact, version), given) {
         return None;
     }
     return "-".join([compact[i:i + 4] for i in range(0, REFERENCE_LENGTH, 4)]);
@@ -107,13 +119,17 @@ def link_key(token: str) -> str {
 }
 
 def reserve_reference(
-    owner: str, ttl_seconds: int, draw: Callable[[], str] = new_reference
+    owner: str,
+    ttl_seconds: int,
+    draw: Callable[[], str] = new_reference,
+    namespace: str = REFS
 ) -> str {
-    # A reference nobody else holds, claimed for `owner` ("<tenant id>|<ticket id>").
-    # Claim it provisionally and make it permanent once the ticket is stored.
+    # A reference nobody else holds, claimed for `owner` ("<tenant id>|<ticket id>", or
+    # "<tenant id>|<order id>" for a snack pickup in PICKUPS). Claim it provisionally
+    # and make it permanent once the ticket (or order) is stored.
     for _ in range(DRAWS) {
         reference = draw();
-        if claim(REFS, reference, owner, ttl_seconds) == owner {
+        if claim(namespace, reference, owner, ttl_seconds) == owner {
             return reference;
         }
     }
