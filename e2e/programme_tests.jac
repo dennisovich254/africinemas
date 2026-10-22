@@ -396,11 +396,23 @@ test "the Screenings and Prices pages pass the phone checks" {
             timezone_id="Africa/Nairobi"
         ).new_page();
         _sign_in(page, owner["email"]);
-        for (path, ready) in [("screenings", PROGRAMME), ("prices", PRICES)] {
-            _open(page, owner["slug"], path, ready);
-            if path == "prices" {
+        # Every Prices tab, the extras one with an extra open.
+        for (path, ready, tab) in [
+            ("screenings", PROGRAMME, ""),
+            ("prices", PRICES, "types"),
+            ("prices", PRICES, "zones"),
+            ("prices", PRICES, "extras"),
+            ("prices", PRICES, "fee")
+        ] {
+            if tab in ["", "types"] {
+                _open(page, owner["slug"], path, ready);
+            } else {
+                page.click(f'[data-testid="prices-tab-{tab}"]');
+            }
+            if tab == "extras" {
                 page.click('button:has-text("Add time-of-day extra")');
             }
+            path = f"{path} {tab}".strip();
             assert page.evaluate(OVERFLOW_JS) <= 0 , f"{path} scrolls sideways";
             assert page.evaluate(SMALL_TARGETS_JS) == [] , f"{path}: {page.evaluate(
                 SMALL_TARGETS_JS
