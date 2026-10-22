@@ -294,18 +294,21 @@ test "an owner sets ticket types, prices by zone, a time-of-day extra and a fee"
             _sign_in(page, owner["email"]);
             _open(page, owner["slug"], "prices", PRICES);
             assert page.input_value("#ticket-name-0") == "Adult";
-            _type(page, "#price-0-0", "800");
             page.click('button:has-text("Add ticket type")');
             _type(page, "#ticket-name-1", "Child");
+            page.click('button:has-text("Next: Seat zone prices")');
+            _type(page, "#price-0-0", "800");
             _type(page, "#price-0-1", "500");
             page.click('button:has-text("Add zone")');
             _type(page, "#zone-name-1", "Gold");
             _type(page, "#price-1-0", "1200");
+            page.click('[data-testid="prices-tab-extras"]');
             page.click('button:has-text("Add time-of-day extra")');
             _type(page, "#surcharge-name-0", "Evening");
             _type(page, "#surcharge-start-0", "18:00");
             _type(page, "#surcharge-end-0", "00:00");
             _type(page, "#surcharge-amount-0", "100");
+            page.click('[data-testid="prices-tab-fee"]');
             _type(page, "#service-fee", "30");
             page.click('button:has-text("Save prices")');
             page.wait_for_selector('[data-testid="prices-message"]:has-text("Saved")');
@@ -330,6 +333,7 @@ test "an owner sets ticket types, prices by zone, a time-of-day extra and a fee"
             assert saved["service_fee_cents"] == 3000;
             page.reload();
             page.wait_for_selector(PRICES);
+            page.click('[data-testid="prices-tab-zones"]');
             assert page.input_value("#price-1-0") == "1200";
             assert page.input_value("#zone-name-1") == "Gold";
             page.context.close();
@@ -346,7 +350,17 @@ test "a price list with problems is refused and every problem is listed" {
         page = _page(browser, pw, "desktop");
         _sign_in(page, owner["email"]);
         _open(page, owner["slug"], "prices", PRICES);
+        page.click('[data-testid="prices-tab-zones"]');
+        _type(page, "#price-0-0", "8x");
+        page.click('[data-testid="prices-tab-extras"]');
+        page.click('button:has-text("Save prices")');
+        # A price that isn't one opens its tab, marked.
+        page.wait_for_selector(
+            '[data-testid="prices-tab-zones"][aria-selected="true"]'
+        );
+        page.wait_for_selector('#price-0-0[aria-invalid="true"]');
         _type(page, "#price-0-0", "800");
+        page.click('[data-testid="prices-tab-extras"]');
         page.click('button:has-text("Add time-of-day extra")');
         _type(page, "#surcharge-name-0", "Backwards");
         _type(page, "#surcharge-start-0", "20:00");
@@ -360,6 +374,22 @@ test "a price list with problems is refused and every problem is listed" {
             "price_list"
         ]
             is None , "nothing saved";
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "zones drawn in the seat layouts are offered for pricing" {
+    owner = _cinema();
+    (pw, browser) = shared_browser();
+    try {
+        page = _page(browser, pw, "desktop");
+        _sign_in(page, owner["email"]);
+        _open(page, owner["slug"], "prices", PRICES);
+        page.click('[data-testid="prices-tab-zones"]');
+        page.click('[data-testid="unpriced-zones"] button:has-text("Gold")');
+        assert page.input_value("#zone-name-1") == "Gold";
+        assert page.locator('[data-testid="unpriced-zones"]').count() == 0;
     } finally {
         close_contexts(browser);
     }
@@ -402,11 +432,23 @@ test "the Screenings and Prices pages pass the phone checks" {
             timezone_id="Africa/Nairobi"
         ).new_page();
         _sign_in(page, owner["email"]);
-        for (path, ready) in [("screenings", PROGRAMME), ("prices", PRICES)] {
-            _open(page, owner["slug"], path, ready);
-            if path == "prices" {
+        # Every Prices tab, the extras one with an extra open.
+        for (path, ready, tab) in [
+            ("screenings", PROGRAMME, ""),
+            ("prices", PRICES, "types"),
+            ("prices", PRICES, "zones"),
+            ("prices", PRICES, "extras"),
+            ("prices", PRICES, "fee")
+        ] {
+            if tab in ["", "types"] {
+                _open(page, owner["slug"], path, ready);
+            } else {
+                page.click(f'[data-testid="prices-tab-{tab}"]');
+            }
+            if tab == "extras" {
                 page.click('button:has-text("Add time-of-day extra")');
             }
+            path = f"{path} {tab}".strip();
             assert page.evaluate(OVERFLOW_JS) <= 0 , f"{path} scrolls sideways";
             assert page.evaluate(SMALL_TARGETS_JS) == [] , f"{path}: {page.evaluate(
                 SMALL_TARGETS_JS
