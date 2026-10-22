@@ -8,6 +8,8 @@ another key, reads as nothing. The server stays the authority on what a referenc
 
 import os;
 import from core.booking.ticket_codes {
+    PICKUP_VERSION,
+    pickup_payload,
     KEY_ENV,
     TicketKeyMissing,
     new_reference,
@@ -62,6 +64,23 @@ test "the QR payload is the version, the reference and a signature, nothing else
         assert len(parts[2]) == 26 and parts[2].isalnum() , parts[2];
         assert qr_payload(ref) == payload;
         assert read_qr(payload) == ref;
+    } finally {
+        _restore(before);
+    }
+}
+
+test "a snack pickup code is signed as SNK1, and neither code reads as the other" {
+    before = _with_key(KEY);
+    try {
+        ref = "7K2M-9QXR-4HJN-P3WD";
+        pickup = pickup_payload(ref);
+        assert pickup.startswith("SNK1.") and pickup != qr_payload(ref) , pickup;
+        assert read_qr(pickup, PICKUP_VERSION) == ref;
+        assert read_qr(pickup) is None , "a pickup code isn't a ticket";
+        assert read_qr(qr_payload(ref), PICKUP_VERSION) is None , "nor a ticket a pickup";
+        # The same reference and signature under the other version don't pass.
+        (_, compact, sig) = pickup.split(".");
+        assert read_qr(f"TKT1.{compact}.{sig}") is None;
     } finally {
         _restore(before);
     }

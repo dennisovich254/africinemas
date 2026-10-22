@@ -54,6 +54,7 @@ import from .StaffSection { StaffSection }
 import from .ReportsSection { ReportsSection }
 import from .StaffHome { StaffHome }
 import from .AuditSection { AuditSection }
+import from .SnackCounterSection { SnackCounterSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
@@ -343,6 +344,8 @@ def:pub BackOffice -> JsxElement {
             shift_open={shift_open}
             permissions={permissions}
         />;
+    } elif section == "snack-counter" {
+        content = <SnackCounterSection slug={slug} shift_open={shift_open}/>;
     } elif section == "snacks" and item == "import" {
         content = <SnackImportPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "stock" {

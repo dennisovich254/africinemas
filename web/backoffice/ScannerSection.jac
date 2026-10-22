@@ -175,8 +175,13 @@ def:pub ShowtimeChoice(
         </button>;
 }
 
-def Camera(on_code: any, screening_id: str) -> JsxElement {  # jac:ignore[W1037]
-    # The camera view; starts when asked, stops when the showtime or page changes.
+def:pub Camera(
+    on_code: any,  # jac:ignore[W1037]
+    screening_id: str,
+    typed: str = "the ticket reference"
+) -> JsxElement {
+    # The camera view; starts when asked, stops when the showtime or page changes. The
+    # snack counter (P12.9) uses it too, where `typed` is "the pickup code".
     has video: Ref[any] = Ref();  # jac:ignore[W1037]
     [state, set_state] = useState("off");
     camera: str = state;
@@ -243,7 +248,7 @@ def Camera(on_code: any, screening_id: str) -> JsxElement {  # jac:ignore[W1037]
                     data-testid="camera-unavailable"
                     className="text-sm text-muted-foreground"
                 >
-                    The camera isn't available (no camera, or permission was refused). Type the ticket reference instead.
+                    {f"The camera isn't available (no camera, or permission was refused). Type {typed} instead."}
                 </p>}
             {(
                 <Button

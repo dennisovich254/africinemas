@@ -20,7 +20,7 @@ import from e2e.support.web {
     context_options,
     artifact
 }
-import from e2e.support.api { call }
+import from e2e.support.api { call, PASSWORD }
 import from e2e.support.catalog { cinema_selling_tickets }
 import from e2e.support.designs { ai_designed }
 
@@ -79,8 +79,8 @@ def _product(
     return made;
 }
 
-def _with_snacks -> dict[str, str] {
-    owner = cinema_selling_tickets();
+def _with_snacks(starts_in_minutes: int = 0) -> dict[str, str] {
+    owner = cinema_selling_tickets(starts_in_minutes=starts_in_minutes);
     kinds = {
         c["name"]: c["category_id"]
         for c in _made(owner, "add_default_snack_categories", {})["categories"]
@@ -183,8 +183,67 @@ test "a visitor adds popcorn with butter, pays for it all, and sees it booked" {
             page.wait_for_selector('[data-testid="booked"]', timeout=SETTLE_MS);
             assert "Popcorn · Large"
                 in page.inner_text('[data-testid="booked-snacks"]');
+            # Their pickup code (P12.9): a QR the snack counter scans, and its reference.
+            assert page.get_attribute(
+                '[data-testid="pickup-qr"]', "data-payload"
+            ).startswith(
+                "SNK1."
+            );
+            assert len(page.inner_text('[data-testid="pickup-reference"]').strip())
+                == 19;
             page.context.close();
         }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "the snack counter hands a paid order's snacks over once, by its pickup code" {
+    # A showtime starting in 30 minutes, so pickup is open (from two hours before).
+    owner = _with_snacks(30);
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        _to_snacks(page, "desktop", owner, "A5");
+        _press(page, "desktop", '[data-testid="snack-product"]');
+        _press(page, "desktop", '[data-testid="snack-add"]');
+        page.wait_for_selector('[data-testid="snack-cart"]');
+        _press(page, "desktop", '[data-testid="snacks-continue"]');
+        page.wait_for_selector('[data-testid="pay-panel"]');
+        page.fill("#mpesa-phone", "0712 345 678");  # jac:ignore[W6002]
+        page.fill("#tickets-email", "ben@example.com");  # jac:ignore[W6002]
+        _press(page, "desktop", '[data-testid="pay-mpesa"]');
+        page.wait_for_selector('[data-testid="pickup-reference"]', timeout=SETTLE_MS);
+        code = page.inner_text('[data-testid="pickup-reference"]').strip();
+        # Staff at the snack counter: the code typed, the snacks shown, handed over.
+        staff = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        staff.goto(BASE_URL + "/login");
+        staff.fill("#email", owner["email"]);  # jac:ignore[W6002]
+        staff.fill("#password", PASSWORD);  # jac:ignore[W6002]
+        staff.click('button[type="submit"]');
+        staff.wait_for_url("**/app");
+        staff.goto(f"{BASE_URL}/app/{owner['slug']}/snack-counter");
+        staff.wait_for_selector('[data-testid="snack-counter"]');
+        staff.fill('[data-testid="pickup-code"]', code.lower());  # jac:ignore[W6002]
+        staff.click('[data-testid="look-up"]');
+        staff.wait_for_selector(
+            '[data-testid="pickup-snacks"]:has-text("Popcorn · Small")'
+        );
+        assert staff.inner_text('[data-testid="pickup-state"]') == "Ready to hand over";
+        staff.click('[data-testid="hand-over"]');
+        staff.wait_for_selector('[data-testid="counter-done"]:has-text("Handed over")');
+        assert staff.inner_text('[data-testid="pickup-state"]') == "Handed over";
+        assert staff.locator('[data-testid="hand-over"]').count() == 0;
+        # The same code again: already handed over, and when.
+        staff.click('[data-testid="next-order"]');
+        staff.fill('[data-testid="pickup-code"]', code);  # jac:ignore[W6002]
+        staff.click('[data-testid="look-up"]');
+        staff.wait_for_selector('[data-testid="pickup-collected"]');
+        assert staff.inner_text('[data-testid="pickup-state"]') == "Handed over";
     } finally {
         close_contexts(browser);
     }

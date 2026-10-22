@@ -600,6 +600,17 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "ticket.scanned",
              "probe": {"tenant": "{tenant}", "screening_id": "x", "code": "x"}
          },
+         # Collecting snacks at the snack counter (P12.9).
+         "snack_pickup": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "code": "x"}
+         },
+         "hand_over_snacks": {
+             "scope": "tenant",
+             "audit": "snacks.handed_over",
+             "probe": {"tenant": "{tenant}", "code": "x"}
+         },
          "public_screenings": {
              "scope": "storefront",
              "audit": "",

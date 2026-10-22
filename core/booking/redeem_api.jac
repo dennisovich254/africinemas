@@ -7,6 +7,7 @@ showtime they're checking. The code is a scanned QR payload (P6.1) or a typed
 reference (6.4's manual entry). Refusals, in the order they're checked:
 
 - invalid_code: not a payload this server signed, nor something that can be a reference;
+- snack_code: a snack pickup code (P12.9), which is collected at the snack counter;
 - unknown_ticket: no such ticket at this cinema (another cinema's gets the same answer);
 - wrong_showtime: the ticket is for another showtime, named (movie and start);
 - showtime_closed: the showtime isn't on (cancelled or unpublished);
@@ -54,15 +55,27 @@ import from core.catalog.venues {
 }
 import from core.catalog.storefront_api { cinema_timezone }
 import from core.booking.models { Ticket }
-import from core.booking.ticket_codes { REFS, VERSION, read_qr, typed_reference }
+import from core.booking.ticket_codes {
+    REFS,
+    VERSION,
+    PICKUPS,
+    PICKUP_VERSION,
+    read_qr,
+    typed_reference
+}
 import from core.audit.log { audited }
 
 glob SCAN: str = "tickets.scan",
      USED: str = "ticket-used";
 
+glob SNACK_CODE: str = "This is a snack pickup code. It's collected at the snack counter.";
+
 def _reference(code: str) -> str {
     # The reference a scanned or typed code names.
     text = code.strip();
+    if text.startswith(f"{PICKUP_VERSION}.") {
+        raise Refused("snack_code", SNACK_CODE);
+    }
     found = read_qr(text) if text.startswith(f"{VERSION}.") else typed_reference(text);
     if found is None {
         raise Refused("invalid_code", "This isn't a ticket code from this cinema.");
@@ -75,6 +88,9 @@ def _ticket(scope: TenantScope, reference: str) -> Ticket {
     owner = holder(REFS, reference);
     unknown = Refused("unknown_ticket", "No ticket with this code at this cinema.");
     if owner is None {
+        if holder(PICKUPS, reference) is not None {
+            raise Refused("snack_code", SNACK_CODE);
+        }
         raise unknown;
     }
     (tenant_id, _, ticket_id) = owner.partition("|");
@@ -96,7 +112,7 @@ def _ticket(scope: TenantScope, reference: str) -> Ticket {
     return found as Ticket;
 }
 
-def _staff_name(tenant: Tenant, member_id: str) -> str {
+def staff_name(tenant: Tenant, member_id: str) -> str {
     # How a staff member is named to their colleagues: their email or the invite's
     # note.
     me = node_id(root);
@@ -120,7 +136,7 @@ def _used(tenant: Tenant, used_at: str, used_by: str) -> Refused {
     return Refused(
         "already_redeemed",
         "This ticket has already been used.",
-        {"used_at": used_at, "used_by": _staff_name(tenant, used_by)}
+        {"used_at": used_at, "used_by": staff_name(tenant, used_by)}
     );
 }
 

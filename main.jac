@@ -177,6 +177,11 @@ import from core.snacks.product_api {
 }
 # The storefront's snack menu and a cart's price, from the server only (P12.6).
 import from core.snacks.menu_api { public_snacks, price_snacks, public_snack_image }
+# Collecting snacks at the snack counter, by the order's pickup code (P12.9).
+import from core.snacks.pickup_api {
+    snack_pickup,  # jac:ignore[W2037]
+    hand_over_snacks  # jac:ignore[W2037]
+}
 # Connected apps: the apps a customer let book for them, and disconnecting one (P8.6d).
 import from core.oauth.connections {
     my_connected_apps,  # jac:ignore[W2037]
