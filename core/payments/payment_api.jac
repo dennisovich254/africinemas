@@ -95,7 +95,9 @@ def payment_view(intent: PaymentIntent) -> dict[str, any] {  # jac:ignore[W1037]
         "tickets": [],
         # The ticket link and where the tickets were emailed, once paid (P6.3).
         "link": "",
-        "email": ""
+        "email": "",
+        # The paid order's snacks, to collect at the counter (my_payment, P12.8).
+        "snacks": []
     };
 }
 
