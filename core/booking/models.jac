@@ -27,7 +27,12 @@ node Order {
     # is what was asked ([seat, ticket type] pairs, sorted), to tell a replay of the
     # same request from a different one under the same idempotency key. reference is
     # for people (receipts, the box office), never an internal id. email is where the
-    # tickets go (P6.3), set when the visitor starts paying.
+    # tickets go (P6.3), set when the visitor starts paying. Snacks (P12.7): snack_lines
+    # are the snacks priced by the server when it was placed (core/snacks/menu.jac's
+    # price_cart lines), snacks_cents their total (in total_cents too), snack_request
+    # what was asked (for replays), snack_venue_id where they're sold, and snack_stock
+    # the units set aside for it ([{variant_id, quantity}]), sold when it's paid and
+    # given back when it ends unpaid.
     has tenant_id: str,
         screening_id: str,
         holder: str,
@@ -42,7 +47,12 @@ node Order {
         total_cents: int = 0,
         created_at: str = "",
         pay_by: str = "",
-        email: str = "";
+        email: str = "",
+        snack_lines: list[dict[str, any]] = [],  # jac:ignore[W1037]
+        snacks_cents: int = 0,
+        snack_request: str = "",
+        snack_venue_id: str = "",
+        snack_stock: list[dict[str, any]] = [];  # jac:ignore[W1037]
 }
 
 node Ticket {

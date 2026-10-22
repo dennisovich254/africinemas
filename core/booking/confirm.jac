@@ -3,7 +3,8 @@ its tickets issued and the money a ledger entry; then its link and email follow.
 
 M-Pesa settlement (core/payments/settlement.jac) and a cash sale at the box office
 (core/booking/counter_api.jac) both confirm through confirm_order, so a ticket is issued
-the same way however it was paid for. The caller passes its own writes (`also`), such
+the same way however it was paid for, and an order's snacks set aside are sold then
+(P12.7). The caller passes its own writes (`also`), such
 as the M-Pesa payment's new state, to land in the same commit. Each ticket's reference
 is claimed for it before the commit and made permanent after it (ADR-0020); the ticket
 link likewise (ADR-0022).
@@ -28,6 +29,7 @@ import from core.booking.availability { SeatState }
 import from core.booking.ticket_codes { REFS, reserve_reference, qr_payload }
 import from core.booking.ticket_delivery { claim_link, keep_link, queue_mail }
 import from core.payments.ledger { record_entry }
+import from core.snacks.order_stock { sell_snacks }
 
 glob PROVISIONAL_SECONDS: int = 60;
 
@@ -89,6 +91,14 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
         );
         recorded.method = takings.method;
         recorded.recorded_by = takings.recorded_by;
+        # Its snacks leave the shelf, their sale movements in this commit. confirm_order
+        # runs once per order (the FINALIZE gate), so a repeated callback can't sell
+        # them twice.
+        if order.snack_stock {
+            sell_snacks(
+                cinema, order.snack_venue_id, order.snack_stock, order.reference
+            );
+        }
         for (line, code) in zip(order.lines, codes) {
             ticket = Ticket(
                 tenant_id=tenant_id,
