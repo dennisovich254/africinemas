@@ -211,7 +211,10 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
                             <SheetDescription className="sr-only">
                                 Main navigation
                             </SheetDescription>
-                            <div className="p-2">
+                            <div
+                                className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2"
+                                data-testid="drawer-links"
+                            >
                                 <NavLinks
                                     items={nav}
                                     current={location.pathname}
@@ -219,7 +222,7 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
                                 />
                             </div>
                             {account
-                                and <div className="mt-auto border-t p-2">
+                                and <div className="shrink-0 border-t p-2">
                                     {account}
                                 </div>}
                         </SheetContent>

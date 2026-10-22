@@ -24,9 +24,9 @@ import from core.oauth.provider {
     oauth_approve,  # jac:ignore[W2037]
     oauth_deny  # jac:ignore[W2037]
 }
+import from ..auth.token_slots { cinema_of_resource }
 
-glob SLUG_CHARS: str = "abcdefghijklmnopqrstuvwxyz0123456789-",
-     MAY: list[str] = [
+glob MAY: list[str] = [
          "See what's on at the cinema and show you movies",
          "Hold seats and send the M-Pesa prompt to your phone when you book",
          "See your own bookings at the cinema"
@@ -39,16 +39,6 @@ def _asked(name: str) -> str {
     return query.get(name) or "";
 }
 
-def _cinema_of(resource: str) -> str {
-    # The cinema a connector address names: ".../mcp/c/<slug>" -> "<slug>", else "".
-    parts = resource.split("/");
-    if len(parts) < 4 or parts[-3] != "mcp" or parts[-2] != "c" {
-        return "";
-    }
-    slug = parts[-1];
-    ok = len(slug) > 0 and all([ch in SLUG_CHARS for ch in slug]);
-    return slug if ok else "";
-}
 
 def _go(address: str) {
     win: any = window;  # jac:ignore[W1037,W2001]
@@ -57,7 +47,7 @@ def _go(address: str) {
 
 def:pub AuthorizePage -> JsxElement {
     resource = _asked("resource");
-    slug = _cinema_of(resource);
+    slug = cinema_of_resource(resource);
     account = use_customer(slug);
     signed_in = account == "customer";
     [info, set_info] = useState(None);

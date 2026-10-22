@@ -28,6 +28,11 @@ import from .oauth.AuthorizePage { AuthorizePage }
 import from .storefront.MoviesPage { MoviesPage }
 import from .storefront.CinemasPage { CinemasPage }
 import from .auth.InvitePage { InvitePage }
+import from .auth.token_slots { install_token_slots }
+
+# The back office and each cinema's storefront keep their own sign-in (improvements #25),
+# set up when this module loads, before any page asks the server anything.
+glob TOKEN_SLOTS: bool = install_token_slots();
 
 def:pub AppRoot -> JsxElement {
     return

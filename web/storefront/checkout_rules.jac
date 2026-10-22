@@ -8,6 +8,8 @@ starts (architecture §26). Storage can be unavailable (private windows): then t
 lasts until the page is reloaded.
 """
 
+glob HEX: str = "0123456789abcdef";
+
 glob HOLDER_KEY: str = "africinemas:holder",
      MOVES: dict[str, list[int]] = {
          "ArrowUp": [-1, 0],
@@ -108,13 +110,19 @@ def:pub next_seat(
     return label;
 }
 
-def _random_id(prefix: str) -> str {
+def:pub random_id(prefix: str) -> str {
+    # "<prefix>-" and 128 random bits as 32 hex digits. crypto.getRandomValues, not
+    # randomUUID: a phone on the dev server's network address isn't a secure page (not
+    # HTTPS, not localhost), and there randomUUID doesn't exist.
     win: any = window;  # jac:ignore[W1037,W2001]
-    try {
-        return f"{prefix}-{win.crypto.randomUUID()}";
-    } except Exception {
-        return f"{prefix}-{win.Date.now()}-{int(win.Math.random() * 1000000000)}";  # jac:ignore[W6001]
+    random: any = new(win.Uint8Array, 16);  # jac:ignore[W1037]
+    win.crypto.getRandomValues(random);
+    out = "";
+    for i in range(16) {
+        b: int = random[i];
+        out += HEX[int(b / 16)] + HEX[b % 16];
     }
+    return f"{prefix}-{out}";
 }
 
 def:pub visitor_id -> str {
@@ -125,12 +133,12 @@ def:pub visitor_id -> str {
         if kept {
             return kept;
         }
-        made = _random_id("visitor");
+        made = random_id("visitor");
         win.sessionStorage.setItem(HOLDER_KEY, made);
         return made;
     } except Exception {
         if not win.__africinemasHolder {
-            win.__africinemasHolder = _random_id("visitor");
+            win.__africinemasHolder = random_id("visitor");
         }
         return win.__africinemasHolder;
     }
@@ -138,7 +146,7 @@ def:pub visitor_id -> str {
 
 def:pub order_key -> str {
     # A fresh idempotency key for an order the visitor starts.
-    return _random_id("order");
+    return random_id("order");
 }
 
 def _split(label: str) -> list[str] {
