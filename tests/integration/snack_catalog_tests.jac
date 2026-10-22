@@ -121,6 +121,29 @@ def _fields(answer: dict[str, any]) -> list[str] {  # jac:ignore[W1037]
     return sorted([p["field"] for p in answer["error"]["problems"]]);
 }
 
+test "the usual categories can be picked, and the rest are offered" {
+    (app, _, _) = paying_cinema([]);
+    try {
+        first = _call(app, "list_snack_categories", {});
+        assert first["usual"][:2] == ["Popcorn", "Beverages"]
+            and len(first["usual"]) == 6 , first;
+        # Only usual names are added; "Ice cream" isn't one.
+        picked = _call(
+            app,
+            "add_default_snack_categories",
+            {"names": ["popcorn", "Hot Food", "Ice cream"]}
+        );
+        assert picked["added"] == ["Popcorn", "Hot Food"] , picked;
+        assert [c["name"] for c in picked["categories"]] == ["Popcorn", "Hot Food"];
+        assert picked["usual"]
+            == ["Beverages", "Crisps & Chips", "Candy & Chocolates", "Combos & Deals"];
+        again = _call(app, "add_default_snack_categories", {"names": ["Popcorn"]});
+        assert again["added"] == [] , again;
+    } finally {
+        app.close();
+    }
+}
+
 test "categories: the usual six, unique names, renamed, reordered, archived" {
     (app, _, _) = paying_cinema([]);
     try {

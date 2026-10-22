@@ -4,8 +4,10 @@ tests/isolation/registry.jac; every change is audited.
 Categories organize products for staff and customers (design guide §6). Reading needs
 concessions.read held anywhere in the cinema; changing needs concessions.manage. Names
 are 1 to CATEGORY_NAME_MAX characters and unique in the cinema ignoring case
-(category_taken). add_default_snack_categories adds the usual six, skipping names that
-are already there. An archived category keeps its products (for reports) and leaves the
+(category_taken). add_default_snack_categories adds the usual six, or those of them
+named (improvements #9: the owner picks), skipping names that are already there, and
+says which it added. list_snack_categories also lists the usual names not yet taken
+("usual"), offered as suggestions. An archived category keeps its products (for reports) and leaves the
 storefront. Another cinema's category is not_found.
 """
 
@@ -114,11 +116,23 @@ def make_category(
     return made;
 }
 
+def _usual_left(found: list[SnackCategory]) -> list[str] {
+    # The usual names no category has yet (archived ones included: the name is taken).
+    taken = [c.name.casefold() for c in found];
+    return [
+        name
+        for name in DEFAULT_CATEGORIES
+        if name.casefold() not in taken
+    ];
+}
+
 def _list(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = reader(tenant);
+    found = categories_of(scope.tenant);
     return {
         "ok": True,
-        "categories": _views(scope.tenant, categories_of(scope.tenant))
+        "categories": _views(scope.tenant, found),
+        "usual": _usual_left(found)
     };
 }
 
@@ -137,20 +151,26 @@ def _create(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"ok": True, "category": category_view(made, 0)};
 }
 
-def _add_defaults(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _add_defaults(tenant: str, names: list[str] | None) -> dict[str, any] {  # jac:ignore[W1037]
+    # `names` picks among the usual ones (others are ignored); None adds them all.
     scope = scoped(tenant, MANAGE);
     found = categories_of(scope.tenant);
-    taken = [c.name.casefold() for c in found];
+    wanted = [str(n).casefold() for n in names] if isinstance(names, list) else None;
     position = next_position(found);
-    for name in DEFAULT_CATEGORIES {
-        if name.casefold() not in taken {
+    added: list[str] = [];
+    for name in _usual_left(found) {
+        if wanted is None or name.casefold() in wanted {
             make_category(scope.tenant, scope.ctx.tenant_id, name, position);
             position += 1;
+            added.append(name);
         }
     }
+    now_found = categories_of(scope.tenant);
     return {
         "ok": True,
-        "categories": _views(scope.tenant, categories_of(scope.tenant))
+        "added": added,
+        "categories": _views(scope.tenant, now_found),
+        "usual": _usual_left(now_found)
     };
 }
 
@@ -223,13 +243,15 @@ def:protect create_snack_category(tenant: str, name: str) -> dict[str, any] {  #
     );
 }
 
-def:protect add_default_snack_categories(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect add_default_snack_categories(
+    tenant: str, names: list[str] | None = None
+) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snack_category.defaults_added",
         "snack_category",
         "",
-        lambda -> any { return _add_defaults(tenant); }  # jac:ignore[W1037]
+        lambda -> any { return _add_defaults(tenant, names); }  # jac:ignore[W1037]
     );
 }
 

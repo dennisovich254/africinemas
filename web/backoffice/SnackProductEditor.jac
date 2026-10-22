@@ -190,6 +190,8 @@ def:pub SnackProductEditor(
     # The name typed for a new category, or None when not adding one.
     [new_category, set_new_category] = useState(None);
     [category_error, set_category_error] = useState("");
+    # The usual category names the cinema hasn't got, offered under New category.
+    [usual, set_usual] = useState([]);
     # SKU and barcode columns: hidden unless asked for (a save makes the SKUs).
     [codes_open, set_codes_open] = useState(False);
 
@@ -207,6 +209,7 @@ def:pub SnackProductEditor(
             return;
         }
         kinds: list[dict[str, any]] = found["categories"] if found["ok"] else [];  # jac:ignore[W1037]
+        set_usual(found["usual"] if found["ok"] else []);
         set_categories(
             [
                 c
@@ -499,8 +502,8 @@ def:pub SnackProductEditor(
         }
     }
 
-    async def add_category {
-        name = (new_category or "").strip();
+    async def add_category(given: str = "") {
+        name = (given or new_category or "").strip();
         if not name {
             set_category_error("Enter the category's name, like Popcorn.");
             return;
@@ -529,6 +532,14 @@ def:pub SnackProductEditor(
         made: dict[str, any] = answer["category"];  # jac:ignore[W1037]
         kinds_now: list[dict[str, any]] = categories;  # jac:ignore[W1037]
         set_categories(kinds_now + [made]);
+        left: list[str] = usual;
+        set_usual(
+            [
+                n
+                for n in left
+                if n.lower() != made["name"].lower()
+            ]
+        );
         put("category_id", made["category_id"]);
         set_new_category(None);
         set_category_error("");
@@ -713,6 +724,7 @@ def:pub SnackProductEditor(
         if priced
         else "No price yet";
 
+    offered: list[str] = usual;
     # With no categories yet, the new-category field is already open.
     adding_category = new_category is not None or len(kinds) == 0;
 
@@ -793,7 +805,7 @@ def:pub SnackProductEditor(
                                 className="min-h-11 px-4"
                                 disabled={busy}
                                 data-testid="add-category"
-                                onClick={add_category}
+                                onClick={lambda { add_category(""); }}
                             >
                                 Add
                             </Button>
@@ -812,6 +824,27 @@ def:pub SnackProductEditor(
                                 field_id="new-category-name"
                                 error={category_error}
                             />}
+                        {len(offered) > 0
+                            and <div
+                                className="flex flex-wrap items-center gap-2"
+                                data-testid="usual-suggestions"
+                            >
+                                <span className="text-sm text-muted-foreground">
+                                    Or pick a usual one:
+                                </span>
+                                {[
+                                    <Button
+                                        key={name}
+                                        type="button"
+                                        variant="outline"
+                                        className="min-h-11 px-3"
+                                        disabled={busy}
+                                        onClick={lambda { add_category(name); }}
+                                    >
+                                        {name}
+                                    </Button> for name in offered
+                                ]}
+                            </div>}
                     </div>}
             </div>
             <TextField

@@ -1,6 +1,7 @@
 """P12.1 E2E: the snack catalog in the back office (design guide docs/snacks-guide.md).
 
-An owner opens Snacks, goes to Categories and adds the usual six in one tap. They add
+An owner opens Snacks, goes to Categories and adds five of the usual six (one unticked),
+then the sixth from the suggestions. They add
 Popcorn in Popcorn: "has variants" starts with Size (Small, Medium, Large); they fill
 two SKUs and prices and save the draft; Publish is refused and the missing Large price
 and SKU show beside that row; filled in, it publishes. The list shows "3 variants",
@@ -112,11 +113,25 @@ test "an owner builds a product with variants, and publishing checks it" {
             **context_options(pw, "desktop", "light")
         ).new_page();
         _sign_in(page, owner["email"], owner["slug"], "/categories");
-        page.click('button:has-text("Add the usual categories")');
-        _said(page, "categories-message", "Added the usual categories");
+        # The usual six are ticked; unticked, Hot Food is left out (improvements #9).
+        page.locator('label', has_text="Hot Food").locator(
+            '[data-testid="usual-category"]'
+        ).uncheck();
+        assert page.inner_text('[data-testid="add-usual"]') == "Add 5 categories";
+        page.click('[data-testid="add-usual"]');
+        _said(page, "categories-message", "Added Popcorn, Beverages");
         page.wait_for_selector('[data-testid="category-row"]');
         names = page.locator('[data-testid="category-name"]').all_inner_texts();
-        assert names[:2] == ["Popcorn", "Beverages"] and len(names) == 6 , names;
+        assert names[:2] == ["Popcorn", "Beverages"] and len(names) == 5 , names;
+        assert page.locator('[data-testid="category-new"]').count() == 5;
+        # It's offered afterwards.
+        page.locator(
+            '[data-testid="usual-suggestions"] button', has_text="Hot Food"
+        ).click();
+        _said(page, "categories-message", "Added Hot Food");
+        assert len(page.locator('[data-testid="category-name"]').all_inner_texts())
+            == 6;
+        assert page.locator('[data-testid="usual-suggestions"]').count() == 0;
         # A product with variants.
         page.click('nav[aria-label="Snacks"] a:has-text("Products")');
         page.click('[data-testid="add-product"]');
