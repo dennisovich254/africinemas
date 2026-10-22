@@ -4,7 +4,8 @@ In-process app (payment_app.jac). "boss" is in AFRICINEMAS_PLATFORM_ADMINS, so a
 admin; "owner" runs a cinema and isn't platform staff; "rev" and "helper" are added by
 the boss. Platform access follows the role, looked up fresh on every request: a cinema
 owner is refused everything as not_platform, a reviewer can't manage staff, a removed
-member loses access at once, and the allowlist can't be changed through the app. A
+member loses access at once, and the allowlist can't be changed through the app. Only a
+super admin from the server's settings makes, changes or removes super admins. A
 customer account can never be added. Every staff change is in the platform's own log.
 """
 
@@ -88,6 +89,41 @@ test "a super admin adds and removes staff; each role reaches only its own actio
             == False;
         assert [s["email"] for s in app.call("boss", "platform_staff")["staff"]]
             == ["boss", "helper"];
+    } finally {
+        _close(app);
+    }
+}
+
+test "only a super admin from the server's settings manages super admins" {
+    app = _app();
+    try {
+        assert app.call("boss", "platform_whoami", {"email": "boss"})["settings_admin"];
+        app.call("boss", "set_platform_role", {"email": "rev", "role": "super_admin"});
+        app.call("boss", "set_platform_role", {"email": "helper", "role": "support"});
+        rev = app.call("rev", "platform_whoami", {"email": "rev"});
+        assert rev["role"] == "super_admin" and not rev["settings_admin"] , rev;
+        # A super admin made here manages reviewers and support...
+        assert app.call(
+            "rev", "set_platform_role", {"email": "helper", "role": "reviewer"}
+        )["ok"];
+        # ...but makes no super admins, and changes or removes none.
+        assert code_of(
+            app.call(
+                "rev", "set_platform_role", {"email": "helper", "role": "super_admin"}
+            )
+        )
+            == "only_settings_admins";
+        app.call(
+            "boss", "set_platform_role", {"email": "helper", "role": "super_admin"}
+        );
+        assert code_of(
+            app.call("rev", "set_platform_role", {"email": "helper", "role": "support"})
+        )
+            == "only_settings_admins";
+        assert code_of(app.call("rev", "remove_platform_staff", {"email": "helper"}))
+            == "only_settings_admins";
+        # The settings' super admin can.
+        assert app.call("boss", "remove_platform_staff", {"email": "helper"})["ok"];
     } finally {
         _close(app);
     }
