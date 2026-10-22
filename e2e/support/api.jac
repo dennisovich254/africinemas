@@ -4,6 +4,7 @@ The e2e server keeps its data between runs, so every account and cinema made her
 a random suffix (`unique`) and an `e2e-` prefix.
 """
 
+import os;
 import uuid;
 import from tests.support.real_server { http_call }
 import from e2e.support.web { BASE_URL }
@@ -39,6 +40,28 @@ def register(email: str) -> str {
     );
     assert status == 200 , f"login {email}: {status} {body}";
     return str(body["data"]["token"]);
+}
+
+def platform_admin -> str {
+    # The browser tests' platform super admin (AFRICINEMAS_PLATFORM_ADMINS in
+    # scripts/e2e_env.sh): signed up the first time, signed in after. Its email.
+    email = os.environ.get(
+        "AFRICINEMAS_PLATFORM_ADMINS", "platform-admin@example.com"
+    ).split(
+        ","
+    )[0].strip();
+    (status, _) = http_call(
+        "POST",
+        f"{BASE_URL}/user/login",
+        {
+            "identity": {"type": "email", "value": email},
+            "credential": {"type": "password", "password": PASSWORD}
+        }
+    );
+    if status != 200 {
+        register(email);
+    }
+    return email;
 }
 
 def call(token: str, name: str, args: dict[str, any]) -> any {  # jac:ignore[W1037]

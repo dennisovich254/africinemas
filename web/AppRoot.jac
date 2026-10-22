@@ -28,6 +28,7 @@ import from .oauth.AuthorizePage { AuthorizePage }
 import from .storefront.MoviesPage { MoviesPage }
 import from .storefront.CinemasPage { CinemasPage }
 import from .auth.InvitePage { InvitePage }
+import from .platform.PlatformConsole { PlatformConsole }
 import from .auth.token_slots { install_token_slots }
 
 # The back office and each cinema's storefront keep their own sign-in (improvements #25),
@@ -61,6 +62,8 @@ def:pub AppRoot -> JsxElement {
                     <Route path="/app/:slug" element={<BackOffice/>}/>
                     <Route path="/app/:slug/:section" element={<BackOffice/>}/>
                     <Route path="/app/:slug/:section/:item" element={<BackOffice/>}/>
+                    <Route path="/platform" element={<PlatformConsole/>}/>
+                    <Route path="/platform/:section" element={<PlatformConsole/>}/>
                 </Route>
                 <Route path="*" element={<NotFoundPage/>}/>
             </Routes>

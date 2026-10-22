@@ -30,3 +30,5 @@ export AFRICINEMAS_AGENT_SCRIPT="${AFRICINEMAS_AGENT_SCRIPT:-$PWD/e2e/artifacts/
 export AFRICINEMAS_KIT_PLAN="${AFRICINEMAS_KIT_PLAN:-$PWD/e2e/artifacts/kit_plan.json}"
 # The storefront the AI writes (ADR-0048): the model's answer, as a file the test writes.
 export AFRICINEMAS_PAGE_SCRIPT="${AFRICINEMAS_PAGE_SCRIPT:-$PWD/e2e/artifacts/page_script.html}"
+# The AfriCinemas platform console (P13.1): its super admin for the browser tests.
+export AFRICINEMAS_PLATFORM_ADMINS="${AFRICINEMAS_PLATFORM_ADMINS:-platform-admin@example.com}"

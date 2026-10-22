@@ -9,6 +9,8 @@
   returns the caller's own customer data (never staff or other customers' data).
 - "storefront": public, no login; returns a cinema's published storefront only (never
   internal ids, staff or owner data). Probed anonymously at tenant B.
+- "platform": the AfriCinemas platform console (P13.1); only platform staff may call it.
+  Probed as tenant A's owner (not platform staff): refused as "not_platform", always.
 - "webhook": a public endpoint on a custom path (key "route:<path>"), called by a
   provider (M-Pesa's callback, P5.4); it changes nothing a caller can see and only
   acknowledges. Probed anonymously with a made-up token.
@@ -30,6 +32,24 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "app_info": {"scope": "public", "audit": ""},
          "create_cinema": {"scope": "caller", "audit": "cinema.created"},
          "my_cinemas": {"scope": "caller", "audit": ""},
+         # The AfriCinemas platform console (P13.1): its actions go to the platform's own
+         # log, never a cinema's.
+         "platform_whoami": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {"email": "owner@example.com"}
+         },
+         "platform_staff": {"scope": "platform", "audit": ""},
+         "set_platform_role": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"email": "probe@example.com", "role": "support"}
+         },
+         "remove_platform_staff": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"email": "probe@example.com"}
+         },
          "check_slug": {"scope": "caller", "audit": "", "probe": {"slug": "free-name"}},
          "my_access": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
          "rename_cinema": {

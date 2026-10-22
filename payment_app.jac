@@ -117,6 +117,12 @@ import from core.snacks.product_api {
 }
 import from core.snacks.menu_api { public_snacks, price_snacks, public_snack_image }
 import from core.snacks.pickup_api { snack_pickup, hand_over_snacks }  # jac:ignore[W2037]
+import from core.platform.staff_api {
+    platform_whoami,  # jac:ignore[W2037]
+    platform_staff,  # jac:ignore[W2037]
+    set_platform_role,  # jac:ignore[W2037]
+    remove_platform_staff  # jac:ignore[W2037]
+}
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
 import from core.catalog.movie_api { create_movie, upload_poster, set_trailer }  # jac:ignore[W2037]
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]
@@ -645,4 +651,11 @@ def:pub t_release_snack_stock(
         return {"ok": True};
     }
     return stock_answer(work);
+}
+
+# Test-only: the AfriCinemas platform's own audit log (P13.1; its console view is 13.3).
+import from core.audit.log { events as audit_events }
+
+def:pub t_platform_events -> list[dict[str, str]] {
+    return audit_events("platform", "", 50, "");
 }

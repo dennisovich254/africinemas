@@ -19,7 +19,9 @@ import from ...components.ui.spinner { Spinner }
 import from core.tenancy.signup { my_cinemas }  # jac:ignore[W2037] authenticated endpoint
 import from .nav { web_address, role_label }
 import from .PlainLayout { PlainLayout, AccountActions }
-import from ..auth.session { sign_out }
+import from ..auth.session { sign_out, signed_in_email }
+import from ..shell.AppLink { AppLink }
+import from core.platform.staff_api { platform_whoami }  # jac:ignore[W2037] authenticated endpoint
 
 def CinemaLink(cinema: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     return
@@ -77,8 +79,19 @@ def NoCinemas -> JsxElement {
 def:pub CinemaPicker -> JsxElement {
     [cinemas, set_cinemas] = useState(None);
     [failed, set_failed] = useState(False);
+    # Whether the caller is AfriCinemas platform staff (P13.1): a link to the console.
+    [platform, set_platform] = useState(False);
     nav = useNavigate();
+    async def check_platform {
+        try {
+            seen: any = await platform_whoami(signed_in_email());  # jac:ignore[W1037,W2037]
+            set_platform(bool(seen["ok"] and seen["platform"]));
+        } except Exception as e {
+            console.warn("platform_whoami failed", e);
+        }
+    }
     async def load {
+        check_platform();
         found: any = None;  # jac:ignore[W1037]
         try {
             found = await my_cinemas();  # jac:ignore[W2037]
@@ -152,6 +165,13 @@ def:pub CinemaPicker -> JsxElement {
     }
     return
         <PlainLayout title="Your cinemas" account={<AccountActions slugs={slugs}/>}>
-            {body}
+            {platform
+                and <AppLink
+                    to="/platform"
+                    testid="open-platform"
+                    className="mb-4 inline-flex min-h-11 w-fit items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
+                >
+                    AfriCinemas platform console
+                </AppLink>}{body}
         </PlainLayout>;
 }

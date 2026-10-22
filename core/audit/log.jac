@@ -18,6 +18,10 @@ per event), which runs on its own connection and commits at once:
 - Nobody can change or delete an event: only this module writes these documents, only
   `audit_log` reads them, and staff never reach the store.
 
+The AfriCinemas platform's own actions (P13.1; ADR-0055) go to one separate collection,
+PLATFORM_COLLECTION, through `platform_audited`: no cinema's log ever holds them, and no
+cinema endpoint reads them.
+
 Never recorded (§66): passwords, tokens, secrets, credentials, ticket codes or customer
 contact details. An event holds ids, an action and a short `detail` its endpoint chose.
 
@@ -33,7 +37,8 @@ import from core.catalog.answers { answer }
 import from core.tenancy.models { StaffGroup, Membership, MemberOf }
 import from core.tenancy.principal { node_id }
 
-glob DETAIL_MAX: int = 200,
+glob PLATFORM_COLLECTION: str = "africinemas:audit:platform",
+     DETAIL_MAX: int = 200,
      PENDING: str = "pending",
      COLLECTION_PREFIX: str = "africinemas:audit:";
 
@@ -119,15 +124,36 @@ def _open(
     } except NotFound {
         return None;
     }
+    return _write(
+        collection_of(scope.ctx.tenant_id),
+        scope.ctx.member_root_id,
+        _known_as(scope.ctx.tenant_id),
+        action,
+        resource_type,
+        resource_id,
+        result,
+        detail
+    );
+}
+
+def _write(  # jac:ignore[W3030] one event: where, who, what, to what, the result and a note
+    collection: str,
+    actor_id: str,
+    actor: str,
+    action: str,
+    resource_type: str,
+    resource_id: str,
+    result: str,
+    detail: str
+) -> Opened {
     # The real time, not core.clock's (which tests freeze and move), fixed-width so
     # that event ids sort in time order.
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ");
     event_id = f"{at}|{uuid4().hex}";
-    collection = collection_of(scope.ctx.tenant_id);
     doc = {
         "at": at,
-        "actor_id": scope.ctx.member_root_id,
-        "actor": _known_as(scope.ctx.tenant_id),
+        "actor_id": actor_id,
+        "actor": actor,
         "action": action,
         "resource_type": resource_type,
         "resource_id": resource_id,
@@ -246,6 +272,32 @@ def has_event(tenant_id: str, event_id: str) -> bool {
         {"c": collection_of(tenant_id), "i": event_id}
     );
     return len(found) > 0;
+}
+
+def platform_audited(  # jac:ignore[W3030] the platform action: who, what, to what, the work and a note
+    actor_id: str,
+    actor: str,
+    action: str,
+    resource_type: str,
+    resource_id: str,
+    work: any,  # jac:ignore[W1037]
+    detail: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # As `audited`, for an action by AfriCinemas platform staff (P13.1): the event goes
+    # to the platform's own log. The caller has already been checked as platform staff.
+    opened = _write(
+        PLATFORM_COLLECTION,
+        actor_id,
+        actor,
+        action,
+        resource_type,
+        resource_id,
+        PENDING,
+        detail
+    );
+    response = answer(work);
+    _close(opened, outcome(response), resource_id);
+    return response;
 }
 
 def audited(
