@@ -8,6 +8,7 @@ import from core.tenancy.signup {
 }
 import from core.tenancy.tenant_api {
     my_access,  # jac:ignore[W2037]
+    storefront_preview,  # jac:ignore[W2037]
     rename_cinema,  # jac:ignore[W2037]
     set_doors_open,  # jac:ignore[W2037]
     start_shift,  # jac:ignore[W2037]
@@ -202,7 +203,8 @@ import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037
 # The platform's cinemas directory (P13.2).
 import from core.platform.cinemas_api {
     platform_cinemas,  # jac:ignore[W2037]
-    platform_cinema  # jac:ignore[W2037]
+    platform_cinema,  # jac:ignore[W2037]
+    platform_approve_cinema  # jac:ignore[W2037]
 }
 # Which of the three sites an address is (P13.1b.c).
 import from core.site { site_for_host }

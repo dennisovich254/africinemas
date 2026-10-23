@@ -40,7 +40,7 @@ import from .report_view { day_label, percent, money_label, action_label, result
 import from .nav { section_path }
 import from .SetupGuide { use_guide_hidden, hide_guide }
 import from ...components.ui.button { Button }
-import from ..site { storefront_address }
+import from .StorefrontLink { StorefrontLink }
 
 glob TILE: str = "flex flex-col gap-3 rounded-3xl bg-card p-4 ring-1 ring-foreground/10",
      PILL: str = "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2";
@@ -579,10 +579,9 @@ def:pub StaffHome(
                     />
                     On shift
                 </span>}
-            <a
-                href={storefront_address(slug)}
-                target="_blank"
-                rel="noopener"
+            <StorefrontLink
+                slug={slug}
+                testid="view-storefront"
                 className="inline-flex min-h-11 items-center gap-1 rounded-full bg-card px-4 text-sm font-medium ring-1 ring-foreground/10 hover:bg-muted"
             >
                 View storefront
@@ -593,7 +592,7 @@ def:pub StaffHome(
                     aria-hidden="true"
                 />
                 <span className="sr-only">(opens in a new tab)</span>
-            </a>
+            </StorefrontLink>
         </div>
     </div>;
 

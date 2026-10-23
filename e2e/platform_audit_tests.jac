@@ -2,7 +2,7 @@
 
 The platform's super admin signs in, which goes on record, and opens the Audit log from
 the console's navigation: their sign-in is there, with their email, in words. The search
-narrows it to them; from a cinema's page, its own events (none yet) are a click away,
+narrows it to them; from a cinema's page, its own events (its approval) are a click away,
 and the cinema filter clears. Phone and desktop, with the usual phone checks.
 """
 
@@ -54,11 +54,13 @@ test "a super admin's sign-in is in the platform's audit log" {
             page.screenshot(
                 path=artifact(f"platform-audit-{project}.png"), full_page=True
             );
-            # A cinema's own events, from its page: none yet.
+            # A cinema's own events, from its page: its approval (P14.1).
             page.goto(f"{PLATFORM_URL}/cinemas/{owner['slug']}");
             page.click('a:has-text("The team\'s actions on it")');
             page.wait_for_selector('[data-testid="platform-audit-cinema"]');
-            page.wait_for_selector('[data-testid="platform-audit-empty"]');
+            page.wait_for_selector(
+                '[data-testid="platform-audit-log"]:has-text("Approved a cinema")'
+            );
             page.click('a:has-text("Show every cinema")');
             page.wait_for_selector('[data-testid="platform-audit-log"]');
             page.context.close();

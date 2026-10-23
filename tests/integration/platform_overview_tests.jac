@@ -78,7 +78,8 @@ test "the overview adds up every cinema's bookings and takings, day by day" {
         assert seen["ok"] , seen;
         assert seen["cinemas"] == 2 and seen["signed_up_this_week"] == 2 , seen;
         states = {s["key"]: s["count"] for s in seen["states"]};
-        assert states["configuring"] == 2 and states["active"] == 0 , states;
+        # Both are live (P14.1): only live cinemas sell.
+        assert states["active"] == 2 and states["configuring"] == 0 , states;
         assert seen["bookings"] == 2 , seen;
         assert seen["takings_net_cents"] == 186000 + 93000 , seen;
         assert seen["currency"] == "KES";

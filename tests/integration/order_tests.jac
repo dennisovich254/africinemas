@@ -1,4 +1,4 @@
-"""P4.5: orders, through the production app (main.jac).
+"""P4.5: orders, through the production endpoints (payment_app.jac, so cinemas can go live: P14.1).
 
 A visitor holding seats (P4.3) places an order: a ticket type for each held seat. The
 order snapshots the server's prices (architecture §27): each line's price, extras and
@@ -26,7 +26,8 @@ import from tests.support.storefront_setup {
 }
 
 glob MAIN: str = path.join(
-         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))), "main.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "payment_app.jac"
      ),
      HOLD_ENV: str = "AFRICINEMAS_HOLD_SECONDS",
      ANNA: str = "holder-anna-0123456789abcdef",

@@ -1,4 +1,4 @@
-"""P4.3: seat holds, through the production app (main.jac).
+"""P4.3: seat holds, through the production endpoints (payment_app.jac, so cinemas can go live: P14.1).
 
 A visitor (no login, ADR-0010) holds seats of a showtime for a few minutes while they
 check out. The browser names the visitor with a random holder id it keeps for the visit;
@@ -22,7 +22,8 @@ import from tests.support.storefront_setup {
 }
 
 glob MAIN: str = path.join(
-         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))), "main.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "payment_app.jac"
      ),
      HOLD_ENV: str = "AFRICINEMAS_HOLD_SECONDS",
      ANNA: str = "holder-anna-0123456789abcdef",

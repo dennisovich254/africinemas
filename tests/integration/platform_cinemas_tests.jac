@@ -58,9 +58,11 @@ test "the directory lists every cinema newest first, and finds them by name, slu
             == ["imax-rift"];
         assert _slugs(app.call("boss", "platform_cinemas", {"search": "nobody-here"}))
             == [];
+        # Nova is live (P14.1, the test helper); the rival's Imax Rift is being set up.
         assert _slugs(app.call("boss", "platform_cinemas", {"state": "configuring"}))
-            == ["imax-rift", "nova"];
-        assert _slugs(app.call("boss", "platform_cinemas", {"state": "active"})) == [];
+            == ["imax-rift"];
+        assert _slugs(app.call("boss", "platform_cinemas", {"state": "active"}))
+            == ["nova"];
         assert code_of(app.call("boss", "platform_cinemas", {"state": "bogus"}))
             == "invalid_state";
         # In pages: one a page, the last page for a page past the end.

@@ -42,7 +42,7 @@ test "a super admin sees the platform's figures on the overview" {
                 '[data-testid="takings-chart"], [data-testid="overview-no-sales"]'
             ).count()
                 == 1;
-            assert "Setting up" in page.inner_text('[data-testid="overview-states"]');
+            assert "Active" in page.inner_text('[data-testid="overview-states"]');
             # Cinemas with technical problems (P13.5c): none in a fresh test run's.
             assert "Cinemas with technical problems"
                 in page.inner_text('[data-testid="overview-problems"]');

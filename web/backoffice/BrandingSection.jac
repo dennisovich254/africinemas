@@ -50,7 +50,7 @@ import from core.homepage.home_api {
     save_home_page  # jac:ignore[W2037]
 }
 import from .form_parts { read_as_base64 }
-import from ..site { storefront_address }
+import from .StorefrontLink { StorefrontLink }
 
 glob MODES: list[str] = ["light", "dark"],
      # The design the AI chose (ADR-0047), as owners read it.
@@ -1069,12 +1069,12 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     >
                         {status}
                     </Badge>
-                    <a
-                        href={storefront_address(slug)}
+                    <StorefrontLink
+                        slug={slug}
                         className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4"
                     >
                         View your storefront
-                    </a>
+                    </StorefrontLink>
                 </div>
             </div>
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">

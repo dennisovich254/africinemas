@@ -4,7 +4,9 @@ import from "@jac/runtime" { Link }
 import from ...components.ui.button { Button }
 import from ..theme.ThemeProvider { ThemeProvider }
 
-def:pub NotFoundPage -> JsxElement {
+def:pub NotFoundPage(home: bool = True) -> JsxElement {
+    # `home`: a way back to this site's home page; not on an address that's no cinema's
+    # (P14.1), where "home" is this same page.
     return
         <ThemeProvider surface="storefront">
             <main
@@ -15,9 +17,10 @@ def:pub NotFoundPage -> JsxElement {
                 <p className="text-muted-foreground">
                     This page doesn't exist or has moved.
                 </p>
-                <Button asChild={True} className="min-h-11 px-5">
-                    <Link to="/">Back to home</Link>
-                </Button>
+                {home
+                    and <Button asChild={True} className="min-h-11 px-5">
+                        <Link to="/">Back to home</Link>
+                    </Button>}
             </main>
         </ThemeProvider>;
 }

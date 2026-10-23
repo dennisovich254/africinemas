@@ -39,11 +39,14 @@ import from .platform.PlatformConsole { PlatformConsole }
 import from .platform.PlatformAuthPages { PlatformSignInPage, PlatformJoinPage }
 import from .auth.token_slots { install_token_slots }
 import from .theme.ThemeProvider { ThemeProvider }
+import from .preview { install_preview, previewing }
 import from .site { known_site, load_site, current_site, storefront_address }
 
 # The back office and each cinema's storefront keep their own sign-in (improvements #25),
 # set up when this module loads, before any page asks the server anything.
-glob TOKEN_SLOTS: bool = install_token_slots();
+glob TOKEN_SLOTS: bool = install_token_slots(),
+     # A cinema's team previewing its storefront before it goes live (P14.1).
+     PREVIEW: bool = install_preview();
 
 def PlatformSite -> JsxElement {
     # The platform's address: the console, its sign-in and the page a join link opens.
@@ -69,6 +72,18 @@ def Waiting -> JsxElement {
         <ThemeProvider surface="backoffice">
             <main aria-busy="true" className="min-h-svh bg-background"/>
         </ThemeProvider>;
+}
+
+def PreviewBanner -> JsxElement {
+    # Over a storefront seen with a preview pass: who can see it, and when it goes public.
+    return
+        <div
+            role="status"
+            data-testid="preview-banner"
+            className="sticky top-0 z-50 bg-foreground px-4 py-2 text-center text-sm text-background"
+        >
+            Only your team can see this. It goes public once AfriCinemas has verified your cinema.
+        </div>;
 }
 
 def StorefrontSite -> JsxElement {
@@ -137,11 +152,11 @@ def ConsentOnOwnAddress -> JsxElement {
 }
 
 def NoSite -> JsxElement {
-    # An address under the domain that's no cinema's.
+    # An address under the domain that's no cinema's: nothing to go back to.
     return
         <Router>
             <Routes>
-                <Route path="*" element={<NotFoundPage/>}/>
+                <Route path="*" element={<NotFoundPage home={False}/>}/>
             </Routes>
         </Router>;
 }
@@ -230,10 +245,20 @@ def:pub AppRoot -> JsxElement {
         return <PlatformSite/>;
     }
     if site == "storefront" {
-        return <StorefrontSite/>;
+        return
+            <>
+                {previewing() and <PreviewBanner/>}
+                <StorefrontSite/>
+            </>;
     }
     if site == "none" {
         return <NoSite/>;
     }
-    return <MainSite own_addresses={site == "main"}/>;
+    win: any = window;  # jac:ignore[W1037,W2001]
+    on_storefront: bool = win.location.pathname.startswith("/c/");
+    return
+        <>
+            {previewing() and on_storefront and <PreviewBanner/>}
+            <MainSite own_addresses={site == "main"}/>
+        </>;
 }

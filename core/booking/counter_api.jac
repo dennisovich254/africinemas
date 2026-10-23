@@ -32,6 +32,7 @@ import from core.authz.policy {
 import from core.authz.context { NotFound, TenantScope, on_shift }
 import from core.tenancy.principal { node_id, fresh_node_id }
 import from core.catalog.answers { Refused, answer }
+import from core.tenancy.open_cinema { require_live }
 import from core.catalog.models { Screening, PUBLISHED }
 import from core.catalog.venues {
     find_screening,
@@ -67,6 +68,8 @@ def _may_sell_somewhere(scope: TenantScope) {
 def _showtime(tenant: str, screening_id: str) -> tuple[TenantScope, Screening] {
     # The caller's cinema and the showtime, once they may sell at its venue.
     scope = on_shift(tenant);
+    # The box office sells only once the cinema is live (P14.1).
+    require_live(scope.tenant);
     screening = find_screening(scope.tenant, screening_id);
     if screening is None {
         raise NotFound();

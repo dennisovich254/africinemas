@@ -1,4 +1,4 @@
-"""P4.1b: a cinema's home page, through the production app (main.jac).
+"""P4.1b: a cinema's home page, through the production endpoints (payment_app.jac, so cinemas can go live: P14.1).
 
 The owner edits a draft page (save_home_page, checked by core/homepage/page.jac),
 publishes it as the next numbered version and can roll back to an earlier one, like the
@@ -26,7 +26,8 @@ import from tests.support.storefront_setup {
 }
 
 glob MAIN: str = path.join(
-         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))), "main.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "payment_app.jac"
      ),
      MEDIA_ENV: str = "AFRICINEMAS_MEDIA_DIR";
 

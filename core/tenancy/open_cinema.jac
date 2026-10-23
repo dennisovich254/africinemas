@@ -1,18 +1,67 @@
 """Finding the cinema behind a storefront slug, for public and customer endpoints.
 
 The caller isn't staff, so can't read the Tenant node itself: it's read as the system
-root. A cinema is open to the public from signup until it starts closing (ADR-0009), so
-owners can try their storefront before going live.
+root. Only an **active** cinema is public (P14.1, ADR-0064): one still being set up or
+waiting for review answers as unknown, with no hint that it exists, so a fake can't
+take a customer's money before AfriCinemas has verified it.
+
+Its own team sees it before then through a **preview pass** (preview_pass, from the
+back office): a short-lived token for that one cinema, which the storefront page sends
+with each request in the PREVIEW_HEADER header. With a valid pass, open_cinema finds the
+cinema whatever its state before going live; is_preview says so, and taking money
+(placing an order, starting a payment) still needs it active.
 """
 
+import from jaclang.server.exchange { current_request }
+import from jaclang.server.identity.app_tokens { token_create, token_peek }
+import from core.catalog.answers { Refused }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.registry { lookup_slug }
 import from core.tenancy.principal { node_id, act_as, restore, system_root_id }
 
-glob OPEN_STATES: list[str] = ["configuring", "ready_for_go_live", "active"];
+glob PUBLIC_STATES: list[str] = ["active"],
+     # States a preview pass opens: before going live.
+     PREVIEW_STATES: list[str] = ["configuring", "ready_for_go_live"],
+     PREVIEW_PURPOSE: str = "storefront-preview",
+     PREVIEW_HEADER: str = "x-africinemas-preview",
+     PREVIEW_TTL_S: int = 8 * 3600;
+
+def preview_pass(cinema: Tenant) -> str {
+    # A pass to preview `cinema`'s storefront before it goes live.
+    return token_create(
+        PREVIEW_PURPOSE,
+        subject=node_id(cinema),
+        ttl_seconds=PREVIEW_TTL_S,
+        payload={"tenant_id": node_id(cinema)}
+    );
+}
+
+def _passed(cinema: Tenant) -> bool {
+    # Whether this request carries a valid preview pass for `cinema`.
+    request = current_request();
+    shown = request.header(PREVIEW_HEADER, "") if request is not None else "";
+    found = token_peek(PREVIEW_PURPOSE, shown) if shown else None;
+    return found is not None and found["payload"].get("tenant_id") == node_id(cinema);
+}
+
+def is_preview(cinema: Tenant) -> bool {
+    # Seen through a preview pass, not by the public: it isn't live yet.
+    return cinema.state not in PUBLIC_STATES;
+}
+
+def require_live(cinema: Tenant) {
+    # Taking money needs a live cinema: never in a preview, online or at the counter.
+    if is_preview(cinema) {
+        raise Refused(
+            "not_live",
+            "This cinema isn't taking bookings yet. It goes live once AfriCinemas has verified it."
+        );
+    }
+}
 
 def open_cinema(selector: str) -> Tenant | None {
-    # The open cinema with this slug, or None if unknown, malformed or not open.
+    # The public cinema with this slug, or one its team is previewing; None if unknown,
+    # malformed, or not public to this request.
     tenant_id = lookup_slug(selector) if selector else None;
     if tenant_id is None {
         return None;
@@ -24,10 +73,17 @@ def open_cinema(selector: str) -> Tenant | None {
     } finally {
         restore(me);
     }
-    if not isinstance(found, Tenant) or found.state not in OPEN_STATES {
+    if not isinstance(found, Tenant) {
         return None;
     }
-    return found as Tenant;
+    cinema = found as Tenant;
+    if cinema.state in PUBLIC_STATES {
+        return cinema;
+    }
+    if cinema.state in PREVIEW_STATES and _passed(cinema) {
+        return cinema;
+    }
+    return None;
 }
 
 def tenant_by_id(tenant_id: str) -> Tenant | None {

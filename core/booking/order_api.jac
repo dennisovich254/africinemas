@@ -38,7 +38,7 @@ import from datetime { datetime, timedelta }
 import from core.clock { now }
 import from core.claims { claim, release, renew, holder as claim_holder }
 import from core.tenancy.models { Tenant }
-import from core.tenancy.open_cinema { open_cinema }
+import from core.tenancy.open_cinema { open_cinema, require_live }
 import from core.authz.context { NotFound }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.principal {
@@ -257,6 +257,8 @@ def _place_order(
     snacks: list[any] | None = None  # jac:ignore[W1037]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     (cinema, screening) = showtime_on_sale(slug, screening_id);
+    # A preview takes no orders (P14.1): only a live cinema sells.
+    require_live(cinema);
     check_holder(holder);
     check_key(idempotency_key);
     wanted = request_lines(items);

@@ -16,7 +16,8 @@ import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.platform.cinemas_api {
     platform_cinemas,  # jac:ignore[W2037] authenticated endpoint
-    platform_cinema  # jac:ignore[W2037]
+    platform_cinema,  # jac:ignore[W2037]
+    platform_approve_cinema  # jac:ignore[W2037]
 }
 import from ..shell.AppLink { AppLink }
 import from ..backoffice.form_parts { on_input }
@@ -29,6 +30,7 @@ glob SEARCH_PAUSE_MS: int = 350,
      SELECT_CLASSES: str = "min-h-11 rounded-md border border-input bg-background px-3 text-sm",
      HISTORY_LABELS: dict[str, str] = {
          "signed_up": "Signed up",
+         "platform.cinema_approved": "Approved: now public",
          "platform.support_replied": "We replied to a help request",
          "platform.support_closed": "We closed a help request",
          "platform.support_reopened": "We reopened a help request"
@@ -244,11 +246,33 @@ def Figure(label: str, value: str, testid: str = "") -> JsxElement {
         </div>;
 }
 
-def:pub CinemaDetail(slug: str, audit: bool = False) -> JsxElement {
+def:pub CinemaDetail(
+    slug: str, audit: bool = False, review: bool = False
+) -> JsxElement {
+    # `review`: the caller may make a cinema live (P14.1; 14.5 brings the full review).
     # `audit`: the caller reads the platform's audit log, so the page links to this
     # cinema's events there (P13.3).
     [found, set_found] = useState(None);
     [problem, set_problem] = useState("");
+    [approving, set_approving] = useState(False);
+
+    async def approve {
+        set_approving(True);
+        answer: any = None;  # jac:ignore[W1037]
+        try {
+            answer = await platform_approve_cinema(slug);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("platform_approve_cinema failed", e);
+        }
+        set_approving(False);
+        if answer is None {
+            set_problem(OFFLINE);
+        } elif not answer["ok"] {
+            set_problem(answer["error"]["message"]);
+        } else {
+            set_found(answer["cinema"]);
+        }
+    }
 
     async def load {
         answer: any = None;  # jac:ignore[W1037]
@@ -322,6 +346,26 @@ def:pub CinemaDetail(slug: str, audit: bool = False) -> JsxElement {
                 >
                     Open its storefront
                 </a>
+                {review
+                    and cinema["state"] in ["configuring", "ready_for_go_live"]
+                    and <div
+                        className="flex flex-col gap-1 rounded-lg border bg-card p-3"
+                    >
+                        <p className="text-sm">
+                            Not public yet: only its team sees its storefront.
+                        </p>
+                        <Button
+                            className="min-h-11 w-fit px-4"
+                            disabled={approving}
+                            onClick={approve}
+                            data-testid="approve-cinema"
+                        >
+                            {approving
+                                and <Spinner
+                                    aria-hidden="true"
+                                />}Approve: make it public
+                        </Button>
+                    </div>}
                 {audit
                     and <AppLink
                         to={f"/audit?cinema={cinema['slug']}"}

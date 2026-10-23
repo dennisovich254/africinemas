@@ -22,9 +22,10 @@ import from core.tenancy.models { Tenant }
 import from core.tenancy.registry { SLUG_NAMESPACE }
 import from core.tenancy.open_cinema { tenant_by_id }
 import from core.tenancy.membership { records_of }
-import from core.tenancy.principal { node_id, act_as, restore }
+import from core.tenancy.principal { node_id, act_as, restore, flush_now }
+import from core.tenancy.state { TenantState }
 import from core.reporting.report_api { cinema_records }
-import from core.audit.log { platform_events }
+import from core.audit.log { platform_events, platform_audited }
 import from core.platform.staff_api { require_platform }
 import from core.support.health { health_of }
 
@@ -206,6 +207,61 @@ def _cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     # Its technical health (P13.5c): counts of problems, no customer's details.
     page["health"] = health_of(cinema);
     return {"ok": True, "cinema": page};
+}
+
+def _approve(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # Makes a cinema that's being set up or waiting for review live (P14.1): until the
+    # verification review (14.5), a reviewer's approval is all it takes.
+    wanted = slug.strip().lower() if isinstance(slug, str) else "";
+    found = [
+        c
+        for c in all_cinemas()
+        if c.slug == wanted
+    ];
+    if not found {
+        raise Refused("not_found", "No such cinema.");
+    }
+    cinema = found[0];
+    if cinema.state not in ["configuring", "ready_for_go_live"] {
+        raise Refused(
+            "not_waiting", "Only a cinema that isn't live yet can be approved."
+        );
+    }
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        if cinema.state == "configuring" {
+            cinema.move_to(TenantState.READY_FOR_GO_LIVE);
+        }
+        cinema.move_to(TenantState.ACTIVE);
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    return _cinema(wanted);
+}
+
+def:protect platform_approve_cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # Reviewers and super admins (platform.review); in the platform's log, about the
+    # cinema, so it shows in its history.
+    try {
+        me = require_platform("platform.review");
+    } except Refused as e {
+        return answer(lambda -> any { raise e; });  # jac:ignore[W1037]
+    }
+    target = [
+        c
+        for c in all_cinemas()
+        if c.slug == str(slug).strip().lower()
+    ];
+    return platform_audited(
+        me.root_id,
+        me.email,
+        "platform.cinema_approved",
+        "cinema",
+        node_id(target[0]) if target else "",
+        lambda -> any { return _approve(slug); }  # jac:ignore[W1037]
+    );
 }
 
 def:protect platform_cinemas(

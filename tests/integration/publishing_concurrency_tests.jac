@@ -33,6 +33,7 @@ default = "server"
 """,
      # The production endpoints without the web client (main.jac also builds the UI).
      APP_MAIN: str = """import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
+import from core.testing.go_live { t_go_live }  # jac:ignore[W2037]
 import from core.tenancy.tenant_api { start_shift }  # jac:ignore[W2037]
 import from core.catalog.venue_api { create_venue, create_auditorium }  # jac:ignore[W2037]
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
@@ -63,6 +64,7 @@ test "concurrent publishes of one screening: one inventory and one storefront en
         server.start();
         owner = server.register("owner");
         server.call("create_cinema", {"name": "Nova Cinemas", "slug": "nova"}, owner);
+        server.call("t_go_live", {"slug": "nova"}, owner);
         server.call("start_shift", {"tenant": "nova"}, owner);
         venue = server.call(
             "create_venue",

@@ -20,6 +20,25 @@ import from datetime { timedelta }
 import from core.clock { now }
 import from core.tenancy.shifts { open_shift, close_shift, shift_is_open }
 import from core.audit.log { audited }
+import from core.tenancy.open_cinema { preview_pass, is_preview }
+
+def:protect storefront_preview(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A pass for the cinema's own team to see its storefront before it goes live
+    # (P14.1); "" once it's live, when everyone sees it. Any member may ask.
+    try {
+        scope: TenantScope = resolve_context(tenant);
+    } except NotFound {
+        return NOT_FOUND;
+    } except Forbidden {
+        return FORBIDDEN;
+    }
+    cinema = scope.tenant;
+    return {
+        "ok": True,
+        "state": cinema.state,
+        "token": preview_pass(cinema) if is_preview(cinema) else ""
+    };
+}
 
 def:protect my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The caller's roles in `tenant` (any member may ask).
