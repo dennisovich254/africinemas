@@ -63,6 +63,7 @@ before #15 ships.
 | 3.5 | Account management (improvements #13) | ❌ | Change password (needs the current one, signs out other sessions), change email (confirmed at both addresses), see and end sessions, delete account. Deleting needs the password again and a cooling-off period, and an owner can't delete while they're the cinema's only owner. Customer tickets for upcoming showtimes survive deletion, by ticket link. |
 | 3.6 | Stolen session token (XSS, shared computer) | ⚠️ | Tokens are kept in `localStorage`, which any script on the page can read. Storefront pages run no third-party scripts, and the AI page is sanitized. **Add:** short session lifetimes, "sign out everywhere", and moving tokens to `HttpOnly` cookies when Jac supports it (§13). |
 | 3.7 | Staff who've left keep access | ⚠️ | Owners can change roles; shifts gate actions (ADR-0006). **Add:** "remove staff member" ends their sessions at once. |
+| 3.8 | A page on one site reading another site's sign-in (a storefront's script and the back office, or the platform) | ✅ | Each site is on its own address: the back office on the domain, the platform on `admin.`, each cinema's storefront on its slug (ADR-0057). Browsers keep each address's storage, sign-ins included, apart. Each site also has its own accounts (ADR-0037, ADR-0056). Addresses outside the domain (a development tunnel) still share one origin, with a sign-in slot per site (ADR-0054). |
 
 ## 4. Cinemas reaching each other's data
 
@@ -72,6 +73,7 @@ before #15 ships.
 | 4.2 | Ids from the client pointing at another cinema's nodes | ✅ Every lookup checks the node belongs to the cinema (`core/catalog/venues.jac`, `core/snacks/store.jac`). |
 | 4.3 | A storefront answer leaking internal ids | ✅ Storefront endpoints are probed for the cinema's root and tenant ids. |
 | 4.4 | A customer account at one cinema used at another | ✅ Storefront accounts belong to one cinema (P8.6c). |
+| 4.5 | A look-alike address (`anga-cinema.africinemas.co.ke`) or an address that's no cinema's | ⚠️ | An address under the domain that's no open cinema's shows "not found". Reserved names (`admin`, `www`, `api`...) can't be slugs. **Add:** look-alike checks on new slugs (14.7). |
 
 ## 5. Staff misuse inside a cinema
 
@@ -128,6 +130,7 @@ before #15 ships.
 | 10.2 | A compromised dependency or GitHub Action | ✅ Actions pinned to commit SHAs; toolchain binaries checksum-verified; Dependabot. ⚠️ npm and Python packages are pinned by lockfile, but nothing reviews new versions before update. |
 | 10.3 | A production server started without the ticket key, payment settings or clock control | ✅ Payments are refused without a ticket key; clock control refuses to run without its test-only flag. |
 | 10.4 | Backups and restoring them | ❌ No backup and restore runbook yet. |
+| 10.5 | The wildcard certificate's DNS token stolen, letting someone issue certificates or change DNS for every site | ⚠️ | The token is limited to the zone's DNS, lives only in the proxy's environment, never in the repository (`deploy/Caddyfile`, docs/runbooks/three-sites.md). **Add:** rotate it yearly, and alert on DNS changes. |
 
 ---
 
