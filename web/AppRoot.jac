@@ -38,6 +38,7 @@ import from .auth.InvitePage { InvitePage }
 import from .platform.PlatformConsole { PlatformConsole }
 import from .platform.PlatformAuthPages { PlatformSignInPage, PlatformJoinPage }
 import from .auth.token_slots { install_token_slots }
+import from .theme.ThemeProvider { ThemeProvider }
 import from .site { known_site, load_site, current_site, storefront_address }
 
 # The back office and each cinema's storefront keep their own sign-in (improvements #25),
@@ -58,6 +59,15 @@ def PlatformSite -> JsxElement {
                 <Route path="*" element={<NotFoundPage/>}/>
             </Routes>
         </Router>;
+}
+
+def Waiting -> JsxElement {
+    # The frame while the server says which site this is, or a page moves to its own
+    # address: themed, so a dark device never sees a light frame.
+    return
+        <ThemeProvider surface="backoffice">
+            <main aria-busy="true" className="min-h-svh bg-background"/>
+        </ThemeProvider>;
 }
 
 def StorefrontSite -> JsxElement {
@@ -97,7 +107,7 @@ def OnOwnAddress -> JsxElement {
         );
     }
     useEffect(start, []);
-    return <main aria-busy="true" className="min-h-svh"/>;
+    return <Waiting/>;
 }
 
 def ConsentOnOwnAddress -> JsxElement {
@@ -120,7 +130,7 @@ def ConsentOnOwnAddress -> JsxElement {
     }
     useEffect(start, []);
     if slug {
-        return <main aria-busy="true" className="min-h-svh"/>;
+        return <Waiting/>;
     }
     return <AuthorizePage/>;
 }
@@ -212,7 +222,7 @@ def:pub AppRoot -> JsxElement {
     }
     useEffect(start, []);
     if not ready {
-        return <main aria-busy="true" className="min-h-svh"/>;
+        return <Waiting/>;
     }
     site = current_site();
     if site == "platform" {

@@ -8,6 +8,7 @@ it; a wrong token, or one at another cinema, shows nothing. Resending works up t
 times an hour per order, to the same or a corrected address.
 """
 
+import from core.site { storefront_address }
 import os;
 import tempfile;
 import from tests.support.served { Served }
@@ -57,7 +58,9 @@ test "a paid order's tickets are emailed once, with a QR image per seat and the 
         assert len(mails) == 1 , mails;
         assert mails[0]["to"] == "anna@example.com";
         assert mails[0]["images"] == 2;
-        assert mine["link"] in mails[0]["text"];
+        # The email's link is on the cinema's own address (P13.1b.c; site_tests.jac).
+        token = mine["link"].rsplit("/", 1)[1];
+        assert storefront_address("nova", f"/tickets/{token}") in mails[0]["text"];
         for t in mine["tickets"] {
             assert t["reference"] in mails[0]["text"];
         }
