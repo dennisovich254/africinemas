@@ -26,6 +26,7 @@ import from core.tenancy.principal { node_id, act_as, restore }
 import from core.reporting.report_api { cinema_records }
 import from core.audit.log { platform_events }
 import from core.platform.staff_api { require_platform }
+import from core.support.health { health_of }
 
 glob PAGE_SIZE: int = 20,
      PAGE_MAX: int = 50,
@@ -202,6 +203,8 @@ def _cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     page["takings_net_cents"] = sum([m.amount_cents for m in records.money]);
     page["currency"] = CURRENCY;
     page["history"] = _history(cinema);
+    # Its technical health (P13.5c): counts of problems, no customer's details.
+    page["health"] = health_of(cinema);
     return {"ok": True, "cinema": page};
 }
 

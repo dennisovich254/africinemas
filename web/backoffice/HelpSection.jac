@@ -325,7 +325,7 @@ def:pub HelpSection(slug: str, shift_open: bool = True, item: str = "") -> JsxEl
                                                     else "font-medium"
                                             )}
                                     >
-                                        {r["category_label"]}{r["unread"]
+                                        {r["category_label"]}{r["unread"] > 0
                                             and <span
                                                 className="rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground tabular-nums"
                                                 data-testid="help-unread"

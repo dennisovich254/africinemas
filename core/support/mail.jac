@@ -16,7 +16,8 @@ import from core.claims { claim, release, claims_in }
 import from core.tenancy.principal { fresh_node_id, node_id }
 import from core.notify.mailer { OutgoingMail, send, from_address }
 import from core.site { main_address }
-import from core.support.requests { REPLY_MAIL, CATEGORIES, request_of }
+import from core.support.names { REPLY_MAIL }
+import from core.support.requests { CATEGORIES, request_of }
 
 glob SENDING: str = "support-reply-mail-sending",
      SENDING_S: int = 120,

@@ -22,6 +22,7 @@ import from ..shell.AppLink { AppLink }
 import from ..backoffice.form_parts { on_input }
 import from ..backoffice.report_view { money_label }
 import from ..site { storefront_address }
+import from ..support.HealthPanel { HealthPanel }
 
 glob SEARCH_PAUSE_MS: int = 350,
      OFFLINE: str = "We couldn't reach the server. Check your connection and try again.",
@@ -346,6 +347,7 @@ def:pub CinemaDetail(slug: str, audit: bool = False) -> JsxElement {
                     testid="cinema-staff"
                 />
             </section>
+            {cinema["health"] and <HealthPanel health={cinema["health"]}/>}
             <section className="flex flex-col gap-2 rounded-lg border bg-card p-4">
                 <h3 className="font-semibold">Owners</h3>
                 {len(owners) == 0

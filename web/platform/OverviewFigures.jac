@@ -62,6 +62,7 @@ def:pub OverviewFigures -> JsxElement {
         if s["key"] == "active"
     ][0];
     currency: str = shown["currency"];
+    troubled: list[dict[str, any]] = shown["with_problems"] or [];  # jac:ignore[W1037]
     # An empty 14 days says so, not as a chart of zeros.
     quiet = shown["bookings"] == 0 and shown["takings_net_cents"] == 0;
     return
@@ -114,6 +115,38 @@ def:pub OverviewFigures -> JsxElement {
                         count_heading="Bookings"
                     />
                 </section>}
+            <section
+                className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+                data-testid="overview-problems"
+            >
+                <h2 className="font-semibold">
+                    {f"Cinemas with technical problems: {len(troubled)}"}
+                </h2>
+                {len(troubled) == 0
+                    and <p className="text-sm text-muted-foreground">
+                        None right now.
+                    </p>}
+                <ul className="flex flex-col gap-1">
+                    {[
+                        <li
+                            key={c["slug"]}
+                            className="flex items-center justify-between gap-3 text-sm"
+                        >
+                            <AppLink
+                                to={f"/cinemas/{c['slug']}"}
+                                className="inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+                            >
+                                {c["name"]}
+                            </AppLink>
+                            <span className="text-muted-foreground">
+                                {f"{c['problems']} {'thing'
+                                    if c['problems'] == 1
+                                    else 'things'} to look at"}
+                            </span>
+                        </li> for c in troubled[:5]
+                    ]}
+                </ul>
+            </section>
             <section
                 className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
                 data-testid="overview-states"

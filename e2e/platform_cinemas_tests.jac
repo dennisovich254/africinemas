@@ -75,6 +75,8 @@ test "a super admin finds a cinema by its owner and opens its page" {
             assert "Hall A" in page.inner_text('[data-testid="cinema-venues"]');
             assert page.inner_text('[data-testid="cinema-tickets"]') == "0";
             assert "Signed up" in page.inner_text('[data-testid="cinema-history"]');
+            # A new cinema's technical health: nothing to look at (P13.5c).
+            assert "All clear" in page.inner_text('[data-testid="health-panel"]');
             # Its storefront on its own address, never through a tunnel.
             assert page.get_attribute('a:has-text("Open its storefront")', "href")
                 == store_url(owner["slug"]) + "/";

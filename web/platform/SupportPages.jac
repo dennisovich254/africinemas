@@ -24,6 +24,7 @@ import from core.support.requests {
 import from ..shell.AppLink { AppLink }
 import from ..support.SupportThread { SupportThread, ChatComposer, when }
 import from ..support.live { use_every, seen_now, CHAT_MS, LIST_MS }
+import from ..support.HealthPanel { HealthPanel }
 
 glob OFFLINE: str = "We couldn't reach the server. Check your connection and try again.";
 
@@ -122,6 +123,7 @@ def:pub SupportInbox -> JsxElement {
                                         {f"{r['cinema']} · {r['category_label']}"}{r[
                                             "unread"
                                         ]
+                                            > 0
                                             and <span
                                                 className="rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground tabular-nums"
                                                 data-testid="support-unread"
@@ -149,6 +151,7 @@ def:pub SupportInbox -> JsxElement {
 def:pub SupportRequestPage(request_id: str) -> JsxElement {
     # The request as a chat: our replies on the right, the message box at the bottom.
     [found, set_found] = useState(None);
+    [health, set_health] = useState(None);
     [problem, set_problem] = useState("");
     [busy, set_busy] = useState(False);
 
@@ -171,6 +174,9 @@ def:pub SupportRequestPage(request_id: str) -> JsxElement {
         }
         set_problem("");
         set_found(answer["request"]);
+        if answer["health"] {
+            set_health(answer["health"]);
+        }
         return True;
     }
 
@@ -186,6 +192,9 @@ def:pub SupportRequestPage(request_id: str) -> JsxElement {
             answer: any = await platform_support_request(request_id);  # jac:ignore[W1037,W2037]
             if answer["ok"] {
                 set_found(answer["request"]);
+                if answer["health"] {
+                    set_health(answer["health"]);
+                }
             }
         } except Exception as e {
             console.warn("platform_support_request failed", e);
@@ -295,6 +304,7 @@ def:pub SupportRequestPage(request_id: str) -> JsxElement {
                     The cinema's page
                 </AppLink>
             </div>
+            {health and <HealthPanel health={health} compact={True}/>}
             <SupportThread
                 messages={request["messages"]}
                 reader="africinemas"

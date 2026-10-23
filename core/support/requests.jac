@@ -36,6 +36,8 @@ import io;
 import base64;
 import from uuid { uuid4 }
 import from core.claims { claim }
+import from core.support.names { REPLY_MAIL }
+import from core.support.health { health_of }
 import from core.tenancy.principal { fresh_node_id }
 import from core.catalog.poster {
     decode_screenshot,
@@ -70,9 +72,6 @@ glob ASK: str = "support.request",
          "verification": "Verification",
          "other": "Something else"
      },
-     # Emails to send (P13.5b): one claim per email, "<tenant id>|<request id>|<to>",
-     # sent by core/support/mail.jac's job.
-     REPLY_MAIL: str = "support-reply-mail",
      OWNER: str = "owner",
      CINEMA: str = "cinema",
      AFRICINEMAS: str = "africinemas";
@@ -474,9 +473,10 @@ def _inbox(status: str) -> dict[str, any] {  # jac:ignore[W1037]
 }
 
 def _platform_request(request_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The request, with its cinema's technical health beside it (P13.5c).
     require_platform("platform.support");
     (cinema, request) = _find(request_id);
-    return {"ok": True, "request": _view(request, cinema)};
+    return {"ok": True, "request": _view(request, cinema), "health": health_of(cinema)};
 }
 
 def owner_emails(cinema: Tenant) -> list[str] {
