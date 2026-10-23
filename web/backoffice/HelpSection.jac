@@ -23,7 +23,8 @@ import from core.support.requests {
     ask_for_help,  # jac:ignore[W2037] authenticated endpoint
     support_requests,  # jac:ignore[W2037]
     reply_to_support,  # jac:ignore[W2037]
-    support_seen  # jac:ignore[W2037]
+    support_seen,  # jac:ignore[W2037]
+    support_image  # jac:ignore[W2037]
 }
 import from .form_parts { on_input }
 import from .nav { section_path }
@@ -86,14 +87,20 @@ def:pub HelpSection(slug: str, shift_open: bool = True, item: str = "") -> JsxEl
         set_requests([updated] + others);
     }
 
-    async def ask(text: str) -> bool {
+    async def ask(text: str, image: any) -> bool {  # jac:ignore[W1037]
         if not category {
             set_problem("Choose what it's about.");
             return False;
         }
         answer: any = None;  # jac:ignore[W1037]
         try {
-            answer = await ask_for_help(slug, category, text);  # jac:ignore[W2037]
+            answer = await ask_for_help(  # jac:ignore[W2037]
+                slug,
+                category,
+                text,
+                image["type"] if image else "",
+                image["data_base64"] if image else ""
+            );
         } except Exception as e {
             console.warn("ask_for_help failed", e);
         }
@@ -113,10 +120,20 @@ def:pub HelpSection(slug: str, shift_open: bool = True, item: str = "") -> JsxEl
         return True;
     }
 
-    async def reply(text: str) -> bool {
+    def screenshot(index: int) -> any {  # jac:ignore[W1037]
+        return support_image(slug, item, index);  # jac:ignore[W2037]
+    }
+
+    async def reply(text: str, image: any) -> bool {  # jac:ignore[W1037]
         answer: any = None;  # jac:ignore[W1037]
         try {
-            answer = await reply_to_support(slug, item, text);  # jac:ignore[W2037]
+            answer = await reply_to_support(  # jac:ignore[W2037]
+                slug,
+                item,
+                text,
+                image["type"] if image else "",
+                image["data_base64"] if image else ""
+            );
         } except Exception as e {
             console.warn("reply_to_support failed", e);
         }
@@ -210,7 +227,11 @@ def:pub HelpSection(slug: str, shift_open: bool = True, item: str = "") -> JsxEl
                     </Badge>
                 </div>
                 <h2 className="font-semibold">{chat["category_label"]}</h2>
-                <SupportThread messages={chat["messages"]} reader="cinema"/>
+                <SupportThread
+                    messages={chat["messages"]}
+                    reader="cinema"
+                    load_image={screenshot}
+                />
                 {alert}
                 <div className="sticky bottom-0 border-t bg-card pt-3">
                     <ChatComposer field_id="help-reply" label="Reply" on_send={reply}/>

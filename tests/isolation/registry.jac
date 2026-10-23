@@ -83,6 +83,17 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"request_id": "x"}
          },
+         # A screenshot in a help request (P13.5b): the cinema's own, or ours to read.
+         "support_image": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "request_id": "x", "index": 0}
+         },
+         "platform_support_image": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"request_id": "x", "index": 0}
+         },
          "platform_support_requests": {"scope": "platform", "audit": ""},
          "platform_support_request": {
              "scope": "platform",

@@ -187,12 +187,16 @@ import from core.support.requests {
     support_requests,  # jac:ignore[W2037]
     reply_to_support,  # jac:ignore[W2037]
     support_seen,  # jac:ignore[W2037]
+    support_image,  # jac:ignore[W2037]
+    platform_support_image,  # jac:ignore[W2037]
     platform_support_seen,  # jac:ignore[W2037]
     platform_support_requests,  # jac:ignore[W2037]
     platform_support_request,  # jac:ignore[W2037]
     platform_support_reply,  # jac:ignore[W2037]
     platform_support_status  # jac:ignore[W2037]
 }
+# Emailing a cinema's owners when we reply (P13.5b); importing it registers the job.
+import from core.support.mail { send_support_mail }  # jac:ignore[W2037]
 # The platform overview (P13.4).
 import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037]
 # The platform's cinemas directory (P13.2).
