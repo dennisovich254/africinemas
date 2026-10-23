@@ -119,7 +119,8 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
             );
             row.locator("a").click();
             us.wait_for_selector('[data-testid="support-request"]');
-            # The cinema's screenshot, for us to read too.
+            # The cinema's health beside its request (P13.5c), and its screenshot.
+            us.wait_for_selector('[data-testid="health-panel"]');
             us.wait_for_selector(
                 '[data-testid="support-thread"] [data-testid="support-image"]'
             );

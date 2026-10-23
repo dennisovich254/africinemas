@@ -43,6 +43,9 @@ test "a super admin sees the platform's figures on the overview" {
             ).count()
                 == 1;
             assert "Setting up" in page.inner_text('[data-testid="overview-states"]');
+            # Cinemas with technical problems (P13.5c): none in a fresh test run's.
+            assert "Cinemas with technical problems"
+                in page.inner_text('[data-testid="overview-problems"]');
             assert page.evaluate(WIDE_JS) <= 1 , f"{project}: overview scrolls sideways";
             page.screenshot(
                 path=artifact(f"platform-overview-{project}.png"), full_page=True
