@@ -4,7 +4,8 @@
 waiting on us, is the first; Waiting for the cinema; Closed), each with its count.
 `/support/<id>`: a request as a chat (our replies on the right, the message box at the
 bottom; a reply hands it to the cinema), with Close or Reopen. For platform support staff (platform.support); the server checks
-every request (core/support/requests.jac).
+every request (core/support/requests.jac). Both pages update without a refresh: the
+inbox every 30 seconds, an open request every few (web/support/live.jac).
 """
 
 import from react { useState, useEffect }
@@ -20,6 +21,7 @@ import from core.support.requests {
 }
 import from ..shell.AppLink { AppLink }
 import from ..support.SupportThread { SupportThread, ChatComposer, when }
+import from ..support.live { use_every, CHAT_MS, LIST_MS }
 
 glob OFFLINE: str = "We couldn't reach the server. Check your connection and try again.";
 
@@ -49,6 +51,7 @@ def:pub SupportInbox -> JsxElement {
         load(status);
     }
     useEffect(start, [status]);
+    use_every(LIST_MS, lambda { load(status); }, [status]);
 
     if problem {
         return
@@ -157,6 +160,20 @@ def:pub SupportRequestPage(request_id: str) -> JsxElement {
         run(lambda -> any { return platform_support_request(request_id); });  # jac:ignore[W1037,W2037]
     }
     useEffect(start, [request_id]);
+
+    async def refresh {
+        # The cinema's new messages, quietly: no busy state, and a failed try waits for
+        # the next one.
+        try {
+            answer: any = await platform_support_request(request_id);  # jac:ignore[W1037,W2037]
+            if answer["ok"] {
+                set_found(answer["request"]);
+            }
+        } except Exception as e {
+            console.warn("platform_support_request failed", e);
+        }
+    }
+    use_every(CHAT_MS, refresh, [request_id]);
 
     async def send(text: str) -> bool {
         return await run(

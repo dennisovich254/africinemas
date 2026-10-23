@@ -18,7 +18,8 @@ import from e2e.support.web {
 }
 import from e2e.support.api { owner_with_cinema, platform_admin, PASSWORD }
 
-glob WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth";
+glob LIVE_MS: int = 15000,
+     WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth";
 
 def _go(page: any, project: str, section: str) {  # jac:ignore[W1037]
     if project == "mobile" {
@@ -69,6 +70,8 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
             us.fill("#password", PASSWORD);  # jac:ignore[W6002]
             us.click('[data-testid="platform-sign-in"] button[type="submit"]');
             us.wait_for_selector('[data-testid="platform-overview"]');
+            # The Support link counts the requests waiting on us.
+            us.wait_for_selector('[data-testid="nav-count-support"]', state="attached");
             _go(us, project, "Support");
             us.wait_for_selector('[data-testid="support-inbox"]');
             row = us.locator('[data-testid="support-row"]', has_text=problem);
@@ -90,9 +93,10 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
                 path=artifact(f"support-request-{project}.png"), full_page=True
             );
             # The cinema sees the answer in the chat, and it's their turn.
-            cinema.reload();
+            # No refresh: the open chat asks every few seconds.
             cinema.wait_for_selector(
-                '[data-testid="support-thread"]:has-text("Which phone number did you try?")'
+                '[data-testid="support-thread"]:has-text("Which phone number did you try?")',
+                timeout=LIVE_MS
             );
             assert "AfriCinemas" in cinema.inner_text('[data-testid="support-thread"]');
             assert "AfriCinemas replied"
@@ -100,6 +104,12 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
             cinema.screenshot(
                 path=artifact(f"help-chat-{project}.png"), full_page=True
             );
+            # Help's link counts the conversations AfriCinemas has answered.
+            cinema.reload();
+            cinema.wait_for_selector('[data-testid="help-chat"]');
+            counted = cinema.locator('[data-testid="nav-count-help"]').first;
+            counted.wait_for(state="attached", timeout=LIVE_MS);
+            assert counted.text_content().startswith("1") , counted.text_content();
             cinema.fill("#help-reply", "0712 345 678");  # jac:ignore[W6002]
             cinema.press("#help-reply", "Enter");
             cinema.wait_for_selector(

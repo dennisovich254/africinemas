@@ -25,7 +25,10 @@ AfriCinemas supports cinemas with technical problems, not cinemas' customers (Ph
    - The cinema's Help is a list of conversations: each one's topic, last message and status, plus "New request". A conversation opens as a chat at `/app/<slug>/help/<id>`.
    - In the chat, the reader's own messages are on the right in the accent colour and the other side's on the left, each with its time. The message box is at the bottom: Enter sends, Shift+Enter starts a new line.
    - Our side, a request's page in the console, is the same chat, with Close or Reopen at the top.
-8. **We see only what a cinema writes.** Support has no way into a cinema's bookings or customers. The form says never to include passwords, PINs or card numbers.
+8. **Live without a refresh, by asking every few seconds** (owner, 2026-10-23). An open chat asks every 5 seconds, and the lists and the sidebar's counts every 30 seconds. A tab in the background asks nothing and catches up when it's back.
+   - Help's link counts the conversations AfriCinemas has answered. Support's link counts the requests waiting on us.
+   - Not WebSockets: Jac's can answer the sender or broadcast to everyone, but can't reach one cinema's staff (JI-054), and a broadcast of a private message would leak it.
+9. **We see only what a cinema writes.** Support has no way into a cinema's bookings or customers. The form says never to include passwords, PINs or card numbers.
 
 ## Consequences
 - **13.5b** emails the cinema when we reply, and lets a request include a screenshot.

@@ -112,7 +112,14 @@ def NavLinks(
                             className={LINK_CLASSES}
                             onClick={on_navigate}
                         >
-                            {nav_icon(item["key"])}{item["label"]}
+                            {nav_icon(item["key"])}{item["label"]}{item["count"]
+                                and <span
+                                    className="ml-auto rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground tabular-nums"
+                                    data-testid={f"nav-count-{item['key']}"}
+                                >
+                                    {item["count"]}
+                                    <span className="sr-only"> waiting for you</span>
+                                </span>}
                         </Link>
                     </li> for item in items
                 ]}
