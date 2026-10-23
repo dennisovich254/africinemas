@@ -1,0 +1,29 @@
+# AfriCinemas' three sites behind Caddy (plan 13.1b.d; ADR-0057, docs/runbooks/three-sites.md).
+#
+# One server serves every site; the address it's asked on decides which. Caddy terminates
+# HTTPS for the domain and every name under it with one wildcard certificate, and passes
+# the request on with its Host header unchanged (Caddy's default), which the app needs.
+#
+# A wildcard certificate needs Let's Encrypt's DNS challenge, so Caddy must be built with
+# the DNS provider's plugin (here Cloudflare: `xcaddy build --with
+# github.com/caddy-dns/cloudflare`) and given an API token that may edit the zone's DNS,
+# as CLOUDFLARE_API_TOKEN in Caddy's environment (never in this file or the repository).
+#
+# The app listens on port 8000 on the same machine.
+
+# www goes to the main address (a more specific name than the wildcard below, so it wins).
+www.africinemas.co.ke {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	redir https://africinemas.co.ke{uri} permanent
+}
+
+# The back office, admin. (the platform) and every cinema's storefront.
+africinemas.co.ke, *.africinemas.co.ke {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8000
+}

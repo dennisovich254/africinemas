@@ -1,8 +1,8 @@
 # ADR-0057: Each of AfriCinemas' sites on its own address
 
-- **Status:** Accepted (13.1b.b: the platform; 13.1b.c: the storefronts)
+- **Status:** Accepted (13.1b.b: the platform; 13.1b.c: the storefronts; 13.1b.d: deploying them)
 - **Date:** 2026-10-23
-- **Sub-phase:** P13.1b.b, P13.1b.c
+- **Sub-phase:** P13.1b.b, P13.1b.c, P13.1b.d
 - **Code:** `core/site.jac` (`site_for_host`, `storefront_address`, `platform_address`), `web/site.jac`, `web/AppRoot.jac` (`PlatformSite`, `StorefrontSite`, `MainSite`), `web/shell/AppLink.jac` (`local_path`), `web/platform/*`, `core/booking/ticket_delivery.jac` and `core/mcp/server.jac` (links sent out), `scripts/platform_setup.jac`
 - **Tests:** `tests/unit/site_tests.jac`, `e2e/platform_tests.jac` (`PLATFORM_URL`), `e2e/storefront_address_tests.jac` (`MAIN_URL`, `store_url`; e2e/support/web.jac)
 
@@ -26,5 +26,5 @@ The owner wants the platform, the back office and the storefronts to behave as t
 ## Consequences
 - Under the domain, each site's sign-in lives in its own address's storage, so the platform, the back office and every cinema's storefront are signed in and out apart. The slots matter only on addresses outside it.
 - `AFRICINEMAS_SITE_DOMAIN` replaces 13.1b.b's `AFRICINEMAS_PLATFORM_URL`: one setting names every site's address.
-- Production needs a wildcard DNS record and certificate for `*.africinemas.co.ke` (13.1b.d).
+- Production needs a wildcard DNS record and a wildcard certificate for `*.africinemas.co.ke`, and a proxy that passes the `Host` header through. `deploy/Caddyfile` and `docs/runbooks/three-sites.md` set this up, and `scripts/check_sites.sh` checks every address after a deploy. A new cinema needs no DNS change.
 - The desktop and mobile apps, whose host names never start with `admin.`, are the main site, as before.
