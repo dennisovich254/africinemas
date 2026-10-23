@@ -32,3 +32,5 @@ export AFRICINEMAS_KIT_PLAN="${AFRICINEMAS_KIT_PLAN:-$PWD/e2e/artifacts/kit_plan
 export AFRICINEMAS_PAGE_SCRIPT="${AFRICINEMAS_PAGE_SCRIPT:-$PWD/e2e/artifacts/page_script.html}"
 # The AfriCinemas platform console (P13.1): its super admin for the browser tests.
 export AFRICINEMAS_PLATFORM_ADMINS="${AFRICINEMAS_PLATFORM_ADMINS:-platform-admin@example.com}"
+# Its join link (P13.1b.a): the server writes it here once, for e2e/support/api.jac.
+export AFRICINEMAS_PLATFORM_SETUP_FILE="${AFRICINEMAS_PLATFORM_SETUP_FILE:-$PWD/e2e/artifacts/platform_setup.json}"

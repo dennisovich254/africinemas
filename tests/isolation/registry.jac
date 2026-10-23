@@ -34,12 +34,19 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "my_cinemas": {"scope": "caller", "audit": ""},
          # The AfriCinemas platform console (P13.1): its actions go to the platform's own
          # log, never a cinema's.
-         "platform_whoami": {
-             "scope": "caller",
+         "platform_whoami": {"scope": "caller", "audit": ""},
+         # A join link's page (P13.1b.a): no account yet; a token names who may join.
+         "platform_join": {
+             "scope": "public",
              "audit": "",
-             "probe": {"email": "owner@example.com"}
+             "probe": {"token": "made-up-token", "password": "Probe-Passw0rd!"}
          },
          "platform_staff": {"scope": "platform", "audit": ""},
+         "invite_platform_member": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"email": "probe@example.com", "role": "support"}
+         },
          "set_platform_role": {
              "scope": "platform",
              "audit": "",

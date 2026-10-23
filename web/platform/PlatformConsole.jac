@@ -1,20 +1,24 @@
 """`/platform` and `/platform/:section`: the AfriCinemas platform console (P13.1).
 
-For AfriCinemas' own team, apart from every cinema's back office. On opening, the page
-asks the server who the caller is on the platform (platform_whoami, with the email this
-browser signed in with), and shows the console only to platform staff; anyone else is
-told plainly that this area is for AfriCinemas staff. The server checks every request
-again, so the page is never the guard.
+For AfriCinemas' own team, apart from every cinema's back office, signed in with a
+platform account (P13.1b.a; /platform/sign-in). On opening, the page asks the server who
+the caller is on the platform (platform_whoami) and shows the console only to platform
+staff; anyone else (someone removed, say) is told plainly that this area is for
+AfriCinemas staff. The server checks every request again, so the page is never the guard.
 
 Sections so far: Overview (who you are, your role, what it lets you do) and, for super
-admins, Platform staff: everyone with a role, adding someone by their sign-in email with
-a role, changing a role, and removing someone (asks first). Super admins set in the
-server's settings show as such and can't be changed here; only they are offered "Super
-admin", and only they can change or remove a super admin made here.
+admins, Platform staff: everyone with a role, inviting someone by email with a role (a
+link to send them, valid 72 hours; "Invited" until they set their password, with a new
+link on request), changing a role, and removing someone (asks first). Super admins set
+in the server's settings show as such to the settings' own and can't be changed here;
+only they are offered "Super admin", and only they can change or remove a super admin
+made here.
 """
 
 import from react { useState, useEffect }
-import from "@jac/runtime" { useParams }
+import from "@jac/runtime" { useParams, useNavigate }
+import from "@hugeicons/react" { HugeiconsIcon }
+import from "@hugeicons/core-free-icons" { Logout01Icon }
 import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.badge { Badge }
 import from ...components.ui.button { Button }
@@ -24,14 +28,14 @@ import from ...components.ui.spinner { Spinner }
 import from core.platform.staff_api {
     platform_whoami,  # jac:ignore[W2037] authenticated endpoint
     platform_staff,  # jac:ignore[W2037]
+    invite_platform_member,  # jac:ignore[W2037]
     set_platform_role,  # jac:ignore[W2037]
     remove_platform_staff  # jac:ignore[W2037]
 }
 import from ..shell.AppShell { AppShell }
-import from ..shell.AppLink { AppLink }
 import from ..theme.ThemeProvider { ThemeProvider }
-import from ..auth.session { signed_in_email }
-import from ..backoffice.PlainLayout { PlainLayout, AccountActions }
+import from ..backoffice.PlainLayout { PlainLayout }
+import from .platform_session { platform_sign_out }
 import from ..backoffice.form_parts { ConfirmDelete, on_input, submit_with }
 
 glob ROLE_CHOICES: list[tuple[str, str]] = [
@@ -51,6 +55,64 @@ def:pub may(me: dict[str, any], permission: str) -> bool {  # jac:ignore[W1037]
     return permission in found;
 }
 
+def PlatformAccount -> JsxElement {
+    # Signs out of the platform only: cinema sign-ins in this browser stay.
+    nav = useNavigate();
+    def leave {
+        platform_sign_out();
+        nav("/platform/sign-in", {"replace": True});
+    }
+    return
+        <Button
+            variant="ghost"
+            className="min-h-11 justify-start"
+            onClick={leave}
+            data-testid="platform-sign-out"
+        >
+            <HugeiconsIcon icon={Logout01Icon} strokeWidth={2} aria-hidden="true"/>
+            Sign out
+        </Button>;
+}
+
+def join_address(token: str) -> str {
+    win: any = window;  # jac:ignore[W1037,W2001]
+    return f"{win.location.origin}/platform/join#{token}";
+}
+
+def InviteLink(email: str, link: str, hours: int) -> JsxElement {
+    # The invitation to send: there's no email from here yet, so it's copied.
+    [copied, set_copied] = useState(False);
+    async def copy {
+        win: any = window;  # jac:ignore[W1037,W2001]
+        try {
+            await win.navigator.clipboard.writeText(link);
+            set_copied(True);
+        } except Exception as e {
+            console.warn("couldn't copy the link", e);
+        }
+    }
+    return
+        <section
+            data-testid="platform-invite-link"
+            className="flex flex-col gap-2 rounded-lg border bg-card p-4"
+        >
+            <h2 className="text-lg font-semibold">{f"Send {email} this link"}</h2>
+            <p className="text-sm text-muted-foreground">
+                {f"It lets them choose their password and works once, for {hours} hours. Send it only to them, by a channel you trust."}
+            </p>
+            <Input
+                readOnly={True}
+                value={link}
+                aria-label="Invitation link"
+                className="min-h-11 font-mono text-xs"
+                data-testid="platform-invite-address"
+            />
+            <Button variant="outline" className="min-h-11 w-fit px-4" onClick={copy}>
+                {"Copied" if copied else "Copy link"}
+            </Button>
+        </section>;
+}
+
 def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     # Only super admins from the server's settings make, change or remove super admins.
     settings_admin: bool = me["settings_admin"] or False;
@@ -66,8 +128,10 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     [problem, set_problem] = useState("");
     [busy, set_busy] = useState(False);
     [asking, set_asking] = useState("");
+    # The last invitation made: {email, link, hours}.
+    [invited, set_invited] = useState(None);
 
-    async def run(work: any, done: str) -> bool {  # jac:ignore[W1037]
+    async def run(work: any, done: str) -> any {  # jac:ignore[W1037]
         set_busy(True);
         set_problem("");
         set_message("");
@@ -90,7 +154,7 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
         }
         set_rows(answer["staff"]);
         set_message(done);
-        return True;
+        return answer;
     }
 
     async def load {
@@ -102,23 +166,31 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     }
     useEffect(start, []);
 
+    async def invite(wanted: str, picked: str) {
+        set_invited(None);
+        answer: any = await run(  # jac:ignore[W1037]
+            lambda -> any { return invite_platform_member(wanted, picked); },  # jac:ignore[W1037,W2037]
+            f"Invited {wanted}."
+        );
+        if answer {
+            set_email("");
+            set_invited(
+                {
+                    "email": wanted,
+                    "link": join_address(answer["token"]),
+                    "hours": answer["expires_in_hours"]
+                }
+            );
+        }
+    }
+
     async def add {
         wanted: str = email.strip();
-        picked: str = role;
         if not wanted {
-            set_problem("Enter their sign-in email.");
+            set_problem("Enter their email.");
             return;
         }
-        if await run(
-            lambda -> any { return set_platform_role(wanted, picked); },  # jac:ignore[W1037,W2037]
-            f"{wanted} is now {[
-                n
-                for (k, n) in choices
-                if k == picked
-            ][0]}."
-        ) {
-            set_email("");
-        }
+        await invite(wanted, role);
     }
 
     async def change(who: str, picked: str) {
@@ -144,6 +216,7 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
             </p>;
     }
     listed: list[dict[str, any]] = rows or [];  # jac:ignore[W1037]
+    made: dict[str, any] | None = invited;  # jac:ignore[W1037]
     return
         <div className="flex max-w-3xl flex-col gap-6" data-testid="platform-staff">
             <p className="text-sm text-muted-foreground">
@@ -161,6 +234,12 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 and <Alert variant="destructive" role="alert">
                     <AlertDescription>{problem}</AlertDescription>
                 </Alert>}
+            {made
+                and <InviteLink
+                    email={made["email"]}
+                    link={made["link"]}
+                    hours={made["hours"]}
+                />}
             <ul className="flex flex-col divide-y rounded-lg border bg-card">
                 {[
                     <li
@@ -169,7 +248,16 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                         className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
                         <div className="flex min-w-0 flex-col gap-0.5">
-                            <span className="break-all font-medium">{r["email"]}</span>
+                            <span className="break-all font-medium">
+                                {r["email"]}{not r["joined"]
+                                    and <Badge
+                                        variant="outline"
+                                        className="ml-2"
+                                        data-testid="member-invited"
+                                    >
+                                        Invited
+                                    </Badge>}
+                            </span>
                             <span className="text-sm text-muted-foreground">
                                 {ROLE_HELP[r["role"]]}
                             </span>
@@ -213,6 +301,20 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                                         for (k, n) in choices
                                     ]}
                                 </select>
+                                {not r["joined"]
+                                    and <Button
+                                        variant="outline"
+                                        className="min-h-11 px-3"
+                                        disabled={busy}
+                                        aria-label={f"New invitation link for {r[
+                                            'email'
+                                        ]}"}
+                                        onClick={lambda { invite(
+                                            r["email"], r["role"]
+                                        ); }}
+                                    >
+                                        New link
+                                    </Button>}
                                 {asking != r["email"]
                                     and <Button
                                         variant="ghost"
@@ -227,7 +329,7 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                         {asking == r["email"]
                             and <ConfirmDelete
                                 question={f"Remove {r['email']}?"}
-                                detail="They lose access to the platform console at once."
+                                detail="They lose access to the platform console at once, and an unused invitation stops working."
                                 confirm_label="Remove"
                                 on_confirm={lambda { remove(r["email"]); }}
                                 on_cancel={lambda { set_asking(""); }}
@@ -241,10 +343,10 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 className="flex flex-col gap-3 rounded-lg border bg-card p-4"
                 onSubmit={submit_with(lambda { add(); })}
             >
-                <h2 className="text-lg font-semibold">Add someone</h2>
+                <h2 className="text-lg font-semibold">Invite someone</h2>
                 <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
                     <div className="flex min-w-0 flex-col gap-1.5">
-                        <Label htmlFor="platform-email">Their sign-in email</Label>
+                        <Label htmlFor="platform-email">Their email</Label>
                         <Input
                             id="platform-email"
                             type="email"
@@ -271,14 +373,14 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 </div>
                 <p className="text-sm text-muted-foreground">{ROLE_HELP[role]}</p>
                 <p className="text-sm text-muted-foreground">
-                    They sign in with their own AfriCinemas account using this email, then open the platform console.
+                    You get a link to send them. They choose a password for a platform account of their own, separate from any cinema account.
                 </p>
                 <Button
                     type="submit"
                     className="min-h-11 w-fit px-5"
                     disabled={busy or not email.strip()}
                 >
-                    Add
+                    Invite
                 </Button>
             </form>
         </div>;
@@ -312,7 +414,7 @@ def:pub PlatformConsole -> JsxElement {
     async def load {
         answer: any = None;  # jac:ignore[W1037]
         try {
-            answer = await platform_whoami(signed_in_email());  # jac:ignore[W2037]
+            answer = await platform_whoami();  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("platform_whoami failed", e);
             set_failed(True);
@@ -328,10 +430,7 @@ def:pub PlatformConsole -> JsxElement {
 
     if failed {
         return
-            <PlainLayout
-                title="AfriCinemas platform"
-                account={<AccountActions slugs={[]}/>}
-            >
+            <PlainLayout title="AfriCinemas platform" account={<PlatformAccount/>}>
                 <Alert variant="destructive">
                     <AlertDescription>
                         We couldn't reach the server. Refresh the page to try again.
@@ -356,10 +455,7 @@ def:pub PlatformConsole -> JsxElement {
     shown: dict[str, any] = me;  # jac:ignore[W1037]
     if not shown["platform"] {
         return
-            <PlainLayout
-                title="AfriCinemas platform"
-                account={<AccountActions slugs={[]}/>}
-            >
+            <PlainLayout title="AfriCinemas platform" account={<PlatformAccount/>}>
                 <section
                     data-testid="not-platform"
                     className="flex max-w-xl flex-col items-start gap-3 rounded-lg border bg-card p-6"
@@ -368,14 +464,8 @@ def:pub PlatformConsole -> JsxElement {
                         This area is for AfriCinemas staff
                     </h2>
                     <p className="text-muted-foreground">
-                        Your account isn't on the AfriCinemas team. Your cinemas are in your back office.
+                        Your account isn't on the AfriCinemas team.
                     </p>
-                    <AppLink
-                        to="/app"
-                        className="inline-flex min-h-11 items-center rounded-md border px-4 font-medium hover:bg-muted"
-                    >
-                        Go to your cinemas
-                    </AppLink>
                 </section>
             </PlainLayout>;
     }
@@ -400,7 +490,7 @@ def:pub PlatformConsole -> JsxElement {
                 nav={nav}
                 brand="AfriCinemas platform"
                 home="/platform"
-                account={<AccountActions slugs={[]} switch_to="/app"/>}
+                account={<PlatformAccount/>}
             >
                 {section == "" and <Overview me={shown}/>}{section == "staff"
                     and allowed

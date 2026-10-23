@@ -178,7 +178,9 @@ import from core.snacks.product_api {
 # The AfriCinemas platform console: platform staff and their roles (P13.1).
 import from core.platform.staff_api {
     platform_whoami,  # jac:ignore[W2037]
+    platform_join,
     platform_staff,  # jac:ignore[W2037]
+    invite_platform_member,  # jac:ignore[W2037]
     set_platform_role,  # jac:ignore[W2037]
     remove_platform_staff  # jac:ignore[W2037]
 }
@@ -227,6 +229,8 @@ import from core.payments.settlement { my_payment, mpesa_callback, settle_callba
 import from core.payments.resolver { resolve_payments, end_my_order }  # jac:ignore[W2037]
 # The hold expiry sweeper (P4.4) runs on a schedule; importing it registers the task.
 import from core.booking.sweeper { sweep_holds }  # jac:ignore[W2037]
+# The browser tests' super admin join link (P13.1b.a); does nothing unless they set it.
+import from core.platform.setup_file { write_setup_links }  # jac:ignore[W2037]
 import from core.tenancy.customer_api {
     join_as_customer,  # jac:ignore[W2037]
     my_customer_profile  # jac:ignore[W2037]
