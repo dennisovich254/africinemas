@@ -55,6 +55,39 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"limit": 10}
          },
          "platform_signed_in": {"scope": "platform", "audit": ""},
+         # Technical support (P13.5a): a cinema's requests are its own; the inbox is
+         # for platform support staff.
+         "ask_for_help": {
+             "scope": "tenant",
+             "audit": "support.requested",
+             "probe": {"tenant": "{tenant}", "category": "other", "text": "Probe"}
+         },
+         "support_requests": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "reply_to_support": {
+             "scope": "tenant",
+             "audit": "support.replied",
+             "probe": {"tenant": "{tenant}", "request_id": "x", "text": "Probe"}
+         },
+         "platform_support_requests": {"scope": "platform", "audit": ""},
+         "platform_support_request": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"request_id": "x"}
+         },
+         "platform_support_reply": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"request_id": "x", "text": "Probe"}
+         },
+         "platform_support_status": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"request_id": "x", "status": "closed"}
+         },
          # The platform overview (P13.4): figures across every cinema.
          "platform_overview": {"scope": "platform", "audit": ""},
          # The cinemas directory (P13.2): every cinema, for platform staff only.

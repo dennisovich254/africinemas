@@ -26,7 +26,12 @@ import from ..site { storefront_address }
 glob SEARCH_PAUSE_MS: int = 350,
      OFFLINE: str = "We couldn't reach the server. Check your connection and try again.",
      SELECT_CLASSES: str = "min-h-11 rounded-md border border-input bg-background px-3 text-sm",
-     HISTORY_LABELS: dict[str, str] = {"signed_up": "Signed up"};
+     HISTORY_LABELS: dict[str, str] = {
+         "signed_up": "Signed up",
+         "platform.support_replied": "We replied to a help request",
+         "platform.support_closed": "We closed a help request",
+         "platform.support_reopened": "We reopened a help request"
+     };
 
 def day_label(at: str) -> str {
     # "12 Oct 2026", or "" when there's no date.
@@ -392,8 +397,5 @@ def:pub CinemaDetail(slug: str, audit: bool = False) -> JsxElement {
                     ]}
                 </ol>
             </section>
-            <p className="text-sm text-muted-foreground">
-                Support requests from this cinema appear here once the Help button arrives (plan 13.5).
-            </p>
         </div>;
 }

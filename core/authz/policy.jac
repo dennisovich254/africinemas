@@ -43,7 +43,9 @@ glob PERMISSIONS: list[str] = [
          "concessions.manage",
          "concessions.availability",
          "concessions.inventory",
-         "concessions.collect"
+         "concessions.collect",
+         # Asking AfriCinemas for technical help (P13.5a).
+         "support.request"
      ],
      _CATALOGUE_READ: set[str] = {"movies.read", "showtimes.read"},
      _FLOOR_READ: set[str] = {"seats.read", "venues.read"},
@@ -97,17 +99,22 @@ glob PERMISSIONS: list[str] = [
              | _BOOKINGS_ALL
              | _TICKETS_ALL
              | _STAFF_ALL
-             | {"tenant.settings.update"}
+             | {"tenant.settings.update", "support.request"}
              | _SNACKS_MANAGE,
          "general_manager": {"movies.read"}
              | _SHOWTIMES_ALL
              | _FLOOR_READ
              | _BOOKINGS_ALL
              | _TICKETS_ALL
-             | {"payments.read", "financial_reports.read", "employees.read"}
+             | {
+                 "payments.read",
+                 "financial_reports.read",
+                 "employees.read",
+                 "support.request"
+             }
              | _SNACKS_MANAGE,
          "finance_manager": _CATALOGUE_READ
-             | {"bookings.read", "concessions.read"}
+             | {"bookings.read", "concessions.read", "support.request"}
              | _MONEY_ALL,
          "box_office_manager": _CATALOGUE_READ
              | _FLOOR_READ

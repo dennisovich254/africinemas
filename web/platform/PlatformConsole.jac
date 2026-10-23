@@ -41,6 +41,7 @@ import from .platform_session { platform_sign_out }
 import from .CinemasPages { CinemasList, CinemaDetail }
 import from .PlatformAuditPage { PlatformAuditPage }
 import from .OverviewFigures { OverviewFigures }
+import from .SupportPages { SupportInbox, SupportRequestPage }
 import from ..backoffice.form_parts { ConfirmDelete, on_input, submit_with }
 
 glob ROLE_CHOICES: list[tuple[str, str]] = [
@@ -477,14 +478,18 @@ def:pub PlatformConsole -> JsxElement {
     if may(shown, "platform.read") {
         nav.append({"label": "Cinemas", "to": "/cinemas", "key": "cinemas"});
     }
+    if may(shown, "platform.support") {
+        nav.append({"label": "Support", "to": "/support", "key": "support"});
+    }
     if may(shown, "platform.staff") {
         nav.append({"label": "Platform staff", "to": "/staff", "key": "staff"});
     }
     if may(shown, "platform.audit") {
         nav.append({"label": "Audit log", "to": "/audit", "key": "audit"});
     }
-    # Only the Cinemas section has pages under it (a cinema's, /cinemas/<slug>).
-    allowed = section in [n["key"] for n in nav] and (not item or section == "cinemas");
+    # Only Cinemas and Support have pages under them (/cinemas/<slug>, /support/<id>).
+    allowed = section in [n["key"] for n in nav]
+        and (not item or section in ["cinemas", "support"]);
     title = [
         n["label"]
         for n in nav
@@ -511,7 +516,13 @@ def:pub PlatformConsole -> JsxElement {
                         slug={item}
                         audit={may(shown, "platform.audit")}
                     />}{section == "audit" and allowed and <PlatformAuditPage/>}{section
-                    == "staff"
+                    == "support"
+                    and allowed
+                    and not item
+                    and <SupportInbox/>}{section == "support"
+                    and allowed
+                    and item
+                    and <SupportRequestPage request_id={item}/>}{section == "staff"
                     and allowed
                     and <StaffPage me={shown}/>}{not allowed
                     and <p

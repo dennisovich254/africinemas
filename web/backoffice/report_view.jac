@@ -127,6 +127,8 @@ def:pub result_label(result: str) -> str {
 # The audited actions (tests/isolation/registry.jac) as people say them, for the audit
 # log's filter and rows; an action missing here shows as its code.
 glob:pub ACTIONS: list[tuple[str, str]] = [
+         ("support.requested", "Asked AfriCinemas for help"),
+         ("support.replied", "Replied to AfriCinemas"),
          ("sale.cash", "Cash sale"),
          ("sale.mpesa_started", "M-Pesa sale started"),
          ("ticket.scanned", "Ticket scanned"),
