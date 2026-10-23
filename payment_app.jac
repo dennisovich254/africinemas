@@ -122,6 +122,8 @@ import from core.platform.audit_api {
     platform_audit_log,  # jac:ignore[W2037]
     platform_signed_in  # jac:ignore[W2037]
 }
+# The platform overview (P13.4).
+import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037]
 # The platform's cinemas directory (P13.2).
 import from core.platform.cinemas_api {
     platform_cinemas,  # jac:ignore[W2037]

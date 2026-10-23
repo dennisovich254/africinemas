@@ -71,13 +71,18 @@ def paying_cinema(staff: list[str]) -> tuple[Served, Cinema, str] {  # jac:ignor
 }
 
 def pay(
-    app: Served, screening: str, phone: str, key: str = "", email: str = ANNA_EMAIL
+    app: Served,
+    screening: str,
+    phone: str,
+    key: str = "",
+    email: str = ANNA_EMAIL,
+    slug: str = "nova"
 ) -> any {  # jac:ignore[W1037]
     return browse(
         app,
         "start_payment",
         {
-            "slug": "nova",
+            "slug": slug,
             "screening_id": screening,
             "holder": ANNA,
             "phone": phone,
@@ -100,22 +105,22 @@ def fresh_phone -> str {
     return f"2547{uuid.uuid4().int % 100000000:08d}";
 }
 
-def paid(app: Served, screening: str) -> str {
+def paid(app: Served, screening: str, slug: str = "nova") -> str {
     # Anna pays, Safaricom's callback arrives and the job settles it: the order is
     # confirmed with its tickets. Returns the payment's reference.
-    started = pay(app, screening, fresh_phone());
+    started = pay(app, screening, fresh_phone(), slug=slug);
     assert started["ok"] and started["payment"]["state"] == "stk_requested" , started;
     reference = started["payment"]["reference"];
-    settle(app, screening, reference);
+    settle(app, screening, reference, slug);
     return reference;
 }
 
-def settle(app: Served, screening: str, reference: str) {
+def settle(app: Served, screening: str, reference: str, slug: str = "nova") {
     # Safaricom's callback for the payment `reference` arrives and the job settles it.
     sent = app.call(
         "owner",
         "pay_callback",
-        {"slug": "nova", "screening_id": screening, "reference": reference}
+        {"slug": slug, "screening_id": screening, "reference": reference}
     );
     assert sent["body"] is not None , sent;
     app.client.set_auth_token("");

@@ -46,7 +46,7 @@ obj Staffing {
         staff: int = 0;
 }
 
-def _cinemas -> list[Tenant] {
+def all_cinemas -> list[Tenant] {
     # Every cinema that finished signing up (a slug held for one still signing up
     # names no cinema yet).
     found: list[Tenant] = [];
@@ -121,7 +121,7 @@ def _directory(search: str, state: str, page: any, per_page: any) -> dict[str, a
         raise Refused("invalid_state", "Choose one of the cinema states.");
     }
     rows: list[dict[str, any]] = [];  # jac:ignore[W1037]
-    for cinema in _cinemas() {
+    for cinema in all_cinemas() {
         if state and cinema.state != state {
             continue;
         }
@@ -185,7 +185,7 @@ def _cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     wanted = slug.strip().lower() if isinstance(slug, str) else "";
     found = [
         c
-        for c in _cinemas()
+        for c in all_cinemas()
         if c.slug == wanted
     ];
     if not found {

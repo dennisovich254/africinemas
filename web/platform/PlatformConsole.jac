@@ -6,7 +6,8 @@ the caller is on the platform (platform_whoami) and shows the console only to pl
 staff; anyone else (someone removed, say) is told plainly that this area is for
 AfriCinemas staff. The server checks every request again, so the page is never the guard.
 
-Sections so far: Overview (who you are, your role, what it lets you do), Cinemas (the
+Sections so far: Overview (who you are, your role, what it lets you do, and the
+platform's figures, P13.4; web/platform/OverviewFigures.jac), Cinemas (the
 directory and each cinema's page, P13.2; web/platform/CinemasPages.jac) and, for super
 admins, the Audit log (P13.3; web/platform/PlatformAuditPage.jac) and Platform staff: everyone with a role, inviting someone by email with a role (a
 link to send them, valid 72 hours; "Invited" until they set their password, with a new
@@ -39,6 +40,7 @@ import from ..backoffice.PlainLayout { PlainLayout }
 import from .platform_session { platform_sign_out }
 import from .CinemasPages { CinemasList, CinemaDetail }
 import from .PlatformAuditPage { PlatformAuditPage }
+import from .OverviewFigures { OverviewFigures }
 import from ..backoffice.form_parts { ConfirmDelete, on_input, submit_with }
 
 glob ROLE_CHOICES: list[tuple[str, str]] = [
@@ -391,7 +393,7 @@ def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
 
 def Overview(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     return
-        <div className="flex max-w-3xl flex-col gap-4" data-testid="platform-overview">
+        <div className="flex max-w-5xl flex-col gap-4" data-testid="platform-overview">
             <section className="flex flex-col gap-2 rounded-lg border bg-card p-4">
                 <h2 className="text-lg font-semibold">Welcome</h2>
                 <p>
@@ -402,9 +404,7 @@ def Overview(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 </p>
                 <p className="text-sm text-muted-foreground">{ROLE_HELP[me["role"]]}</p>
             </section>
-            <p className="text-sm text-muted-foreground">
-                The overview figures and the support inbox are added here next (plan Phase 13).
-            </p>
+            {may(me, "platform.read") and <OverviewFigures/>}
         </div>;
 }
 
