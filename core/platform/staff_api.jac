@@ -9,6 +9,9 @@ Platform staff run the platform, apart from every cinema's staff and customers:
 - **Reviewers** (verification decisions, Phase 14) and **support** (technical support,
   13.5) are added and removed by a super admin, kept as permanent claims (STAFF: email
   -> role). Removing someone takes effect on their next request.
+- **More super admins** can be made in the console, but only by a super admin from the
+  server's settings (owner decision, 2026-10-22), who alone may also change or remove
+  them: a super admin made in the app can't make others.
 
 Who's calling: a request carries only the caller's root, and Jac's identity store maps
 people to roots, not back. platform_whoami takes the email the browser signed in with,
@@ -19,7 +22,10 @@ customer account signs in with a username, never an email, so it can't be platfo
 staff.
 
 Refusals: not_platform ("This area is for AfriCinemas staff.") for anyone who isn't
-platform staff, the same whatever they ask; not_allowed for a role without the action.
+platform staff, the same whatever they ask; not_allowed ("Your platform role can't do
+this.") for anything else the caller may not do, including touching a super admin, never
+saying which rule stopped them or which super admins come from the settings. Only the
+settings' super admins see which accounts are the settings' (`fixed`).
 Every change is recorded in the platform's own audit log (core/audit/log.jac).
 """
 
@@ -102,6 +108,11 @@ def caller -> PlatformCaller | None {
     return PlatformCaller(root_id=me, email=email, role=role);
 }
 
+def _not_allowed -> Refused {
+    # The one refusal for anything a platform member may not do: it never says why.
+    return Refused("not_allowed", "Your platform role can't do this.");
+}
+
 def require_platform(permission: str) -> PlatformCaller {
     # The caller, if they're platform staff whose role allows `permission`.
     found = caller();
@@ -109,7 +120,7 @@ def require_platform(permission: str) -> PlatformCaller {
         raise Refused("not_platform", "This area is for AfriCinemas staff.");
     }
     if permission not in PLATFORM_PERMISSIONS[found.role] {
-        raise Refused("not_allowed", "Your platform role can't do this.");
+        raise _not_allowed();
     }
     return found;
 }
@@ -132,7 +143,9 @@ def _whoami(email: str) -> dict[str, any] {  # jac:ignore[W1037]
         "email": mine,
         "role": role,
         "role_label": ROLE_LABELS[role],
-        "permissions": sorted(PLATFORM_PERMISSIONS[role])
+        "permissions": sorted(PLATFORM_PERMISSIONS[role]),
+        # Set in the server's settings: may make, change and remove super admins.
+        "settings_admin": mine in allowlisted()
     };
 }
 
@@ -146,9 +159,11 @@ def _row(email: str, role: str, fixed: bool) -> dict[str, any] {  # jac:ignore[W
 }
 
 def _staff_list -> dict[str, any] {  # jac:ignore[W1037]
-    require_platform("platform.staff");
+    me = require_platform("platform.staff");
     fixed = allowlisted();
-    rows: list[dict[str, any]] = [_row(e, SUPER_ADMIN, True) for e in fixed];  # jac:ignore[W1037]
+    # Which super admins are the settings' is shown to the settings' own only.
+    shown = me.email in fixed;
+    rows: list[dict[str, any]] = [_row(e, SUPER_ADMIN, shown) for e in fixed];  # jac:ignore[W1037]
     for (email, role, _) in claims_in(STAFF) {
         if email not in fixed and role in ROLES {
             rows.append(_row(email, role, False));
@@ -167,17 +182,26 @@ def _tidy_email(email: str) -> str {
     return clean;
 }
 
-def _set_role(email: str, role: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _check_super_admins(clean: str, role: str, me: PlatformCaller) {
+    # Making, changing or removing a super admin is for super admins from the server's
+    # settings only.
+    if me.email in allowlisted() {
+        return;
+    }
+    if role == SUPER_ADMIN or holder(STAFF, clean) == SUPER_ADMIN {
+        raise _not_allowed();
+    }
+}
+
+def _set_role(email: str, role: str, me: PlatformCaller) -> dict[str, any] {  # jac:ignore[W1037]
     clean = _tidy_email(email);
     if role not in ROLES {
         raise Refused("invalid_role", "Choose super admin, reviewer or support.");
     }
     if clean in allowlisted() {
-        raise Refused(
-            "fixed_admin",
-            "This super admin is set in the server's settings and can't be changed here."
-        );
+        raise _not_allowed();
     }
+    _check_super_admins(clean, role, me);
     take_claim(STAFF, clean);
     claim(STAFF, clean, role);
     return _staff_list();
@@ -186,10 +210,7 @@ def _set_role(email: str, role: str) -> dict[str, any] {  # jac:ignore[W1037]
 def _remove(email: str, me: PlatformCaller) -> dict[str, any] {  # jac:ignore[W1037]
     clean = _tidy_email(email);
     if clean in allowlisted() {
-        raise Refused(
-            "fixed_admin",
-            "This super admin is set in the server's settings and can't be removed here."
-        );
+        raise _not_allowed();
     }
     if clean == me.email {
         raise Refused("remove_self", "You can't remove yourself.");
@@ -197,6 +218,7 @@ def _remove(email: str, me: PlatformCaller) -> dict[str, any] {  # jac:ignore[W1
     if holder(STAFF, clean) is None {
         raise Refused("not_staff", "That email isn't platform staff.");
     }
+    _check_super_admins(clean, "", me);
     take_claim(STAFF, clean);
     return _staff_list();
 }
@@ -221,7 +243,7 @@ def:protect set_platform_role(email: str, role: str) -> dict[str, any] {  # jac:
         "platform.staff_role_set",
         "platform_staff",
         str(email).strip().lower(),
-        lambda -> any { return _set_role(email, role); },  # jac:ignore[W1037]
+        lambda -> any { return _set_role(email, role, me); },  # jac:ignore[W1037]
         detail=str(role)
     );
 }

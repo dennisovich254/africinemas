@@ -4,7 +4,8 @@ The platform's super admin (AFRICINEMAS_PLATFORM_ADMINS, scripts/e2e_env.sh) fin
 console from Your cinemas, sees their role, and on Platform staff adds a reviewer by
 email; the reviewer signs in and reaches the console but not Platform staff. Removed,
 the reviewer is told the area is for AfriCinemas staff, as a cinema owner always is.
-Phone and desktop, with the usual phone checks.
+Signing in as a customer on a storefront in the same browser doesn't lock a super admin
+out of the console. Phone and desktop, with the usual phone checks.
 """
 
 import from e2e.support.web {
@@ -110,6 +111,32 @@ test "a cinema owner is told the platform console is for AfriCinemas staff" {
         page.goto(BASE_URL + "/platform");
         page.wait_for_selector('[data-testid="not-platform"]');
         assert "AfriCinemas staff" in page.inner_text('[data-testid="not-platform"]');
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "a customer sign-in in the same browser keeps a super admin's console" {
+    # The customer sign-in once erased the staff email the console checks (2026-10-23).
+    admin = platform_admin();
+    owner = owner_with_cinema();
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        _sign_in(page, admin);
+        page.goto(f"{BASE_URL}/c/{owner['slug']}/sign-up");
+        page.wait_for_selector('[data-testid="customer-sign-up"]');
+        page.fill("#name", "Kim");  # jac:ignore[W6002]
+        page.fill("#email", email_for(unique("customer")));  # jac:ignore[W6002]
+        page.fill("#password", PASSWORD);  # jac:ignore[W6002]
+        page.click('[data-testid="customer-sign-up"] button[type="submit"]');
+        page.wait_for_url(f"**/c/{owner['slug']}**");
+        page.wait_for_selector('[data-testid="customer-sign-up"]', state="detached");
+        page.goto(BASE_URL + "/platform");
+        page.wait_for_selector('[data-testid="platform-overview"]');
+        assert page.inner_text('[data-testid="platform-role"]') == "Super admin";
     } finally {
         close_contexts(browser);
     }

@@ -4,7 +4,8 @@ In-process app (payment_app.jac). "boss" is in AFRICINEMAS_PLATFORM_ADMINS, so a
 admin; "owner" runs a cinema and isn't platform staff; "rev" and "helper" are added by
 the boss. Platform access follows the role, looked up fresh on every request: a cinema
 owner is refused everything as not_platform, a reviewer can't manage staff, a removed
-member loses access at once, and the allowlist can't be changed through the app. A
+member loses access at once, and the allowlist can't be changed through the app. Only a
+super admin from the server's settings makes, changes or removes super admins. A
 customer account can never be added. Every staff change is in the platform's own log.
 """
 
@@ -93,15 +94,62 @@ test "a super admin adds and removes staff; each role reaches only its own actio
     }
 }
 
+test "only a super admin from the server's settings manages super admins" {
+    app = _app();
+    try {
+        assert app.call("boss", "platform_whoami", {"email": "boss"})["settings_admin"];
+        app.call("boss", "set_platform_role", {"email": "rev", "role": "super_admin"});
+        app.call("boss", "set_platform_role", {"email": "helper", "role": "support"});
+        rev = app.call("rev", "platform_whoami", {"email": "rev"});
+        assert rev["role"] == "super_admin" and not rev["settings_admin"] , rev;
+        # A super admin made here manages reviewers and support...
+        assert app.call(
+            "rev", "set_platform_role", {"email": "helper", "role": "reviewer"}
+        )["ok"];
+        # ...but makes no super admins, and changes or removes none.
+        assert code_of(
+            app.call(
+                "rev", "set_platform_role", {"email": "helper", "role": "super_admin"}
+            )
+        )
+            == "not_allowed";
+        app.call(
+            "boss", "set_platform_role", {"email": "helper", "role": "super_admin"}
+        );
+        assert code_of(
+            app.call("rev", "set_platform_role", {"email": "helper", "role": "support"})
+        )
+            == "not_allowed";
+        assert code_of(app.call("rev", "remove_platform_staff", {"email": "helper"}))
+            == "not_allowed";
+        # The refusal never says why, and the list doesn't say which super admins are
+        # the settings' to anyone but them.
+        refused = app.call(
+            "rev", "set_platform_role", {"email": "boss", "role": "support"}
+        );
+        assert refused["error"]
+            == {
+                "code": "not_allowed",
+                "message": "Your platform role can't do this."
+            } , refused;
+        assert not any(r["fixed"] for r in app.call("rev", "platform_staff")["staff"]);
+        assert any(r["fixed"] for r in app.call("boss", "platform_staff")["staff"]);
+        # The settings' super admin can.
+        assert app.call("boss", "remove_platform_staff", {"email": "helper"})["ok"];
+    } finally {
+        _close(app);
+    }
+}
+
 test "the allowlist can't be changed in the app, and a customer can't be added" {
     app = _app();
     try {
         assert code_of(
             app.call("boss", "set_platform_role", {"email": "boss", "role": "support"})
         )
-            == "fixed_admin";
+            == "not_allowed";
         assert code_of(app.call("boss", "remove_platform_staff", {"email": "boss"}))
-            == "fixed_admin";
+            == "not_allowed";
         assert code_of(
             app.call(
                 "boss",

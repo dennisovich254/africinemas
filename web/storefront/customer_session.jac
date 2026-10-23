@@ -13,7 +13,7 @@ office, another cinema or another site.
 
 import from "@jac/runtime" { jacLogin }
 import from core.tenancy.storefront_accounts { customer_sign_up }
-import from ..auth.session { safe_next, remember_email }
+import from ..auth.session { safe_next }
 
 def:pub customer_identity(slug: str, email: str) -> dict[str, str] {
     address = email.strip().lower();
@@ -60,8 +60,8 @@ async def:pub customer_sign_in(slug: str, email: str, password: str) -> str {
     if not ok {
         return "rejected";
     }
-    # A staff email remembered in this browser isn't this account's (session.jac).
-    remember_email("");
+    # The staff email this browser remembers stays: it belongs to the staff sign-in,
+    # which a customer sign-in no longer replaces (token_slots.jac).
     return "ok";
 }
 
