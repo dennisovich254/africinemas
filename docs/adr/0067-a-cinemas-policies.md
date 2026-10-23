@@ -29,4 +29,4 @@ Every cinema booking site must publish its terms of sale, privacy policy and ref
 ## Consequences
 - **PDFs come later.** A policy as an uploaded PDF, and public documents such as licences, need checked uploads; they come in 14.3d. A published written policy stays the way the footer links to it.
 - **Editing a template doesn't change published policies.** A cinema that started from one keeps its own copy.
-- **Showing the terms at checkout** ("By paying you agree to…") is left for a later sub-phase.
+- **Agreeing to the terms** happens at checkout, in 14.3c: a notice above Pay ("By paying, you agree to…") with links to the terms, refunds and privacy, and the order keeps which versions were shown.
