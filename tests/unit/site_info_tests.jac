@@ -52,3 +52,11 @@ test "the storefront gets links built from what was typed, never the text itself
     assert [(s["network"], s["url"]) for s in shown["socials"]]
         == [("x", "https://x.com/anga_ke"), ("tiktok", "https://www.tiktok.com/@anga")];
 }
+
+test "a cinema sends offers only when it says so, plainly" {
+    assert parse_info({"sends_offers": True})[0]["sends_offers"];
+    for unclear in ["yes", 1, "true", None] {
+        assert not parse_info({"sends_offers": unclear})[0]["sends_offers"] , unclear;
+    }
+    assert public_view(parse_info({})[0])["sends_offers"] == False;
+}

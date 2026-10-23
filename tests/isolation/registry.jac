@@ -1010,6 +1010,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"slug": "{tenant}", "kind": "terms"}
          },
+         "public_policies": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}"}
+         },
          "public_venues": {
              "scope": "storefront",
              "audit": "",
@@ -1251,6 +1256,17 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "customer",
              "audit": "",
              "probe": {"slug": "imax-rift"}
+         },
+         # A customer's own consent to a cinema's offers (P14.3c).
+         "my_offers": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "imax-rift"}
+         },
+         "set_my_offers": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "imax-rift", "subscribed": False, "source": ""}
          },
          # Connected apps (P8.6d): the caller's own connections at a cinema.
          "my_connected_apps": {

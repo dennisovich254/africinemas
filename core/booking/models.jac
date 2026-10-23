@@ -51,6 +51,9 @@ node Order {
         created_at: str = "",
         pay_by: str = "",
         email: str = "",
+        # The policies shown above Pay when the customer paid (P14.3c): kind -> the
+        # published version's updated_at. Paying is agreeing to them.
+        terms_shown: dict[str, str] = {},
         snack_lines: list[dict[str, any]] = [],  # jac:ignore[W1037]
         snacks_cents: int = 0,
         snack_request: str = "",

@@ -53,6 +53,8 @@ import from core.payments.phone { msisdn, InvalidPhone }
 import from core.payments.provider { StkRequest, PaymentProvider }
 import from core.payments.choice { payment_provider, ProviderNotConfigured }
 import from core.payments.daraja { masked }
+import from core.catalog.policies { shown_at_checkout }
+import from core.notify.offer_consent { sends_offers, record_consent }
 
 glob PAY_KEYS: str = "pay-key",
      ORDER_PAYMENT: str = "order-payment",
@@ -238,18 +240,22 @@ def _replay(
     return {"ok": True, "payment": payment_view(intent)};
 }
 
-def _start_payment(
+def _start_payment(  # jac:ignore[W3030] the payment, the seller and the consent
     slug: str,
     screening_id: str,
     holder: str,
     phone: str,
     email: str,
     idempotency_key: str,
-    sold_by: str = ""
+    sold_by: str = "",
+    offers: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # sold_by: the member of staff selling at the box office (P6.5), "" online. At the
     # counter the email address may be left out; online, the tickets always go by
     # email. The intent keeps sold_by, so the ledger records who took the money (P7.1).
+    # Online, paying is agreeing to the policies shown above Pay (P14.3c): the order
+    # keeps their versions. offers "yes": the customer ticked the box for the cinema's
+    # offers.
     (cinema, screening) = showtime_on_sale(slug, screening_id);
     # No money before AfriCinemas has verified the cinema (P14.1).
     require_live(cinema);
@@ -306,6 +312,7 @@ def _start_payment(
     claim(CALLBACK_TOKENS, token, f"{node_id(cinema)}|{ref}", PROVISIONAL_SECONDS);
     claim(OPEN_PAYMENTS, ref, node_id(cinema), PROVISIONAL_SECONDS);
     stamp = now().isoformat();
+    shown = shown_at_checkout(cinema) if not sold_by else {};
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -326,6 +333,9 @@ def _start_payment(
         );
         assign_id(intent, ref);
         order.email = address;
+        if not sold_by {
+            order.terms_shown = shown;
+        }
         order ++> intent;
         attach_to_tenant(intent, cinema);
         replay_point("payment_before_commit");
@@ -345,6 +355,9 @@ def _start_payment(
     renew(CALLBACK_TOKENS, token, f"{node_id(cinema)}|{ref}", 0);
     renew(OPEN_PAYMENTS, ref, node_id(cinema), 0);
     replay_point("payment_after_commit");
+    if offers == "yes" and not sold_by and sends_offers(cinema) {
+        record_consent(cinema, address, True, "checkout", order.reference);
+    }
     ensure_pushed(cinema, intent, provider);
     return {"ok": True, "payment": payment_view(intent)};
 }
@@ -384,11 +397,13 @@ def:pub start_payment(
     holder: str,
     phone: str,
     email: str,
-    idempotency_key: str
+    idempotency_key: str,
+    offers: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
+    # offers: "yes" when the customer ticked the box for the cinema's offers (P14.3c).
     return answer(
         lambda -> any { return _start_payment(  # jac:ignore[W1037]
-            slug, screening_id, holder, phone, email, idempotency_key
+            slug, screening_id, holder, phone, email, idempotency_key, "", offers
         ); }
     );
 }

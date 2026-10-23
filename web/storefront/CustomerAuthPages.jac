@@ -25,6 +25,8 @@ import from .customer_session {
     asked_next
 }
 import from ..site { with_site_slug }
+import from .AgreeNotice { use_agreement, AgreeNotice, OffersBox }
+import from core.notify.offer_consent { set_my_offers }  # jac:ignore[W2037]
 
 glob PASSWORD_MIN: int = 8,
      LINK: str = "font-medium underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -128,6 +130,9 @@ def:pub CustomerSignUpPage -> JsxElement {
     [password, set_password] = useState("");
     [busy, set_busy] = useState(False);
     [error, set_error] = useState("");
+    # What creating an account agrees to, and the box for offers (P14.3c).
+    agreement = use_agreement(slug);
+    [offers, set_offers] = useState(False);
     after = back_to(slug, asked_next());
 
     def typed_name(event: any) {  # jac:ignore[W1037]
@@ -151,6 +156,13 @@ def:pub CustomerSignUpPage -> JsxElement {
         if problem {
             set_error(problem);
             return;
+        }
+        if offers {
+            try {
+                await set_my_offers(slug, True, "signup");  # jac:ignore[W2037]
+            } except Exception as e {
+                console.warn("offers consent failed", e);
+            }
         }
         nav(after);  # jac:ignore[W1051]
     }
@@ -198,6 +210,16 @@ def:pub CustomerSignUpPage -> JsxElement {
                             auto_complete="new-password"
                             hint={f"At least {PASSWORD_MIN} characters."}
                             min_length={PASSWORD_MIN}
+                        />
+                        <OffersBox
+                            agreement={agreement}
+                            checked={offers}
+                            on_change={set_offers}
+                        />
+                        <AgreeNotice
+                            slug={slug}
+                            agreement={agreement}
+                            action="creating an account"
                         />
                         <Button type="submit" disabled={busy} className="h-11 w-full">
                             {busy and <Spinner aria-hidden="true"/>}{"Creating your account…"
