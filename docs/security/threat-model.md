@@ -129,7 +129,7 @@ before #15 ships.
 | 10.1 | Secrets in the repository | ✅ gitleaks on every commit and in CI; push protection. |
 | 10.2 | A compromised dependency or GitHub Action | ✅ Actions pinned to commit SHAs; toolchain binaries checksum-verified; Dependabot. ⚠️ npm and Python packages are pinned by lockfile, but nothing reviews new versions before update. |
 | 10.3 | A production server started without the ticket key, payment settings or clock control | ✅ Payments are refused without a ticket key; clock control refuses to run without its test-only flag. |
-| 10.4 | Backups and restoring them | ❌ No backup and restore runbook yet. |
+| 10.4 | Backups and restoring them | ❌ No backup and restore runbook yet. Planned as 16.5, before going live. |
 | 10.5 | The wildcard certificate's DNS token stolen, letting someone issue certificates or change DNS for every site | ⚠️ | The token is limited to the zone's DNS, lives only in the proxy's environment, never in the repository (`deploy/Caddyfile`, docs/runbooks/three-sites.md). **Add:** rotate it yearly, and alert on DNS changes. |
 
 ---
