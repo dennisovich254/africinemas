@@ -4,7 +4,8 @@ Platform staff sign in with their platform account, never a cinema's. There is n
 sign-up: a super admin's invitation, or the link scripts/platform_setup.jac prints for
 the settings' super admins, opens /join#<token>, where they choose their
 password (or a new one); the token stays in the address's fragment, which browsers
-never send to the server. Both pages leave cinema sign-ins in this browser alone.
+never send to the server. Both pages leave cinema sign-ins in this browser alone, and
+record the sign-in in the platform's audit log (P13.3).
 """
 
 import from react { useState }
@@ -13,6 +14,7 @@ import from ...components.ui.button { Button }
 import from ...components.ui.field { FieldGroup }
 import from ...components.ui.spinner { Spinner }
 import from core.platform.staff_api { platform_join }
+import from core.platform.audit_api { platform_signed_in }  # jac:ignore[W2037] authenticated endpoint
 import from ..auth.AuthLayout { AuthLayout, EmailField, FormError }
 import from ..auth.PasswordField { PasswordField }
 import from .platform_session { platform_sign_in, platform_sign_in_as }
@@ -20,6 +22,15 @@ import from .platform_session { platform_sign_in, platform_sign_in_as }
 glob BRAND: str = "AfriCinemas platform",
      HOME: str = "/sign-in",
      OFFLINE: str = "We couldn't reach AfriCinemas. Check your connection and try again.";
+
+async def record_sign_in {
+    # Into the platform's audit log (P13.3); a sign-in still works if this fails.
+    try {
+        await platform_signed_in();  # jac:ignore[W2037]
+    } except Exception as e {
+        console.warn("platform_signed_in failed", e);
+    }
+}
 
 def:pub PlatformSignInPage -> JsxElement {
     nav: any = useNavigate();  # jac:ignore[W1037,W1051]
@@ -42,6 +53,7 @@ def:pub PlatformSignInPage -> JsxElement {
         outcome = await platform_sign_in(email, password);
         set_busy(False);
         if outcome == "ok" {
+            await record_sign_in();
             nav("/");
         } elif outcome == "offline" {
             set_error(OFFLINE);
@@ -109,6 +121,9 @@ def:pub PlatformJoinPage -> JsxElement {
             return;
         }
         signed_in: bool = await platform_sign_in_as(answer["sign_in_name"], password);
+        if signed_in {
+            await record_sign_in();
+        }
         set_busy(False);
         # Out of the address bar and history: the link is spent.
         win.history.replaceState(None, "", "/join");

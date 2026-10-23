@@ -24,7 +24,7 @@ import from core.tenancy.open_cinema { tenant_by_id }
 import from core.tenancy.membership { records_of }
 import from core.tenancy.principal { node_id, act_as, restore }
 import from core.reporting.report_api { cinema_records }
-import from core.audit.log { events as audit_events }
+import from core.audit.log { platform_events }
 import from core.platform.staff_api { require_platform }
 
 glob PAGE_SIZE: int = 20,
@@ -173,8 +173,8 @@ def _history(cinema: Tenant) -> list[dict[str, str]] {
     # Its sign-up, then the platform's actions on it, newest first.
     platform = [
         {"at": e["at"], "what": e["action"], "by": e["actor"], "why": e["detail"]}
-        for e in audit_events("platform", "", HISTORY_MAX, "")
-        if e["resource_id"] == node_id(cinema) and e["result"] == "ok"
+        for e in platform_events("", HISTORY_MAX, "", "", node_id(cinema))
+        if e["result"] == "ok"
     ];
     return platform
         + [{"at": cinema.created_at, "what": "signed_up", "by": "", "why": ""}];

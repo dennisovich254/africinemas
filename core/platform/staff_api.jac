@@ -55,7 +55,7 @@ import from core.platform.accounts {
     INVITE_TTL_S
 }
 import from core.catalog.answers { Refused, answer }
-import from core.audit.log { platform_audited }
+import from core.audit.log { platform_audited, platform_record }
 
 glob ADMINS_ENV: str = "AFRICINEMAS_PLATFORM_ADMINS",
      STAFF: str = "platform-staff",
@@ -70,7 +70,8 @@ glob ADMINS_ENV: str = "AFRICINEMAS_PLATFORM_ADMINS",
      },
      # What each role may do. platform.read: the console; .staff: platform staff;
      # .review: verification decisions; .suspend: suspend and reinstate cinemas;
-     # .support: technical support; .settings: platform settings (the fee, brands).
+     # .support: technical support; .settings: platform settings (the fee, brands);
+     # .audit: the platform's own audit log (P13.3).
      PLATFORM_PERMISSIONS: dict[str, set[str]] = {
          "super_admin": {
              "platform.read",
@@ -78,7 +79,8 @@ glob ADMINS_ENV: str = "AFRICINEMAS_PLATFORM_ADMINS",
              "platform.review",
              "platform.suspend",
              "platform.support",
-             "platform.settings"
+             "platform.settings",
+             "platform.audit"
          },
          "reviewer": {"platform.read", "platform.review", "platform.suspend"},
          "support": {"platform.read", "platform.support"}
@@ -123,6 +125,11 @@ def caller -> PlatformCaller | None {
         return None;
     }
     return PlatformCaller(root_id=me, email=email, role=role);
+}
+
+def caller_email -> str {
+    # The caller's platform account's email, or "" for any other account.
+    return account_email(node_id(root));
 }
 
 def _not_allowed -> Refused {
@@ -331,6 +338,20 @@ def _join(token: str, password: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"ok": True, "sign_in_name": sign_in_name(email)};
 }
 
+def _refused_attempt(action: str, target: any, refusal: Refused) -> dict[str, any] {  # jac:ignore[W1037]
+    # The answer for a caller refused before any work, recorded in the platform's log
+    # under their root (they may be no platform member at all), with the refusal's code.
+    platform_record(
+        node_id(root),
+        caller_email(),
+        action,
+        "platform_staff",
+        str(target).strip().lower(),
+        refusal.code
+    );
+    return answer(lambda -> any { raise refusal; });  # jac:ignore[W1037]
+}
+
 def:protect platform_whoami -> dict[str, any] {  # jac:ignore[W1037]
     return answer(_whoami);
 }
@@ -357,7 +378,8 @@ def:protect set_platform_role(email: str, role: str) -> dict[str, any] {  # jac:
     try {
         me = require_platform("platform.staff");
     } except Refused as e {
-        return answer(lambda -> any { raise e; });  # jac:ignore[W1037]
+        # Refused before any work: still on record (P13.3), as whoever called.
+        return _refused_attempt("platform.staff_role_set", email, e);
     }
     return platform_audited(
         me.root_id,
@@ -374,7 +396,8 @@ def:protect remove_platform_staff(email: str) -> dict[str, any] {  # jac:ignore[
     try {
         me = require_platform("platform.staff");
     } except Refused as e {
-        return answer(lambda -> any { raise e; });  # jac:ignore[W1037]
+        # Refused before any work: still on record (P13.3), as whoever called.
+        return _refused_attempt("platform.staff_removed", email, e);
     }
     return platform_audited(
         me.root_id,
@@ -391,7 +414,8 @@ def:protect invite_platform_member(email: str, role: str) -> dict[str, any] {  #
     try {
         me = require_platform("platform.staff");
     } except Refused as e {
-        return answer(lambda -> any { raise e; });  # jac:ignore[W1037]
+        # Refused before any work: still on record (P13.3), as whoever called.
+        return _refused_attempt("platform.staff_invited", email, e);
     }
     return platform_audited(
         me.root_id,

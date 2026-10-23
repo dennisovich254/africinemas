@@ -8,7 +8,7 @@ AfriCinemas staff. The server checks every request again, so the page is never t
 
 Sections so far: Overview (who you are, your role, what it lets you do), Cinemas (the
 directory and each cinema's page, P13.2; web/platform/CinemasPages.jac) and, for super
-admins, Platform staff: everyone with a role, inviting someone by email with a role (a
+admins, the Audit log (P13.3; web/platform/PlatformAuditPage.jac) and Platform staff: everyone with a role, inviting someone by email with a role (a
 link to send them, valid 72 hours; "Invited" until they set their password, with a new
 link on request), changing a role, and removing someone (asks first). Super admins set
 in the server's settings show as such to the settings' own and can't be changed here;
@@ -38,6 +38,7 @@ import from ..theme.ThemeProvider { ThemeProvider }
 import from ..backoffice.PlainLayout { PlainLayout }
 import from .platform_session { platform_sign_out }
 import from .CinemasPages { CinemasList, CinemaDetail }
+import from .PlatformAuditPage { PlatformAuditPage }
 import from ..backoffice.form_parts { ConfirmDelete, on_input, submit_with }
 
 glob ROLE_CHOICES: list[tuple[str, str]] = [
@@ -402,7 +403,7 @@ def Overview(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 <p className="text-sm text-muted-foreground">{ROLE_HELP[me["role"]]}</p>
             </section>
             <p className="text-sm text-muted-foreground">
-                The platform audit log, the overview figures and the support inbox are added here next (plan Phase 13).
+                The overview figures and the support inbox are added here next (plan Phase 13).
             </p>
         </div>;
 }
@@ -479,6 +480,9 @@ def:pub PlatformConsole -> JsxElement {
     if may(shown, "platform.staff") {
         nav.append({"label": "Platform staff", "to": "/staff", "key": "staff"});
     }
+    if may(shown, "platform.audit") {
+        nav.append({"label": "Audit log", "to": "/audit", "key": "audit"});
+    }
     # Only the Cinemas section has pages under it (a cinema's, /cinemas/<slug>).
     allowed = section in [n["key"] for n in nav] and (not item or section == "cinemas");
     title = [
@@ -503,7 +507,11 @@ def:pub PlatformConsole -> JsxElement {
                     and <CinemasList/>}{section == "cinemas"
                     and allowed
                     and item
-                    and <CinemaDetail slug={item}/>}{section == "staff"
+                    and <CinemaDetail
+                        slug={item}
+                        audit={may(shown, "platform.audit")}
+                    />}{section == "audit" and allowed and <PlatformAuditPage/>}{section
+                    == "staff"
                     and allowed
                     and <StaffPage me={shown}/>}{not allowed
                     and <p

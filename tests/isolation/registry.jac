@@ -48,6 +48,13 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"token": "made-up-token", "password": "Probe-Passw0rd!"}
          },
          "platform_staff": {"scope": "platform", "audit": ""},
+         # The platform's own audit log and its sign-ins (P13.3), for platform staff.
+         "platform_audit_log": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"limit": 10}
+         },
+         "platform_signed_in": {"scope": "platform", "audit": ""},
          # The cinemas directory (P13.2): every cinema, for platform staff only.
          "platform_cinemas": {"scope": "platform", "audit": ""},
          "platform_cinema": {

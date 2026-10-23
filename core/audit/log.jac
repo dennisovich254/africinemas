@@ -319,3 +319,85 @@ def audited(
     }
     return response;
 }
+
+def platform_record(
+    actor_id: str,
+    actor: str,
+    action: str,
+    resource_type: str,
+    resource_id: str,
+    result: str,
+    detail: str = ""
+) {
+    # One finished event in the platform's own log, for an action with no work to wrap:
+    # a sign-in, or an attempt refused before any (P13.3).
+    _write(
+        PLATFORM_COLLECTION,
+        actor_id,
+        actor,
+        action,
+        resource_type,
+        resource_id,
+        result,
+        detail
+    );
+}
+
+# The platform's search also matches what an event was done to (a platform member's
+# email, P13.3), and `r` keeps one resource (a cinema's id) when given.
+glob PLATFORM_MATCHES: str = """
+          AND (:a = '' OR doc->>'action' = :a)
+          AND (:r = '' OR doc->>'resource_id' = :r)
+          AND (:q = '' OR doc->>'actor' ILIKE :q OR doc->>'detail' ILIKE :q
+               OR doc->>'resource_id' ILIKE :q)
+""";
+
+def platform_events(
+    before: str, limit: int, action: str, search: str, resource_id: str
+) -> list[dict[str, str]] {
+    # As `events`, for the platform's own log.
+    found = _store().rows(
+        """
+        SELECT id, doc FROM jac_docs
+        WHERE collection = :c
+          AND (:b = '' OR id < :b)
+        """
+            + PLATFORM_MATCHES
+            + """
+        ORDER BY id DESC
+        LIMIT :n
+        """,
+        {
+            "c": PLATFORM_COLLECTION,
+            "b": before,
+            "a": action,
+            "r": resource_id,
+            "q": _like(search),
+            "n": limit
+        }
+    );
+    shown: list[dict[str, str]] = [];
+    for (event_id, doc) in found {
+        data: dict[str, any] = json.loads(doc) if isinstance(doc, str) else dict(doc);  # jac:ignore[W1037]
+        view = {k: str(v) for (k, v) in data.items()};
+        view["event_id"] = str(event_id);
+        shown.append(view);
+    }
+    return shown;
+}
+
+def count_platform_events(action: str, search: str, resource_id: str) -> int {
+    found = _store().rows(
+        "SELECT count(*) FROM jac_docs WHERE collection = :c" + PLATFORM_MATCHES,
+        {"c": PLATFORM_COLLECTION, "a": action, "r": resource_id, "q": _like(search)}
+    );
+    return int(found[0][0]) if found else 0;
+}
+
+def has_platform_event(event_id: str) -> bool {
+    found = _store().rows(
+        "SELECT 1 FROM jac_docs WHERE collection = :c AND id = :i",
+        {"c": PLATFORM_COLLECTION, "i": event_id}
+    );
+    return len(found) > 0;
+}
