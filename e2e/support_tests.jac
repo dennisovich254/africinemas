@@ -1,10 +1,10 @@
 """P13.5a E2E: a cinema asks AfriCinemas for help, and we answer.
 
 A cinema's owner opens Help in their back office, starts a new request about payments
-and sends it with Enter; it opens as a chat. The platform's super admin finds it in
-the console's Support inbox, under Open, opens the chat and replies; the owner sees the
-answer, with the status now waiting on them, replies back, and finds the conversation
-in their list with its last message. Phone and desktop, with the usual phone checks.
+and sends it with Enter; it opens as a chat. The platform's super admin sees it counted
+on Support, opens the chat (which clears the count) and replies; the owner sees the
+reply counted on Help and on its row, opens it (which clears the count, with no
+refresh), replies back, and our open chat shows that without a refresh. Phone and desktop, with the usual phone checks.
 """
 
 import from e2e.support.web {
@@ -61,7 +61,10 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
                 in cinema.inner_text('[data-testid="help-status"]');
             assert cinema.evaluate(WIDE_JS) <= 1 , f"{project}: help scrolls sideways";
             cinema.screenshot(path=artifact(f"help-{project}.png"), full_page=True);
-            # AfriCinemas: the inbox, the request, a reply.
+            # Back to the list, as a cinema would while it waits for us.
+            cinema.click('a:has-text("All requests")');
+            cinema.wait_for_selector('[data-testid="help-section"]');
+            # AfriCinemas: the Support link counts what we haven't read; the request.
             us = browser.new_context(
                 **context_options(pw, project, "light")
             ).new_page();
@@ -70,13 +73,13 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
             us.fill("#password", PASSWORD);  # jac:ignore[W6002]
             us.click('[data-testid="platform-sign-in"] button[type="submit"]');
             us.wait_for_selector('[data-testid="platform-overview"]');
-            # The Support link counts the requests waiting on us.
             us.wait_for_selector('[data-testid="nav-count-support"]', state="attached");
             _go(us, project, "Support");
             us.wait_for_selector('[data-testid="support-inbox"]');
             row = us.locator('[data-testid="support-row"]', has_text=problem);
             row.wait_for();
             assert "Eldoret Electric" in row.inner_text();
+            assert row.locator('[data-testid="support-unread"]').count() == 1;
             assert us.evaluate(WIDE_JS) <= 1 , f"{project}: inbox scrolls sideways";
             us.screenshot(
                 path=artifact(f"support-inbox-{project}.png"), full_page=True
@@ -92,28 +95,41 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
             us.screenshot(
                 path=artifact(f"support-request-{project}.png"), full_page=True
             );
-            # The cinema sees the answer in the chat, and it's their turn.
-            # No refresh: the open chat asks every few seconds.
-            cinema.wait_for_selector(
-                '[data-testid="support-thread"]:has-text("Which phone number did you try?")',
-                timeout=LIVE_MS
+            # Read: our count is gone.
+            us.wait_for_selector(
+                '[data-testid="nav-count-support"]', state="detached", timeout=LIVE_MS
             );
-            assert "AfriCinemas" in cinema.inner_text('[data-testid="support-thread"]');
-            assert "AfriCinemas replied"
-                in cinema.inner_text('[data-testid="help-status"]');
-            cinema.screenshot(
-                path=artifact(f"help-chat-{project}.png"), full_page=True
-            );
-            # Help's link counts the conversations AfriCinemas has answered.
+            # The cinema: an unread reply, counted on Help and on its row.
             cinema.reload();
-            cinema.wait_for_selector('[data-testid="help-chat"]');
             counted = cinema.locator('[data-testid="nav-count-help"]').first;
             counted.wait_for(state="attached", timeout=LIVE_MS);
             assert counted.text_content().startswith("1") , counted.text_content();
+            mine = cinema.locator(
+                '[data-testid="help-request"]', has_text="Which phone number"
+            );
+            mine.wait_for();
+            assert mine.locator('[data-testid="help-unread"]').count() == 1;
+            # Opening it reads it: the count clears at once, no refresh.
+            mine.locator("a").click();
+            cinema.wait_for_selector('[data-testid="help-chat"]');
+            assert "AfriCinemas" in cinema.inner_text('[data-testid="support-thread"]');
+            assert "AfriCinemas replied"
+                in cinema.inner_text('[data-testid="help-status"]');
+            cinema.wait_for_selector(
+                '[data-testid="nav-count-help"]', state="detached", timeout=LIVE_MS
+            );
+            cinema.screenshot(
+                path=artifact(f"help-chat-{project}.png"), full_page=True
+            );
             cinema.fill("#help-reply", "0712 345 678");  # jac:ignore[W6002]
             cinema.press("#help-reply", "Enter");
             cinema.wait_for_selector(
                 '[data-testid="help-status"]:has-text("Waiting for AfriCinemas")'
+            );
+            # Ours shows it without a refresh: the open chat asks every few seconds.
+            us.wait_for_selector(
+                '[data-testid="support-thread"]:has-text("0712 345 678")',
+                timeout=LIVE_MS
             );
             # Back to the list: the conversation, with its last message.
             cinema.click('a:has-text("All requests")');

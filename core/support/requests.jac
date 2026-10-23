@@ -68,7 +68,23 @@ node SupportRequest {
         status: str = "open",
         created_at: str = "",
         updated_at: str = "",
-        messages: list[dict[str, str]] = [];
+        messages: list[dict[str, str]] = [],
+        # When each side last read it (P13.5a): the cinema's staff, and AfriCinemas'
+        # support team as one (one inbox), so unread counts clear once read.
+        cinema_seen_at: str = "",
+        africinemas_seen_at: str = "";
+}
+
+def _unread(request: SupportRequest, reader: str) -> int {
+    # How many of the other side's messages `reader` hasn't seen yet.
+    seen = request.cinema_seen_at if reader == CINEMA else request.africinemas_seen_at;
+    return len(
+        [
+            m
+            for m in request.messages
+            if m["side"] != reader and m["at"] > (seen or "")
+        ]
+    );
 }
 
 def _text(text: any) -> str {  # jac:ignore[W1037]
@@ -102,7 +118,8 @@ def _view(
         "updated_at": request.updated_at,
         "messages": [dict(m) for m in request.messages],
         "cinema": cinema.name if cinema is not None else "",
-        "cinema_slug": cinema.slug if cinema is not None else ""
+        "cinema_slug": cinema.slug if cinema is not None else "",
+        "unread": _unread(request, reader)
     };
 }
 
@@ -142,6 +159,12 @@ def _add(
             + [{"at": at, "side": side, "by": author, "text": text}];
         request.status = status;
         request.updated_at = at;
+        # Writing a message means you've read the conversation up to it.
+        if side == CINEMA {
+            request.cinema_seen_at = at;
+        } else {
+            request.africinemas_seen_at = at;
+        }
         flush_now();
     } finally {
         restore(me);
@@ -190,7 +213,8 @@ def _ask(tenant: str, category: str, text: str) -> dict[str, any] {  # jac:ignor
             status=OPEN,
             created_at=at,
             updated_at=at,
-            messages=[{"at": at, "side": CINEMA, "by": author, "text": clean}]
+            messages=[{"at": at, "side": CINEMA, "by": author, "text": clean}],
+            cinema_seen_at=at
         );
         cinema ++> request;
         flush_now();
@@ -256,6 +280,45 @@ def:protect reply_to_support(
     );
 }
 
+def _mark_seen(cinema: Tenant, request: SupportRequest, reader: str) {
+    # `reader` has read every message so far, as the cinema's principal.
+    at = now().isoformat();
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        if reader == CINEMA {
+            request.cinema_seen_at = at;
+        } else {
+            request.africinemas_seen_at = at;
+        }
+        flush_now();
+    } finally {
+        restore(me);
+    }
+}
+
+def _cinema_seen(tenant: str, request_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = _scope(tenant);
+    cinema: Tenant = scope.tenant;
+    found = [
+        r
+        for r in _requests_of(cinema)
+        if node_id(r) == request_id
+    ];
+    if not found {
+        raise Refused("not_found", "No such request.");
+    }
+    if _unread(found[0], CINEMA) {
+        _mark_seen(cinema, found[0], CINEMA);
+    }
+    return {"ok": True, "request": _view(found[0], cinema, CINEMA)};
+}
+
+def:protect support_seen(tenant: str, request_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The cinema has read a conversation: its unread count clears.
+    return answer(lambda -> any { return _cinema_seen(tenant, request_id); });  # jac:ignore[W1037]
+}
+
 # --- AfriCinemas' side -----------------------------------------------------------------
 
 def _find(request_id: str) -> tuple[Tenant, SupportRequest] {
@@ -289,9 +352,14 @@ def _inbox(status: str) -> dict[str, any] {  # jac:ignore[W1037]
     }
     rows: list[dict[str, any]] = [];  # jac:ignore[W1037]
     counts = {s: 0 for s in STATUSES};
+    # Requests with cinema messages we haven't read, whatever their status.
+    unread = 0;
     for cinema in all_cinemas() {
         for r in _requests_of(cinema) {
             counts[r.status] = counts.get(r.status, 0) + 1;
+            if _unread(r, AFRICINEMAS) {
+                unread += 1;
+            }
             if not status or r.status == status {
                 rows.append(_view(r, cinema));
             }
@@ -299,6 +367,7 @@ def _inbox(status: str) -> dict[str, any] {  # jac:ignore[W1037]
     }
     return {
         "ok": True,
+        "unread": unread,
         "requests": _newest_first(rows),
         "counts": [
             {"key": s, "label": STATUS_LABELS[s], "count": counts[s]} for s in STATUSES
@@ -343,6 +412,20 @@ def _cinema_id_of(request_id: str) -> str {
     } except Refused {
         return "";
     }
+}
+
+def _platform_seen(request_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    require_platform("platform.support");
+    (cinema, request) = _find(request_id);
+    if _unread(request, AFRICINEMAS) {
+        _mark_seen(cinema, request, AFRICINEMAS);
+    }
+    return {"ok": True, "request": _view(request, cinema)};
+}
+
+def:protect platform_support_seen(request_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # Our team has read a request: its unread count clears, for everyone on it.
+    return answer(lambda -> any { return _platform_seen(request_id); });  # jac:ignore[W1037]
 }
 
 def:protect platform_support_requests(status: str = "") -> dict[str, any] {  # jac:ignore[W1037]

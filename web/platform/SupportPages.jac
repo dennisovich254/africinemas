@@ -17,11 +17,12 @@ import from core.support.requests {
     platform_support_requests,  # jac:ignore[W2037] authenticated endpoint
     platform_support_request,  # jac:ignore[W2037]
     platform_support_reply,  # jac:ignore[W2037]
-    platform_support_status  # jac:ignore[W2037]
+    platform_support_status,  # jac:ignore[W2037]
+    platform_support_seen  # jac:ignore[W2037]
 }
 import from ..shell.AppLink { AppLink }
 import from ..support.SupportThread { SupportThread, ChatComposer, when }
-import from ..support.live { use_every, CHAT_MS, LIST_MS }
+import from ..support.live { use_every, seen_now, CHAT_MS, LIST_MS }
 
 glob OFFLINE: str = "We couldn't reach the server. Check your connection and try again.";
 
@@ -109,8 +110,24 @@ def:pub SupportInbox -> JsxElement {
                                 <span
                                     className="flex flex-wrap items-baseline justify-between gap-2"
                                 >
-                                    <span className="font-medium">
-                                        {f"{r['cinema']} · {r['category_label']}"}
+                                    <span
+                                        className={"flex items-center gap-2 "
+                                            + (
+                                                "font-semibold"
+                                                    if r["unread"]
+                                                    else "font-medium"
+                                            )}
+                                    >
+                                        {f"{r['cinema']} · {r['category_label']}"}{r[
+                                            "unread"
+                                        ]
+                                            and <span
+                                                className="rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground tabular-nums"
+                                                data-testid="support-unread"
+                                            >
+                                                {r["unread"]}
+                                                <span className="sr-only"> unread</span>
+                                            </span>}
                                     </span>
                                     <span className="text-sm text-muted-foreground">
                                         {when(r["updated_at"])}
@@ -174,6 +191,28 @@ def:pub SupportRequestPage(request_id: str) -> JsxElement {
         }
     }
     use_every(CHAT_MS, refresh, [request_id]);
+
+    # Cinema messages we haven't read: mark them read, and clear the count.
+    shown_request: dict[str, any] = found or {};  # jac:ignore[W1037]
+    unread_here: int = shown_request["unread"] or 0;
+    async def read_it {
+        if not unread_here {
+            return;
+        }
+        try {
+            answer: any = await platform_support_seen(request_id);  # jac:ignore[W1037,W2037]
+            if answer["ok"] {
+                set_found(answer["request"]);
+                seen_now();
+            }
+        } except Exception as e {
+            console.warn("platform_support_seen failed", e);
+        }
+    }
+    def mark_read {
+        read_it();
+    }
+    useEffect(mark_read, [request_id, unread_here]);
 
     async def send(text: str) -> bool {
         return await run(

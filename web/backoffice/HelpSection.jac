@@ -22,13 +22,14 @@ import from ...components.ui.spinner { Spinner }
 import from core.support.requests {
     ask_for_help,  # jac:ignore[W2037] authenticated endpoint
     support_requests,  # jac:ignore[W2037]
-    reply_to_support  # jac:ignore[W2037]
+    reply_to_support,  # jac:ignore[W2037]
+    support_seen  # jac:ignore[W2037]
 }
 import from .form_parts { on_input }
 import from .nav { section_path }
 import from ..shell.AppLink { AppLink }
 import from ..support.SupportThread { SupportThread, ChatComposer, when }
-import from ..support.live { use_every, CHAT_MS, LIST_MS }
+import from ..support.live { use_every, seen_now, CHAT_MS, LIST_MS }
 
 glob OFFLINE: str = "We couldn't reach AfriCinemas. Check your connection and try again.",
      SELECT_CLASSES: str = "min-h-11 rounded-md border border-input bg-background px-3 text-sm",
@@ -131,6 +132,32 @@ def:pub HelpSection(slug: str, shift_open: bool = True, item: str = "") -> JsxEl
         changed(answer["request"]);
         return True;
     }
+
+    # An open chat with messages we haven't read: mark it read, and clear the count.
+    opened: list[dict[str, any]] = [  # jac:ignore[W1037]
+        r
+        for r in (requests or [])
+        if r["request_id"] == item
+    ];
+    unread_here: int = opened[0]["unread"] if item and opened else 0;
+    async def read_it {
+        if not unread_here {
+            return;
+        }
+        try {
+            answer: any = await support_seen(slug, item);  # jac:ignore[W1037,W2037]
+            if answer["ok"] {
+                changed(answer["request"]);
+                seen_now();
+            }
+        } except Exception as e {
+            console.warn("support_seen failed", e);
+        }
+    }
+    def mark_read {
+        read_it();
+    }
+    useEffect(mark_read, [item, unread_here]);
 
     alert = problem
         and <Alert variant="destructive" role="alert">
@@ -269,8 +296,22 @@ def:pub HelpSection(slug: str, shift_open: bool = True, item: str = "") -> JsxEl
                                 <span
                                     className="flex flex-wrap items-center justify-between gap-2"
                                 >
-                                    <span className="font-medium">
-                                        {r["category_label"]}
+                                    <span
+                                        className={"flex items-center gap-2 "
+                                            + (
+                                                "font-semibold"
+                                                    if r["unread"]
+                                                    else "font-medium"
+                                            )}
+                                    >
+                                        {r["category_label"]}{r["unread"]
+                                            and <span
+                                                className="rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground tabular-nums"
+                                                data-testid="help-unread"
+                                            >
+                                                {r["unread"]}
+                                                <span className="sr-only"> unread</span>
+                                            </span>}
                                     </span>
                                     <span className="text-xs text-muted-foreground">
                                         {when(r["updated_at"])}

@@ -72,6 +72,17 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "support.replied",
              "probe": {"tenant": "{tenant}", "request_id": "x", "text": "Probe"}
          },
+         # Marking a conversation read (its unread count): changes nothing else.
+         "support_seen": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "request_id": "x"}
+         },
+         "platform_support_seen": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"request_id": "x"}
+         },
          "platform_support_requests": {"scope": "platform", "audit": ""},
          "platform_support_request": {
              "scope": "platform",

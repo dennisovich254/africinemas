@@ -26,7 +26,10 @@ AfriCinemas supports cinemas with technical problems, not cinemas' customers (Ph
    - In the chat, the reader's own messages are on the right in the accent colour and the other side's on the left, each with its time. The message box is at the bottom: Enter sends, Shift+Enter starts a new line.
    - Our side, a request's page in the console, is the same chat, with Close or Reopen at the top.
 8. **Live without a refresh, by asking every few seconds** (owner, 2026-10-23). An open chat asks every 5 seconds, and the lists and the sidebar's counts every 30 seconds. A tab in the background asks nothing and catches up when it's back.
-   - Help's link counts the conversations AfriCinemas has answered. Support's link counts the requests waiting on us.
+   - The sidebar's counts are **unread** conversations, like a messaging app's (owner, 2026-10-23: a count that stayed after reading was wrong). Help counts the cinema's conversations with AfriCinemas messages it hasn't read. Support counts requests with cinema messages we haven't read.
+   - Opening a chat marks it read (`support_seen`, `platform_support_seen`), and so does writing in it. The count clears at once.
+   - Our support team reads as one, like a shared inbox: one of us reading clears it for all.
+   - Whose turn it is (the status tabs) doesn't depend on reading.
    - Not WebSockets: Jac's can answer the sender or broadcast to everyone, but can't reach one cinema's staff (JI-054), and a broadcast of a private message would leak it.
 9. **We see only what a cinema writes.** Support has no way into a cinema's bookings or customers. The form says never to include passwords, PINs or card numbers.
 
