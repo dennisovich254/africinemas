@@ -61,3 +61,11 @@ Workaround: `JAC_DB_RO_UNITS=0`, or no write after a mid-unit `commit()`.
 2. Update JI-015 and JI-042 with the 0.38.0 results and links. Mark JI-023 and JI-043 after re-testing them.
 3. Write JI-050 and JI-051 as entries. Consider reporting JI-002 and JI-051 upstream.
 4. Re-check tier 2 on 0.38.0.
+
+## Logged since the pause
+
+The owner asked on 2026-10-23 that Jac problems found during other work keep going into this log. Reporting upstream stays paused.
+
+- **JI-052:** a stale prepared application served old client code, even with `--no-cache`. This is the most serious one, since tests can run code that's no longer in the source. Upstream needs a minimal repro first.
+- **JI-053:** `jac fmt` moves `# jac:ignore` off the line it applies to.
+- JI-050 and JI-051 (above) are still candidates, not written up.
