@@ -166,6 +166,12 @@ import from core.catalog.site_info {
     save_site_info,  # jac:ignore[W2037]
     public_site_info
 }
+# A cinema's policies, linked from every storefront footer (P14.3b).
+import from core.catalog.policies {
+    policies,  # jac:ignore[W2037]
+    save_policy,  # jac:ignore[W2037]
+    public_policy
+}
 # The platform overview (P13.4).
 import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037]
 # The platform's cinemas directory (P13.2).

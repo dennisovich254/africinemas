@@ -38,6 +38,7 @@ node Tenant {
         # The cinema's SiteInfo (P14.3a: what every storefront page shows), made on
         # first save, the same way.
         site_info_id: str = "",
+        policies_id: str = "",
         # Minutes before a showtime's start that its tickets can be scanned.
         doors_open_minutes: int = DOORS_OPEN_DEFAULT;
 

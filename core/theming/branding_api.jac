@@ -25,6 +25,7 @@ tests/isolation/registry.jac, plus the public public_branding.
 import base64;
 import logging;
 import from core.catalog.site_info { public_view, site_info_of }
+import from core.catalog.policies { published_policies }
 import from concurrent.futures { ThreadPoolExecutor }
 import from core.clock { now }
 import from core.authz.context { TenantScope, scoped }
@@ -732,7 +733,9 @@ def:pub public_branding(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
             "page": _public_page(shown.get("page", {}) or {})
         },
         # What every storefront page shows, whatever its design (P14.3a).
-        "info": public_view(site_info_of(cinema))
+        "info": public_view(site_info_of(cinema)),
+        # The published policies, linked from every footer (P14.3b).
+        "policies": published_policies(cinema)
     };
 }
 

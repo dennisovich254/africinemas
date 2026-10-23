@@ -187,6 +187,8 @@ def:pub StorefrontShell(
     [cinema, set_cinema] = useState(None);
     # The cinema's public information, for the footer of every page (P14.3a).
     [info, set_info] = useState(None);
+    # Its published policies, linked from the footer (P14.3b).
+    [policies, set_policies] = useState([]);
     [missing, set_missing] = useState(False);
     [venues, set_venues] = useState([]);
     [menu_open, set_menu_open] = useState(False);
@@ -225,6 +227,7 @@ def:pub StorefrontShell(
         set_branding(shown["branding"]);
         set_cinema(shown["cinema"]);
         set_info(shown["info"]);
+        set_policies(shown["policies"] or []);
     }
 
     def start_loading {
@@ -467,7 +470,12 @@ def:pub StorefrontShell(
                         motifs={kit_masks(kit)}
                         part="footer"
                         cinema={place["name"]}
-                        inside={<FooterInfo cinema={place["name"]} info={info}/>}
+                        inside={<FooterInfo
+                            slug={slug}
+                            cinema={place["name"]}
+                            info={info}
+                            policies={policies}
+                        />}
                     />}{written is None
                     and <footer className="border-t bg-card">
                         <div
@@ -496,7 +504,13 @@ def:pub StorefrontShell(
                                 ]}
                             />
                         </div>
-                        <FooterInfo cinema={place["name"]} info={info} framed={True}/>
+                        <FooterInfo
+                            slug={slug}
+                            cinema={place["name"]}
+                            info={info}
+                            policies={policies}
+                            framed={True}
+                        />
                         <div
                             className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 border-t px-4 py-4 text-sm text-muted-foreground"
                         >
