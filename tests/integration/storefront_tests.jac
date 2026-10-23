@@ -1,4 +1,4 @@
-"""P4.1: the public storefront reads, through the production app (main.jac).
+"""P4.1: the public storefront reads, through the production endpoints (payment_app.jac, so cinemas can go live: P14.1).
 
 A visitor needs no login. public_home(slug) lists the movies on sale, each once, with its
 next showtimes; public_movie(slug, movie_key) shows one movie and its showtimes;
@@ -29,7 +29,8 @@ import from tests.support.storefront_setup {
 }
 
 glob MAIN: str = path.join(
-         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))), "main.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "payment_app.jac"
      ),
      MEDIA_ENV: str = "AFRICINEMAS_MEDIA_DIR",
      # What the home page shows about a movie, and about each of its next showtimes.

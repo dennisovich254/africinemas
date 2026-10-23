@@ -50,7 +50,13 @@ def platform_name(email: str) -> str {
 }
 
 def platform_login(email: str) -> int {
-    (status, _) = http_call(
+    (status, _) = platform_session(email);
+    return status;
+}
+
+def platform_session(email: str) -> tuple[int, str] {
+    # (the login's status, its token) for the platform account of `email`.
+    (status, body) = http_call(
         "POST",
         f"{BASE_URL}/user/login",
         {
@@ -58,7 +64,8 @@ def platform_login(email: str) -> int {
             "credential": {"type": "password", "password": PASSWORD}
         }
     );
-    return status;
+    token = str(body["data"]["token"]) if status == 200 else "";
+    return (status, token);
 }
 
 def platform_admin -> str {
@@ -96,7 +103,14 @@ def call(token: str, name: str, args: dict[str, any]) -> any {  # jac:ignore[W10
     return body["data"]["result"];
 }
 
-def owner_with_cinema(name: str = "Nova Cinemas") -> dict[str, str] {
+def go_live(slug: str) {
+    # Makes a cinema public the real way (P14.1): the platform's super admin approves it.
+    (_, token) = platform_session(platform_admin());
+    approved = call(token, "platform_approve_cinema", {"slug": slug});
+    assert approved["ok"] , approved;
+}
+
+def owner_with_cinema(name: str = "Nova Cinemas", live: bool = True) -> dict[str, str] {
     # A signed-up owner with one cinema and an open shift.
     email = email_for(unique("owner"));
     token = register(email);
@@ -105,6 +119,9 @@ def owner_with_cinema(name: str = "Nova Cinemas") -> dict[str, str] {
         token, "create_cinema", {"name": name, "slug": slug, "email": email}
     );
     assert created["created"] , created;
+    if live {
+        go_live(slug);
+    }
     assert call(token, "start_shift", {"tenant": slug})["ok"];
     return {"email": email, "token": token, "slug": slug, "name": name};
 }

@@ -38,7 +38,7 @@ import from .home_page_model {
 }
 import from .HomePageFields { SectionFields, PhotoChoices }
 import from .form_parts { read_as_base64 }
-import from ..site { storefront_address }
+import from .StorefrontLink { StorefrontLink }
 
 glob PREVIEW_DELAY_MS: int = 500;
 
@@ -684,12 +684,12 @@ def:pub HomePageSection(slug: str) -> JsxElement {
                 >
                     {status}
                 </Badge>
-                <a
-                    href={storefront_address(slug)}
+                <StorefrontLink
+                    slug={slug}
                     className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4"
                 >
                     View your storefront
-                </a>
+                </StorefrontLink>
             </div>
             {actions}
             <div role="tablist" aria-label="Home page" className="flex gap-2 border-b">

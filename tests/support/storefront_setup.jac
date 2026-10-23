@@ -1,7 +1,8 @@
 """A cinema with a venue, a five-seat screen and movies, for the storefront tests (P4.1).
 
-Every call goes through the production app (main.jac), as staff would make it; browse()
-calls a public endpoint as an anonymous visitor.
+Every call goes through a test app with the production endpoints (payment_app.jac and
+the like), as staff would make it, the cinema made live with core/testing's t_go_live
+(P14.1); browse() calls a public endpoint as an anonymous visitor.
 """
 
 import from datetime { datetime, timedelta, timezone }
@@ -19,9 +20,15 @@ obj Cinema {
         movies: dict[str, str] = {};
 }
 
-def open_cinema_for(app: Served, who: str, slug: str, name: str) -> Cinema {
+def open_cinema_for(
+    app: Served, who: str, slug: str, name: str, live: bool = True
+) -> Cinema {
     # A cinema, its owner on shift, one venue and a published five-seat screen.
     app.call(who, "create_cinema", {"name": name, "slug": slug});
+    # Only a live cinema is public (P14.1); the platform's review isn't what's tested.
+    if live {
+        assert app.call(who, "t_go_live", {"slug": slug}) , f"{slug} didn't go live";
+    }
     app.call(who, "start_shift", {"tenant": slug});
     venue = app.call(
         who,

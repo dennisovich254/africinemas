@@ -114,6 +114,12 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "platform_overview": {"scope": "platform", "audit": ""},
          # The cinemas directory (P13.2): every cinema, for platform staff only.
          "platform_cinemas": {"scope": "platform", "audit": ""},
+         # A reviewer makes a cinema live (P14.1, until 14.5's review).
+         "platform_approve_cinema": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"slug": "imax-rift"}
+         },
          "platform_cinema": {
              "scope": "platform",
              "audit": "",
@@ -136,6 +142,12 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          },
          "check_slug": {"scope": "caller", "audit": "", "probe": {"slug": "free-name"}},
          "my_access": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
+         # A pass for the cinema's own team to preview its storefront (P14.1).
+         "storefront_preview": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
          "rename_cinema": {
              "scope": "tenant",
              "audit": "cinema.renamed",

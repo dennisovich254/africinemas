@@ -99,3 +99,6 @@ def:pub sw_pay(slug: str, screening_id: str, holder_id: str) -> bool {
     }
     return True;
 }
+
+# Test-only: a cinema goes live without the platform's review (P14.1).
+import from core.testing.go_live { t_go_live }  # jac:ignore[W2037]

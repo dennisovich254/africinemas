@@ -15,7 +15,12 @@ import from core.oauth.connections {
     disconnect_app  # jac:ignore[W2037]
 }
 import from core.tenancy.customer_api { join_as_customer }  # jac:ignore[W2037]
-import from core.tenancy.tenant_api { start_shift, end_shift }  # jac:ignore[W2037]
+import from core.tenancy.tenant_api {
+    start_shift,
+    end_shift,
+    my_access,
+    storefront_preview
+}  # jac:ignore[W2037]
 import from core.tenancy.staff_api {
     invite_staff,  # jac:ignore[W2037]
     accept_invite,  # jac:ignore[W2037]
@@ -148,7 +153,8 @@ import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037
 # The platform's cinemas directory (P13.2).
 import from core.platform.cinemas_api {
     platform_cinemas,  # jac:ignore[W2037]
-    platform_cinema  # jac:ignore[W2037]
+    platform_cinema,  # jac:ignore[W2037]
+    platform_approve_cinema  # jac:ignore[W2037]
 }
 # Which of the three sites an address is (P13.1b.c).
 import from core.site { site_for_host }
@@ -178,9 +184,23 @@ import from core.catalog.screening_api {
     publish_screening  # jac:ignore[W2037]
 }
 import from core.catalog.pricing_api { save_price_list }  # jac:ignore[W2037]
-import from core.catalog.storefront_api { public_seat_availability }  # jac:ignore[W2037]
-import from core.booking.hold_api { hold_seats }  # jac:ignore[W2037]
-import from core.booking.order_api { place_order, my_order }  # jac:ignore[W2037]
+import from core.catalog.storefront_api {
+    public_seat_availability,
+    public_home,
+    public_home_photo,
+    public_backdrop,
+    public_venues,
+    public_cinemas,
+    public_movie,
+    public_screening
+}  # jac:ignore[W2037]
+import from core.booking.hold_api { hold_seats, extend_hold, my_hold, release_hold }  # jac:ignore[W2037]
+import from core.booking.order_api {
+    place_order,
+    my_order,
+    public_ticket_types,
+    quote_hold
+}  # jac:ignore[W2037]
 import from core.payments.payment_api { start_payment }  # jac:ignore[W2037]
 import from core.payments.settlement {
     my_payment,  # jac:ignore[W2037]
@@ -703,3 +723,13 @@ import from core.platform.accounts { join_link, SETUP_TTL_S }
 def:pub t_platform_setup_link(email: str) -> str {
     return join_link(email, SETUP_TTL_S);
 }
+
+# For the storefront tests that run here, so cinemas can go live (P14.1).
+import from core.homepage.home_api {
+    get_home_page,
+    publish_home_page,
+    rollback_home_page
+}  # jac:ignore[W2037]
+
+# Test-only: a cinema goes live without the platform's review (P14.1).
+import from core.testing.go_live { t_go_live }  # jac:ignore[W2037]

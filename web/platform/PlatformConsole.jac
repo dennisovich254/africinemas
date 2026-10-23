@@ -528,6 +528,7 @@ def:pub PlatformConsole -> JsxElement {
                     and <CinemaDetail
                         slug={item}
                         audit={may(shown, "platform.audit")}
+                        review={may(shown, "platform.review")}
                     />}{section == "audit" and allowed and <PlatformAuditPage/>}{section
                     == "support"
                     and allowed

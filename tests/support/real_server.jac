@@ -178,6 +178,8 @@ def published_showtime(server: RealServer, rows: int = 1, cols: int = 3) -> str 
     # showtime's id. The server must serve the endpoints it calls.
     owner = server.register("owner");
     server.call("create_cinema", {"name": "Nova Cinemas", "slug": "nova"}, owner);
+    # Only a live cinema is public (P14.1): the app must serve t_go_live (core/testing).
+    server.call("t_go_live", {"slug": "nova"}, owner);
     server.call("start_shift", {"tenant": "nova"}, owner);
     venue = server.call(
         "create_venue",

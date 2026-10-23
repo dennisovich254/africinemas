@@ -27,7 +27,8 @@ import from tests.support.storefront_setup {
 }
 
 glob MAIN: str = path.join(
-         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))), "main.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "payment_app.jac"
      ),
      MEDIA_ENV: str = "AFRICINEMAS_MEDIA_DIR",
      # What a day's showtime carries for the storefront to group it by movie.

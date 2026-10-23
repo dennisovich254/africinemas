@@ -65,3 +65,6 @@ def:pub slot_dump(slug: str, screening_id: str) -> dict[str, any] {  # jac:ignor
     }
     return found;
 }
+
+# Test-only: a cinema goes live without the platform's review (P14.1).
+import from core.testing.go_live { t_go_live }  # jac:ignore[W2037]

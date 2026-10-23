@@ -63,6 +63,10 @@ async def:pub load_site -> bool {
         return True;
     }
     _remember(found);
+    # "No cinema here" can change (a cinema going live, P14.1): it's asked again each load.
+    if SITE["site"] == "none" {
+        return True;
+    }
     try {
         sessionStorage.setItem(SITE_KEY, JSON.stringify(SITE));  # jac:ignore[W2001]
     } except Exception as e {

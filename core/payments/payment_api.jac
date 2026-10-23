@@ -45,6 +45,7 @@ import from core.catalog.answers { Refused, answer }
 import from core.notify.addresses { email_problem, clean_email }
 import from core.booking.models { Order }
 import from core.booking.hold_api { showtime_on_sale, check_holder }
+import from core.tenancy.open_cinema { require_live }
 import from core.booking.order_api { pending_order, check_key }
 import from core.payments.models { PaymentIntent }
 import from core.payments.state { PaymentState, transition, is_final }
@@ -250,6 +251,8 @@ def _start_payment(
     # counter the email address may be left out; online, the tickets always go by
     # email. The intent keeps sold_by, so the ledger records who took the money (P7.1).
     (cinema, screening) = showtime_on_sale(slug, screening_id);
+    # No money before AfriCinemas has verified the cinema (P14.1).
+    require_live(cinema);
     check_holder(holder);
     check_key(idempotency_key);
     number = _number(phone);

@@ -38,6 +38,7 @@ import from core.catalog.movie_api { create_movie }  # jac:ignore[W2037]
 import from core.catalog.screening_api { create_screening, schedule_screening, publish_screening }  # jac:ignore[W2037]
 import from core.catalog.storefront_api { public_seat_availability }  # jac:ignore[W2037]
 import from core.booking.hold_api { hold_seats }  # jac:ignore[W2037]
+import from core.testing.go_live { t_go_live }  # jac:ignore[W2037]
 """;
 
 def _project -> str {
