@@ -42,6 +42,7 @@ import from .CinemasPages { CinemasList, CinemaDetail }
 import from .PlatformAuditPage { PlatformAuditPage }
 import from .OverviewFigures { OverviewFigures }
 import from .SupportPages { SupportInbox, SupportRequestPage }
+import from ..support.live { use_open_requests }
 import from ..backoffice.form_parts { ConfirmDelete, on_input, submit_with }
 
 glob ROLE_CHOICES: list[tuple[str, str]] = [
@@ -432,6 +433,11 @@ def:pub PlatformConsole -> JsxElement {
         load();
     }
     useEffect(start, []);
+    # Support's count: requests waiting on us (P13.5a), for support staff.
+    seen: dict[str, any] = me or {};  # jac:ignore[W1037]
+    granted: list[str] = seen["permissions"] or [];
+    may_support: bool = bool(seen["platform"]) and "platform.support" in granted;
+    waiting = use_open_requests(may_support);
 
     if failed {
         return
@@ -479,7 +485,14 @@ def:pub PlatformConsole -> JsxElement {
         nav.append({"label": "Cinemas", "to": "/cinemas", "key": "cinemas"});
     }
     if may(shown, "platform.support") {
-        nav.append({"label": "Support", "to": "/support", "key": "support"});
+        nav.append(
+            {
+                "label": "Support",
+                "to": "/support",
+                "key": "support",
+                "count": str(waiting) if waiting else ""
+            }
+        );
     }
     if may(shown, "platform.staff") {
         nav.append({"label": "Platform staff", "to": "/staff", "key": "staff"});

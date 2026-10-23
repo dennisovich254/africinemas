@@ -55,6 +55,7 @@ import from .ReportsSection { ReportsSection }
 import from .StaffHome { StaffHome }
 import from .AuditSection { AuditSection }
 import from .HelpSection { HelpSection }
+import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
@@ -259,6 +260,11 @@ def:pub BackOffice -> JsxElement {
         },
         [slug]
     );
+    # Help's count: requests AfriCinemas has answered (P13.5a), for those who ask.
+    seen: dict[str, any] = access or {};  # jac:ignore[W1037]
+    held: list[str] = seen["permissions"] or [];
+    may_ask: bool = shift_open and "support.request" in held;
+    answered = use_waiting_for_cinema(slug, may_ask);
 
     if missing or failed {
         return
@@ -297,6 +303,12 @@ def:pub BackOffice -> JsxElement {
     me: dict[str, any] = access;  # jac:ignore[W1037]
     permissions: list[str] = me["permissions"];
     nav = nav_for(slug, permissions);
+    if answered {
+        nav = [
+            {** item, "count": str(answered)} if item["key"] == "help" else item
+            for item in nav
+        ];
+    }
     allowed = section in [item["key"] for item in nav];
     title = section_label(section) or "Overview";
     if auditorium_id {

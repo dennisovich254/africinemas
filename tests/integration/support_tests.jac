@@ -172,3 +172,49 @@ test "only those who may ask, at their own cinema, and only support staff answer
         _close(app);
     }
 }
+
+test "unread counts clear once a side has read the conversation" {
+    app = _app();
+    try {
+        request_id = _ask(app);
+        # The cinema wrote it, so it has read it; we haven't.
+        assert app.call("owner", "support_requests", {"tenant": "nova"})["requests"][0][
+            "unread"
+        ]
+            == 0;
+        inbox = app.call("boss", "platform_support_requests", {});
+        assert inbox["unread"] == 1 and inbox["requests"][0]["unread"] == 1 , inbox;
+        seen = app.call("boss", "platform_support_seen", {"request_id": request_id});
+        assert seen["request"]["unread"] == 0 , seen;
+        assert app.call("boss", "platform_support_requests", {})["unread"] == 0;
+        # Our reply: unread for the cinema, not for us.
+        app.call(
+            "boss",
+            "platform_support_reply",
+            {"request_id": request_id, "text": "Which phone number did you try?"}
+        );
+        assert app.call("boss", "platform_support_requests", {})["unread"] == 0;
+        theirs = app.call("owner", "support_requests", {"tenant": "nova"})["requests"][
+            0
+        ];
+        assert theirs["unread"] == 1 , theirs;
+        read = app.call(
+            "owner", "support_seen", {"tenant": "nova", "request_id": request_id}
+        );
+        assert read["request"]["unread"] == 0 , read;
+        assert app.call("owner", "support_requests", {"tenant": "nova"})["requests"][0][
+            "unread"
+        ]
+            == 0;
+        # Reading doesn't change whose turn it is.
+        assert read["request"]["status"] == "waiting";
+        assert code_of(
+            app.call(
+                "rival", "support_seen", {"tenant": "rift", "request_id": request_id}
+            )
+        )
+            == "not_found";
+    } finally {
+        _close(app);
+    }
+}

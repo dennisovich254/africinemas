@@ -186,6 +186,8 @@ import from core.support.requests {
     ask_for_help,  # jac:ignore[W2037]
     support_requests,  # jac:ignore[W2037]
     reply_to_support,  # jac:ignore[W2037]
+    support_seen,  # jac:ignore[W2037]
+    platform_support_seen,  # jac:ignore[W2037]
     platform_support_requests,  # jac:ignore[W2037]
     platform_support_request,  # jac:ignore[W2037]
     platform_support_reply,  # jac:ignore[W2037]
