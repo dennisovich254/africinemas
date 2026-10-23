@@ -26,7 +26,6 @@ import from core.tenancy.principal { node_id, act_as, restore }
 import from core.reporting.report_api { cinema_records }
 import from core.audit.log { events as audit_events }
 import from core.platform.staff_api { require_platform }
-import from core.site { storefront_address }
 
 glob PAGE_SIZE: int = 20,
      PAGE_MAX: int = 50,
@@ -201,7 +200,6 @@ def _cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     page["tickets_sold"] = len(records.tickets);
     page["takings_net_cents"] = sum([m.amount_cents for m in records.money]);
     page["currency"] = CURRENCY;
-    page["storefront"] = storefront_address(cinema.slug);
     page["history"] = _history(cinema);
     return {"ok": True, "cinema": page};
 }

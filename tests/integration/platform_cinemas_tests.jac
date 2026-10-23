@@ -10,7 +10,6 @@ about its customers. A cinema owner is refused it all.
 
 import os;
 import json;
-import from core.site { storefront_address }
 import from tests.support.served { Served }
 import from tests.support.storefront_setup { code_of }
 import from tests.support.payment_setup { ANNA, paying_cinema, paid }
@@ -88,7 +87,6 @@ test "a cinema's page has its venues, staff and takings, and nothing about its c
         assert nova["tickets_sold"] == 2 , nova;
         assert nova["takings_net_cents"] == 186000 , nova;
         assert nova["currency"] == "KES";
-        assert nova["storefront"] == storefront_address("nova");
         assert [h["what"] for h in nova["history"]] == ["signed_up"] , nova["history"];
         # No customer's name, phone or email: only counts.
         shown = json.dumps(seen).lower();

@@ -11,6 +11,7 @@ import from e2e.support.web {
     close_contexts,
     PLATFORM_URL,
     PROJECTS,
+    store_url,
     context_options,
     artifact
 }
@@ -74,6 +75,9 @@ test "a super admin finds a cinema by its owner and opens its page" {
             assert "Hall A" in page.inner_text('[data-testid="cinema-venues"]');
             assert page.inner_text('[data-testid="cinema-tickets"]') == "0";
             assert "Signed up" in page.inner_text('[data-testid="cinema-history"]');
+            # Its storefront on its own address, never through a tunnel.
+            assert page.get_attribute('a:has-text("Open its storefront")', "href")
+                == store_url(owner["slug"]) + "/";
             assert page.evaluate(WIDE_JS) <= 1 , f"{project}: cinema page scrolls sideways";
             page.screenshot(
                 path=artifact(f"platform-cinema-page-{project}.png"), full_page=True

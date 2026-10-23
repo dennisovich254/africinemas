@@ -21,6 +21,7 @@ import from core.platform.cinemas_api {
 import from ..shell.AppLink { AppLink }
 import from ..backoffice.form_parts { on_input }
 import from ..backoffice.report_view { money_label }
+import from ..site { storefront_address }
 
 glob SEARCH_PAUSE_MS: int = 350,
      OFFLINE: str = "We couldn't reach the server. Check your connection and try again.",
@@ -306,7 +307,7 @@ def:pub CinemaDetail(slug: str) -> JsxElement {
                     <span>{f"Joined {day_label(cinema['signed_up_at'])}"}</span>
                 </p>
                 <a
-                    href={cinema["storefront"]}
+                    href={storefront_address(cinema["slug"])}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex min-h-11 w-fit items-center text-sm font-medium underline underline-offset-4"
