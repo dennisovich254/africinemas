@@ -7,6 +7,9 @@ reply counted on Help and on its row, opens it (which clears the count, with no
 refresh), replies back, and our open chat shows that without a refresh. Phone and desktop, with the usual phone checks.
 """
 
+import os;
+import time;
+import from pathlib { Path }
 import from e2e.support.web {
     shared_browser,
     close_contexts,
@@ -20,6 +23,30 @@ import from e2e.support.api { owner_with_cinema, platform_admin, PASSWORD }
 
 glob LIVE_MS: int = 15000,
      WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth";
+
+def _screenshot -> str {
+    # A PNG on disk, for the file picker.
+    import from PIL { Image }
+    path = artifact("support-screenshot.png");
+    Image.new("RGB", (640, 400), (30, 90, 160)).save(path, format="PNG");
+    return str(path);
+}
+
+def _mailed(to: str, words: str) -> bool {
+    # Whether the server's outbox (scripts/e2e_env.sh) gets an email to `to` with
+    # `words`, within LIVE_MS: the mail job runs every 2 seconds there.
+    folder = Path(os.environ.get("AFRICINEMAS_OUTBOX_DIR", "e2e/artifacts/outbox"));
+    for _ in range(int(LIVE_MS / 500)) {
+        for f in (folder.glob("*.eml") if folder.exists() else []) {
+            text = f.read_text(errors="replace");
+            if to in text and words in text {
+                return True;
+            }
+        }
+        time.sleep(0.5);
+    }
+    return False;
+}
 
 def _go(page: any, project: str, section: str) {  # jac:ignore[W1037]
     if project == "mobile" {
@@ -52,11 +79,17 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
             cinema.select_option("#help-category", "payments");
             problem = f"M-Pesa prompts never arrive ({project}).";
             cinema.fill("#help-text", problem);  # jac:ignore[W6002]
+            # With a screenshot: chosen, shown as a thumbnail, sent with the message.
+            cinema.set_input_files('[data-testid="chat-file"]', _screenshot());
+            cinema.wait_for_selector('[data-testid="chat-attached"]');
             # Enter sends, as in a messaging app; the chat opens.
             cinema.press("#help-text", "Enter");
             cinema.wait_for_selector('[data-testid="help-chat"]');
             assert "/help/" in cinema.url , cinema.url;
             assert problem in cinema.inner_text('[data-testid="support-thread"]');
+            cinema.wait_for_selector(
+                '[data-testid="support-thread"] [data-testid="support-image"]'
+            );
             assert "Waiting for AfriCinemas"
                 in cinema.inner_text('[data-testid="help-status"]');
             assert cinema.evaluate(WIDE_JS) <= 1 , f"{project}: help scrolls sideways";
@@ -86,6 +119,10 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
             );
             row.locator("a").click();
             us.wait_for_selector('[data-testid="support-request"]');
+            # The cinema's screenshot, for us to read too.
+            us.wait_for_selector(
+                '[data-testid="support-thread"] [data-testid="support-image"]'
+            );
             us.fill("#support-reply-text", "Which phone number did you try?");  # jac:ignore[W6002]
             us.click('[data-testid="chat-send"]');
             us.wait_for_selector(
@@ -95,6 +132,8 @@ test "a cinema asks for help, AfriCinemas answers, and the cinema sees the answe
             us.screenshot(
                 path=artifact(f"support-request-{project}.png"), full_page=True
             );
+            # Our reply emails the cinema's owner (the server's outbox in tests).
+            assert _mailed(owner["email"], "AfriCinemas replied") , "no email to the owner";
             # Read: our count is gone.
             us.wait_for_selector(
                 '[data-testid="nav-count-support"]', state="detached", timeout=LIVE_MS

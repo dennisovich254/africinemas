@@ -32,6 +32,19 @@ import from core.tenancy.principal {
 import from core.audit.log { audited, platform_audited }
 import from core.platform.staff_api { require_platform, PlatformCaller }
 import from core.platform.cinemas_api { all_cinemas }
+import io;
+import base64;
+import from uuid { uuid4 }
+import from core.claims { claim }
+import from core.tenancy.principal { fresh_node_id }
+import from core.catalog.poster {
+    decode_screenshot,
+    process_screenshot,
+    media_store,
+    media_key,
+    read_media,
+    PosterRejected
+}
 
 glob ASK: str = "support.request",
      TEXT_MAX: int = 4000,
@@ -57,6 +70,10 @@ glob ASK: str = "support.request",
          "verification": "Verification",
          "other": "Something else"
      },
+     # Emails to send (P13.5b): one claim per email, "<tenant id>|<request id>|<to>",
+     # sent by core/support/mail.jac's job.
+     REPLY_MAIL: str = "support-reply-mail",
+     OWNER: str = "owner",
      CINEMA: str = "cinema",
      AFRICINEMAS: str = "africinemas";
 
@@ -87,10 +104,11 @@ def _unread(request: SupportRequest, reader: str) -> int {
     );
 }
 
-def _text(text: any) -> str {  # jac:ignore[W1037]
-    # The message, trimmed; refused when it's empty or too long.
+def _text(text: any, optional: bool = False) -> str {  # jac:ignore[W1037]
+    # The message, trimmed; refused when it's too long, or empty unless `optional`
+    # (a message that's a screenshot alone).
     clean = text.strip() if isinstance(text, str) else "";
-    if not clean {
+    if not clean and not optional {
         raise Refused("empty_message", "Write what's happening.");
     }
     if len(clean) > TEXT_MAX {
@@ -99,6 +117,30 @@ def _text(text: any) -> str {  # jac:ignore[W1037]
         );
     }
     return clean;
+}
+
+def _screenshot(cinema: Tenant, image_type: str, image_base64: str) -> str {
+    # A checked screenshot (P13.5b) stored in the cinema's own media, under a name of
+    # ours; its key, or "" when there's none.
+    if not image_base64 {
+        return "";
+    }
+    try {
+        webp = process_screenshot(decode_screenshot(image_base64), image_type);
+    } except PosterRejected as e {
+        raise Refused(e.code, e.message);
+    }
+    key = media_key(node_id(cinema), f"support-{uuid4().hex}");
+    media_store().upload(io.BytesIO(webp), key);
+    return key;
+}
+
+def _shown(message: dict[str, str]) -> dict[str, any] {  # jac:ignore[W1037]
+    # A message as the pages see it: whether it has a screenshot, never where it's kept.
+    shown: dict[str, any] = dict(message);  # jac:ignore[W1037]
+    shown.pop("image", None);
+    shown["has_image"] = bool(message.get("image", ""));
+    return shown;
 }
 
 def _view(
@@ -116,7 +158,7 @@ def _view(
         ),
         "created_at": request.created_at,
         "updated_at": request.updated_at,
-        "messages": [dict(m) for m in request.messages],
+        "messages": [_shown(m) for m in request.messages],
         "cinema": cinema.name if cinema is not None else "",
         "cinema_slug": cinema.slug if cinema is not None else "",
         "unread": _unread(request, reader)
@@ -148,15 +190,17 @@ def _add(
     side: str,
     author: str,
     text: str,
-    status: str
+    status: str,
+    image: str = ""
 ) {
-    # Appends a message and sets the status, as the cinema's principal.
+    # Appends a message (with a screenshot's key, or "") and sets the status, as the
+    # cinema's principal.
     at = now().isoformat();
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
         request.messages = request.messages
-            + [{"at": at, "side": side, "by": author, "text": text}];
+            + [{"at": at, "side": side, "by": author, "text": text, "image": image}];
         request.status = status;
         request.updated_at = at;
         # Writing a message means you've read the conversation up to it.
@@ -195,13 +239,16 @@ def _scope(tenant: str) -> any {  # jac:ignore[W1037]
     return scoped(tenant, ASK);
 }
 
-def _ask(tenant: str, category: str, text: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _ask(
+    tenant: str, category: str, text: str, image_type: str, image_base64: str
+) -> dict[str, any] {  # jac:ignore[W1037]
     scope = _scope(tenant);
     if category not in CATEGORIES {
         raise Refused("invalid_category", "Choose what it's about.");
     }
-    clean = _text(text);
+    clean = _text(text, bool(image_base64));
     cinema: Tenant = scope.tenant;
+    image = _screenshot(cinema, image_type, image_base64);
     at = now().isoformat();
     author = _sign_in_of(cinema);
     me = node_id(root);
@@ -213,7 +260,9 @@ def _ask(tenant: str, category: str, text: str) -> dict[str, any] {  # jac:ignor
             status=OPEN,
             created_at=at,
             updated_at=at,
-            messages=[{"at": at, "side": CINEMA, "by": author, "text": clean}],
+            messages=[
+                {"at": at, "side": CINEMA, "by": author, "text": clean, "image": image}
+            ],
             cinema_seen_at=at
         );
         cinema ++> request;
@@ -236,10 +285,12 @@ def _mine(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     };
 }
 
-def _cinema_reply(tenant: str, request_id: str, text: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _cinema_reply(
+    tenant: str, request_id: str, text: str, image_type: str, image_base64: str
+) -> dict[str, any] {  # jac:ignore[W1037]
     scope = _scope(tenant);
     cinema: Tenant = scope.tenant;
-    clean = _text(text);
+    clean = _text(text, bool(image_base64));
     found = [
         r
         for r in _requests_of(cinema)
@@ -248,17 +299,23 @@ def _cinema_reply(tenant: str, request_id: str, text: str) -> dict[str, any] {  
     if not found {
         raise Refused("not_found", "No such request.");
     }
-    _add(cinema, found[0], CINEMA, _sign_in_of(cinema), clean, OPEN);
+    image = _screenshot(cinema, image_type, image_base64);
+    _add(cinema, found[0], CINEMA, _sign_in_of(cinema), clean, OPEN, image);
     return {"ok": True, "request": _view(found[0], cinema, CINEMA)};
 }
 
-def:protect ask_for_help(tenant: str, category: str, text: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect ask_for_help(
+    tenant: str, category: str, text: str, image_type: str = "", image_base64: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # `image_base64`: an optional screenshot (JPEG, PNG or WebP, up to 3 MB).
     return audited(
         tenant,
         "support.requested",
         "support_request",
         "",
-        lambda -> any { return _ask(tenant, category, text); },  # jac:ignore[W1037]
+        lambda -> any { return _ask(
+            tenant, category, text, image_type, image_base64
+        ); },  # jac:ignore[W1037]
         made="request.request_id",
         detail=str(category)
     );
@@ -269,15 +326,56 @@ def:protect support_requests(tenant: str) -> dict[str, any] {  # jac:ignore[W103
 }
 
 def:protect reply_to_support(
-    tenant: str, request_id: str, text: str
+    tenant: str,
+    request_id: str,
+    text: str,
+    image_type: str = "",
+    image_base64: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "support.replied",
         "support_request",
         str(request_id),
-        lambda -> any { return _cinema_reply(tenant, request_id, text); }  # jac:ignore[W1037]
+        lambda -> any { return _cinema_reply(  # jac:ignore[W1037]
+            tenant, request_id, text, image_type, image_base64
+        ); }
     );
+}
+
+def _image_of(request: SupportRequest, index: int) -> dict[str, any] {  # jac:ignore[W1037]
+    # The screenshot of message `index`, as base64 WebP, like a poster (movie_api).
+    messages = request.messages;
+    if not isinstance(index, int) or index < 0 or index >= len(messages) {
+        raise Refused("not_found", "No such screenshot.");
+    }
+    data = read_media(messages[index].get("image", ""));
+    if data is None {
+        raise Refused("not_found", "No such screenshot.");
+    }
+    return {
+        "ok": True,
+        "content_type": "image/webp",
+        "data_base64": base64.b64encode(data).decode()
+    };
+}
+
+def _cinema_image(tenant: str, request_id: str, index: int) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = _scope(tenant);
+    found = [
+        r
+        for r in _requests_of(scope.tenant)
+        if node_id(r) == request_id
+    ];
+    if not found {
+        raise Refused("not_found", "No such screenshot.");
+    }
+    return _image_of(found[0], index);
+}
+
+def:protect support_image(tenant: str, request_id: str, index: int) -> dict[str, any] {  # jac:ignore[W1037]
+    # A screenshot in one of the cinema's own requests.
+    return answer(lambda -> any { return _cinema_image(tenant, request_id, index); });  # jac:ignore[W1037]
 }
 
 def _mark_seen(cinema: Tenant, request: SupportRequest, reader: str) {
@@ -381,10 +479,57 @@ def _platform_request(request_id: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {"ok": True, "request": _view(request, cinema)};
 }
 
-def _answer(request_id: str, text: str, me: PlatformCaller) -> dict[str, any] {  # jac:ignore[W1037]
+def owner_emails(cinema: Tenant) -> list[str] {
+    # The cinema's owners' sign-in emails (P13.5b), for telling them we've replied.
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        found = sorted(
+            set(
+                [
+                    m.email
+                    for m in records_of(cinema)
+                    if OWNER in m.roles and m.status == "active" and m.email
+                ]
+            )
+        );
+    } finally {
+        restore(me);
+    }
+    return found;
+}
+
+def _answer(
+    request_id: str, text: str, image_type: str, image_base64: str, me: PlatformCaller
+) -> dict[str, any] {  # jac:ignore[W1037]
     (cinema, request) = _find(request_id);
-    _add(cinema, request, AFRICINEMAS, me.email, _text(text), WAITING);
+    clean = _text(text, bool(image_base64));
+    image = _screenshot(cinema, image_type, image_base64);
+    _add(cinema, request, AFRICINEMAS, me.email, clean, WAITING, image);
+    # One email to each owner, sent by the mail job, never inside the request.
+    for address in owner_emails(cinema) {
+        claim(REPLY_MAIL, fresh_node_id(), f"{node_id(cinema)}|{request_id}|{address}");
+    }
     return {"ok": True, "request": _view(request, cinema)};
+}
+
+def request_of(request_id: str) -> tuple[Tenant, SupportRequest] | None {
+    # The request and its cinema, for the mail job; None when either is gone.
+    try {
+        return _find(request_id);
+    } except Refused {
+        return None;
+    }
+}
+
+def _platform_image(request_id: str, index: int) -> dict[str, any] {  # jac:ignore[W1037]
+    require_platform("platform.support");
+    (_, request) = _find(request_id);
+    return _image_of(request, index);
+}
+
+def:protect platform_support_image(request_id: str, index: int) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _platform_image(request_id, index); });  # jac:ignore[W1037]
 }
 
 def _set_status(request_id: str, status: str) -> dict[str, any] {  # jac:ignore[W1037]
@@ -436,7 +581,9 @@ def:protect platform_support_request(request_id: str) -> dict[str, any] {  # jac
     return answer(lambda -> any { return _platform_request(request_id); });  # jac:ignore[W1037]
 }
 
-def:protect platform_support_reply(request_id: str, text: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect platform_support_reply(
+    request_id: str, text: str, image_type: str = "", image_base64: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
     try {
         me = require_platform("platform.support");
     } except Refused as e {
@@ -448,7 +595,9 @@ def:protect platform_support_reply(request_id: str, text: str) -> dict[str, any]
         "platform.support_replied",
         "cinema",
         _cinema_id_of(request_id),
-        lambda -> any { return _answer(request_id, text, me); }  # jac:ignore[W1037]
+        lambda -> any { return _answer(  # jac:ignore[W1037]
+            request_id, text, image_type, image_base64, me
+        ); }
     );
 }
 

@@ -9,6 +9,7 @@ a cinema owner is refused it.
 """
 
 import os;
+import tempfile;
 import from tests.support.served { Served }
 import from tests.support.storefront_setup { code_of, open_cinema_for }
 import from tests.support.payment_setup { paying_cinema, hire }
@@ -214,6 +215,146 @@ test "unread counts clear once a side has read the conversation" {
             )
         )
             == "not_found";
+    } finally {
+        _close(app);
+    }
+}
+
+def _png(width: int = 320, height: int = 200) -> str {
+    # A small screenshot-sized PNG, as base64.
+    import io;
+    import base64;
+    import from PIL { Image }
+    out = io.BytesIO();
+    Image.new("RGB", (width, height), (30, 90, 160)).save(out, format="PNG");
+    return base64.b64encode(out.getvalue()).decode();
+}
+
+test "our reply emails the cinema's owners, and nobody else" {
+    os.environ["AFRICINEMAS_OUTBOX_DIR"] = tempfile.mkdtemp(
+        prefix="africinemas-outbox-"
+    );
+    os.environ.pop("AFRICINEMAS_SMTP_HOST", None);
+    app = _app();
+    try {
+        made = app.call(
+            "rival",
+            "create_cinema",
+            {"name": "Lumi Cinema", "slug": "lumi", "email": "rival"}
+        );
+        assert made["created"] , made;
+        assert app.call("rival", "start_shift", {"tenant": "lumi"})["ok"];
+        asked = app.call(
+            "rival",
+            "ask_for_help",
+            {"tenant": "lumi", "category": "emails", "text": "Tickets aren't arriving."}
+        );
+        request_id = asked["request"]["request_id"];
+        app.call("owner", "tm_clear_outbox");
+        # The cinema's own message emails nobody.
+        assert app.call("owner", "t_send_support_mail") == 0;
+        app.call(
+            "boss",
+            "platform_support_reply",
+            {"request_id": request_id, "text": "Check the spam folder, <b>please</b>."}
+        );
+        assert app.call("owner", "t_send_support_mail") == 1;
+        assert app.call("owner", "t_send_support_mail") == 0 , "sent twice";
+        mails = app.call("owner", "tm_outbox");
+        assert [m["to"] for m in mails] == ["rival"] , mails;
+        assert mails[0]["subject"] == "AfriCinemas replied about emails";
+        assert "Check the spam folder" in mails[0]["text"];
+        assert f"/app/lumi/help/{request_id}" in mails[0]["text"];
+    } finally {
+        os.environ.pop("AFRICINEMAS_OUTBOX_DIR", None);
+        _close(app);
+    }
+}
+
+test "a screenshot goes with a message, and only its cinema and our support see it" {
+    app = _app();
+    try {
+        asked = app.call(
+            "owner",
+            "ask_for_help",
+            {
+                "tenant": "nova",
+                "category": "storefront",
+                "text": "",
+                "image_type": "image/png",
+                "image_base64": _png()
+            }
+        );
+        assert asked["ok"] , asked;
+        request_id = asked["request"]["request_id"];
+        first = asked["request"]["messages"][0];
+        assert first["has_image"]
+            and first["text"] == ""
+            and "image" not in first , first;
+        mine = app.call(
+            "owner",
+            "support_image",
+            {"tenant": "nova", "request_id": request_id, "index": 0}
+        );
+        assert mine["ok"] and mine["content_type"] == "image/webp" , mine;
+        ours = app.call(
+            "boss", "platform_support_image", {"request_id": request_id, "index": 0}
+        );
+        assert ours["data_base64"] == mine["data_base64"];
+        # Not another cinema's, not a reviewer's, not a message without one.
+        assert code_of(
+            app.call(
+                "rival",
+                "support_image",
+                {"tenant": "rift", "request_id": request_id, "index": 0}
+            )
+        )
+            == "not_found";
+        invited = app.call(
+            "boss",
+            "invite_platform_member",
+            {"email": "rev@example.com", "role": "reviewer"}
+        );
+        join_platform(app, "rev", invited["token"]);
+        assert code_of(
+            app.call(
+                "rev", "platform_support_image", {"request_id": request_id, "index": 0}
+            )
+        )
+            == "not_allowed";
+        replied = app.call(
+            "owner",
+            "reply_to_support",
+            {"tenant": "nova", "request_id": request_id, "text": "Here's the page."}
+        );
+        assert replied["request"]["messages"][1]["has_image"] == False;
+        assert code_of(
+            app.call(
+                "owner",
+                "support_image",
+                {"tenant": "nova", "request_id": request_id, "index": 1}
+            )
+        )
+            == "not_found";
+        # Not a picture, or too small to read, is refused.
+        for (kind, data, code) in [
+            ("image/png", "bm90IGFuIGltYWdl", "invalid_image"),
+            ("image/gif", _png(), "wrong_type"),
+            ("image/png", _png(40, 40), "too_small")
+        ] {
+            tried = app.call(
+                "owner",
+                "reply_to_support",
+                {
+                    "tenant": "nova",
+                    "request_id": request_id,
+                    "text": "",
+                    "image_type": kind,
+                    "image_base64": data
+                }
+            );
+            assert not tried["ok"] , (kind, tried);
+        }
     } finally {
         _close(app);
     }

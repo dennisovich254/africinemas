@@ -18,7 +18,8 @@ import from core.support.requests {
     platform_support_request,  # jac:ignore[W2037]
     platform_support_reply,  # jac:ignore[W2037]
     platform_support_status,  # jac:ignore[W2037]
-    platform_support_seen  # jac:ignore[W2037]
+    platform_support_seen,  # jac:ignore[W2037]
+    platform_support_image  # jac:ignore[W2037]
 }
 import from ..shell.AppLink { AppLink }
 import from ..support.SupportThread { SupportThread, ChatComposer, when }
@@ -214,9 +215,17 @@ def:pub SupportRequestPage(request_id: str) -> JsxElement {
     }
     useEffect(mark_read, [request_id, unread_here]);
 
-    async def send(text: str) -> bool {
+    def screenshot(index: int) -> any {  # jac:ignore[W1037]
+        return platform_support_image(request_id, index);  # jac:ignore[W2037]
+    }
+
+    async def send(text: str, image: any) -> bool {  # jac:ignore[W1037]
+        kind: str = image["type"] if image else "";
+        data: str = image["data_base64"] if image else "";
         return await run(
-            lambda -> any { return platform_support_reply(request_id, text); }  # jac:ignore[W1037,W2037]
+            lambda -> any { return platform_support_reply(
+                request_id, text, kind, data
+            ); }  # jac:ignore[W1037,W2037]
         );
     }
 
@@ -290,6 +299,7 @@ def:pub SupportRequestPage(request_id: str) -> JsxElement {
                 messages={request["messages"]}
                 reader="africinemas"
                 cinema={request["cinema"]}
+                load_image={screenshot}
             />
             {alert}
             <div className="sticky bottom-0 border-t bg-card pt-3">

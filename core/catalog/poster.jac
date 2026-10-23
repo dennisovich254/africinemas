@@ -42,6 +42,12 @@ glob MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024,
      # Snack photos (P12.1): at least SNACK_MIN square-ish, fitted into SNACK_OUT.
      SNACK_MIN: int = 200,
      SNACK_OUT: int = 800,
+     # Screenshots in help requests (P13.5b): any shape, at least SCREENSHOT_MIN on each
+     # side, fitted into SCREENSHOT_OUT, and at most SCREENSHOT_MAX_BYTES, so with the
+     # base64 they still fit under the server's 5 MB request limit (production.env).
+     SCREENSHOT_MIN: int = 100,
+     SCREENSHOT_OUT: int = 1920,
+     SCREENSHOT_MAX_BYTES: int = 3 * 1024 * 1024,
      # Movie backdrops (P4.1c): landscape, at least BACKDROP_MIN, fitted into BACKDROP_OUT.
      BACKDROP_MIN: tuple[int, int] = (960, 540),
      BACKDROP_OUT: tuple[int, int] = (1920, 1080),
@@ -190,6 +196,29 @@ def process_snack_photo(data: bytes, declared_type: str) -> bytes {
     # SNACK_OUT x SNACK_OUT.
     return _process(
         data, declared_type, (SNACK_MIN, SNACK_MIN), (SNACK_OUT, SNACK_OUT)
+    );
+}
+
+def decode_screenshot(data_base64: str) -> bytes {
+    # As decode_upload, with the screenshots' smaller cap.
+    if len(data_base64) > int(SCREENSHOT_MAX_BYTES * 4 / 3) + 4 {
+        raise PosterRejected("too_large", "Choose a screenshot of up to 3 MB.");
+    }
+    data = decode_upload(data_base64);
+    if len(data) > SCREENSHOT_MAX_BYTES {
+        raise PosterRejected("too_large", "Choose a screenshot of up to 3 MB.");
+    }
+    return data;
+}
+
+def process_screenshot(data: bytes, declared_type: str) -> bytes {
+    # A screenshot for a help request (P13.5b): the same checks, any shape, fitted into
+    # SCREENSHOT_OUT x SCREENSHOT_OUT, with nothing kept from the file but its pixels.
+    return _process(
+        data,
+        declared_type,
+        (SCREENSHOT_MIN, SCREENSHOT_MIN),
+        (SCREENSHOT_OUT, SCREENSHOT_OUT)
     );
 }
 
