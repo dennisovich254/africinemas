@@ -374,7 +374,7 @@ def:pub BackOffice -> JsxElement {
     } elif section == "audit" {
         content = <AuditSection slug={slug} shift_open={shift_open}/>;
     } elif section == "help" {
-        content = <HelpSection slug={slug} shift_open={shift_open}/>;
+        content = <HelpSection slug={slug} shift_open={shift_open} item={item}/>;
     } elif section == "settings" {
         content = <SettingsPage
             slug={slug}

@@ -44,6 +44,12 @@ glob ASK: str = "support.request",
          "waiting": "Waiting for the cinema",
          "closed": "Closed"
      },
+     # The same statuses as the cinema sees them, from its side.
+     CINEMA_STATUS_LABELS: dict[str, str] = {
+         "open": "Waiting for AfriCinemas",
+         "waiting": "AfriCinemas replied",
+         "closed": "Closed"
+     },
      CATEGORIES: dict[str, str] = {
          "payments": "Payments and M-Pesa",
          "emails": "Emails",
@@ -79,13 +85,19 @@ def _text(text: any) -> str {  # jac:ignore[W1037]
     return clean;
 }
 
-def _view(request: SupportRequest, cinema: Tenant | None) -> dict[str, any] {  # jac:ignore[W1037]
+def _view(
+    request: SupportRequest, cinema: Tenant | None, reader: str = "africinemas"
+) -> dict[str, any] {  # jac:ignore[W1037]
     return {
         "request_id": node_id(request),
         "category": request.category,
         "category_label": CATEGORIES.get(request.category, request.category),
         "status": request.status,
-        "status_label": STATUS_LABELS.get(request.status, request.status),
+        "status_label": (
+            CINEMA_STATUS_LABELS if reader == CINEMA else STATUS_LABELS
+        ).get(
+            request.status, request.status
+        ),
         "created_at": request.created_at,
         "updated_at": request.updated_at,
         "messages": [dict(m) for m in request.messages],
@@ -185,7 +197,7 @@ def _ask(tenant: str, category: str, text: str) -> dict[str, any] {  # jac:ignor
     } finally {
         restore(me);
     }
-    return {"ok": True, "request": _view(request, cinema)};
+    return {"ok": True, "request": _view(request, cinema, CINEMA)};
 }
 
 def _mine(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
@@ -193,7 +205,9 @@ def _mine(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     cinema: Tenant = scope.tenant;
     return {
         "ok": True,
-        "requests": _newest_first([_view(r, cinema) for r in _requests_of(cinema)]),
+        "requests": _newest_first(
+            [_view(r, cinema, CINEMA) for r in _requests_of(cinema)]
+        ),
         "categories": [{"key": k, "label": v} for (k, v) in CATEGORIES.items()]
     };
 }
@@ -211,7 +225,7 @@ def _cinema_reply(tenant: str, request_id: str, text: str) -> dict[str, any] {  
         raise Refused("not_found", "No such request.");
     }
     _add(cinema, found[0], CINEMA, _sign_in_of(cinema), clean, OPEN);
-    return {"ok": True, "request": _view(found[0], cinema)};
+    return {"ok": True, "request": _view(found[0], cinema, CINEMA)};
 }
 
 def:protect ask_for_help(tenant: str, category: str, text: str) -> dict[str, any] {  # jac:ignore[W1037]

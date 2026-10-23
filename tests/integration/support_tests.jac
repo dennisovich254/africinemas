@@ -67,7 +67,7 @@ test "a cinema asks, we answer, and the request goes back and forth until closed
         );
         assert replied["ok"] and replied["request"]["status"] == "waiting" , replied;
         seen = app.call("owner", "support_requests", {"tenant": "nova"})["requests"][0];
-        assert seen["status_label"] == "Waiting for the cinema";
+        assert seen["status_label"] == "AfriCinemas replied";
         assert seen["messages"][-1]["side"] == "africinemas";
         assert seen["messages"][-1]["by"] == BOSS;
         back = app.call(

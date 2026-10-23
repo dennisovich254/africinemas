@@ -2,8 +2,8 @@
 
 `/support`: every cinema's requests, newest first, one status at a time (Open, the ones
 waiting on us, is the first; Waiting for the cinema; Closed), each with its count.
-`/support/<id>`: a request's thread, a reply box (a reply hands it to the cinema), and
-Close or Reopen. For platform support staff (platform.support); the server checks
+`/support/<id>`: a request as a chat (our replies on the right, the message box at the
+bottom; a reply hands it to the cinema), with Close or Reopen. For platform support staff (platform.support); the server checks
 every request (core/support/requests.jac).
 """
 
@@ -19,8 +19,7 @@ import from core.support.requests {
     platform_support_status  # jac:ignore[W2037]
 }
 import from ..shell.AppLink { AppLink }
-import from ..backoffice.form_parts { TextField, submit_with }
-import from ..support.SupportThread { SupportThread, when }
+import from ..support.SupportThread { SupportThread, ChatComposer, when }
 
 glob OFFLINE: str = "We couldn't reach the server. Check your connection and try again.";
 
@@ -127,15 +126,13 @@ def:pub SupportInbox -> JsxElement {
 }
 
 def:pub SupportRequestPage(request_id: str) -> JsxElement {
+    # The request as a chat: our replies on the right, the message box at the bottom.
     [found, set_found] = useState(None);
     [problem, set_problem] = useState("");
-    [text, set_text] = useState("");
     [busy, set_busy] = useState(False);
-    [message, set_message] = useState("");
 
-    async def run(work: any, done: str) -> bool {  # jac:ignore[W1037]
+    async def run(work: any) -> bool {  # jac:ignore[W1037]
         set_busy(True);
-        set_message("");
         answer: any = None;  # jac:ignore[W1037]
         try {
             answer = await work();
@@ -153,49 +150,40 @@ def:pub SupportRequestPage(request_id: str) -> JsxElement {
         }
         set_problem("");
         set_found(answer["request"]);
-        set_message(done);
         return True;
     }
 
     def start {
-        run(lambda -> any { return platform_support_request(request_id); }, "");  # jac:ignore[W1037,W2037]
+        run(lambda -> any { return platform_support_request(request_id); });  # jac:ignore[W1037,W2037]
     }
     useEffect(start, [request_id]);
 
-    async def send {
-        wanted: str = text;
-        if not wanted.strip() {
-            set_problem("Write your reply first.");
-            return;
-        }
-        if await run(
-            lambda -> any { return platform_support_reply(request_id, wanted); },  # jac:ignore[W1037,W2037]
-            "Sent. It's waiting for the cinema now."
-        ) {
-            set_text("");
-        }
+    async def send(text: str) -> bool {
+        return await run(
+            lambda -> any { return platform_support_reply(request_id, text); }  # jac:ignore[W1037,W2037]
+        );
     }
 
-    async def set_to(status: str, done: str) {
+    async def set_to(status: str) {
         await run(
-            lambda -> any { return platform_support_status(request_id, status); },  # jac:ignore[W1037,W2037]
-            done
+            lambda -> any { return platform_support_status(request_id, status); }  # jac:ignore[W1037,W2037]
         );
     }
 
     back = <AppLink
         to="/support"
-        className="inline-flex min-h-11 w-fit items-center text-sm font-medium underline-offset-4 hover:underline"
+        className="inline-flex min-h-11 w-fit items-center text-sm font-medium"
     >
         ← All requests
     </AppLink>;
+    alert = problem
+        and <Alert variant="destructive" role="alert">
+            <AlertDescription>{problem}</AlertDescription>
+        </Alert>;
     if found is None {
         return
-            <div className="flex max-w-3xl flex-col gap-4">
-                {back}{problem
-                    and <Alert variant="destructive" role="alert">
-                        <AlertDescription>{problem}</AlertDescription>
-                    </Alert>}{not problem
+            <div className="flex max-w-2xl flex-col gap-4">
+                {back}{alert}{not problem
                     and <p
                         role="status"
                         className="flex items-center gap-2 text-muted-foreground"
@@ -208,80 +196,52 @@ def:pub SupportRequestPage(request_id: str) -> JsxElement {
     request: dict[str, any] = found;  # jac:ignore[W1037]
     closed = request["status"] == "closed";
     return
-        <div className="flex max-w-3xl flex-col gap-4" data-testid="support-request">
-            {back}
-            <section className="flex flex-col gap-1">
-                <h2 className="break-words text-xl font-semibold">
-                    {f"{request['cinema']} · {request['category_label']}"}
-                </h2>
-                <p
-                    className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
-                >
+        <div
+            className="flex max-w-2xl flex-col gap-3 rounded-xl bg-card p-3 ring-1 ring-foreground/10 sm:p-4"
+            data-testid="support-request"
+        >
+            <div
+                className="flex flex-wrap items-center justify-between gap-2 border-b pb-3"
+            >
+                {back}
+                <div className="flex items-center gap-2">
                     <Badge variant="outline" data-testid="support-status">
                         {request["status_label"]}
                     </Badge>
-                    <AppLink
-                        to={f"/cinemas/{request['cinema_slug']}"}
-                        className="inline-flex min-h-11 items-center underline underline-offset-4"
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-11 px-3"
+                        disabled={busy}
+                        onClick={lambda { set_to("open" if closed else "closed"); }}
                     >
-                        The cinema's page
-                    </AppLink>
-                </p>
-            </section>
+                        {"Reopen" if closed else "Close"}
+                    </Button>
+                </div>
+            </div>
+            <div className="flex flex-col gap-0.5">
+                <h2 className="break-words font-semibold">
+                    {f"{request['cinema']} · {request['category_label']}"}
+                </h2>
+                <AppLink
+                    to={f"/cinemas/{request['cinema_slug']}"}
+                    className="inline-flex min-h-11 w-fit items-center text-sm text-muted-foreground underline underline-offset-4"
+                >
+                    The cinema's page
+                </AppLink>
+            </div>
             <SupportThread
                 messages={request["messages"]}
                 reader="africinemas"
                 cinema={request["cinema"]}
             />
-            <p
-                role="status"
-                aria-live="polite"
-                className="text-sm empty:hidden"
-                data-testid="support-message-sent"
-            >
-                {message}
-            </p>
-            {problem
-                and <Alert variant="destructive" role="alert">
-                    <AlertDescription>{problem}</AlertDescription>
-                </Alert>}
-            <form
-                className="flex flex-col gap-2 rounded-lg border bg-card p-4"
-                data-testid="support-reply"
-                onSubmit={submit_with(lambda { send(); })}
-            >
-                <TextField
+            {alert}
+            <div className="sticky bottom-0 border-t bg-card pt-3">
+                <ChatComposer
                     field_id="support-reply-text"
                     label="Reply to the cinema"
-                    value={text}
-                    on_value={set_text}
-                    multiline={True}
+                    on_send={send}
                 />
-                <div className="flex flex-wrap gap-2">
-                    <Button type="submit" className="min-h-11 px-5" disabled={busy}>
-                        {busy and <Spinner aria-hidden="true"/>}Send reply
-                    </Button>
-                    {not closed
-                        and <Button
-                            type="button"
-                            variant="outline"
-                            className="min-h-11 px-4"
-                            disabled={busy}
-                            onClick={lambda { set_to("closed", "Closed."); }}
-                        >
-                            Close request
-                        </Button>}
-                    {closed
-                        and <Button
-                            type="button"
-                            variant="outline"
-                            className="min-h-11 px-4"
-                            disabled={busy}
-                            onClick={lambda { set_to("open", "Reopened."); }}
-                        >
-                            Reopen
-                        </Button>}
-                </div>
-            </form>
+            </div>
         </div>;
 }

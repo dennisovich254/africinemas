@@ -18,10 +18,14 @@ AfriCinemas supports cinemas with technical problems, not cinemas' customers (Ph
    - **Waiting for the cinema:** we replied.
    - **Closed:** either side closed it. A reply reopens it.
 
-   The inbox shows one status at a time, Open first, each with its count.
+   The inbox shows one status at a time, Open first, each with its count. The cinema sees the same statuses from its side: "Waiting for AfriCinemas", "AfriCinemas replied", "Closed".
 5. **Each side's actions go to its own audit log.** The cinema's requests and replies go to the cinema's. Our replies, closes and reopens go to the platform's, recorded as being about the cinema, so they show in its history in the directory (ADR-0059).
 6. **Who wrote what:** the cinema sees "You" for its staff (with their email) and "AfriCinemas" for us, never which of us. We see the cinema's name and its staff member's email, and our own team's emails.
-7. **We see only what a cinema writes.** Support has no way into a cinema's bookings or customers. The form says never to include passwords, PINs or card numbers.
+7. **It's laid out like a messaging app** (owner, 2026-10-23: "like a normal chat, like WhatsApp").
+   - The cinema's Help is a list of conversations: each one's topic, last message and status, plus "New request". A conversation opens as a chat at `/app/<slug>/help/<id>`.
+   - In the chat, the reader's own messages are on the right in the accent colour and the other side's on the left, each with its time. The message box is at the bottom: Enter sends, Shift+Enter starts a new line.
+   - Our side, a request's page in the console, is the same chat, with Close or Reopen at the top.
+8. **We see only what a cinema writes.** Support has no way into a cinema's bookings or customers. The form says never to include passwords, PINs or card numbers.
 
 ## Consequences
 - **13.5b** emails the cinema when we reply, and lets a request include a screenshot.
