@@ -1,8 +1,8 @@
 """A cinema's public information (P14.3a, ADR-0066): what every storefront page shows.
 
 Set in the back office (Settings -> Website information) by staff who change the
-cinema's settings, shown to everyone on the cinema's storefront: in the strip under
-every page, which no design can leave out (web/storefront/PublicStrip.jac), directions
+cinema's settings, shown to everyone on the cinema's storefront: in the footer of
+every page, which no design can leave out (web/storefront/FooterInfo.jac), directions
 and parking where visitors plan their trip, and booking notes before they choose
 tickets. Plain text only, like the home page (§41): nothing with markup is kept, and
 links are built here from what's typed, never taken as typed:

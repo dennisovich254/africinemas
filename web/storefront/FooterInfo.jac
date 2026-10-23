@@ -1,11 +1,14 @@
-"""The strip under every storefront page (P14.3a, ADR-0066).
+"""The cinema's information inside the storefront's footer (P14.3a, ADR-0066).
 
-Drawn by StorefrontShell after everything else, whatever the cinema's design, the AI's
-included, so no design can leave it out: who runs the cinema and where, how to reach
-it (phone, email, WhatsApp, support hours), its social media, and "Tickets by
-AfriCinemas". The policy links, public documents (14.3b) and "Report this cinema"
-(14.6) join it. Every link was built on the server from what the cinema typed
-(core/catalog/site_info.jac), never taken as typed.
+Drawn by StorefrontShell inside the footer, whatever the cinema's design: in our own
+footer, and appended inside the footer the AI wrote (AiPart's `inside`), so no design
+can leave it out. Who runs the cinema and where, how to reach it (phone, email,
+WhatsApp, support hours) and its social media. The policy links, public documents
+(14.3b) and "Report this cinema" (14.6) join it. Every link was built on the server
+from what the cinema typed (core/catalog/site_info.jac), never taken as typed.
+
+It takes the footer's own colours (currentColor), so it reads as part of any design.
+Nothing shows for a cinema that hasn't filled it in.
 """
 
 import from "@hugeicons/react" { HugeiconsIcon }
@@ -39,7 +42,8 @@ def Line(icon: any, children: any = None) -> JsxElement {  # jac:ignore[W1037]
         </li>;
 }
 
-def:pub PublicStrip(cinema: str, info: any) -> JsxElement {  # jac:ignore[W1037]
+def:pub FooterInfo(cinema: str, info: any, tone: str = "") -> JsxElement {  # jac:ignore[W1037]
+    # `tone`: extra classes for its text colour; without, the footer's own.
     shown: dict[str, any] = info or {};  # jac:ignore[W1037]
     socials: list[dict[str, str]] = (shown["socials"] or []) if shown else [];
     phone: str = (shown["phone"] or "") if shown else "";
@@ -49,11 +53,16 @@ def:pub PublicStrip(cinema: str, info: any) -> JsxElement {  # jac:ignore[W1037]
     name: str = (shown["business_name"] or "") if shown else "";
     address: str = (shown["address"] or "") if shown else "";
     has_contact = phone or email or whatsapp or hours;
+    if not (name or address or has_contact or len(socials) > 0) {
+        return <span className="hidden" data-testid="footer-info"/>;
+    }
+    # basis-full and col-span-full: a full row inside an AI footer laid out as flex or grid.
     return
-        <aside
+        <section
             aria-label={f"About {cinema}"}
-            data-testid="public-strip"
-            className="border-t bg-card text-sm text-muted-foreground"
+            data-testid="footer-info"
+            className={"col-span-full w-full basis-full border-t border-current/15 text-sm "
+                + (tone or "text-current")}
         >
             <div
                 className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6 sm:flex-row sm:flex-wrap sm:justify-between"
@@ -61,11 +70,9 @@ def:pub PublicStrip(cinema: str, info: any) -> JsxElement {  # jac:ignore[W1037]
                 {(name or address)
                     and <div
                         className="flex min-w-0 flex-col gap-1"
-                        data-testid="strip-business"
+                        data-testid="info-business"
                     >
-                        <span className="font-medium text-foreground">
-                            {name or cinema}
-                        </span>
+                        <span className="font-medium">{name or cinema}</span>
                         {address
                             and <span className="flex items-start gap-2">
                                 <HugeiconsIcon
@@ -79,7 +86,7 @@ def:pub PublicStrip(cinema: str, info: any) -> JsxElement {  # jac:ignore[W1037]
                     </div>}{has_contact
                     and <ul
                         className="flex flex-col"
-                        data-testid="strip-contact"
+                        data-testid="info-contact"
                         aria-label="Contact"
                     >
                         {phone
@@ -110,7 +117,7 @@ def:pub PublicStrip(cinema: str, info: any) -> JsxElement {  # jac:ignore[W1037]
                     </ul>}{len(socials) > 0
                     and <ul
                         className="flex flex-wrap items-center gap-1"
-                        data-testid="strip-socials"
+                        data-testid="info-socials"
                         aria-label="Social media"
                     >
                         {[
@@ -120,7 +127,7 @@ def:pub PublicStrip(cinema: str, info: any) -> JsxElement {  # jac:ignore[W1037]
                                     target="_blank"
                                     rel="noreferrer"
                                     aria-label={f"{s['label']}: {s['handle']}"}
-                                    className="inline-flex size-11 items-center justify-center rounded-full hover:bg-muted"
+                                    className="inline-flex size-11 items-center justify-center rounded-full hover:bg-current/10"
                                 >
                                     <HugeiconsIcon
                                         icon={NETWORK_ICONS[s["network"]]}
@@ -133,8 +140,5 @@ def:pub PublicStrip(cinema: str, info: any) -> JsxElement {  # jac:ignore[W1037]
                         ]}
                     </ul>}
             </div>
-            <p className="border-t px-4 py-3 text-center text-xs">
-                Tickets by AfriCinemas
-            </p>
-        </aside>;
+        </section>;
 }

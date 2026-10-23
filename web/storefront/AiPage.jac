@@ -16,7 +16,7 @@ the template's stylesheet, so the AI's CSS never reaches our own pages (movie,
 checkout, tickets) between its header and footer.
 """
 
-import from react { createElement, useState, useEffect }
+import from react { createElement, cloneElement, useState, useEffect }
 
 # createElement for any tag the template names; its typed overloads expect one tag each.
 glob make: any = createElement;  # jac:ignore[W1037]
@@ -431,18 +431,21 @@ def _draw(fill: Fill, el: any, scope: dict[str, any], key: str) -> any {  # jac:
     return make(tag, props, kids);
 }
 
-def:pub AiPart(
+def:pub AiPart(  # jac:ignore[W3030] the part, its fillings and what we add
     slug: str,
     page: dict[str, str],
     part: str,
     cinema: str,
     logo: str = "",
     home: dict[str, any] | None = None,  # jac:ignore[W1037]
-    motifs: list[str] | None = None
+    motifs: list[str] | None = None,
+    inside: any = None  # jac:ignore[W1037]
 ) -> JsxElement {
     # One part of the written page (header, home or footer) inside the stylesheet's
     # wrapper; nothing when the template has no such part. `motifs` are the brand kit's
-    # masks as data URLs, single figure first.
+    # masks as data URLs, single figure first. `inside` is ours, added as the part's
+    # last child (the cinema's information in its footer, P14.3a), so it wears the
+    # part's own background.
     # Who's signed in, before anything returns (a hook runs on every render).
     mine = use_customer(slug);
     win: any = window;  # jac:ignore[W1037,W2001]
@@ -460,8 +463,12 @@ def:pub AiPart(
         motifs=motifs or [],
         signed_in=mine == "customer"
     );
+    drawn: any = _draw(fill, found, {}, part);  # jac:ignore[W1037]
+    if inside is not None and drawn is not None {
+        drawn = cloneElement(drawn, {}, drawn.props.children, inside);
+    }
     return
         <div className="ai-page" data-ai-part={part} data-testid={f"ai-{part}"}>
-            {_draw(fill, found, {}, part)}
+            {drawn}
         </div>;
 }

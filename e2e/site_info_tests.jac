@@ -2,8 +2,8 @@
 
 The owner fills Settings › Website information (business name, contact, WhatsApp, social
 media, directions, booking notes) and saves; a field with a problem says so beside it.
-On the cinema's own address a visitor sees the strip under every page, with the
-default design and with an AI-written one; "Getting here" on the Cinemas page and
+On the cinema's own address a visitor sees it in the footer of every page, with the
+default design and inside the footer an AI wrote; "Getting here" on the Cinemas page and
 "Good to know" before choosing tickets. Phone and desktop, no sideways scrolling.
 """
 
@@ -20,7 +20,7 @@ import from e2e.support.catalog { cinema_selling_tickets }
 import from e2e.support.designs { ai_designed }
 
 glob FORM: str = '[data-testid="site-info"]',
-     STRIP: str = '[data-testid="public-strip"]',
+     STRIP: str = 'footer [data-testid="footer-info"]',
      WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth",
      INFO: dict[str, any] = {  # jac:ignore[W1037]
          "business_name": "Nova Cinemas Ltd",
@@ -91,7 +91,7 @@ test "the owner fills Website information, and a problem shows beside its field"
     }
 }
 
-test "a visitor sees the strip on every page, and the visit and booking notes" {
+test "a visitor sees it in the footer of every page, and the visit and booking notes" {
     owner = cinema_selling_tickets();
     _saved(owner);
     store = store_url(owner["slug"]);
@@ -106,7 +106,7 @@ test "a visitor sees the strip on every page, and the visit and booking notes" {
                 page.wait_for_selector(STRIP);
                 strip = page.inner_text(STRIP);
                 assert "Nova Cinemas Ltd" in strip , f"{path}: {strip}";
-                assert "Tickets by AfriCinemas" in strip;
+                assert "Tickets by AfriCinemas" in page.inner_text("footer");
                 assert page.evaluate(WIDE_JS) <= 0 , f"{project} {path}: scrolls sideways";
             }
             page.goto(store + "/");
@@ -115,9 +115,7 @@ test "a visitor sees the strip on every page, and the visit and booking notes" {
                 == "tel:+254712345678";
             assert page.get_attribute(f'{STRIP} a[href^="https://wa.me/"]', "href")
                 == "https://wa.me/254798765432";
-            assert page.get_attribute(
-                f'{STRIP} [data-testid="strip-socials"] a', "href"
-            )
+            assert page.get_attribute(f'{STRIP} [data-testid="info-socials"] a', "href")
                 == "https://www.instagram.com/nova_cinemas";
             page.goto(store + "/cinemas");
             page.wait_for_selector('[data-testid="getting-here"]');
@@ -132,7 +130,7 @@ test "a visitor sees the strip on every page, and the visit and booking notes" {
     }
 }
 
-test "the strip shows under an AI-written design too" {
+test "under an AI-written design, it's inside the AI's footer" {
     owner = cinema_selling_tickets();
     _saved(owner);
     ai_designed(owner);
@@ -144,8 +142,11 @@ test "the strip shows under an AI-written design too" {
             ).new_page();
             page.goto(store_url(owner["slug"]) + "/");
             page.wait_for_selector('[data-testid="ai-header"]');
-            page.wait_for_selector(STRIP);
-            assert "Nova Cinemas Ltd" in page.inner_text(STRIP);
+            info = '[data-testid="ai-footer"] [data-testid="footer-info"]';
+            page.wait_for_selector(info);
+            assert "Nova Cinemas Ltd" in page.inner_text(info);
+            # One footer: nothing of ours below the AI's.
+            assert page.locator('[data-testid="footer-info"]').count() == 1;
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
             page.context.close();
         }

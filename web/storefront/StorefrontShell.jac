@@ -21,7 +21,8 @@ spacing from them. Without a design the storefront keeps the platform's look.
 The header (P4.1d) has the cinema's name or logo; Movies, Showtimes and Cinemas;
 search; Sign in or My tickets (AccountLinks.jac, P8.6c); a venue picker when the cinema has more than one venue; and Book tickets. On
 phones the links and the picker move into a menu sheet, and search and Book stay in
-view. The footer links to the storefront's pages by topic.
+view. The footer links to the storefront's pages by topic, and carries the cinema's
+information (FooterInfo.jac, P14.3a), as the AI's footer does too.
 """
 
 import from react { useState, useEffect }
@@ -39,7 +40,7 @@ import from ...components.ui.sheet {
     SheetClose
 }
 import from .KitMark { KitMark }
-import from .PublicStrip { PublicStrip }
+import from .FooterInfo { FooterInfo }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppLink { AppLink }
 import from core.theming.branding_api { public_branding }
@@ -184,7 +185,7 @@ def:pub StorefrontShell(
 ) -> JsxElement {
     [branding, set_branding] = useState(None);
     [cinema, set_cinema] = useState(None);
-    # The cinema's public information, for the strip under every page (P14.3a).
+    # The cinema's public information, for the footer of every page (P14.3a).
     [info, set_info] = useState(None);
     [missing, set_missing] = useState(False);
     [venues, set_venues] = useState([]);
@@ -324,8 +325,7 @@ def:pub StorefrontShell(
                         part="header"
                         cinema={place["name"]}
                         logo={look["logo"]}
-                    />}
-                {written is None
+                    />}{written is None
                     and <div className="sticky top-0 z-30">
                         <header
                             data-testid="storefront-header"
@@ -443,8 +443,7 @@ def:pub StorefrontShell(
                                 </Sheet>
                             </div>
                         </header>
-                    </div>}
-                {written is not None
+                    </div>}{written is not None
                     and home is not None
                     and <AiPart
                         slug={slug}
@@ -454,23 +453,22 @@ def:pub StorefrontShell(
                         cinema={place["name"]}
                         logo={look["logo"]}
                         home={home}
-                    />}
-                {our_main
+                    />}{our_main
                     and <main
                         className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8"
                     >
                         {children}
-                    </main>}
-                {chat and <ChatLauncher slug={slug} cinema={place["name"]}/>}
-                {written is not None
+                    </main>}{chat
+                    and <ChatLauncher slug={slug} cinema={place["name"]}/>}{written
+                    is not None
                     and <AiPart
                         slug={slug}
                         page={written}
                         motifs={kit_masks(kit)}
                         part="footer"
                         cinema={place["name"]}
-                    />}
-                {written is None
+                        inside={<FooterInfo cinema={place["name"]} info={info}/>}
+                    />}{written is None
                     and <footer className="border-t bg-card">
                         <div
                             className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 text-sm text-muted-foreground sm:grid-cols-3"
@@ -498,6 +496,11 @@ def:pub StorefrontShell(
                                 ]}
                             />
                         </div>
+                        <FooterInfo
+                            cinema={place["name"]}
+                            info={info}
+                            tone="text-muted-foreground"
+                        />
                         <div
                             className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 border-t px-4 py-4 text-sm text-muted-foreground"
                         >
@@ -507,9 +510,9 @@ def:pub StorefrontShell(
                                 <KitMark className="kit-sign"/>
                                 {place["name"]}
                             </span>
+                            <span>Tickets by AfriCinemas</span>
                         </div>
                     </footer>}
-                <PublicStrip cinema={place["name"]} info={info}/>
             </div>
         </ThemeProvider>;
 }

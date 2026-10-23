@@ -1,8 +1,8 @@
 """A cinema's public information on its storefront pages (P14.3a).
 
 use_site_info loads it (public_site_info) for pages that show part of it: the Cinemas
-page's directions and parking, and a showtime's booking notes (GoodToKnow). The strip
-under every page gets it with the storefront's branding instead (PublicStrip).
+page's directions and parking, and a showtime's booking notes (GoodToKnow). The footer
+of every page gets it with the storefront's branding instead (FooterInfo).
 """
 
 import from react { useState, useEffect }
