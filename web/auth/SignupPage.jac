@@ -10,6 +10,7 @@ import from ...components.ui.spinner { Spinner }
 import from .AuthLayout { AuthLayout, AuthFooter, EmailField, FormError }
 import from .PasswordField { PasswordField }
 import from .session { sign_up, next_path, use_staff_session }
+import from core.accounts.email_verification { send_email_check }  # jac:ignore[W2037] authenticated endpoint
 
 glob PASSWORD_MIN: int = 8;
 
@@ -47,7 +48,13 @@ def:pub SignupPage -> JsxElement {
         if problem {
             set_error(problem);
         } else {
-            nav(invited or "/app/new");
+            # The link to confirm the email goes now (P14.2); Your cinemas says what's next.
+            try {
+                await send_email_check(email);  # jac:ignore[W2037]
+            } except Exception as err {
+                console.warn("send_email_check failed", err);
+            }
+            nav(invited or "/app");
         }
     }
     return

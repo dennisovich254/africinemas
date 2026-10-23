@@ -5,6 +5,7 @@ a random suffix (`unique`) and an `e2e-` prefix.
 """
 
 import os;
+import from pathlib { Path }
 import json;
 import time;
 import uuid;
@@ -41,7 +42,54 @@ def register(email: str) -> str {
         }
     );
     assert status == 200 , f"login {email}: {status} {body}";
-    return str(body["data"]["token"]);
+    token = str(body["data"]["token"]);
+    # Staff confirm their email before creating a cinema (P14.2), the real way.
+    confirm_email_of(email, token);
+    return token;
+}
+
+def outbox_link(to: str, marker: str) -> str {
+    # The last link containing `marker` in an email to `to` in the test server's outbox
+    # (scripts/e2e_env.sh: its mail job runs every 2 seconds), waiting for it to arrive.
+    import from email { message_from_string }
+    folder = Path(os.environ.get("AFRICINEMAS_OUTBOX_DIR", "e2e/artifacts/outbox"));
+    for _ in range(60) {
+        found = "";
+        for f in (sorted(folder.glob("*.eml")) if folder.exists() else []) {
+            message = message_from_string(f.read_text(errors="replace"));
+            if to not in str(message["To"] or "") {
+                continue;
+            }
+            for part in message.walk() {
+                if part.get_content_type() == "text/plain" {
+                    raw: any = part.get_payload(decode=True);  # jac:ignore[W1037]
+                    text = bytes(raw).decode(errors="replace");
+                    for word in text.split() {
+                        if marker in word {
+                            found = word;
+                        }
+                    }
+                }
+            }
+        }
+        if found {
+            return found;
+        }
+        time.sleep(0.5);
+    }
+    raise AssertionError(f"no email to {to} with {marker}");
+}
+
+def confirm_email_of(email: str, token: str) {
+    # Asks for the link, then follows it, as the owner would.
+    sent = call(token, "send_email_check", {"email": email});
+    assert sent["ok"] , sent;
+    if sent["confirmed"] {
+        return;
+    }
+    link = outbox_link(email, "/verify-email#");
+    confirmed = call("", "confirm_email", {"token": link.split("#", 1)[1]});
+    assert confirmed["ok"] , confirmed;
 }
 
 def platform_name(email: str) -> str {

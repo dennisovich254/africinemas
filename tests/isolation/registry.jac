@@ -37,6 +37,22 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"host": "nova.localhost:8000"}
          },
          "create_cinema": {"scope": "caller", "audit": "cinema.created"},
+         # Confirming a staff account's email (P14.2): the caller's own, or a link's.
+         "send_email_check": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {"email": "owner@example.com"}
+         },
+         "confirm_email": {
+             "scope": "public",
+             "audit": "",
+             "probe": {"token": "made-up-token"}
+         },
+         "email_status": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {"email": "owner@example.com"}
+         },
          "my_cinemas": {"scope": "caller", "audit": ""},
          # The AfriCinemas platform console (P13.1): its actions go to the platform's own
          # log, never a cinema's.

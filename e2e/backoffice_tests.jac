@@ -21,7 +21,8 @@ import from e2e.support.api {
     call,
     owner_with_cinema,
     add_venue,
-    add_staff
+    add_staff,
+    outbox_link
 }
 
 glob SIDEBAR: str = '[data-testid="shell-sidebar"]',
@@ -132,10 +133,28 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
         for project in PROJECTS {
             page = _page(browser, pw, project);
             page.goto(BASE_URL + "/signup");
-            _type(page, "#email", email_for(unique("signup")));
+            email = email_for(unique("signup"));
+            _type(page, "#email", email);
             _type(page, "#password", PASSWORD);
             page.click('button[type="submit"]');
-            page.wait_for_url("**/app/new");
+            # Your cinemas, asking for the emailed link first (P14.2).
+            page.wait_for_url("**/app");
+            page.wait_for_selector('[data-testid="email-check"]');
+            assert email in page.inner_text('[data-testid="email-check"]');
+            page.screenshot(
+                path=artifact(f"email-check-{project}.png"), full_page=True
+            );
+            # The link from the email (the server's outbox in tests) confirms it.
+            # Opened where this test signed in (127.0.0.1): the link names the site's
+            # own address (localhost), another site to the browser.
+            link = outbox_link(email, "/verify-email#");
+            page.goto(BASE_URL + "/verify-email#" + link.split("#", 1)[1]);
+            page.wait_for_selector('[data-testid="email-confirmed"]');
+            assert "#" not in page.url , page.url;
+            page.click('a:has-text("Go to your cinemas")');
+            page.wait_for_url("**/app");
+            page.wait_for_selector('[data-testid="email-check"]', state="detached");
+            page.goto(BASE_URL + "/app/new");
             slug = unique("wizard");
             _type(page, "#cinema-name", "Westgate Cinemas");
             _type(page, "#cinema-slug", slug);
@@ -216,7 +235,12 @@ test "an account made in the browser can sign out and sign back in" {
             _type(page, "#email", email);
             _type(page, "#password", PASSWORD);
             page.click('button[type="submit"]');
-            page.wait_for_url("**/app/new");
+            # Your cinemas; the emailed link confirms the email (P14.2), then the wizard.
+            page.wait_for_url("**/app");
+            link = outbox_link(email, "/verify-email#");
+            page.goto(BASE_URL + "/verify-email#" + link.split("#", 1)[1]);
+            page.wait_for_selector('[data-testid="email-confirmed"]');
+            page.goto(BASE_URL + "/app/new");
             _type(page, "#cinema-name", "Round Trip Cinema");
             _type(page, "#cinema-slug", unique("again"));
             page.click('button[type="submit"]');

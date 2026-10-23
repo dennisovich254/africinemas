@@ -55,6 +55,7 @@ import from .ReportsSection { ReportsSection }
 import from .StaffHome { StaffHome }
 import from .AuditSection { AuditSection }
 import from .HelpSection { HelpSection }
+import from ..auth.EmailCheck { EmailCheckBanner }
 import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
 import from .MovieEditor { MovieEditor }
@@ -411,20 +412,24 @@ def:pub BackOffice -> JsxElement {
                 {section != ""
                     and <p className="-mt-3 text-sm text-muted-foreground">
                         {web_address(slug)}
-                    </p>}{not shift_open
+                    </p>}
+                {not shift_open
                     and allowed
                     and <ShiftBanner
                         busy={starting}
                         failed={start_failed}
                         on_start={begin_shift}
-                    />}{shift_open
+                    />}
+                {shift_open
                     and allowed
                     and "venues.configure" in permissions
                     and <SetupGuide
                         slug={slug}
                         section={section}
                         page={f"{section}/{item}"}
-                    />}{content}
+                    />}
+                <EmailCheckBanner/>
+                {content}
             </AppShell>
         </ThemeProvider>;
 }
