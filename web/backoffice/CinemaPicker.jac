@@ -20,6 +20,7 @@ import from core.tenancy.signup { my_cinemas }  # jac:ignore[W2037] authenticate
 import from .nav { web_address, role_label }
 import from .PlainLayout { PlainLayout, AccountActions }
 import from ..auth.session { sign_out }
+import from ..auth.EmailCheck { EmailCheckBanner }
 
 def CinemaLink(cinema: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     return
@@ -152,6 +153,7 @@ def:pub CinemaPicker -> JsxElement {
     }
     return
         <PlainLayout title="Your cinemas" account={<AccountActions slugs={slugs}/>}>
+            <EmailCheckBanner/>
             {body}
         </PlainLayout>;
 }

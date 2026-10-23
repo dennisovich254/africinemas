@@ -54,6 +54,7 @@ import from core.tenancy.principal {
 import from core.audit.log { record }
 import from core.tenancy.storefront_accounts { cinema_of_account }
 import from core.platform.accounts { account_email as platform_account_email }
+import from core.accounts.email_verification { is_confirmed }
 
 glob SLUG_HOLD_ENV: str = "AFRICINEMAS_SIGNUP_SLUG_HOLD_S",
      SLUG_HOLD_DEFAULT_S: int = 900;
@@ -234,6 +235,17 @@ def:protect create_cinema(
         return _refused(
             "customer_account",
             "This is a cinema's customer account. Create a cinema with a staff account."
+        );
+    }
+    # A new cinema's owner has confirmed their email (P14.2): the one they sign in with,
+    # which the page sends and verified_sign_in checks is theirs.
+    owner_email = verified_sign_in(email) if email else "";
+    if owner_email
+        and "@" in owner_email
+        and not is_confirmed(node_id(root), owner_email) {
+        return _refused(
+            "email_unverified",
+            "Confirm your email first: we sent you a link. You can send a new one from Your cinemas."
         );
     }
     # Nor can an AfriCinemas platform account, which belongs to the platform (P13.1b.a).

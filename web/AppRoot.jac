@@ -35,6 +35,7 @@ import from .oauth.AuthorizePage { AuthorizePage }
 import from .storefront.MoviesPage { MoviesPage }
 import from .storefront.CinemasPage { CinemasPage }
 import from .auth.InvitePage { InvitePage }
+import from .auth.EmailCheck { VerifyEmailPage }
 import from .platform.PlatformConsole { PlatformConsole }
 import from .platform.PlatformAuthPages { PlatformSignInPage, PlatformJoinPage }
 import from .auth.token_slots { install_token_slots }
@@ -172,6 +173,7 @@ def MainSite(own_addresses: bool) -> JsxElement {
                 <Route path="/design-system/:section" element={<DesignSystemPage/>}/>
                 <Route path="/login" element={<LoginPage/>}/>
                 <Route path="/signup" element={<SignupPage/>}/>
+                <Route path="/verify-email" element={<VerifyEmailPage/>}/>
                 {own_addresses and <Route path="/c/:slug/*" element={<OnOwnAddress/>}/>}
                 {own_addresses and <Route path="/c/:slug" element={<OnOwnAddress/>}/>}
                 {own_addresses

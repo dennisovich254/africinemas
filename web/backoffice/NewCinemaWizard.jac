@@ -163,7 +163,10 @@ def:pub NewCinemaWizard -> JsxElement {
         }
         set_busy(False);
         code = result["error"]["code"];
-        if code == "invalid_name" {
+        if code == "email_unverified" {
+            # Not the slug's fault (P14.2): the owner's email isn't confirmed yet.
+            set_failed(result["error"]["message"]);
+        } elif code == "invalid_name" {
             set_name_error(result["error"]["message"]);
             name_input.current.focus();
         } else {

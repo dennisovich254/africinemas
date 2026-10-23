@@ -148,6 +148,18 @@ def:pub t_send_support_mail -> int {
     return send_support_due();
 }
 
+# Confirming a staff account's email (P14.2), and a test-only way to send the links.
+import from core.accounts.email_verification {
+    send_email_check,  # jac:ignore[W2037]
+    confirm_email,
+    email_status,  # jac:ignore[W2037]
+    send_checks_due
+}
+
+def:pub t_send_email_checks -> int {
+    return send_checks_due();
+}
+
 # The platform overview (P13.4).
 import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037]
 # The platform's cinemas directory (P13.2).
