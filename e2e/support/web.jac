@@ -25,6 +25,10 @@ glob BASE_URL: str = os.environ.get("E2E_BASE_URL", "http://127.0.0.1:8870"),
      PLATFORM_URL: str = re.sub(
          r"//(127\.0\.0\.1|localhost)", "//admin.localhost", BASE_URL, count=1
      ),
+     # The main site's own address (P13.1b.c): localhost, the domain the test server's
+     # sites live under (AFRICINEMAS_SITE_DOMAIN, scripts/e2e_env.sh). BASE_URL, on
+     # 127.0.0.1, is every site under /c/<slug>, as before the split.
+     MAIN_URL: str = re.sub(r"//127\.0\.0\.1", "//localhost", BASE_URL, count=1),
      ARTIFACTS: Path = Path(__file__).resolve().parent.parent / "artifacts",
      PROJECTS: list[str] = ["mobile", "desktop"],
      _SESSION_ATTR: str = "_africinemas_e2e_session",
@@ -149,4 +153,9 @@ def painted_color(page: any, selector: str) -> str {  # jac:ignore[W1037]
     );
     png = page.screenshot(clip={"x": point[0], "y": point[1], "width": 1, "height": 1});
     return _png_pixel(png);
+}
+
+def store_url(slug: str) -> str {
+    # A cinema's storefront on its own address (P13.1b.c): <slug>.localhost.
+    return MAIN_URL.replace("//localhost", f"//{slug}.localhost", 1);
 }

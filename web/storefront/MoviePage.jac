@@ -13,6 +13,7 @@ import from .venue_choice { use_title }
 import from .StorefrontParts { Poster, Backdrop, ShowtimeLink }
 import from .showtimes { details_line, by_day }
 import from .TrailerPlayer { TrailerPlayer }
+import from ..site { with_site_slug }
 
 def DayGroup(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:ignore[W1037]
     # One day's showtimes, under the day's name.
@@ -37,7 +38,7 @@ def DayGroup(slug: str, group: dict[str, any], tz: str) -> JsxElement {  # jac:i
 }
 
 def:pub MoviePage -> JsxElement {
-    params: any = useParams();  # jac:ignore[W1037,W1051]
+    params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     movie_key: str = params["movie"] or "";
     [page, set_page] = useState(None);

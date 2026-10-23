@@ -12,9 +12,10 @@ import from .StorefrontShell { StorefrontShell, HomeSkeleton, LoadError }
 import from .HomeSections { NowShowing, ComingSoon }
 import from .venue_choice { use_venue, use_title, scroll_to_hash }
 import from .showtimes { listed }
+import from ..site { with_site_slug }
 
 def:pub MoviesPage -> JsxElement {
-    params: any = useParams();  # jac:ignore[W1037,W1051]
+    params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     [home, set_home] = useState(None);
     [failed, set_failed] = useState(False);

@@ -15,6 +15,7 @@ YouTube trailer. Nobody signs in: an MCP client browses as the storefront does.
   one at a time from movie_poster.
 """
 
+import from core.site { storefront_address }
 import io;
 import os;
 import json;
@@ -131,7 +132,9 @@ test "show_movie answers the card and the model, with nothing private" {
             # The trailer's own page, which the card opens through the host.
             assert card["trailer_url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
             assert "trailer_embed" not in card;
-            assert card["book_url"].endswith(f"/c/nova/m/{key}") , card["book_url"];
+            # On the cinema's own address (P13.1b.c; tests/unit/site_tests.jac).
+            wanted = storefront_address("nova", f"/m/{key}");
+            assert card["book_url"] == wanted , card["book_url"];
             # The poster is for the card only: in _meta, not in what the model reads.
             assert got["_meta"]["africinemas/poster"].startswith(
                 "data:image/webp;base64,"

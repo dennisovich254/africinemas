@@ -14,6 +14,7 @@ office, another cinema or another site.
 import from "@jac/runtime" { jacLogin }
 import from core.tenancy.storefront_accounts { customer_sign_up }
 import from ..auth.session { safe_next }
+import from ..site { local_path, current_site }
 
 def:pub customer_identity(slug: str, email: str) -> dict[str, str] {
     address = email.strip().lower();
@@ -27,15 +28,20 @@ def:pub old_customer_identity(slug: str, email: str) -> dict[str, str] {
 
 def:pub back_to(slug: str, wanted: str) -> str {
     # Where to go after signing in: `wanted` when it's this cinema's page or an app's
-    # consent page, else the customer's tickets here.
+    # consent page, else the customer's tickets here; as this page's own path on the
+    # cinema's own address (P13.1b.c).
     checked = safe_next(wanted);
     path = checked.split("?")[0];
     if path == f"/c/{slug}"
         or path.startswith(f"/c/{slug}/")
         or path.startswith("/oauth/authorize") {
+        return local_path(checked);
+    }
+    if current_site() == "storefront" and checked.startswith("/") {
+        # Already this address's own path: the whole address is this cinema's.
         return checked;
     }
-    return f"/c/{slug}/my-tickets";
+    return local_path(f"/c/{slug}/my-tickets");
 }
 
 def:pub asked_next -> str {

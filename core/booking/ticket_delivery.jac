@@ -19,6 +19,7 @@ the ticket email and resending it.
 
 import os;
 import math;
+import from core.site { storefront_address }
 import from core.claims { claim, release, make_permanent, claims_in, holder }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { open_cinema, tenant_by_id }
@@ -161,7 +162,6 @@ def booking_view(cinema: Tenant, order: Order) -> dict[str, any] {  # jac:ignore
 
 def _mail_for(cinema: Tenant, order: Order, address: str) -> TicketMail {
     view = booking_view(cinema, order);
-    base = os.environ.get(PUBLIC_URL_ENV, "").strip().rstrip("/") or DEFAULT_PUBLIC_URL;
     place = " · ".join(
         [
             p
@@ -178,7 +178,10 @@ def _mail_for(cinema: Tenant, order: Order, address: str) -> TicketMail {
         timezone=view["timezone"],
         place=place,
         order_reference=order.reference,
-        link=f"{base}{link_path(cinema, order)}",
+        # On the cinema's own address (P13.1b.c), or /c/<slug> on a tunnel.
+        link=storefront_address(
+            cinema.slug, f"/tickets/{link_token(node_id(cinema), node_id(order))}"
+        ),
         snacks=[
             f"{s['quantity']} × {s['name']}"
                 + (

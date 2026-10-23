@@ -17,9 +17,10 @@ import from .showtimes { long_day_label, time_label }
 import from .PayPanel { TicketCard, PickupCard }
 import from .TicketDelivery { TicketDelivery }
 import from ..shell.AppLink { AppLink }
+import from ..site { with_site_slug }
 
 def:pub TicketsPage -> JsxElement {
-    params: any = useParams();  # jac:ignore[W1037,W1051]
+    params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     token: str = params["token"] or "";
     [page, set_page] = useState(None);
