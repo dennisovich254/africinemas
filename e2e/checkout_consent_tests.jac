@@ -65,14 +65,16 @@ test "above Pay, the notice links to the policies, and the offers box starts unt
     _ready(owner);
     (pw, browser) = shared_browser();
     try {
-        for project in PROJECTS {
+        for (n, project) in enumerate(PROJECTS) {
             page = browser.new_context(
                 **context_options(pw, project, "light")
             ).new_page();
+            # Each run its own two seats: the last run's are still held.
+            (first, second) = (f"A{2 * n + 1}", f"A{2 * n + 2}");
             page.goto(f"{BASE_URL}/c/{owner['slug']}/s/{owner['show']}");
-            page.wait_for_selector(_seat("A1"));
-            _press(page, project, _seat("A1"));
-            _press(page, project, _seat("A2"));
+            page.wait_for_selector(_seat(first));
+            _press(page, project, _seat(first));
+            _press(page, project, _seat(second));
             _press(page, project, '[data-testid="hold-seats"]');
             # The order is priced before Pay works (as in payment_tests).
             page.wait_for_function(
@@ -131,7 +133,8 @@ test "signing up shows the notice, and My account has the offers choice" {
             );
             page.wait_for_selector("#account-offers");
             assert page.is_checked("#account-offers");
-            page.uncheck("#account-offers");
+            # Not uncheck(): the box changes once the cinema has answered.
+            page.click("#account-offers");
             page.wait_for_function(
                 "!document.querySelector('#account-offers').checked && !document.querySelector('#account-offers').disabled"
             );
