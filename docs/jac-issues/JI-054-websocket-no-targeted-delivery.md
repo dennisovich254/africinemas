@@ -3,7 +3,7 @@
 - **Version:** jaclang 0.38.0
 - **Found:** 2026-10-23, P13.5a (live updates for cinemas' help chats)
 - **Kind:** feature request, not a bug
-- **Status:** open, to report upstream after Phase 13 (owner, 2026-10-23); we check for new messages every few seconds instead
+- **Status:** reported, [jaseci-labs/jac#10319](https://github.com/jaseci-labs/jac/issues/10319) (2026-10-23, after Phase 13 as the owner asked); we check for new messages every few seconds instead
 
 ## What we wanted
 In a support chat between a cinema and AfriCinemas, a new message should reach the other side at once. When AfriCinemas replies to Anga, only Anga's staff should get it, never another cinema's.
