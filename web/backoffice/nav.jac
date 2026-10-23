@@ -32,7 +32,9 @@ glob SUFFIX: str = ".africinemas.co.ke",
          ("staff", "Staff", "employees.read"),
          # Who changed what (P7.2, P7.3): owners and auditors.
          ("audit", "Audit log", "audit.read"),
-         ("settings", "Settings", "tenant.settings.update")
+         ("settings", "Settings", "tenant.settings.update"),
+         # Asking AfriCinemas for technical help (P13.5a).
+         ("help", "Help", "support.request")
      ];
 
 def:pub web_address(slug: str) -> str {

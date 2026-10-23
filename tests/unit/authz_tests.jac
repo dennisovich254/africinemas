@@ -72,7 +72,8 @@ glob READS: set[str] = {
              "employees.invite",
              "employees.disable",
              "employees.assign_roles",
-             "tenant.settings.update"
+             "tenant.settings.update",
+             "support.request"
          }
              | SNACK_MANAGERS,
          "general_manager": {
@@ -91,7 +92,8 @@ glob READS: set[str] = {
              "tickets.scan",
              "payments.read",
              "financial_reports.read",
-             "employees.read"
+             "employees.read",
+             "support.request"
          }
              | SNACK_MANAGERS,
          "finance_manager": {
@@ -102,7 +104,8 @@ glob READS: set[str] = {
              "payments.refund",
              "payments.reconcile",
              "financial_reports.read",
-             "concessions.read"
+             "concessions.read",
+             "support.request"
          },
          "box_office_manager": {
              "movies.read",

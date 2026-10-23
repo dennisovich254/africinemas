@@ -181,6 +181,16 @@ import from core.platform.audit_api {
     platform_audit_log,  # jac:ignore[W2037]
     platform_signed_in  # jac:ignore[W2037]
 }
+# Technical support for cinemas (P13.5a): their requests, and our inbox.
+import from core.support.requests {
+    ask_for_help,  # jac:ignore[W2037]
+    support_requests,  # jac:ignore[W2037]
+    reply_to_support,  # jac:ignore[W2037]
+    platform_support_requests,  # jac:ignore[W2037]
+    platform_support_request,  # jac:ignore[W2037]
+    platform_support_reply,  # jac:ignore[W2037]
+    platform_support_status  # jac:ignore[W2037]
+}
 # The platform overview (P13.4).
 import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037]
 # The platform's cinemas directory (P13.2).

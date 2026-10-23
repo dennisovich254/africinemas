@@ -54,6 +54,7 @@ import from .StaffSection { StaffSection }
 import from .ReportsSection { ReportsSection }
 import from .StaffHome { StaffHome }
 import from .AuditSection { AuditSection }
+import from .HelpSection { HelpSection }
 import from .SnackCounterSection { SnackCounterSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
@@ -372,6 +373,8 @@ def:pub BackOffice -> JsxElement {
         content = <ReportsSection slug={slug} shift_open={shift_open}/>;
     } elif section == "audit" {
         content = <AuditSection slug={slug} shift_open={shift_open}/>;
+    } elif section == "help" {
+        content = <HelpSection slug={slug} shift_open={shift_open} item={item}/>;
     } elif section == "settings" {
         content = <SettingsPage
             slug={slug}

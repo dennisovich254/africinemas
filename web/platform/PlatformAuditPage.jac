@@ -31,7 +31,10 @@ glob PAGE: int = 25,
          ("platform.joined", "Joined the platform"),
          ("platform.staff_invited", "Invited to the platform"),
          ("platform.staff_role_set", "Platform role changed"),
-         ("platform.staff_removed", "Removed from the platform")
+         ("platform.staff_removed", "Removed from the platform"),
+         ("platform.support_replied", "Replied to a help request"),
+         ("platform.support_closed", "Closed a help request"),
+         ("platform.support_reopened", "Reopened a help request")
      ],
      COLUMNS: list[dict[str, str]] = [
          {"key": "when", "label": "When"},
