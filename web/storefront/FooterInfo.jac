@@ -3,8 +3,8 @@
 Drawn by StorefrontShell inside the footer, whatever the cinema's design: in our own
 footer, and appended inside the footer the AI wrote (AiPart's `inside`), so no design
 can leave it out. Who runs the cinema and where, how to reach it (phone, email,
-WhatsApp, support hours) and its social media. The policy links, public documents
-(14.3b) and "Report this cinema" (14.6) join it. Every link was built on the server
+WhatsApp, support hours), its social media and links to its published policies
+(P14.3b). Public documents (14.3d) and "Report this cinema" (14.6) join it. Every link was built on the server
 from what the cinema typed (core/catalog/site_info.jac), never taken as typed.
 
 Two quiet rows: who and where (with the socials), then how to reach it. It takes the
@@ -13,6 +13,7 @@ part of any design. Nothing shows for a cinema that hasn't filled it in.
 """
 
 import from "@hugeicons/react" { HugeiconsIcon }
+import from ..site { local_path }
 import from "@hugeicons/core-free-icons" {
     Call02Icon,
     Mail01Icon,
@@ -45,7 +46,13 @@ def Reach(icon: any, children: any = None) -> JsxElement {  # jac:ignore[W1037]
         </li>;
 }
 
-def:pub FooterInfo(cinema: str, info: any, framed: bool = False) -> JsxElement {  # jac:ignore[W1037]
+def:pub FooterInfo(
+    slug: str,
+    cinema: str,
+    info: any,  # jac:ignore[W1037]
+    policies: list[dict[str, str]] | None = None,
+    framed: bool = False
+) -> JsxElement {
     # `framed`: in our own footer, with its own width and a rule above; in an AI's
     # footer, inside its container and in its colours.
     shown: dict[str, any] = info or {};  # jac:ignore[W1037]
@@ -57,7 +64,8 @@ def:pub FooterInfo(cinema: str, info: any, framed: bool = False) -> JsxElement {
     name: str = (shown["business_name"] or "") if shown else "";
     address: str = (shown["address"] or "") if shown else "";
     has_contact = phone or email or whatsapp or hours;
-    if not (name or address or has_contact or len(socials) > 0) {
+    pages: list[dict[str, str]] = policies or [];
+    if not (name or address or has_contact or len(socials) > 0 or len(pages) > 0) {
         return <span className="hidden" data-testid="footer-info"/>;
     }
     frame = "mx-auto max-w-5xl border-t px-4 py-6 text-muted-foreground"
@@ -152,6 +160,24 @@ def:pub FooterInfo(cinema: str, info: any, framed: bool = False) -> JsxElement {
                         and <Reach icon={Clock01Icon}>
                             <span>{hours}</span>
                         </Reach>}
+                </ul>}
+            {len(pages) > 0
+                and <ul
+                    className="flex flex-wrap items-center gap-x-6"
+                    data-testid="info-policies"
+                    aria-label="Policies"
+                >
+                    {[
+                        <li key={p["kind"]}>
+                            <a
+                                href={local_path(f"/c/{slug}/policies/{p['kind']}")}
+                                style={INHERIT}
+                                className={LINK}
+                            >
+                                {p["title"]}
+                            </a>
+                        </li> for p in pages
+                    ]}
                 </ul>}
         </section>;
 }

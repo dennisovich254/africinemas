@@ -57,6 +57,7 @@ import from .AuditSection { AuditSection }
 import from .HelpSection { HelpSection }
 import from ..auth.EmailCheck { EmailCheckBanner }
 import from .SiteInfoSection { SiteInfoSection }
+import from .PoliciesSection { PoliciesSection }
 import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
 import from .MovieEditor { MovieEditor }
@@ -160,12 +161,14 @@ def SettingsPage(
 ) -> JsxElement {
     # Settings: Branding (/app/:slug/settings), the home page
     # (/app/:slug/settings/home-page, P4.1b), the website information
-    # (/app/:slug/settings/website, P14.3a) and the AI chat connector
+    # (/app/:slug/settings/website, P14.3a), the policies
+    # (/app/:slug/settings/policies, P14.3b) and the AI chat connector
     # (/app/:slug/settings/ai-chat, P8.3), as tabs.
     tabs = [
         ("", "Branding"),
         ("home-page", "Home page"),
         ("website", "Website information"),
+        ("policies", "Policies"),
         ("ai-chat", "AI chat")
     ];
     return
@@ -199,7 +202,12 @@ def SettingsPage(
                     <h2 className="text-xl font-semibold">Website information</h2>
                     <SiteInfoSection slug={slug}/>
                 </div>}
-            {tab not in ["home-page", "ai-chat", "website"] and branding}
+            {tab == "policies"
+                and <div className="flex flex-col gap-6">
+                    <h2 className="text-xl font-semibold">Policies</h2>
+                    <PoliciesSection slug={slug}/>
+                </div>}
+            {tab not in ["home-page", "ai-chat", "website", "policies"] and branding}
         </div>;
 }
 

@@ -165,6 +165,19 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "site_info.saved",
              "probe": {"tenant": "{tenant}", "info": {"business_name": "Probe"}}
          },
+         # The cinema's policies (P14.3b): its staff who change settings.
+         "policies": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
+         "save_policy": {
+             "scope": "tenant",
+             "audit": "policy.saved",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "kind": "terms",
+                 "text": "Probe",
+                 "published": False,
+                 "reviewed": False
+             }
+         },
          # A pass for the cinema's own team to preview its storefront (P14.1).
          "storefront_preview": {
              "scope": "tenant",
@@ -990,6 +1003,12 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "storefront",
              "audit": "",
              "probe": {"slug": "{tenant}"}
+         },
+         # A cinema's published policy (P14.3b): its public storefront's.
+         "public_policy": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "kind": "terms"}
          },
          "public_venues": {
              "scope": "storefront",
