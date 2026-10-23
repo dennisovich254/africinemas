@@ -50,12 +50,7 @@ def:pub PlatformSignInPage -> JsxElement {
         }
     }
     return
-        <AuthLayout
-            title="Sign in"
-            description="For the AfriCinemas team. Joining is by invitation only."
-            home={HOME}
-            brand={BRAND}
-        >
+        <AuthLayout title="Sign in" description="" home={HOME} brand={BRAND}>
             <form onSubmit={submit} noValidate={True} data-testid="platform-sign-in">
                 <FieldGroup>
                     <FormError message={error}/>
@@ -122,7 +117,7 @@ def:pub PlatformJoinPage -> JsxElement {
     return
         <AuthLayout
             title="Set your password"
-            description="For your AfriCinemas platform account. It's separate from any cinema account you have."
+            description="Choose a password for your account."
             home={HOME}
             brand={BRAND}
         >

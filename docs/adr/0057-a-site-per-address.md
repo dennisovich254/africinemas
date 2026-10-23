@@ -3,7 +3,7 @@
 - **Status:** Accepted (13.1b.b: the platform; storefronts follow in 13.1b.c)
 - **Date:** 2026-10-23
 - **Sub-phase:** P13.1b.b
-- **Code:** `web/site.jac`, `web/AppRoot.jac` (`PlatformSite`), `web/platform/*`, `core/platform/accounts.jac` (`platform_address`), `scripts/platform_setup.jac`
+- **Code:** `web/site.jac`, `web/platform/PlatformAuthPages.jac`, `web/AppRoot.jac` (`PlatformSite`), `web/platform/*`, `core/platform/accounts.jac` (`platform_address`), `scripts/platform_setup.jac`
 - **Tests:** `tests/unit/platform_address_tests.jac`, `e2e/platform_tests.jac` (`PLATFORM_URL`, e2e/support/web.jac)
 
 ## Context
@@ -12,9 +12,10 @@ The owner wants the platform, the back office and the storefronts to behave as t
 ## Decision
 1. **One server, one app; the address picks the site.** `web/site.jac` reads the page's host name: one starting with `admin.` is the platform, and anything else is the main site. `AppRoot` gives the platform's address only its own routes (`/`, `/:section`, `/sign-in`, `/join`) and gives the main address none of them. Any other page is "not found". A single-part path on the platform's address is a console section, behind its sign-in.
 2. **Development uses `*.localhost`.** `admin.localhost:8000` is the platform. Browsers send every `*.localhost` address to this machine, and Vite's dev server accepts them, so there's nothing to set up. The browser tests use `admin.localhost` on the test server (`PLATFORM_URL`).
-3. **No new setting.** The platform's address is `admin.` in front of `AFRICINEMAS_PUBLIC_URL` (without any `www.`). The setup script's join links and the console's invitation links point there.
-4. **No redirects from the old `/platform` paths.** They only ever existed in development, and a page that isn't there is plainer than one that sends visitors to the console.
-5. **The server is still the guard.** The address only decides which pages are offered. Every platform endpoint still checks the caller's platform account (ADR-0056), whichever address the request comes from.
+3. **The platform's address comes from the main site's.** It's `admin.` in front of `AFRICINEMAS_PUBLIC_URL` (without any `www.`), unless `AFRICINEMAS_PLATFORM_URL` names it outright. That's needed when the main site's address is a tunnel, such as one for M-Pesa callbacks in development, because a tunnel serves only its own address. The setup script's join links point there. The console's invitation links use the address the console is open on.
+4. **The platform's sign-in pages say as little as possible** (owner, 2026-10-23): no description of who the platform is for or how people join.
+5. **No redirects from the old `/platform` paths.** They only ever existed in development, and a page that isn't there is plainer than one that sends visitors to the console.
+6. **The server is still the guard.** The address only decides which pages are offered. Every platform endpoint still checks the caller's platform account (ADR-0056), whichever address the request comes from.
 
 ## Consequences
 - The platform's sign-in no longer needs its own slot (ADR-0054). Its address's storage is its own. The slots stay for the storefronts until 13.1b.c moves them to their own addresses.

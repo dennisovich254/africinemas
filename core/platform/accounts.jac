@@ -33,12 +33,19 @@ glob ACCOUNTS: str = "platform-account",
      INVITE_TTL_S: int = 72 * 3600,
      SETUP_TTL_S: int = 24 * 3600,
      PUBLIC_URL_ENV: str = "AFRICINEMAS_PUBLIC_URL",
+     PLATFORM_URL_ENV: str = "AFRICINEMAS_PLATFORM_URL",
      DEFAULT_PUBLIC_URL: str = "http://localhost:8000";
 
 def platform_address(public_url: str = "") -> str {
-    # The platform's own address (P13.1b.b): "admin." in front of the main site's
-    # (AFRICINEMAS_PUBLIC_URL, without any "www."). https://africinemas.co.ke ->
-    # https://admin.africinemas.co.ke; http://localhost:8000 -> http://admin.localhost:8000.
+    # The platform's own address (P13.1b.b): AFRICINEMAS_PLATFORM_URL when set (the
+    # main site's may be a tunnel, which serves one address only), else "admin." in
+    # front of the main site's (AFRICINEMAS_PUBLIC_URL, without any "www.").
+    # https://africinemas.co.ke -> https://admin.africinemas.co.ke;
+    # http://localhost:8000 -> http://admin.localhost:8000.
+    chosen = os.environ.get(PLATFORM_URL_ENV, "").strip().rstrip("/");
+    if chosen and not public_url {
+        return chosen;
+    }
     base = public_url
         or os.environ.get(PUBLIC_URL_ENV, "").strip()
         or DEFAULT_PUBLIC_URL;

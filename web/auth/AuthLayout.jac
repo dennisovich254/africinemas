@@ -34,7 +34,8 @@ def:pub AuthLayout(
                 <Card className="w-full max-w-sm">
                     <CardHeader>
                         <h1 className="text-xl font-semibold">{title}</h1>
-                        <CardDescription>{description}</CardDescription>
+                        {description
+                            and <CardDescription>{description}</CardDescription>}
                     </CardHeader>
                     <CardContent>{children}</CardContent>
                 </Card>
