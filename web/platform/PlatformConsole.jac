@@ -9,7 +9,8 @@ again, so the page is never the guard.
 Sections so far: Overview (who you are, your role, what it lets you do) and, for super
 admins, Platform staff: everyone with a role, adding someone by their sign-in email with
 a role, changing a role, and removing someone (asks first). Super admins set in the
-server's settings show as such and can't be changed here.
+server's settings show as such and can't be changed here; only they are offered "Super
+admin", and only they can change or remove a super admin made here.
 """
 
 import from react { useState, useEffect }
@@ -50,7 +51,14 @@ def:pub may(me: dict[str, any], permission: str) -> bool {  # jac:ignore[W1037]
     return permission in found;
 }
 
-def StaffPage -> JsxElement {
+def StaffPage(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+    # Only super admins from the server's settings make, change or remove super admins.
+    settings_admin: bool = me["settings_admin"] or False;
+    choices: list[tuple[str, str]] = [
+        c
+        for c in ROLE_CHOICES
+        if settings_admin or c[0] != "super_admin"
+    ];
     [rows, set_rows] = useState(None);
     [email, set_email] = useState("");
     [role, set_role] = useState("reviewer");
@@ -105,7 +113,7 @@ def StaffPage -> JsxElement {
             lambda -> any { return set_platform_role(wanted, picked); },  # jac:ignore[W1037,W2037]
             f"{wanted} is now {[
                 n
-                for (k, n) in ROLE_CHOICES
+                for (k, n) in choices
                 if k == picked
             ][0]}."
         ) {
@@ -176,6 +184,11 @@ def StaffPage -> JsxElement {
                                 </span>
                             </div>}
                         {not r["fixed"]
+                            and not settings_admin
+                            and r["role"] == "super_admin"
+                            and <Badge>{r["role_label"]}</Badge>}
+                        {not r["fixed"]
+                            and (settings_admin or r["role"] != "super_admin")
                             and <div className="flex flex-wrap items-center gap-2">
                                 <label
                                     className="sr-only"
@@ -197,7 +210,7 @@ def StaffPage -> JsxElement {
                                 >
                                     {[
                                         <option key={k} value={k}>{n}</option>
-                                        for (k, n) in ROLE_CHOICES
+                                        for (k, n) in choices
                                     ]}
                                 </select>
                                 {asking != r["email"]
@@ -251,7 +264,7 @@ def StaffPage -> JsxElement {
                         >
                             {[
                                 <option key={k} value={k}>{n}</option>
-                                for (k, n) in ROLE_CHOICES
+                                for (k, n) in choices
                             ]}
                         </select>
                     </div>
@@ -391,7 +404,7 @@ def:pub PlatformConsole -> JsxElement {
             >
                 {section == "" and <Overview me={shown}/>}{section == "staff"
                     and allowed
-                    and <StaffPage/>}{not allowed
+                    and <StaffPage me={shown}/>}{not allowed
                     and <p
                         data-testid="platform-no-access"
                         className="text-muted-foreground"
