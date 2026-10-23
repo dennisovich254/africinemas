@@ -26,3 +26,9 @@ So a request starts on a read-only snapshot. After `commit()` inside the unit, t
 
 ## Suggested fix
 For the Jac team: once a unit has committed (`commit()`), don't re-run it on a later write; begin the next transaction at SERIALIZABLE instead (the unit is evidently a writer). Or refuse the write with a clear error, rather than replaying work that can't be rolled back.
+
+## Seen again: 2026-10-24, P14.3c (jac 0.38.0)
+The first version of the offers consent (`core/notify/offer_consent.jac`) made a graph node in `_start_payment`, after its `commit_now()`. The server logged `read tier: unit ...payment_api.start_payment wrote inside a read-only snapshot; re-running at SERIALIZABLE`, and the node wasn't kept. The re-run found the payment's idempotency claim and took the replay path, which doesn't record consent. The client got `ok`, so it was silent data loss.
+- **How it was confirmed:** with `JAC_DB_RO_UNITS=0` every node was kept. With the read tier on, only the first payment of the process lost its node. A later call, made after the unit was marked a writer, kept it.
+- **Why it seemed random at first:** calling a read before the write moved which call was "first", because the mark is per unit and per process.
+- **Fix:** consent became a claim, which is written outside the graph's transaction. The rule above still stands: no graph write after a part-way commit.

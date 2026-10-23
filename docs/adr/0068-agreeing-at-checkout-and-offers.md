@@ -20,7 +20,7 @@
    - **When it's recorded:** only when ticked, for the email address that pays or signs up.
    - **What's kept:** when consent was given, where (checkout, sign-up or account) and the order's reference.
    - **Changing it:** a signed-in customer turns it off or on in My account. Withdrawing keeps the record, marked with when they stopped, as proof that we did.
-   - **Where it lives:** a permanent claim per cinema and email, like saved bookings and email confirmations. We first kept it as a graph node made while the payment started, after the payment's commit, and the node wasn't kept. We didn't find out why, and claims are simpler for this anyway.
+   - **Where it lives:** a permanent claim per cinema and email, like saved bookings and email confirmations. We first kept it as a graph node, made while the payment started but after the payment's mid-request commit. That broke our rule from JI-042: no graph write after a part-way commit. On the first payment on each server process, and again after 5 quiet minutes, Jac's read tier rolls back such a write and re-runs the whole request. The re-run then finds the payment already started and takes the replay path, so the consent was lost. Claims are written outside the graph's transaction, so they aren't lost this way.
 4. **No sending yet.** Nothing sends offers today. These records are what a later "email your customers" feature must check first.
 
 ## Consequences
