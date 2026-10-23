@@ -17,6 +17,8 @@ import from core.catalog.site_info {
     save_site_info  # jac:ignore[W2037]
 }
 import from .form_parts { TextField, submit_with }
+# Not {**info, key: value}: in client code that sets a key named "key" (JI-055).
+import from .snack_view { with_field }
 
 glob TEXT_FIELDS: list[tuple[str, str, str, bool]] = [
          (
@@ -98,16 +100,19 @@ def:pub SiteInfoSection(slug: str, shift_open: bool = True) -> JsxElement {
 
     def put(field: str, value: any) {  # jac:ignore[W1037]
         set_saved(False);
-        set_info({** info, field: value});
+        set_info(with_field(info, field, value));
     }
     def put_social(network: str, value: str) {
         set_saved(False);
-        set_socials({** socials, network: value});
+        set_socials(with_field(socials, network, value));
     }
     def put_note(index: int, key: str, value: str) {
         set_saved(False);
         set_notes(
-            [{** n, key: value} if i == index else n for (i, n) in enumerate(notes)]
+            [
+                with_field(n, key, value) if i == index else n
+                for (i, n) in enumerate(notes)
+            ]
         );
     }
     def add_note {
