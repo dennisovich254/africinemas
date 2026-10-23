@@ -18,6 +18,7 @@ import from core.oauth.connections {
 import from .StorefrontShell { StorefrontShell, Loading }
 import from .venue_choice { use_title }
 import from ..shell.AppLink { AppLink }
+import from ..site { with_site_slug, local_path, main_origin }
 
 def _day(iso: str) -> str {
     # "10 Oct 2026", in the visitor's own locale.
@@ -118,7 +119,7 @@ def AppRow(
 def ConnectHint(slug: str) -> JsxElement {
     # How to let Claude book here: the cinema's own connector address.
     win: any = window;  # jac:ignore[W1037,W2001]
-    address: str = f"{win.location.origin}/mcp/c/{slug}";
+    address: str = f"{main_origin()}/mcp/c/{slug}";
     [copied, set_copied] = useState(False);
 
     async def copy {
@@ -153,7 +154,7 @@ def ConnectHint(slug: str) -> JsxElement {
 }
 
 def:pub AccountPage -> JsxElement {
-    params: any = useParams();  # jac:ignore[W1037,W1051]
+    params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     [account, set_account] = useState(None);
     [apps, set_apps] = useState(None);
@@ -195,7 +196,7 @@ def:pub AccountPage -> JsxElement {
     def sign_out {
         jacLogout();
         win: any = window;  # jac:ignore[W1037,W2001]
-        win.location.href = f"/c/{slug}";
+        win.location.href = local_path(f"/c/{slug}");
     }
 
     use_title("Your account");

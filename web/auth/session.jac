@@ -30,6 +30,8 @@ def:pub email_identity(email: str) -> dict[str, str] {
     return {"type": "email", "value": email.strip().lower()};
 }
 
+import from ..site { current_site }
+
 def:pub remember_email(email: str) {
     store: any = None;  # jac:ignore[W1037]
     try {
@@ -61,6 +63,10 @@ def:pub safe_next(wanted: str) -> str {
     path = wanted.split("?")[0];
     if "//" in path or "\\" in path {
         return "";
+    }
+    # On a cinema's own address every page is that cinema's storefront (P13.1b.c).
+    if current_site() == "storefront" and path.startswith("/") {
+        return wanted;
     }
     for prefix in NEXT_PREFIXES {
         if path.startswith(prefix) {

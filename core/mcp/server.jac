@@ -28,6 +28,7 @@ reply to a notification.
 
 import json;
 import os;
+import from core.site { storefront_address }
 import from http { HTTPMethod }
 import from core.agent.tools {
     find_cinemas,
@@ -45,7 +46,6 @@ import from core.catalog.screening_api { public_screenings }
 import from core.catalog.storefront_api { public_poster }
 import from core.theming.branding_api { public_branding }
 import from core.tenancy.open_cinema { open_cinema }
-import from core.booking.ticket_delivery { PUBLIC_URL_ENV, DEFAULT_PUBLIC_URL }
 import from core.agent.cards { programme_card }
 import from core.mcp.movie_card { CARD_HTML }
 import from core.mcp.programme_card { PROGRAMME_HTML }
@@ -373,8 +373,8 @@ def _brand(cinema: str) -> dict[str, dict[str, str]] {
 }
 
 def _site(cinema: str) -> str {
-    base = os.environ.get(PUBLIC_URL_ENV, "").strip().rstrip("/") or DEFAULT_PUBLIC_URL;
-    return f"{base}/c/{cinema}";
+    # The cinema's storefront: its own address (P13.1b.c), or /c/<slug> on a tunnel.
+    return storefront_address(cinema).rstrip("/");
 }
 
 def _text(text: str, failed: bool = False) -> dict[str, any] {  # jac:ignore[W1037]

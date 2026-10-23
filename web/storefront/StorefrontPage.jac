@@ -14,9 +14,10 @@ import from core.catalog.storefront_api { public_home }
 import from .StorefrontShell { StorefrontShell, HomeSkeleton, LoadError }
 import from .HomeSections { HomeBlock, home_blocks, for_venue }
 import from .venue_choice { use_venue, use_title, scroll_to_hash }
+import from ..site { with_site_slug }
 
 def:pub StorefrontPage -> JsxElement {
-    params: any = useParams();  # jac:ignore[W1037,W1051]
+    params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     [home, set_home] = useState(None);
     [failed, set_failed] = useState(False);

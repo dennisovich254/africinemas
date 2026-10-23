@@ -117,6 +117,8 @@ import from core.snacks.product_api {
 }
 import from core.snacks.menu_api { public_snacks, price_snacks, public_snack_image }
 import from core.snacks.pickup_api { snack_pickup, hand_over_snacks }  # jac:ignore[W2037]
+# Which of the three sites an address is (P13.1b.c).
+import from core.site { site_for_host }
 import from core.platform.staff_api {
     platform_whoami,  # jac:ignore[W2037]
     platform_join,

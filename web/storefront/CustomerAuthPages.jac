@@ -24,6 +24,7 @@ import from .customer_session {
     back_to,
     asked_next
 }
+import from ..site { with_site_slug }
 
 glob PASSWORD_MIN: int = 8,
      LINK: str = "font-medium underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -46,7 +47,7 @@ def AuthCard(
 }
 
 def:pub CustomerSignInPage -> JsxElement {
-    params: any = useParams();  # jac:ignore[W1037,W1051]
+    params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     nav: any = useNavigate();  # jac:ignore[W1037,W1051]
     [email, set_email] = useState("");
@@ -119,7 +120,7 @@ def:pub CustomerSignInPage -> JsxElement {
 }
 
 def:pub CustomerSignUpPage -> JsxElement {
-    params: any = useParams();  # jac:ignore[W1037,W1051]
+    params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     nav: any = useNavigate();  # jac:ignore[W1037,W1051]
     [name, set_name] = useState("");

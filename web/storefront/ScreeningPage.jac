@@ -14,6 +14,7 @@ import from .venue_choice { use_title }
 import from .StorefrontParts { Poster }
 import from .showtimes { long_day_label, time_label, where_label, details_line }
 import from .Checkout { Checkout }
+import from ..site { with_site_slug }
 
 def Fact(name: str, text: str, testid: str = "") -> JsxElement {
     return
@@ -24,7 +25,7 @@ def Fact(name: str, text: str, testid: str = "") -> JsxElement {
 }
 
 def:pub ScreeningPage -> JsxElement {
-    params: any = useParams();  # jac:ignore[W1037,W1051]
+    params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     screening_id: str = params["screening"] or "";
     [page, set_page] = useState(None);

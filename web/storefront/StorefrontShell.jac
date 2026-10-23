@@ -48,6 +48,7 @@ import from .venue_choice { use_venue, choose_venue }
 import from .ChatPanel { ChatLauncher }
 import from .AccountLinks { AccountLinks }
 import from .AiPage { AiPart, ai_page_of, kit_masks }
+import from ..site { local_path }
 
 glob NAV_LINK: str = "inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
@@ -145,7 +146,9 @@ def NavItems(slug: str, block: bool = False) -> JsxElement {
                 <AppLink to={f"/c/{slug}/movies"} className={item}>Movies</AppLink>
             </li>
             <li>
-                <a href={f"/c/{slug}#showtimes"} className={item}>Showtimes</a>
+                <a href={local_path(f"/c/{slug}#showtimes")} className={item}>
+                    Showtimes
+                </a>
             </li>
             <li>
                 <AppLink to={f"/c/{slug}/cinemas"} className={item}>Cinemas</AppLink>
@@ -161,7 +164,7 @@ def FooterColumn(title: str, links: list[list[str]]) -> JsxElement {
                 {[
                     <li key={link[1]}>
                         <a
-                            href={link[1]}
+                            href={local_path(link[1])}
                             className="inline-flex min-h-11 min-w-11 items-center text-sm hover:text-foreground hover:underline"
                         >
                             {link[0]}
@@ -284,7 +287,7 @@ def:pub StorefrontShell(
     names: list[str] = venues;
     several: bool = len(names) > 1;
     book = <a
-        href={f"/c/{slug}#showtimes"}
+        href={local_path(f"/c/{slug}#showtimes")}
         data-testid="header-book"
         className="inline-flex min-h-11 shrink-0 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >

@@ -31,6 +31,7 @@ import from .showtimes {
     date_label,
     release_label
 }
+import from ..site { local_path }
 
 glob SVG_NS: str = "http://www.w3.org/2000/svg",
      DROP: list[str] = [
@@ -280,6 +281,10 @@ def _motif_style(mask: str) -> dict[str, str] {
 }
 
 def _href(fill: Fill, link: str, scope: dict[str, any]) -> str {  # jac:ignore[W1037]
+    return local_path(_storefront_href(fill, link, scope));
+}
+
+def _storefront_href(fill: Fill, link: str, scope: dict[str, any]) -> str {  # jac:ignore[W1037]
     base = f"/c/{fill.slug}";
     if link == "movies" {
         return f"{base}/movies";
@@ -410,7 +415,7 @@ def _draw(fill: Fill, el: any, scope: dict[str, any], key: str) -> any {  # jac:
     if tag == "a" and link == "signin" and fill.signed_in {
         # Signed in with this cinema's account: the template's Sign in becomes the
         # account page (My tickets, sign out), as in our own header.
-        props["to"] = f"/c/{fill.slug}/account";
+        props["to"] = local_path(f"/c/{fill.slug}/account");
         props["data-testid"] = "ai-account";
         return make(Link, props, ["My account"]);
     }

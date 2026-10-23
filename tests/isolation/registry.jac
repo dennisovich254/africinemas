@@ -30,6 +30,12 @@ and checks it records exactly that: one event of that action, or none.
 
 glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "app_info": {"scope": "public", "audit": ""},
+         # Which of the three sites an address is (P13.1b.c): names no more than it.
+         "site_for_host": {
+             "scope": "public",
+             "audit": "",
+             "probe": {"host": "nova.localhost:8000"}
+         },
          "create_cinema": {"scope": "caller", "audit": "cinema.created"},
          "my_cinemas": {"scope": "caller", "audit": ""},
          # The AfriCinemas platform console (P13.1): its actions go to the platform's own

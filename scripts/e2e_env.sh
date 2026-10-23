@@ -30,6 +30,9 @@ export AFRICINEMAS_AGENT_SCRIPT="${AFRICINEMAS_AGENT_SCRIPT:-$PWD/e2e/artifacts/
 export AFRICINEMAS_KIT_PLAN="${AFRICINEMAS_KIT_PLAN:-$PWD/e2e/artifacts/kit_plan.json}"
 # The storefront the AI writes (ADR-0048): the model's answer, as a file the test writes.
 export AFRICINEMAS_PAGE_SCRIPT="${AFRICINEMAS_PAGE_SCRIPT:-$PWD/e2e/artifacts/page_script.html}"
+# The three sites (P13.1b): admin.localhost is the platform and <slug>.localhost a
+# cinema's storefront; 127.0.0.1, which the other tests use, is every site, as before.
+export AFRICINEMAS_SITE_DOMAIN="${AFRICINEMAS_SITE_DOMAIN:-localhost:${E2E_PORT:-8870}}"
 # The AfriCinemas platform console (P13.1): its super admin for the browser tests.
 export AFRICINEMAS_PLATFORM_ADMINS="${AFRICINEMAS_PLATFORM_ADMINS:-platform-admin@example.com}"
 # Its join link (P13.1b.a): the server writes it here once, for e2e/support/api.jac.

@@ -13,6 +13,7 @@ import from core.catalog.storefront_api { public_home, public_venues }
 import from .StorefrontShell { StorefrontShell, HomeSkeleton, LoadError }
 import from .HomeSections { HomeBlock, home_blocks }
 import from .venue_choice { choose_venue, use_title, scroll_to_hash }
+import from ..site { with_site_slug, local_path }
 
 glob VISIT_TYPES: list[str] = ["location", "contact", "faq"];
 
@@ -81,7 +82,7 @@ def VenueCard(venue: dict[str, any], on_pick: any) -> JsxElement {  # jac:ignore
 }
 
 def:pub CinemasPage -> JsxElement {
-    params: any = useParams();  # jac:ignore[W1037,W1051]
+    params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     navigate: any = useNavigate();  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     [data, set_data] = useState(None);
@@ -132,7 +133,7 @@ def:pub CinemasPage -> JsxElement {
 
     def pick(name: str) {
         choose_venue(slug, name);
-        navigate(f"/c/{slug}#showtimes");
+        navigate(local_path(f"/c/{slug}#showtimes"));
     }
 
     found: dict[str, any] | None = data;  # jac:ignore[W1037]

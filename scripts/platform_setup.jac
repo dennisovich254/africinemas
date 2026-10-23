@@ -6,7 +6,8 @@ account the first time, or replacing a forgotten password). Each new link replac
 last. Only someone who can run commands on the server sees them.
 """
 
-import from core.platform.accounts { join_link, platform_address, SETUP_TTL_S }
+import from core.platform.accounts { join_link, SETUP_TTL_S }
+import from core.site { platform_address }
 import from core.platform.staff_api { allowlisted }
 
 with entry {
