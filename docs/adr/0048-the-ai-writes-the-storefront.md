@@ -34,7 +34,7 @@ ADR-0047 has the AI choose each storefront's design from designed options. The o
    - every selector is scoped inside `.ai-page`.
 
    Font families become the bundled fonts, so no request leaves the page.
-3. **Complete, or asked again.** A template must have its three parts, the five lists, the book, sign-in, showtime and film links, the logo and "Tickets by AfriCinemas". If any is missing, the model is asked once more, with what it left out. If it still fails, there is no page.
+3. **Complete, or asked again.** A template must have its three parts, the five lists, the book, sign-in, showtime and film links, the logo (and "Tickets by AfriCinemas", until P14.3a dropped it: ADR-0066). If any is missing, the model is asked once more, with what it left out. If it still fails, there is no page.
 4. **One button.** `design_storefront` writes the page next to the theme and the kit, at the same time, and waits up to `PAGE_DEADLINE` (320 s). A failed page leaves the designed storefront from ADR-0047 in its place. The page is the draft's, private until published, and carried by versions and rollback. Remove brand removes it too. `public_branding` serves its HTML and CSS.
 5. **Cost.** On Gemini, a page was about 8,000 to 11,000 output tokens plus 3,000 to 16,000 of thinking, roughly $0.15 to $0.30; on Claude, about $0.40. It is part of the 3 designs a day (`KIT_DAILY`).
 6. **The newest models everywhere.** Themes and the kit's plan use Gemini 3.8 Flash, then Flash Latest. Gemini 3.x can't turn thinking off (it refuses "minimal"), so 3.x thinks at "low" with 4,000 tokens of room, and 2.5 still doesn't think. Motifs are drawn by Gemini 3.1 Flash Image.

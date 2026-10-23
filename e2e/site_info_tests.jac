@@ -106,7 +106,7 @@ test "a visitor sees it in the footer of every page, and the visit and booking n
                 page.wait_for_selector(STRIP);
                 strip = page.inner_text(STRIP);
                 assert "Nova Cinemas Ltd" in strip , f"{path}: {strip}";
-                assert "Tickets by AfriCinemas" in page.inner_text("footer");
+                assert "Tickets by AfriCinemas" not in page.inner_text("footer");
                 assert page.evaluate(WIDE_JS) <= 0 , f"{project} {path}: scrolls sideways";
             }
             page.goto(store + "/");

@@ -36,8 +36,7 @@ test "a complete template keeps its slots and drops scripts, handlers and outsid
         'viewBox="0 0 40 40"',
         '<span data-motif="single" class="dove">',
         '<span data-motif="group" class="flock">',
-        "<linearGradient",
-        "Tickets by AfriCinemas"
+        "<linearGradient"
     ] {
         assert kept in page , kept;
     }
@@ -74,7 +73,7 @@ test "a template missing a part is reported" {
     made = sanitize("<style></style><main data-part=\"home\"></main>");
     joined = " ".join(made["problems"]);
     assert "header" in joined and "footer" in joined and "logo" in joined;
-    assert "data-link=\"book\"" in joined and "AfriCinemas" in joined;
+    assert "data-link=\"book\"" in joined;
 }
 
 test "write_page asks again with what was missing, then gives up" {

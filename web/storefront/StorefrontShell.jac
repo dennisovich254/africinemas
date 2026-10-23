@@ -496,11 +496,7 @@ def:pub StorefrontShell(
                                 ]}
                             />
                         </div>
-                        <FooterInfo
-                            cinema={place["name"]}
-                            info={info}
-                            tone="text-muted-foreground"
-                        />
+                        <FooterInfo cinema={place["name"]} info={info} framed={True}/>
                         <div
                             className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 border-t px-4 py-4 text-sm text-muted-foreground"
                         >
@@ -510,7 +506,6 @@ def:pub StorefrontShell(
                                 <KitMark className="kit-sign"/>
                                 {place["name"]}
                             </span>
-                            <span>Tickets by AfriCinemas</span>
                         </div>
                     </footer>}
             </div>

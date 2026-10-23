@@ -17,8 +17,8 @@ Nothing the model returns is trusted (`sanitize`):
   inside .ai-page, the storefront's wrapper. Font families the brief allows become the
   bundled fonts (styles/fonts.css): no request leaves for a font.
 - The template must have its three parts, the lists, the book, sign-in, showtime and film
-  links, the logo and "Tickets by AfriCinemas"; a template that lacks any is asked for
-  again once, then refused (PageFailed).
+  links and the logo; a template that lacks any is asked for again once, then refused
+  (PageFailed). The footer's contact details are ours, added at its end (P14.3a).
 """
 
 import os;
@@ -127,7 +127,7 @@ Links (no href; ours is set) on <a> only: data-link= home | movies | showtimes |
 Structure (required):
 <header data-part="header"> the logo (img data-img="logo" alt = cinema name), links: movies, showtimes, soon, signin, and a book link styled as a button. Shown on every page of the site. The logo must sit naturally on the header: give it room, size it so it reads, and make sure its colours stand out from the header's background.
 <main data-part="home"> a hero from data-each="featured" (its poster, title, details, synopsis, its times as buttons with data-link="show", and a film link "Book tickets"; no full-screen background image: the hero sits in the page), then today's showtimes (data-each="today", each with data-link="show"), now showing (data-each="films", poster, title, details, times), coming soon (data-each="soon"). Use id="showtimes" on the today section and id="coming-soon" on the soon section.
-<footer data-part="footer"> the cinema's name (data-text="cinema.name"), links, and the words "Tickets by AfriCinemas". Shown on every page.
+<footer data-part="footer"> the cinema's name (data-text="cinema.name") and links. Shown on every page. We add the cinema's address, contact details and social media at the end of the footer: leave them out, and add no credit line.
 
 Avoid these generic patterns: a generic dark "streaming app" look unrelated to the logo; a cream or off-white background unless the logo itself is cream; italic accent words in headlines; numbered "01 / 02 / 03" section labels; monospace labels; gradient blobs, glassmorphism or glowing shadows; emoji; identical rounded cards with drop shadows everywhere. Prefer the logo's own palette, its lettering's character, and its figures.
 
@@ -435,9 +435,6 @@ def sanitize(answer: str) -> dict[str, any] {  # jac:ignore[W1037]
     }
     if "logo" not in found["img"] {
         problems.append("the logo (img data-img=\"logo\")");
-    }
-    if "AfriCinemas" not in body {
-        problems.append("the words Tickets by AfriCinemas");
     }
     return {"html": body, "css": clean_css(str(css)), "problems": problems};
 }
