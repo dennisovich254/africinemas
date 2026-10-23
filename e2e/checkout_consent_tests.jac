@@ -72,7 +72,12 @@ test "above Pay, the notice links to the policies, and the offers box starts unt
             page.goto(f"{BASE_URL}/c/{owner['slug']}/s/{owner['show']}");
             page.wait_for_selector(_seat("A1"));
             _press(page, project, _seat("A1"));
+            _press(page, project, _seat("A2"));
             _press(page, project, '[data-testid="hold-seats"]');
+            # The order is priced before Pay works (as in payment_tests).
+            page.wait_for_function(
+                "document.querySelector('[data-testid=checkout-total]')?.innerText === 'KES 1,660'"
+            );
             _press(page, project, '[data-testid="pay"]');
             page.wait_for_selector(f'[data-testid="pay-panel"] {NOTICE} a');
             notice = page.inner_text(NOTICE);
@@ -105,7 +110,8 @@ test "signing up shows the notice, and My account has the offers choice" {
             page = browser.new_context(
                 **context_options(pw, project, "light")
             ).new_page();
-            page.goto(f"{BASE_URL}/c/{owner['slug']}/sign-up");
+            account = f"/c/{owner['slug']}/account";
+            page.goto(f"{BASE_URL}/c/{owner['slug']}/sign-up?next={account}");
             page.wait_for_selector(f'[data-testid="customer-sign-up"] {NOTICE} a');
             assert "By creating an account, you agree to" in page.inner_text(NOTICE);
             assert not page.is_checked("#offers");
@@ -116,8 +122,13 @@ test "signing up shows the notice, and My account has the offers choice" {
             _press(
                 page, project, '[data-testid="customer-sign-up"] button[type="submit"]'
             );
-            page.wait_for_url(f"**/c/{owner['slug']}*");
-            page.goto(f"{BASE_URL}/c/{owner['slug']}/account");
+            # Signed in, and back at the account page (not a glob: the sign-up page's
+            # own URL would match one).
+            page.wait_for_function("!!localStorage.getItem('jac_token')");
+            page.wait_for_url(
+                lambda (url: str) -> bool { return "/sign-" not in url
+                    and url.endswith(account); }
+            );
             page.wait_for_selector("#account-offers");
             assert page.is_checked("#account-offers");
             page.uncheck("#account-offers");
