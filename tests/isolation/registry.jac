@@ -55,6 +55,8 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"limit": 10}
          },
          "platform_signed_in": {"scope": "platform", "audit": ""},
+         # The platform overview (P13.4): figures across every cinema.
+         "platform_overview": {"scope": "platform", "audit": ""},
          # The cinemas directory (P13.2): every cinema, for platform staff only.
          "platform_cinemas": {"scope": "platform", "audit": ""},
          "platform_cinema": {

@@ -81,9 +81,14 @@ def ChartBar(
 def:pub TakingsChart(
     points: list[dict[str, any]],  # jac:ignore[W1037]
     unit: str,
-    currency: str
+    currency: str,
+    count_key: str = "tickets_sold",
+    count_words: str = "tickets for its showtimes",
+    count_heading: str = "Tickets"
 ) -> JsxElement {
-    # Net takings a day (or a week), as columns on one axis, with a table view.
+    # Net takings a day (or a week), as columns on one axis, with a table view. Each
+    # point's count (`count_key`) is in its readout and the table: a cinema's tickets
+    # for that day's showtimes, or the platform's bookings that day (P13.4).
     [active, set_active] = useState(-1);
     top = nice_max(max([0] + [int(p["takings_net_cents"]) for p in points]));
     count = len(points);
@@ -100,7 +105,7 @@ def:pub TakingsChart(
     for (i, p) in enumerate(points) {
         cents = int(p["takings_net_cents"]);
         name = point_label(p["start"], unit);
-        tickets = int(p["tickets_sold"]);
+        tickets = int(p[count_key]);
         side = "";
         if i < count / 4 {
             side = "left";
@@ -112,7 +117,7 @@ def:pub TakingsChart(
                 key={p["start"]}
                 index={i}
                 height={max(0, cents) * 100 / top}
-                readout={f"{name}: {money_label(cents, currency)} taken, {tickets} tickets for its showtimes"}
+                readout={f"{name}: {money_label(cents, currency)} taken, {tickets} {count_words}"}
                 active={active == i}
                 side={side}
                 on_show={show}
@@ -170,7 +175,9 @@ def:pub TakingsChart(
                                 {"Week" if unit == "week" else "Day"}
                             </th>
                             <th className="py-2 text-right font-medium">Net takings</th>
-                            <th className="py-2 text-right font-medium">Tickets</th>
+                            <th className="py-2 text-right font-medium">
+                                {count_heading}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -183,7 +190,7 @@ def:pub TakingsChart(
                                     {money_label(int(p["takings_net_cents"]), currency)}
                                 </td>
                                 <td className="py-2 text-right tabular-nums">
-                                    {p["tickets_sold"]}
+                                    {p[count_key]}
                                 </td>
                             </tr> for p in points
                         ]}
