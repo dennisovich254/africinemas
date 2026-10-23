@@ -38,6 +38,7 @@ import from core.tenancy.identity { verified_sign_in }
 import from core.tenancy.membership { records_of, remove_member }
 import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
 import from core.tenancy.storefront_accounts { cinema_of_account }
+import from core.platform.accounts { account_email as platform_account_email }
 import from core.catalog.venues { find_venue }
 import from core.tenancy.principal {
     node_id,
@@ -413,6 +414,12 @@ def:protect accept_invite(token: str, email: str = "") -> dict[str, any] {  # ja
         return refused(
             "customer_account",
             "This is a cinema's customer account. Accept the invitation with a staff account."
+        );
+    }
+    if platform_account_email(node_id(root)) {
+        return refused(
+            "platform_account",
+            "This is an AfriCinemas platform account. Accept the invitation with a staff account."
         );
     }
     joined = _do_accept_invite(token, email);

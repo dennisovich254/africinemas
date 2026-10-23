@@ -5,6 +5,8 @@ a random suffix (`unique`) and an `e2e-` prefix.
 """
 
 import os;
+import json;
+import time;
 import uuid;
 import from tests.support.real_server { http_call }
 import from e2e.support.web { BASE_URL }
@@ -42,25 +44,48 @@ def register(email: str) -> str {
     return str(body["data"]["token"]);
 }
 
+def platform_name(email: str) -> str {
+    # A platform account's username (core/platform/accounts.jac).
+    return "platform:" + email.strip().lower().replace("@", ":");
+}
+
+def platform_login(email: str) -> int {
+    (status, _) = http_call(
+        "POST",
+        f"{BASE_URL}/user/login",
+        {
+            "identity": {"type": "username", "value": platform_name(email)},
+            "credential": {"type": "password", "password": PASSWORD}
+        }
+    );
+    return status;
+}
+
 def platform_admin -> str {
     # The browser tests' platform super admin (AFRICINEMAS_PLATFORM_ADMINS in
-    # scripts/e2e_env.sh): signed up the first time, signed in after. Its email.
+    # scripts/e2e_env.sh): joined the first time from the link the server writes to
+    # AFRICINEMAS_PLATFORM_SETUP_FILE (core/platform/setup_file.jac), with PASSWORD.
+    # Its email, to sign in with on /platform/sign-in.
     email = os.environ.get(
         "AFRICINEMAS_PLATFORM_ADMINS", "platform-admin@example.com"
     ).split(
         ","
     )[0].strip();
-    (status, _) = http_call(
-        "POST",
-        f"{BASE_URL}/user/login",
-        {
-            "identity": {"type": "email", "value": email},
-            "credential": {"type": "password", "password": PASSWORD}
-        }
-    );
-    if status != 200 {
-        register(email);
+    if platform_login(email) == 200 {
+        return email;
     }
+    path = os.environ.get("AFRICINEMAS_PLATFORM_SETUP_FILE", "");
+    for _ in range(60) {
+        if path and os.path.exists(path) {
+            break;
+        }
+        time.sleep(0.5);
+    }
+    with open(path) as f {
+        links = json.loads(f.read());
+    }
+    joined = call("", "platform_join", {"token": links[email], "password": PASSWORD});
+    assert joined["ok"] , f"platform_join: {joined}";
     return email;
 }
 

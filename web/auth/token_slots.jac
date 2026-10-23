@@ -4,8 +4,8 @@
 Jac's client keeps the sign-in token under one localStorage key, "jac_token", and reads
 it on every request, so signing in as a cinema's customer on its storefront used to sign
 the owner out of the back office (they share the site). An owner can be a customer at
-their own cinema, and staff and customer accounts are separate (P8.6c), so each part of
-the site keeps its own: install_token_slots makes "jac_token" in localStorage mean the
+their own cinema, and staff, customer and platform accounts are separate (P8.6c,
+P13.1b.a), so each part of the site keeps its own: install_token_slots makes "jac_token" in localStorage mean the
 slot for the page the tab is on (token_slot). Jac's sign-in, sign-out, "signed in?" and
 requests all read and write "jac_token", so they all use the right slot without knowing.
 
@@ -32,7 +32,11 @@ def:pub cinema_of_resource(resource: str) -> str {
 def:pub token_slot(path: str, resource: str) -> str {
     # Where the sign-in token lives for a page: a cinema's storefront (/c/<slug>/...) and
     # the consent page for its connector (`resource`, P8.6a) use that cinema's customer
-    # slot; everything else (the back office, staff sign-in, invitations) the staff one.
+    # slot; the platform console (/platform..., P13.1b.a) the platform's; everything
+    # else (the back office, staff sign-in, invitations) the staff one.
+    if path == "/platform" or path.startswith("/platform/") {
+        return f"{SLOT_PREFIX}platform";
+    }
     if path.startswith("/c/") {
         slug = path[3:].split("/")[0];
         if slug {

@@ -16,7 +16,9 @@ def:pub AuthLayout(
     title: str,
     description: str,
     children: any = None,  # jac:ignore[W1037]
-    footer: any = None  # jac:ignore[W1037]
+    footer: any = None,  # jac:ignore[W1037]
+    home: str = "/",
+    brand: str = "AfriCinemas"
 ) -> JsxElement {
     return
         <ThemeProvider surface="backoffice">
@@ -24,10 +26,10 @@ def:pub AuthLayout(
                 className="flex min-h-svh flex-col items-center justify-center gap-6 px-4 py-10"
             >
                 <Link
-                    to="/"
+                    to={home}
                     className="font-display inline-flex min-h-11 items-center text-4xl leading-none"
                 >
-                    AfriCinemas
+                    {brand}
                 </Link>
                 <Card className="w-full max-w-sm">
                     <CardHeader>

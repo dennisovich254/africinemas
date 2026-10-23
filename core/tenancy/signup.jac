@@ -53,6 +53,7 @@ import from core.tenancy.principal {
 }
 import from core.audit.log { record }
 import from core.tenancy.storefront_accounts { cinema_of_account }
+import from core.platform.accounts { account_email as platform_account_email }
 
 glob SLUG_HOLD_ENV: str = "AFRICINEMAS_SIGNUP_SLUG_HOLD_S",
      SLUG_HOLD_DEFAULT_S: int = 900;
@@ -233,6 +234,13 @@ def:protect create_cinema(
         return _refused(
             "customer_account",
             "This is a cinema's customer account. Create a cinema with a staff account."
+        );
+    }
+    # Nor can an AfriCinemas platform account, which belongs to the platform (P13.1b.a).
+    if platform_account_email(node_id(root)) {
+        return _refused(
+            "platform_account",
+            "This is an AfriCinemas platform account. Create a cinema with a staff account."
         );
     }
     made = _do_create_cinema(name, slug, email);

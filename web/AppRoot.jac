@@ -4,6 +4,8 @@ Both entry points (main.jac and desktop/main.jac) render <AppRoot />, so every
 screen is written once (docs/adr/0001-desktop-reuses-web-ui.md). It owns the only
 router: manual routing, no `pages/` directory (docs/adr/0002-manual-routing-in-shared-approot.md).
 The back-office (`/app...`) sits under one AuthGuard: signed-out visitors go to /login.
+The AfriCinemas platform console (`/platform...`) has its own sign-in and accounts
+(P13.1b.a): signed-out visitors go to /platform/sign-in.
 A cinema's public storefront is `/c/:slug`, with its movies at `/c/:slug/m/:movie` and
 showtimes at `/c/:slug/s/:screening` (P4.1).
 """
@@ -29,6 +31,7 @@ import from .storefront.MoviesPage { MoviesPage }
 import from .storefront.CinemasPage { CinemasPage }
 import from .auth.InvitePage { InvitePage }
 import from .platform.PlatformConsole { PlatformConsole }
+import from .platform.PlatformAuthPages { PlatformSignInPage, PlatformJoinPage }
 import from .auth.token_slots { install_token_slots }
 
 # The back office and each cinema's storefront keep their own sign-in (improvements #25),
@@ -62,6 +65,10 @@ def:pub AppRoot -> JsxElement {
                     <Route path="/app/:slug" element={<BackOffice/>}/>
                     <Route path="/app/:slug/:section" element={<BackOffice/>}/>
                     <Route path="/app/:slug/:section/:item" element={<BackOffice/>}/>
+                </Route>
+                <Route path="/platform/sign-in" element={<PlatformSignInPage/>}/>
+                <Route path="/platform/join" element={<PlatformJoinPage/>}/>
+                <Route element={<AuthGuard redirect="/platform/sign-in"/>}>
                     <Route path="/platform" element={<PlatformConsole/>}/>
                     <Route path="/platform/:section" element={<PlatformConsole/>}/>
                 </Route>

@@ -29,6 +29,7 @@ import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.principal { node_id, same_id }
 import from core.tenancy.responses { NOT_FOUND, refused }
 import from core.tenancy.models { NAME_MAX }
+import from core.platform.accounts { account_email }
 
 glob ACCOUNTS: str = "customer-account",
      EMAIL_SHAPE: str = r"^[^@\s:]{1,64}@[^@\s:]{1,190}\.[^@\s:]{2,63}$",
@@ -86,7 +87,8 @@ def require_customer_of(slug: str) {
 }
 
 def require_staff_account {
-    # Refuses customer accounts: they belong to a storefront, never the back office.
+    # Refuses customer accounts: they belong to a storefront, never the back office;
+    # and AfriCinemas platform accounts, which belong to the platform (P13.1b.a).
     me = _caller();
     if me and cinema_of_account(me) {
         raise Refused(
@@ -94,10 +96,16 @@ def require_staff_account {
             "This is a cinema's customer account. Sign in to the back office with your staff account."
         );
     }
+    if me and account_email(me) {
+        raise Refused(
+            "platform_account",
+            "This is an AfriCinemas platform account. Sign in to the back office with your staff account."
+        );
+    }
 }
 
-def _password_advice(violations: list[str]) -> str {
-    # What to tell the customer when Jac's password rules refuse the password.
+def password_advice(violations: list[str]) -> str {
+    # What to tell someone when Jac's password rules refuse their password.
     if "PASSWORD_CONTAINS_IDENTIFIER" in violations {
         return "Choose a password that doesn't contain your email.";
     }
@@ -143,7 +151,7 @@ def _sign_up(slug: str, email: str, password: str, name: str) -> dict[str, any] 
         );
     }
     if made.get("code") == "POLICY_VIOLATION" {
-        return refused("weak_password", _password_advice(made.get("violations") or []));
+        return refused("weak_password", password_advice(made.get("violations") or []));
     }
     if not made.get("root_id") {
         return refused("not_made", "We couldn't create your account. Try again.");

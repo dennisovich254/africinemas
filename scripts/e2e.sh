@@ -34,6 +34,8 @@ trap cleanup EXIT
 if [[ -z "${E2E_BASE_URL:-}" ]]; then
     port="${E2E_PORT:-8870}"
     echo "Building and serving the app on :$port (production bundle, no dev server)..."
+    # A new server, a new database: the last run's join link names no account in it.
+    rm -f "$AFRICINEMAS_PLATFORM_SETUP_FILE"
     jac run --no-dev --port "$port" < /dev/null > e2e/artifacts/server.log 2>&1 &
     server_pid=$!
     # Up to 10 minutes: the first build of the client bundle takes about 6 on a small machine.

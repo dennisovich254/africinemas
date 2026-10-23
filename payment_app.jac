@@ -119,7 +119,9 @@ import from core.snacks.menu_api { public_snacks, price_snacks, public_snack_ima
 import from core.snacks.pickup_api { snack_pickup, hand_over_snacks }  # jac:ignore[W2037]
 import from core.platform.staff_api {
     platform_whoami,  # jac:ignore[W2037]
+    platform_join,
     platform_staff,  # jac:ignore[W2037]
+    invite_platform_member,  # jac:ignore[W2037]
     set_platform_role,  # jac:ignore[W2037]
     remove_platform_staff  # jac:ignore[W2037]
 }
@@ -658,4 +660,11 @@ import from core.audit.log { events as audit_events }
 
 def:pub t_platform_events -> list[dict[str, str]] {
     return audit_events("platform", "", 50, "");
+}
+
+# Test-only: the join link scripts/platform_setup.jac prints for a settings super admin.
+import from core.platform.accounts { join_link, SETUP_TTL_S }
+
+def:pub t_platform_setup_link(email: str) -> str {
+    return join_link(email, SETUP_TTL_S);
 }

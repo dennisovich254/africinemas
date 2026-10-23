@@ -13,4 +13,6 @@ echo "Building and serving the app on :$port (production bundle). Ready when /he
 # Not exec: the trap deletes the run's test posters when the server stops. Its scratch
 # database is dropped by Jac itself (scripts/e2e_env.sh).
 trap 'rm -rf "$E2E_MEDIA_DIR"' EXIT
+# A new server, a new database: the last run's join link names no account in it.
+rm -f "$AFRICINEMAS_PLATFORM_SETUP_FILE"
 jac run --no-dev --port "$port" < /dev/null

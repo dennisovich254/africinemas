@@ -1,6 +1,6 @@
 # ADR-0055: AfriCinemas platform staff, apart from every cinema
 
-- **Status:** Accepted
+- **Status:** Accepted; decisions 4, 5 and 8 superseded by ADR-0056 (platform accounts of their own)
 - **Date:** 2026-10-22
 - **Sub-phase:** P13.1
 - **Code:** `core/platform/staff_api.jac`, `core/audit/log.jac` (`platform_audited`, `PLATFORM_COLLECTION`), `web/platform/PlatformConsole.jac`, `web/backoffice/CinemaPicker.jac` (the link to the console)
