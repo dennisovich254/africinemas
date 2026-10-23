@@ -48,6 +48,13 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"token": "made-up-token", "password": "Probe-Passw0rd!"}
          },
          "platform_staff": {"scope": "platform", "audit": ""},
+         # The cinemas directory (P13.2): every cinema, for platform staff only.
+         "platform_cinemas": {"scope": "platform", "audit": ""},
+         "platform_cinema": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"slug": "imax-rift"}
+         },
          "invite_platform_member": {
              "scope": "platform",
              "audit": "",
@@ -647,12 +654,12 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "public_screenings": {
              "scope": "storefront",
              "audit": "",
-             "probe": {"slug": "{tenant}"}
+             "probe": {"slug": "imax-rift"}
          },
          "public_home": {
              "scope": "storefront",
              "audit": "",
-             "probe": {"slug": "{tenant}"}
+             "probe": {"slug": "imax-rift"}
          },
          "public_movie": {
              "scope": "storefront",
@@ -781,7 +788,7 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "public_branding": {
              "scope": "storefront",
              "audit": "",
-             "probe": {"slug": "{tenant}"}
+             "probe": {"slug": "imax-rift"}
          },
          "get_home_page": {
              "scope": "tenant",
@@ -856,7 +863,7 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "my_storefront_account": {
              "scope": "storefront",
              "audit": "",
-             "probe": {"slug": "{tenant}"}
+             "probe": {"slug": "imax-rift"}
          },
          "cinema_chat": {
              "scope": "customer",
@@ -881,7 +888,7 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "public_venues": {
              "scope": "storefront",
              "audit": "",
-             "probe": {"slug": "{tenant}"}
+             "probe": {"slug": "imax-rift"}
          },
          "hold_seats": {
              "scope": "storefront",
@@ -944,7 +951,7 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "public_ticket_types": {
              "scope": "storefront",
              "audit": "",
-             "probe": {"slug": "{tenant}"}
+             "probe": {"slug": "imax-rift"}
          },
          "my_order": {
              "scope": "storefront",
@@ -1118,13 +1125,13 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "my_tickets": {
              "scope": "customer",
              "audit": "",
-             "probe": {"slug": "{tenant}"}
+             "probe": {"slug": "imax-rift"}
          },
          # Connected apps (P8.6d): the caller's own connections at a cinema.
          "my_connected_apps": {
              "scope": "customer",
              "audit": "",
-             "probe": {"slug": "{tenant}"}
+             "probe": {"slug": "imax-rift"}
          },
          "disconnect_app": {
              "scope": "customer",

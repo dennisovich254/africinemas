@@ -213,14 +213,14 @@ test "each address offers only its own site" {
             page.goto(BASE_URL + path);
             page.wait_for_selector('[data-testid="not-found"]');
         }
-        # ...and the platform's has none of the main site's: a page of one part is
-        # the console's (behind its sign-in), anything deeper isn't found.
+        # ...and the platform's has none of the main site's: a page of one or two parts
+        # is the console's (behind its sign-in), anything deeper isn't found.
         for path in ["/login", "/signup", "/app"] {
             page.goto(PLATFORM_URL + path);
             page.wait_for_url("**/sign-in");
             assert page.locator('[data-testid="platform-sign-in"]').count() == 1;
         }
-        for path in ["/c/nova", "/invite/x", "/app/nova"] {
+        for path in ["/c/nova/movies", "/invite/x/y", "/app/nova/staff"] {
             page.goto(PLATFORM_URL + path);
             page.wait_for_selector('[data-testid="not-found"]');
         }

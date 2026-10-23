@@ -176,6 +176,11 @@ import from core.snacks.product_api {
     remove_snack_image  # jac:ignore[W2037]
 }
 # The AfriCinemas platform console: platform staff and their roles (P13.1).
+# The platform's cinemas directory (P13.2).
+import from core.platform.cinemas_api {
+    platform_cinemas,  # jac:ignore[W2037]
+    platform_cinema  # jac:ignore[W2037]
+}
 # Which of the three sites an address is (P13.1b.c).
 import from core.site { site_for_host }
 import from core.platform.staff_api {

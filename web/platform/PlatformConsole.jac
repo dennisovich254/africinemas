@@ -6,7 +6,8 @@ the caller is on the platform (platform_whoami) and shows the console only to pl
 staff; anyone else (someone removed, say) is told plainly that this area is for
 AfriCinemas staff. The server checks every request again, so the page is never the guard.
 
-Sections so far: Overview (who you are, your role, what it lets you do) and, for super
+Sections so far: Overview (who you are, your role, what it lets you do), Cinemas (the
+directory and each cinema's page, P13.2; web/platform/CinemasPages.jac) and, for super
 admins, Platform staff: everyone with a role, inviting someone by email with a role (a
 link to send them, valid 72 hours; "Invited" until they set their password, with a new
 link on request), changing a role, and removing someone (asks first). Super admins set
@@ -36,6 +37,7 @@ import from ..shell.AppShell { AppShell }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..backoffice.PlainLayout { PlainLayout }
 import from .platform_session { platform_sign_out }
+import from .CinemasPages { CinemasList, CinemaDetail }
 import from ..backoffice.form_parts { ConfirmDelete, on_input, submit_with }
 
 glob ROLE_CHOICES: list[tuple[str, str]] = [
@@ -400,7 +402,7 @@ def Overview(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 <p className="text-sm text-muted-foreground">{ROLE_HELP[me["role"]]}</p>
             </section>
             <p className="text-sm text-muted-foreground">
-                The cinemas directory, the platform audit log, the overview figures and the support inbox are added here next (plan Phase 13).
+                The platform audit log, the overview figures and the support inbox are added here next (plan Phase 13).
             </p>
         </div>;
 }
@@ -408,6 +410,7 @@ def Overview(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
 def:pub PlatformConsole -> JsxElement {
     params: any = useParams();  # jac:ignore[W1037,W1051]
     section: str = params["section"] or "";
+    item: str = params["item"] or "";
     [me, set_me] = useState(None);
     [failed, set_failed] = useState(False);
 
@@ -470,10 +473,14 @@ def:pub PlatformConsole -> JsxElement {
             </PlainLayout>;
     }
     nav: list[dict[str, str]] = [{"label": "Overview", "to": "/", "key": ""}];
+    if may(shown, "platform.read") {
+        nav.append({"label": "Cinemas", "to": "/cinemas", "key": "cinemas"});
+    }
     if may(shown, "platform.staff") {
         nav.append({"label": "Platform staff", "to": "/staff", "key": "staff"});
     }
-    allowed = section in [n["key"] for n in nav];
+    # Only the Cinemas section has pages under it (a cinema's, /cinemas/<slug>).
+    allowed = section in [n["key"] for n in nav] and (not item or section == "cinemas");
     title = [
         n["label"]
         for n in nav
@@ -490,7 +497,13 @@ def:pub PlatformConsole -> JsxElement {
                 home="/"
                 account={<PlatformAccount/>}
             >
-                {section == "" and <Overview me={shown}/>}{section == "staff"
+                {section == "" and <Overview me={shown}/>}{section == "cinemas"
+                    and allowed
+                    and not item
+                    and <CinemasList/>}{section == "cinemas"
+                    and allowed
+                    and item
+                    and <CinemaDetail slug={item}/>}{section == "staff"
                     and allowed
                     and <StaffPage me={shown}/>}{not allowed
                     and <p
