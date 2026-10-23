@@ -32,11 +32,9 @@ def:pub cinema_of_resource(resource: str) -> str {
 def:pub token_slot(path: str, resource: str) -> str {
     # Where the sign-in token lives for a page: a cinema's storefront (/c/<slug>/...) and
     # the consent page for its connector (`resource`, P8.6a) use that cinema's customer
-    # slot; the platform console (/platform..., P13.1b.a) the platform's; everything
-    # else (the back office, staff sign-in, invitations) the staff one.
-    if path == "/platform" or path.startswith("/platform/") {
-        return f"{SLOT_PREFIX}platform";
-    }
+    # slot; everything else (the back office, staff sign-in, invitations) the staff one.
+    # The platform console is on an address of its own (P13.1b.b), whose storage no
+    # other page shares.
     if path.startswith("/c/") {
         slug = path[3:].split("/")[0];
         if slug {

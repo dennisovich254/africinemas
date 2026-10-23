@@ -65,7 +65,7 @@ def platform_admin -> str {
     # The browser tests' platform super admin (AFRICINEMAS_PLATFORM_ADMINS in
     # scripts/e2e_env.sh): joined the first time from the link the server writes to
     # AFRICINEMAS_PLATFORM_SETUP_FILE (core/platform/setup_file.jac), with PASSWORD.
-    # Its email, to sign in with on /platform/sign-in.
+    # Its email, to sign in with on the platform's /sign-in (PLATFORM_URL).
     email = os.environ.get(
         "AFRICINEMAS_PLATFORM_ADMINS", "platform-admin@example.com"
     ).split(

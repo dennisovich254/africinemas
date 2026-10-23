@@ -6,20 +6,18 @@ account the first time, or replacing a forgotten password). Each new link replac
 last. Only someone who can run commands on the server sees them.
 """
 
-import os;
-import from core.platform.accounts { join_link, SETUP_TTL_S }
+import from core.platform.accounts { join_link, platform_address, SETUP_TTL_S }
 import from core.platform.staff_api { allowlisted }
 
 with entry {
-    base = os.environ.get("AFRICINEMAS_PUBLIC_URL", "").strip().rstrip("/")
-        or "http://localhost:8000";
+    base = platform_address();
     emails = allowlisted();
     if not emails {
         print("No super admins: set AFRICINEMAS_PLATFORM_ADMINS in .env first.");
     }
     for email in emails {
         token = join_link(email, SETUP_TTL_S);
-        print(f"{email}: {base}/platform/join#{token}");
+        print(f"{email}: {base}/join#{token}");
     }
     if emails {
         print(

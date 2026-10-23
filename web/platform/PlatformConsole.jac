@@ -1,7 +1,7 @@
-"""`/platform` and `/platform/:section`: the AfriCinemas platform console (P13.1).
+"""`/` and `/:section` on the platform's address: the AfriCinemas platform console (P13.1).
 
 For AfriCinemas' own team, apart from every cinema's back office, signed in with a
-platform account (P13.1b.a; /platform/sign-in). On opening, the page asks the server who
+platform account (P13.1b.a; /sign-in), on an address of its own (P13.1b.b). On opening, the page asks the server who
 the caller is on the platform (platform_whoami) and shows the console only to platform
 staff; anyone else (someone removed, say) is told plainly that this area is for
 AfriCinemas staff. The server checks every request again, so the page is never the guard.
@@ -60,7 +60,7 @@ def PlatformAccount -> JsxElement {
     nav = useNavigate();
     def leave {
         platform_sign_out();
-        nav("/platform/sign-in", {"replace": True});
+        nav("/sign-in", {"replace": True});
     }
     return
         <Button
@@ -76,7 +76,7 @@ def PlatformAccount -> JsxElement {
 
 def join_address(token: str) -> str {
     win: any = window;  # jac:ignore[W1037,W2001]
-    return f"{win.location.origin}/platform/join#{token}";
+    return f"{win.location.origin}/join#{token}";
 }
 
 def InviteLink(email: str, link: str, hours: int) -> JsxElement {
@@ -469,11 +469,9 @@ def:pub PlatformConsole -> JsxElement {
                 </section>
             </PlainLayout>;
     }
-    nav: list[dict[str, str]] = [{"label": "Overview", "to": "/platform", "key": ""}];
+    nav: list[dict[str, str]] = [{"label": "Overview", "to": "/", "key": ""}];
     if may(shown, "platform.staff") {
-        nav.append(
-            {"label": "Platform staff", "to": "/platform/staff", "key": "staff"}
-        );
+        nav.append({"label": "Platform staff", "to": "/staff", "key": "staff"});
     }
     allowed = section in [n["key"] for n in nav];
     title = [
@@ -489,7 +487,7 @@ def:pub PlatformConsole -> JsxElement {
                 title={title}
                 nav={nav}
                 brand="AfriCinemas platform"
-                home="/platform"
+                home="/"
                 account={<PlatformAccount/>}
             >
                 {section == "" and <Overview me={shown}/>}{section == "staff"
