@@ -234,8 +234,24 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('jac.toml') }}
+      - name: Runner image (the package cache is per image)
+        id: image
+        run: echo "id=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+      - name: Cache Chromium's system packages
+        # Playwright installs them with apt, from the same mirror that was once 450x
+        # slower than usual (build-desktop): kept packages skip most of the download.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archives
+          key: apt-e2e-${{ steps.image.outputs.id }}
+          restore-keys: apt-e2e-
       - name: Install headless Chromium and its system libraries
-        run: .jac/venv/bin/python -m playwright install --with-deps chromium-headless-shell
+        run: |
+          # Playwright runs apt itself, so apt is told where the kept packages are.
+          mkdir -p ~/apt-archives/partial
+          echo "Dir::Cache::Archives \"$HOME/apt-archives\";" | sudo tee /etc/apt/apt.conf.d/99-kept-packages
+          .jac/venv/bin/python -m playwright install --with-deps chromium-headless-shell
+          sudo chown -R "$USER" ~/apt-archives
       - name: Start the embedded Postgres (a fresh runner's first start is slow)
         run: scripts/warm_postgres.sh
       - name: Browser tests, shard ${{ matrix.shard }} of 2 (phone + desktop, light + dark)
