@@ -64,11 +64,13 @@ test "the directory lists every cinema newest first, and finds them by name, slu
         assert code_of(app.call("boss", "platform_cinemas", {"state": "bogus"}))
             == "invalid_state";
         # In pages: one a page, the last page for a page past the end.
-        first = app.call("boss", "platform_cinemas", {"per_page": 1});
+        first = app.call("boss", "platform_cinemas", {"per_page": "1"});
         assert _slugs(first) == ["imax-rift"] and first["pages"] == 2 , first;
-        second = app.call("boss", "platform_cinemas", {"per_page": 1, "page": 2});
+        second = app.call("boss", "platform_cinemas", {"per_page": "1", "page": "2"});
         assert _slugs(second) == ["nova"] and second["page"] == 2;
-        assert _slugs(app.call("boss", "platform_cinemas", {"per_page": 1, "page": 9}))
+        assert _slugs(
+            app.call("boss", "platform_cinemas", {"per_page": "1", "page": "9"})
+        )
             == ["nova"];
     } finally {
         _close(app);

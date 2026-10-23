@@ -105,7 +105,8 @@ def _matches(cinema: Tenant, staffing: Staffing, search: str) -> bool {
 }
 
 def _page_number(value: any, otherwise: int = 1) -> int {  # jac:ignore[W1037]
-    # An omitted number can arrive as text (JI-025).
+    # The page numbers are text: an endpoint's number with a default can arrive as
+    # text anyway (JI-025), so they're never numbers there.
     try {
         return int(str(value));
     } except ValueError {
@@ -205,10 +206,7 @@ def _cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
 }
 
 def:protect platform_cinemas(
-    search: str = "",
-    state: str = "",
-    page: int = 1,  # jac:ignore[W1037]
-    per_page: int = 20  # jac:ignore[W1037]
+    search: str = "", state: str = "", page: str = "1", per_page: str = "20"
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _directory(search, state, page, per_page); }  # jac:ignore[W1037]

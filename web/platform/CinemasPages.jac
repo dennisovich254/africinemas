@@ -76,7 +76,7 @@ def:pub CinemasList -> JsxElement {
         set_loading(True);
         answer: any = None;  # jac:ignore[W1037]
         try {
-            answer = await platform_cinemas(wanted, chosen, number);  # jac:ignore[W2037]
+            answer = await platform_cinemas(wanted, chosen, str(number));  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("platform_cinemas failed", e);
         }
@@ -124,8 +124,8 @@ def:pub CinemasList -> JsxElement {
                 Loading cinemas…
             </p>;
     }
-    found: dict[str, any] = shown
-        or {"cinemas": [], "total": 0, "page": 1, "pages": 1, "states": []};  # jac:ignore[W1037]
+    nothing = {"cinemas": [], "total": 0, "page": 1, "pages": 1, "states": []};
+    found: dict[str, any] = shown or nothing;  # jac:ignore[W1037]
     rows: list[dict[str, any]] = found["cinemas"];  # jac:ignore[W1037]
     states: list[dict[str, str]] = found["states"];
     count: int = found["total"];
