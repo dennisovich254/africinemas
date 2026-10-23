@@ -21,7 +21,8 @@ spacing from them. Without a design the storefront keeps the platform's look.
 The header (P4.1d) has the cinema's name or logo; Movies, Showtimes and Cinemas;
 search; Sign in or My tickets (AccountLinks.jac, P8.6c); a venue picker when the cinema has more than one venue; and Book tickets. On
 phones the links and the picker move into a menu sheet, and search and Book stay in
-view. The footer links to the storefront's pages by topic.
+view. The footer links to the storefront's pages by topic, and carries the cinema's
+information (FooterInfo.jac, P14.3a), as the AI's footer does too.
 """
 
 import from react { useState, useEffect }
@@ -39,6 +40,7 @@ import from ...components.ui.sheet {
     SheetClose
 }
 import from .KitMark { KitMark }
+import from .FooterInfo { FooterInfo }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppLink { AppLink }
 import from core.theming.branding_api { public_branding }
@@ -183,6 +185,8 @@ def:pub StorefrontShell(
 ) -> JsxElement {
     [branding, set_branding] = useState(None);
     [cinema, set_cinema] = useState(None);
+    # The cinema's public information, for the footer of every page (P14.3a).
+    [info, set_info] = useState(None);
     [missing, set_missing] = useState(False);
     [venues, set_venues] = useState([]);
     [menu_open, set_menu_open] = useState(False);
@@ -220,6 +224,7 @@ def:pub StorefrontShell(
         }
         set_branding(shown["branding"]);
         set_cinema(shown["cinema"]);
+        set_info(shown["info"]);
     }
 
     def start_loading {
@@ -462,6 +467,7 @@ def:pub StorefrontShell(
                         motifs={kit_masks(kit)}
                         part="footer"
                         cinema={place["name"]}
+                        inside={<FooterInfo cinema={place["name"]} info={info}/>}
                     />}{written is None
                     and <footer className="border-t bg-card">
                         <div
@@ -490,6 +496,7 @@ def:pub StorefrontShell(
                                 ]}
                             />
                         </div>
+                        <FooterInfo cinema={place["name"]} info={info} framed={True}/>
                         <div
                             className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 border-t px-4 py-4 text-sm text-muted-foreground"
                         >
@@ -499,7 +506,6 @@ def:pub StorefrontShell(
                                 <KitMark className="kit-sign"/>
                                 {place["name"]}
                             </span>
-                            <span>Tickets by AfriCinemas</span>
                         </div>
                     </footer>}
             </div>

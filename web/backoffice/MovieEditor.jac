@@ -500,7 +500,10 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
             set_busy("");
             target = field_for(answer["error"]["code"], FIELDS);
             if target {
-                set_errors({target: answer["error"]["message"]});
+                # Not {target: ...}: in client code that's the key "target" (JI-055).
+                found: dict[str, str] = {};
+                found[target] = answer["error"]["message"];
+                set_errors(found);
             } else {
                 set_message(answer["error"]["message"]);
             }

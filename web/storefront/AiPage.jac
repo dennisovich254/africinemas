@@ -16,7 +16,7 @@ the template's stylesheet, so the AI's CSS never reaches our own pages (movie,
 checkout, tickets) between its header and footer.
 """
 
-import from react { createElement, useState, useEffect }
+import from react { createElement, cloneElement, useState, useEffect }
 
 # createElement for any tag the template names; its typed overloads expect one tag each.
 glob make: any = createElement;  # jac:ignore[W1037]
@@ -55,6 +55,7 @@ glob SVG_NS: str = "http://www.w3.org/2000/svg",
          "canvas",
          "template"
      ],
+     CREDIT: str = "Tickets by AfriCinemas",
      # HTML attribute names React spells differently.
      REACT_NAMES: dict[str, str] = {
          "class": "className",
@@ -260,7 +261,10 @@ obj Fill {
         logo: str,
         lists: dict[str, any],  # jac:ignore[W1037]
         motifs: list[str] = [],
-        signed_in: bool = False;
+        signed_in: bool = False,
+        # Ours, added as the last child of `holder` (the cinema's information, P14.3a).
+        inside: any = None,  # jac:ignore[W1037]
+        holder: any = None;  # jac:ignore[W1037]
 }
 
 def _motif_style(mask: str) -> dict[str, str] {
@@ -367,6 +371,10 @@ def _draw(fill: Fill, el: any, scope: dict[str, any], key: str) -> any {  # jac:
     if tag in DROP {
         return None;
     }
+    if el.childElementCount == 0 and (el.textContent or "").strip() == CREDIT {
+        # Designs written before P14.3a sign off with it; the footer no longer does.
+        return None;
+    }
     props = _props(el, svg);
     props["key"] = key;
     motif: str = el.getAttribute("data-motif") or "";
@@ -428,21 +436,40 @@ def _draw(fill: Fill, el: any, scope: dict[str, any], key: str) -> any {  # jac:
         props["to"] = to;
         return make(Link, props, kids);
     }
+    if fill.inside is not None and el == fill.holder {
+        kids = [*kids, cloneElement(fill.inside, {"key": "ours"})];
+    }
     return make(tag, props, kids);
 }
 
-def:pub AiPart(
+def _holder(part: any) -> any {  # jac:ignore[W1037]
+    # Where ours goes in a part: inside its wrappers (an element whose only child is
+    # another element, like a width-limiting container), so it lines up with the rest.
+    held: any = part;  # jac:ignore[W1037]
+    for _ in range(3) {
+        if held.childElementCount != 1 {
+            break;
+        }
+        held = held.firstElementChild;
+    }
+    return held;
+}
+
+def:pub AiPart(  # jac:ignore[W3030] the part, its fillings and what we add
     slug: str,
     page: dict[str, str],
     part: str,
     cinema: str,
     logo: str = "",
     home: dict[str, any] | None = None,  # jac:ignore[W1037]
-    motifs: list[str] | None = None
+    motifs: list[str] | None = None,
+    inside: any = None  # jac:ignore[W1037]
 ) -> JsxElement {
     # One part of the written page (header, home or footer) inside the stylesheet's
     # wrapper; nothing when the template has no such part. `motifs` are the brand kit's
-    # masks as data URLs, single figure first.
+    # masks as data URLs, single figure first. `inside` is ours, added as the last child
+    # inside the part's wrappers (the cinema's information in its footer, P14.3a), so
+    # it wears the part's own background and lines up with its content.
     # Who's signed in, before anything returns (a hook runs on every render).
     mine = use_customer(slug);
     win: any = window;  # jac:ignore[W1037,W2001]
@@ -458,7 +485,9 @@ def:pub AiPart(
         logo=logo,
         lists=ai_lists(home),
         motifs=motifs or [],
-        signed_in=mine == "customer"
+        signed_in=mine == "customer",
+        inside=inside,
+        holder=_holder(found)
     );
     return
         <div className="ai-page" data-ai-part={part} data-testid={f"ai-{part}"}>

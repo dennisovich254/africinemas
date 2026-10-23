@@ -15,6 +15,7 @@ import from .StorefrontParts { Poster }
 import from .showtimes { long_day_label, time_label, where_label, details_line }
 import from .Checkout { Checkout }
 import from ..site { with_site_slug }
+import from .site_info_view { use_site_info, GoodToKnow }
 
 def Fact(name: str, text: str, testid: str = "") -> JsxElement {
     return
@@ -29,6 +30,8 @@ def:pub ScreeningPage -> JsxElement {
     slug: str = params["slug"] or "";
     screening_id: str = params["screening"] or "";
     [page, set_page] = useState(None);
+    # What each ticket type means, and how to pay (P14.3a).
+    info = use_site_info(slug);
 
     async def load {
         shown: any = None;  # jac:ignore[W1037]
@@ -108,6 +111,7 @@ def:pub ScreeningPage -> JsxElement {
                     />
                     <Fact name="Where" text={where_label(screening)}/>
                 </dl>
+                <GoodToKnow info={info}/>
                 <Checkout slug={slug} screening_id={screening_id} tz={tz}/>
             </div>
         </StorefrontShell>;

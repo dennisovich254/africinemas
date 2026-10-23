@@ -205,6 +205,12 @@ import from core.accounts.email_verification {
     email_status,  # jac:ignore[W2037]
     send_email_checks  # jac:ignore[W2037]
 }
+# A cinema's public information, shown on every storefront page (P14.3a).
+import from core.catalog.site_info {
+    site_info,  # jac:ignore[W2037]
+    save_site_info,  # jac:ignore[W2037]
+    public_site_info
+}
 # The platform overview (P13.4).
 import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037]
 # The platform's cinemas directory (P13.2).
