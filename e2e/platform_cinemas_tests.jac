@@ -61,7 +61,8 @@ test "a super admin finds a cinema by its owner and opens its page" {
                 "document.querySelectorAll('[data-testid=platform-cinema]').length === 1"
             );
             row.wait_for();
-            assert "Setting up" in row.inner_text();
+            # Live: the browser tests' cinemas are approved (P14.1).
+            assert "Active" in row.inner_text();
             assert page.evaluate(WIDE_JS) <= 1 , f"{project}: directory scrolls sideways";
             page.screenshot(
                 path=artifact(f"platform-cinemas-{project}.png"), full_page=True

@@ -1,4 +1,4 @@
-"""Customer accounts, one per cinema (P2.6, P8.6c), through the production app (main.jac).
+"""Customer accounts, one per cinema (P2.6, P8.6c), through the production endpoints (payment_app.jac, whose t_go_live makes a cinema public: P14.1).
 
 Since P8.6c (user decision 2026-10-10) a customer account belongs to one cinema: it is
 made by that cinema's storefront sign-up, and the same email can have a separate
@@ -14,14 +14,17 @@ import from tests.support.storefront_setup { customer_at, code_of }
 import from tests.isolation.registry { REGISTRY }
 
 glob MAIN: str = path.join(
-         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))), "main.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "payment_app.jac"
      ),
      EMAIL: str = "wanjiru@example.com";
 
 def _two_cinemas -> Served {
     app = served(MAIN, ["owner_a", "owner_b"]);
     app.call("owner_a", "create_cinema", {"name": "Nova Cinemas", "slug": "nova"});
+    assert app.call("owner_a", "t_go_live", {"slug": "nova"});
     app.call("owner_b", "create_cinema", {"name": "Imax Rift", "slug": "imax-rift"});
+    assert app.call("owner_b", "t_go_live", {"slug": "imax-rift"});
     return app;
 }
 

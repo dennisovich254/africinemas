@@ -1,4 +1,4 @@
-"""P3.5b: publishing a screening, through the production app (main.jac).
+"""P3.5b: publishing a screening, through the production endpoints (payment_app.jac, whose t_go_live makes a cinema public: P14.1).
 
 Publishing (scheduled -> published) creates the screening's seat inventory, one SeatSlot
 per seat of its pinned layout, once, and projects it into the cinema's public Storefront
@@ -12,7 +12,8 @@ import from datetime { datetime, timedelta, timezone }
 import from tests.support.served { Served, served }
 
 glob MAIN: str = path.join(
-         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))), "main.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "payment_app.jac"
      ),
      NOVA: str = "nova",
      START: datetime = (datetime.now(timezone.utc) + timedelta(days=2)).replace(
@@ -51,6 +52,7 @@ def _seats -> list[dict[str, any]] {  # jac:ignore[W1037]
 def _cinema(names: list[str]) -> Setup {
     app = served(MAIN, ["owner"] + names);
     app.call("owner", "create_cinema", {"name": "Nova Cinemas", "slug": NOVA});
+    assert app.call("owner", "t_go_live", {"slug": NOVA});
     app.call("owner", "start_shift", {"tenant": NOVA});
     venue = app.call(
         "owner",
@@ -300,6 +302,7 @@ test "each cinema's storefront shows only its own screenings" {
     try {
         _do(s, "publish_screening", _screening(s));
         s.app.call("rival", "create_cinema", {"name": "Rift", "slug": "rift"});
+        assert s.app.call("rival", "t_go_live", {"slug": "rift"});
         rift = _public(s, "rift");
         assert rift["ok"]
             and rift["cinema"]["name"] == "Rift"
@@ -323,6 +326,7 @@ test "publishing needs showtimes.update at the venue; other cinemas' ids are not
         s.app.call("bo", "start_shift", {"tenant": NOVA});
         assert _code(_do(s, "publish_screening", screening, who="bo")) == "forbidden";
         s.app.call("rival", "create_cinema", {"name": "Rift", "slug": "rift"});
+        assert s.app.call("rival", "t_go_live", {"slug": "rift"});
         s.app.call("rival", "start_shift", {"tenant": "rift"});
         for name in ["publish_screening", "unpublish_screening", "list_seat_slots"] {
             answer = s.app.call(

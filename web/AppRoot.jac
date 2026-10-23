@@ -152,11 +152,11 @@ def ConsentOnOwnAddress -> JsxElement {
 }
 
 def NoSite -> JsxElement {
-    # An address under the domain that's no cinema's.
+    # An address under the domain that's no cinema's: nothing to go back to.
     return
         <Router>
             <Routes>
-                <Route path="*" element={<NotFoundPage/>}/>
+                <Route path="*" element={<NotFoundPage home={False}/>}/>
             </Routes>
         </Router>;
 }

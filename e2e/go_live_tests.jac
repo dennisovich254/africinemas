@@ -33,6 +33,8 @@ test "a new cinema is its team's to preview until a reviewer makes it public" {
             ).new_page();
             visitor.goto(store + "/");
             visitor.wait_for_selector('[data-testid="not-found"]');
+            # Nothing to go back to: the address is no cinema's (yet).
+            assert visitor.locator('[data-testid="not-found"] a').count() == 0;
             # The owner, from the back office: the preview, under its banner.
             staff = browser.new_context(**context_options(pw, project, "light"));
             page = staff.new_page();

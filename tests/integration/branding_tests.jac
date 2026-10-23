@@ -1,4 +1,4 @@
-"""P3.8a: a cinema's branding, through the production app (main.jac).
+"""P3.8a: a cinema's branding, through the production endpoints (payment_app.jac, whose t_go_live makes a cinema public: P14.1).
 
 The theme is edited as a draft (save_theme, upload_logo, remove_logo) and goes public
 only when published: each publish is a new, numbered version, and rolling back publishes
@@ -16,13 +16,15 @@ import from core.theming.tokens { DEFAULT_THEME }
 import from tests.support.served { Served, served }
 
 glob MAIN: str = path.join(
-         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))), "main.jac"
+         path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
+         "payment_app.jac"
      ),
      NOVA: str = "nova";
 
 def _cinema(names: list[str]) -> Served {
     app = served(MAIN, ["owner"] + names);
     app.call("owner", "create_cinema", {"name": "Nova Cinemas", "slug": NOVA});
+    assert app.call("owner", "t_go_live", {"slug": NOVA});
     app.call("owner", "start_shift", {"tenant": NOVA});
     return app;
 }
@@ -242,6 +244,7 @@ test "one cinema's branding never changes another's" {
     app = _cinema(["rival"]);
     try {
         app.call("rival", "create_cinema", {"name": "Rift", "slug": "rift"});
+        assert app.call("rival", "t_go_live", {"slug": "rift"});
         app.call("rival", "start_shift", {"tenant": "rift"});
         _save(app, _theme("#D97706"));
         app.call("owner", "publish_theme", {"tenant": NOVA});
