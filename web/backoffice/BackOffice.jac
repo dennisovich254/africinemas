@@ -56,6 +56,7 @@ import from .StaffHome { StaffHome }
 import from .AuditSection { AuditSection }
 import from .HelpSection { HelpSection }
 import from ..auth.EmailCheck { EmailCheckBanner }
+import from .SiteInfoSection { SiteInfoSection }
 import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
 import from .MovieEditor { MovieEditor }
@@ -158,19 +159,25 @@ def SettingsPage(
     branding: any  # jac:ignore[W1037] the Branding page, drawn by BackOffice
 ) -> JsxElement {
     # Settings: Branding (/app/:slug/settings), the home page
-    # (/app/:slug/settings/home-page, P4.1b) and the AI chat connector
+    # (/app/:slug/settings/home-page, P4.1b), the website information
+    # (/app/:slug/settings/website, P14.3a) and the AI chat connector
     # (/app/:slug/settings/ai-chat, P8.3), as tabs.
-    tabs = [("", "Branding"), ("home-page", "Home page"), ("ai-chat", "AI chat")];
+    tabs = [
+        ("", "Branding"),
+        ("home-page", "Home page"),
+        ("website", "Website information"),
+        ("ai-chat", "AI chat")
+    ];
     return
         <div className="flex flex-col gap-6">
-            <nav aria-label="Settings" className="flex gap-2 border-b">
+            <nav aria-label="Settings" className="flex gap-2 overflow-x-auto border-b">
                 {[
                     <AppLink
                         key={key or "branding"}
                         to={section_path(slug, "settings") + (f"/{key}" if key else "")}
                         testid={f"settings-tab-{key or 'branding'}"}
                         current={key == tab}
-                        className={"-mb-px inline-flex min-h-11 items-center border-b-2 px-3 text-sm font-medium "
+                        className={"-mb-px inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 text-sm font-medium "
                             + (
                                 "border-primary text-foreground"
                                     if key == tab
@@ -187,7 +194,12 @@ def SettingsPage(
                     <HomePageSection slug={slug}/>
                 </div>}
             {tab == "ai-chat" and <ConnectSection slug={slug} cinema={cinema}/>}
-            {tab != "home-page" and tab != "ai-chat" and branding}
+            {tab == "website"
+                and <div className="flex flex-col gap-6">
+                    <h2 className="text-xl font-semibold">Website information</h2>
+                    <SiteInfoSection slug={slug}/>
+                </div>}
+            {tab not in ["home-page", "ai-chat", "website"] and branding}
         </div>;
 }
 

@@ -39,6 +39,7 @@ import from ...components.ui.sheet {
     SheetClose
 }
 import from .KitMark { KitMark }
+import from .PublicStrip { PublicStrip }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppLink { AppLink }
 import from core.theming.branding_api { public_branding }
@@ -183,6 +184,8 @@ def:pub StorefrontShell(
 ) -> JsxElement {
     [branding, set_branding] = useState(None);
     [cinema, set_cinema] = useState(None);
+    # The cinema's public information, for the strip under every page (P14.3a).
+    [info, set_info] = useState(None);
     [missing, set_missing] = useState(False);
     [venues, set_venues] = useState([]);
     [menu_open, set_menu_open] = useState(False);
@@ -220,6 +223,7 @@ def:pub StorefrontShell(
         }
         set_branding(shown["branding"]);
         set_cinema(shown["cinema"]);
+        set_info(shown["info"]);
     }
 
     def start_loading {
@@ -320,7 +324,8 @@ def:pub StorefrontShell(
                         part="header"
                         cinema={place["name"]}
                         logo={look["logo"]}
-                    />}{written is None
+                    />}
+                {written is None
                     and <div className="sticky top-0 z-30">
                         <header
                             data-testid="storefront-header"
@@ -438,7 +443,8 @@ def:pub StorefrontShell(
                                 </Sheet>
                             </div>
                         </header>
-                    </div>}{written is not None
+                    </div>}
+                {written is not None
                     and home is not None
                     and <AiPart
                         slug={slug}
@@ -448,21 +454,23 @@ def:pub StorefrontShell(
                         cinema={place["name"]}
                         logo={look["logo"]}
                         home={home}
-                    />}{our_main
+                    />}
+                {our_main
                     and <main
                         className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8"
                     >
                         {children}
-                    </main>}{chat
-                    and <ChatLauncher slug={slug} cinema={place["name"]}/>}{written
-                    is not None
+                    </main>}
+                {chat and <ChatLauncher slug={slug} cinema={place["name"]}/>}
+                {written is not None
                     and <AiPart
                         slug={slug}
                         page={written}
                         motifs={kit_masks(kit)}
                         part="footer"
                         cinema={place["name"]}
-                    />}{written is None
+                    />}
+                {written is None
                     and <footer className="border-t bg-card">
                         <div
                             className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 text-sm text-muted-foreground sm:grid-cols-3"
@@ -499,9 +507,9 @@ def:pub StorefrontShell(
                                 <KitMark className="kit-sign"/>
                                 {place["name"]}
                             </span>
-                            <span>Tickets by AfriCinemas</span>
                         </div>
                     </footer>}
+                <PublicStrip cinema={place["name"]} info={info}/>
             </div>
         </ThemeProvider>;
 }

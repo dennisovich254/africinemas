@@ -14,6 +14,7 @@ import from .StorefrontShell { StorefrontShell, HomeSkeleton, LoadError }
 import from .HomeSections { HomeBlock, home_blocks }
 import from .venue_choice { choose_venue, use_title, scroll_to_hash }
 import from ..site { with_site_slug, local_path }
+import from .site_info_view { use_site_info, GettingHere }
 
 glob VISIT_TYPES: list[str] = ["location", "contact", "faq"];
 
@@ -86,6 +87,8 @@ def:pub CinemasPage -> JsxElement {
     navigate: any = useNavigate();  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
     [data, set_data] = useState(None);
+    # Directions and parking (P14.3a).
+    info = use_site_info(slug);
     [failed, set_failed] = useState(False);
 
     async def load {
@@ -189,6 +192,7 @@ def:pub CinemasPage -> JsxElement {
                             template="marquee"
                         /> for (n, b) in enumerate(home_blocks(visit_sections))
                     ]}
+                <GettingHere info={info}/>
             </div>
         </StorefrontShell>;
 }
