@@ -101,8 +101,9 @@ def:pub local_path(path: str) -> str {
 
 def:pub storefront_address(slug: str, path: str = "") -> str {
     # A cinema's storefront page from another site (the back office's "View
-    # storefront"): its own address under the domain, else /c/<slug> as before.
-    if SITE["site"] == "main" and SITE["domain"] {
+    # storefront", the platform's cinema pages): its own address under the domain,
+    # else /c/<slug> as before.
+    if SITE["site"] in ["main", "platform"] and SITE["domain"] {
         return f"{SITE['scheme']}://{slug}.{SITE['domain']}{path or '/'}";
     }
     return f"/c/{slug}{path}";

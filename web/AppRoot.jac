@@ -55,6 +55,7 @@ def PlatformSite -> JsxElement {
                 <Route element={<AuthGuard redirect="/sign-in"/>}>
                     <Route path="/" element={<PlatformConsole/>}/>
                     <Route path="/:section" element={<PlatformConsole/>}/>
+                    <Route path="/:section/:item" element={<PlatformConsole/>}/>
                 </Route>
                 <Route path="*" element={<NotFoundPage/>}/>
             </Routes>

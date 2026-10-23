@@ -26,7 +26,8 @@ import from "@hugeicons/core-free-icons" {
     PackageDeliveredIcon,
     UserGroupIcon,
     FileSearchIcon,
-    Settings01Icon
+    Settings01Icon,
+    Projector01Icon
 }
 import from ...components.ui.button { Button }
 import from ...components.ui.sheet {
@@ -41,8 +42,9 @@ import from ...components.ui.sheet {
 
 glob LINK_CLASSES: str = "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
 
-# Each back-office section's icon, by its key (web/backoffice/nav.jac); a link whose key
-# isn't here shows its label alone.
+# Each back-office section's icon, by its key (web/backoffice/nav.jac), and the platform
+# console's (web/platform/PlatformConsole.jac); a link whose key isn't here shows its
+# label alone.
 glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
          "": Home01Icon,
          "reports": ChartLineData01Icon,
@@ -57,7 +59,8 @@ glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
          "snack-counter": PackageDeliveredIcon,
          "staff": UserGroupIcon,
          "audit": FileSearchIcon,
-         "settings": Settings01Icon
+         "settings": Settings01Icon,
+         "cinemas": Projector01Icon
      };
 
 def nav_icon(section: any) -> any {  # jac:ignore[W1037]
