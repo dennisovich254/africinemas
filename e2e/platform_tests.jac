@@ -1,7 +1,9 @@
-"""P13.1 and P13.1b.a E2E: the AfriCinemas platform console, its staff and their accounts.
+"""P13.1, P13.1b.a and b E2E: the AfriCinemas platform console, its staff, their accounts
+and its own address.
 
-The platform's super admin (AFRICINEMAS_PLATFORM_ADMINS, scripts/e2e_env.sh) signs in
-on the platform's own sign-in page, with a platform account (e2e/support/api.jac,
+The platform is its own site, on admin.localhost (PLATFORM_URL): the main address has
+none of its pages. Its super admin (AFRICINEMAS_PLATFORM_ADMINS, scripts/e2e_env.sh)
+signs in on the platform's own sign-in page, with a platform account (e2e/support/api.jac,
 platform_admin), sees their role, and on Platform staff invites a reviewer by email.
 The reviewer opens the invitation link, chooses a password and reaches the console but
 not Platform staff. Removed, the reviewer is told the area is for AfriCinemas staff. A
@@ -14,6 +16,7 @@ import from e2e.support.web {
     shared_browser,
     close_contexts,
     BASE_URL,
+    PLATFORM_URL,
     PROJECTS,
     context_options,
     artifact
@@ -29,7 +32,7 @@ import from e2e.support.api {
 glob WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth";
 
 def _platform_sign_in(page: any, email: str) {  # jac:ignore[W1037]
-    page.goto(BASE_URL + "/platform/sign-in");
+    page.goto(PLATFORM_URL + "/sign-in");
     page.fill("#email", email);  # jac:ignore[W6002]
     page.fill("#password", PASSWORD);  # jac:ignore[W6002]
     page.click('[data-testid="platform-sign-in"] button[type="submit"]');
@@ -64,8 +67,8 @@ test "a super admin invites a reviewer, who joins and reaches the console but no
             page = browser.new_context(
                 **context_options(pw, project, "light")
             ).new_page();
-            page.goto(BASE_URL + "/platform");
-            page.wait_for_url("**/platform/sign-in");
+            page.goto(PLATFORM_URL + "/");
+            page.wait_for_url("**/sign-in");
             # No sign-up on the platform: joining is by invitation only.
             assert page.locator('a[href*="signup"], a[href*="sign-up"]').count() == 0;
             assert page.evaluate(WIDE_JS) <= 1 , f"{project}: sign-in scrolls sideways";
@@ -83,7 +86,7 @@ test "a super admin invites a reviewer, who joins and reaches the console but no
             page.click('[data-testid="add-platform-member"] button[type="submit"]');
             page.wait_for_selector('[data-testid="platform-invite-link"]');
             link = page.input_value('[data-testid="platform-invite-address"]');
-            assert "/platform/join#" in link , link;
+            assert link.startswith(PLATFORM_URL + "/join#") , link;
             row = page.locator('[data-testid="platform-member"]', has_text=reviewer);
             assert row.locator('[data-testid="member-invited"]').count() == 1;
             assert page.evaluate(WIDE_JS) <= 1 , f"{project}: staff page scrolls sideways";
@@ -107,7 +110,7 @@ test "a super admin invites a reviewer, who joins and reaches the console but no
             other.wait_for_selector('[data-testid="platform-overview"]');
             assert "#" not in other.url , other.url;
             assert other.inner_text('[data-testid="platform-role"]') == "Reviewer";
-            other.goto(BASE_URL + "/platform/staff");
+            other.goto(PLATFORM_URL + "/staff");
             other.wait_for_selector('[data-testid="platform-no-access"]');
             # The link is spent.
             spent = browser.new_context(
@@ -132,7 +135,7 @@ test "a super admin invites a reviewer, who joins and reaches the console but no
             page.wait_for_selector(
                 '[data-testid="platform-message"]:has-text("Removed")'
             );
-            other.goto(BASE_URL + "/platform");
+            other.goto(PLATFORM_URL + "/");
             other.wait_for_selector('[data-testid="not-platform"]');
             page.context.close();
             other.context.close();
@@ -149,8 +152,8 @@ test "a cinema account can't sign in to the platform, and a back-office sign-in 
     try {
         page = browser.new_context(**context_options(pw, "mobile", "light")).new_page();
         _staff_sign_in(page, owner["email"]);
-        page.goto(BASE_URL + "/platform");
-        page.wait_for_url("**/platform/sign-in");
+        page.goto(PLATFORM_URL + "/");
+        page.wait_for_url("**/sign-in");
         page.fill("#email", owner["email"]);  # jac:ignore[W6002]
         page.fill("#password", PASSWORD);  # jac:ignore[W6002]
         page.click('[data-testid="platform-sign-in"] button[type="submit"]');
@@ -186,14 +189,41 @@ test "signing in to a storefront or the back office in the same browser keeps th
         page.wait_for_url(f"**/c/{owner['slug']}**");
         page.wait_for_selector('[data-testid="customer-sign-up"]', state="detached");
         _staff_sign_in(page, owner["email"]);
-        page.goto(BASE_URL + "/platform");
+        page.goto(PLATFORM_URL + "/");
         page.wait_for_selector('[data-testid="platform-overview"]');
         assert page.inner_text('[data-testid="platform-role"]') == "Super admin";
         # Signing out of the platform leaves the back office signed in.
         page.click('[data-testid="platform-sign-out"]');
-        page.wait_for_url("**/platform/sign-in");
+        page.wait_for_url("**/sign-in");
         page.goto(BASE_URL + "/app");
         page.wait_for_selector('text="Your cinemas"');
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "each address offers only its own site" {
+    (pw, browser) = shared_browser();
+    try {
+        page = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        # The main address has none of the platform's pages...
+        for path in ["/platform", "/platform/sign-in", "/sign-in", "/join"] {
+            page.goto(BASE_URL + path);
+            page.wait_for_selector('[data-testid="not-found"]');
+        }
+        # ...and the platform's has none of the main site's: a page of one part is
+        # the console's (behind its sign-in), anything deeper isn't found.
+        for path in ["/login", "/signup", "/app"] {
+            page.goto(PLATFORM_URL + path);
+            page.wait_for_url("**/sign-in");
+            assert page.locator('[data-testid="platform-sign-in"]').count() == 1;
+        }
+        for path in ["/c/nova", "/invite/x", "/app/nova"] {
+            page.goto(PLATFORM_URL + path);
+            page.wait_for_selector('[data-testid="not-found"]');
+        }
     } finally {
         close_contexts(browser);
     }

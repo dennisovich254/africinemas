@@ -4,8 +4,9 @@ Both entry points (main.jac and desktop/main.jac) render <AppRoot />, so every
 screen is written once (docs/adr/0001-desktop-reuses-web-ui.md). It owns the only
 router: manual routing, no `pages/` directory (docs/adr/0002-manual-routing-in-shared-approot.md).
 The back-office (`/app...`) sits under one AuthGuard: signed-out visitors go to /login.
-The AfriCinemas platform console (`/platform...`) has its own sign-in and accounts
-(P13.1b.a): signed-out visitors go to /platform/sign-in.
+The AfriCinemas platform console is a site of its own, on its own address
+(`admin.<domain>`, P13.1b; web/site.jac) with its own sign-in and accounts (P13.1b.a):
+that address offers only the console's pages, and the main one none of them.
 A cinema's public storefront is `/c/:slug`, with its movies at `/c/:slug/m/:movie` and
 showtimes at `/c/:slug/s/:screening` (P4.1).
 """
@@ -33,12 +34,32 @@ import from .auth.InvitePage { InvitePage }
 import from .platform.PlatformConsole { PlatformConsole }
 import from .platform.PlatformAuthPages { PlatformSignInPage, PlatformJoinPage }
 import from .auth.token_slots { install_token_slots }
+import from .site { current_site }
 
 # The back office and each cinema's storefront keep their own sign-in (improvements #25),
 # set up when this module loads, before any page asks the server anything.
 glob TOKEN_SLOTS: bool = install_token_slots();
 
+def PlatformSite -> JsxElement {
+    # The platform's address: the console, its sign-in and the page a join link opens.
+    return
+        <Router>
+            <Routes>
+                <Route path="/sign-in" element={<PlatformSignInPage/>}/>
+                <Route path="/join" element={<PlatformJoinPage/>}/>
+                <Route element={<AuthGuard redirect="/sign-in"/>}>
+                    <Route path="/" element={<PlatformConsole/>}/>
+                    <Route path="/:section" element={<PlatformConsole/>}/>
+                </Route>
+                <Route path="*" element={<NotFoundPage/>}/>
+            </Routes>
+        </Router>;
+}
+
 def:pub AppRoot -> JsxElement {
+    if current_site() == "platform" {
+        return <PlatformSite/>;
+    }
     return
         <Router>
             <Routes>
@@ -65,12 +86,6 @@ def:pub AppRoot -> JsxElement {
                     <Route path="/app/:slug" element={<BackOffice/>}/>
                     <Route path="/app/:slug/:section" element={<BackOffice/>}/>
                     <Route path="/app/:slug/:section/:item" element={<BackOffice/>}/>
-                </Route>
-                <Route path="/platform/sign-in" element={<PlatformSignInPage/>}/>
-                <Route path="/platform/join" element={<PlatformJoinPage/>}/>
-                <Route element={<AuthGuard redirect="/platform/sign-in"/>}>
-                    <Route path="/platform" element={<PlatformConsole/>}/>
-                    <Route path="/platform/:section" element={<PlatformConsole/>}/>
                 </Route>
                 <Route path="*" element={<NotFoundPage/>}/>
             </Routes>

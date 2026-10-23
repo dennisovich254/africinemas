@@ -1,8 +1,8 @@
-"""`/platform/sign-in` and `/platform/join`: the AfriCinemas platform's own sign-in (P13.1b.a).
+"""`/sign-in` and `/join` on the platform's address: its own sign-in (P13.1b.a, P13.1b.b).
 
 Platform staff sign in with their platform account, never a cinema's. There is no
 sign-up: a super admin's invitation, or the link scripts/platform_setup.jac prints for
-the settings' super admins, opens /platform/join#<token>, where they choose their
+the settings' super admins, opens /join#<token>, where they choose their
 password (or a new one); the token stays in the address's fragment, which browsers
 never send to the server. Both pages leave cinema sign-ins in this browser alone.
 """
@@ -18,7 +18,7 @@ import from ..auth.PasswordField { PasswordField }
 import from .platform_session { platform_sign_in, platform_sign_in_as }
 
 glob BRAND: str = "AfriCinemas platform",
-     HOME: str = "/platform/sign-in",
+     HOME: str = "/sign-in",
      OFFLINE: str = "We couldn't reach AfriCinemas. Check your connection and try again.";
 
 def:pub PlatformSignInPage -> JsxElement {
@@ -28,7 +28,7 @@ def:pub PlatformSignInPage -> JsxElement {
     [busy, set_busy] = useState(False);
     [error, set_error] = useState("");
     if jacIsLoggedIn() {
-        return <Navigate to="/platform" replace={True}/>;
+        return <Navigate to="/" replace={True}/>;
     }
     async def submit(e: any) {  # jac:ignore[W1037]
         e.preventDefault();
@@ -42,7 +42,7 @@ def:pub PlatformSignInPage -> JsxElement {
         outcome = await platform_sign_in(email, password);
         set_busy(False);
         if outcome == "ok" {
-            nav("/platform");
+            nav("/");
         } elif outcome == "offline" {
             set_error(OFFLINE);
         } else {
@@ -116,8 +116,8 @@ def:pub PlatformJoinPage -> JsxElement {
         signed_in: bool = await platform_sign_in_as(answer["sign_in_name"], password);
         set_busy(False);
         # Out of the address bar and history: the link is spent.
-        win.history.replaceState(None, "", "/platform/join");
-        nav("/platform" if signed_in else HOME, {"replace": True});
+        win.history.replaceState(None, "", "/join");
+        nav("/" if signed_in else HOME, {"replace": True});
     }
     return
         <AuthLayout

@@ -1,9 +1,9 @@
 """Signing in and out of the AfriCinemas platform (P13.1b.a), with a platform account.
 
 A platform account is apart from any cinema account with the same email: its username
-is "platform:<local part>:<domain>" (core/platform/accounts.jac), and the console's
-pages keep its sign-in in their own slot (web/auth/token_slots.jac), so it never signs
-anyone in or out of a cinema's back office or storefront.
+is "platform:<local part>:<domain>" (core/platform/accounts.jac), and the console is on
+an address of its own (web/site.jac), whose storage no cinema page shares, so its
+sign-in never signs anyone in or out of a cinema's back office or storefront.
 """
 
 import from "@jac/runtime" { jacLogin, jacLogout }

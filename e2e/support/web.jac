@@ -12,6 +12,7 @@ them at the end (`close_contexts`), so tests stay independent.
 
 import atexit;
 import os;
+import re;
 import sys;
 import struct;
 import zlib;
@@ -19,6 +20,11 @@ import from pathlib { Path }
 import from playwright.sync_api { sync_playwright }
 
 glob BASE_URL: str = os.environ.get("E2E_BASE_URL", "http://127.0.0.1:8870"),
+     # The platform's own address (P13.1b.b): admin.localhost, which browsers send to
+     # this machine, on the same server.
+     PLATFORM_URL: str = re.sub(
+         r"//(127\.0\.0\.1|localhost)", "//admin.localhost", BASE_URL, count=1
+     ),
      ARTIFACTS: Path = Path(__file__).resolve().parent.parent / "artifacts",
      PROJECTS: list[str] = ["mobile", "desktop"],
      _SESSION_ATTR: str = "_africinemas_e2e_session",
