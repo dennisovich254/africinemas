@@ -238,7 +238,9 @@ def Figure(label: str, value: str, testid: str = "") -> JsxElement {
         </div>;
 }
 
-def:pub CinemaDetail(slug: str) -> JsxElement {
+def:pub CinemaDetail(slug: str, audit: bool = False) -> JsxElement {
+    # `audit`: the caller reads the platform's audit log, so the page links to this
+    # cinema's events there (P13.3).
     [found, set_found] = useState(None);
     [problem, set_problem] = useState("");
 
@@ -314,6 +316,13 @@ def:pub CinemaDetail(slug: str) -> JsxElement {
                 >
                     Open its storefront
                 </a>
+                {audit
+                    and <AppLink
+                        to={f"/audit?cinema={cinema['slug']}"}
+                        className="inline-flex min-h-11 w-fit items-center text-sm font-medium underline underline-offset-4"
+                    >
+                        The team's actions on it
+                    </AppLink>}
             </section>
             <section className="grid gap-3 sm:grid-cols-3" aria-label="So far">
                 <Figure
