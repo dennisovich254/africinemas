@@ -153,7 +153,11 @@ test "changes are asked, then the cinema is approved and public with its badge" 
             office.click('button[type="submit"]');
             office.wait_for_url("**/app");
             office.goto(f"{BASE_URL}/app/{owner['slug']}");
-            office.wait_for_selector('[data-testid="backoffice-verified"]');
+            # Beside the name in the sidebar (desktop) or the top bar (phone): one of the
+            # two is hidden.
+            office.wait_for_selector(
+                '[data-testid="backoffice-verified"] >> visible=true'
+            );
             # And on Your cinemas.
             office.goto(f"{BASE_URL}/app");
             office.wait_for_selector('[data-testid="cinema-list"]');
