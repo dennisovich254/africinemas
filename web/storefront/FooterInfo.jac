@@ -4,7 +4,8 @@ Drawn by StorefrontShell inside the footer, whatever the cinema's design: in our
 footer, and appended inside the footer the AI wrote (AiPart's `inside`), so no design
 can leave it out. Who runs the cinema and where, how to reach it (phone, email,
 WhatsApp, support hours), its social media and links to its published policies
-(P14.3b). Public documents (14.3d) and "Report this cinema" (14.6) join it. Every link was built on the server
+(P14.3b) and public documents, such as its licences (P14.3d). "Report this cinema"
+(14.6) joins it. Every link was built on the server
 from what the cinema typed (core/catalog/site_info.jac), never taken as typed.
 
 Two quiet rows: who and where (with the socials), then how to reach it. It takes the
@@ -51,6 +52,7 @@ def:pub FooterInfo(
     cinema: str,
     info: any,  # jac:ignore[W1037]
     policies: list[dict[str, str]] | None = None,
+    documents: list[dict[str, str]] | None = None,
     framed: bool = False
 ) -> JsxElement {
     # `framed`: in our own footer, with its own width and a rule above; in an AI's
@@ -65,7 +67,15 @@ def:pub FooterInfo(
     address: str = (shown["address"] or "") if shown else "";
     has_contact = phone or email or whatsapp or hours;
     pages: list[dict[str, str]] = policies or [];
-    if not (name or address or has_contact or len(socials) > 0 or len(pages) > 0) {
+    papers: list[dict[str, str]] = documents or [];
+    if not (
+        name
+        or address
+        or has_contact
+        or len(socials) > 0
+        or len(pages) > 0
+        or len(papers) > 0
+    ) {
         return <span className="hidden" data-testid="footer-info"/>;
     }
     frame = "mx-auto max-w-5xl border-t px-4 py-6 text-muted-foreground"
@@ -177,6 +187,24 @@ def:pub FooterInfo(
                                 {p["title"]}
                             </a>
                         </li> for p in pages
+                    ]}
+                </ul>}
+            {len(papers) > 0
+                and <ul
+                    className="flex flex-wrap items-center gap-x-6"
+                    data-testid="info-documents"
+                    aria-label="Licences and documents"
+                >
+                    {[
+                        <li key={d["id"]}>
+                            <a
+                                href={local_path(f"/c/{slug}/documents/{d['id']}")}
+                                style={INHERIT}
+                                className={LINK}
+                            >
+                                {d["title"]}
+                            </a>
+                        </li> for d in papers
                     ]}
                 </ul>}
         </section>;

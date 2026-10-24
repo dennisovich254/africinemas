@@ -18,16 +18,18 @@ import from ...components.ui.spinner { Spinner }
 import from ...components.ui.textarea { Textarea }
 import from core.catalog.policies {
     policies,  # jac:ignore[W2037] authenticated endpoint
-    save_policy  # jac:ignore[W2037]
+    save_policy,  # jac:ignore[W2037]
+    upload_policy_pdf,  # jac:ignore[W2037]
+    remove_policy_pdf  # jac:ignore[W2037]
 }
 import from ..storefront.PolicyPage { PolicyText }
-import from .form_parts { on_input }
+import from .form_parts { on_input, read_as_base64 }
 
 def status_of(p: dict[str, any]) -> str {  # jac:ignore[W1037]
     if p["published"] {
         return "Published";
     }
-    return "Draft" if p["text"] else "Not written";
+    return "Draft" if p["text"] or p["has_pdf"] else "Not written";
 }
 
 def:pub PoliciesSection(slug: str) -> JsxElement {
@@ -66,6 +68,41 @@ def:pub PoliciesSection(slug: str) -> JsxElement {
         set_reviewed(False);
         set_message("");
         set_failed("");
+    }
+
+    async def change_pdf(kind: str, file: any) {  # jac:ignore[W1037]
+        # Uploads `file` as the policy's PDF (P14.3d), or removes it when None.
+        set_busy("pdf");
+        set_message("");
+        answer: any = None;  # jac:ignore[W1037]
+        try {
+            if file is None {
+                answer = await remove_policy_pdf(slug, kind);  # jac:ignore[W2037]
+            } else {
+                encoded = await read_as_base64(file);
+                answer = await upload_policy_pdf(slug, kind, encoded);  # jac:ignore[W2037]
+            }
+        } except Exception as e {
+            console.warn("policy pdf failed", e);
+        }
+        set_busy("");
+        if answer is None {
+            set_failed(
+                "We couldn't reach AfriCinemas. Check your connection and try again."
+            );
+            return;
+        }
+        if not answer["ok"] {
+            set_failed(answer["error"]["message"]);
+            return;
+        }
+        set_failed("");
+        set_listed(answer["policies"]);
+        set_message(
+            "PDF removed."
+                if file is None
+                else "PDF added. Publish to show it on your storefront."
+        );
     }
 
     async def save(kind: str, publish: bool) {
@@ -184,6 +221,47 @@ def:pub PoliciesSection(slug: str) -> JsxElement {
                         <p id="policy-format" className="text-sm text-muted-foreground">
                             Leave a blank line between paragraphs. Start a line with ## for a heading, or with - for a list item.
                         </p>
+                    </div>
+                    <div className="flex flex-col gap-1.5" data-testid="policy-pdf">
+                        {(
+                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                                <span>
+                                    This policy also has a PDF, shown above its text.
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="min-h-11 px-4"
+                                    disabled={busy != ""}
+                                    data-testid="remove-policy-pdf"
+                                    onClick={lambda { change_pdf(
+                                        current["kind"], None
+                                    ); }}
+                                >
+                                    Remove the PDF
+                                </Button>
+                            </div>
+                        )
+                            if current["has_pdf"]
+                            else <>
+                                <Label htmlFor="policy-pdf-file">
+                                    Or upload it as a PDF
+                                </Label>
+                                <input
+                                    id="policy-pdf-file"
+                                    type="file"
+                                    accept="application/pdf,.pdf"
+                                    className="min-h-11 text-sm"
+                                    disabled={busy != ""}
+                                    onChange={lambda (e: any) { if len(e.target.files)  # jac:ignore[W1037]
+                                        > 0 {
+                                        change_pdf(current["kind"], e.target.files[0]);
+                                    }}}
+                                />
+                                <p className="text-sm text-muted-foreground">
+                                    A PDF from your lawyer, up to 10 MB. Visitors can open it from the policy's page.
+                                </p>
+                            </>}
                     </div>
                     {text
                         and <details className="rounded-md border p-3">

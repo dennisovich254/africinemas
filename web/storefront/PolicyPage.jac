@@ -8,7 +8,8 @@ and "- " a list item. An unpublished or unknown policy isn't found.
 
 import from react { useState, useEffect }
 import from "@jac/runtime" { useParams }
-import from core.catalog.policies { public_policy }
+import from core.catalog.policies { public_policy, public_policy_pdf }
+import from .DocumentPage { OpenPdf }
 import from .StorefrontShell { StorefrontShell, HomeSkeleton, LoadError }
 import from .venue_choice { use_title }
 import from ..site { with_site_slug }
@@ -83,6 +84,8 @@ def:pub PolicyPage -> JsxElement {
     kind: str = params["kind"] or "";
     [shown, set_shown] = useState(None);
     [failed, set_failed] = useState(False);
+    # The policy as a PDF, when it has one (P14.3d).
+    [pdf, set_pdf] = useState("");
 
     async def load {
         set_failed(False);
@@ -95,6 +98,14 @@ def:pub PolicyPage -> JsxElement {
             return;
         }
         set_shown(answer);
+        if answer["ok"] and answer["has_pdf"] {
+            try {
+                got: any = await public_policy_pdf(slug, kind);  # jac:ignore[W1037]
+                set_pdf(got["pdf"] if got["ok"] else "");
+            } except Exception as e {
+                console.warn("policy pdf failed", e);
+            }
+        }
     }
     def start {
         load();
@@ -144,6 +155,7 @@ def:pub PolicyPage -> JsxElement {
                             <time dateTime={updated}>{updated}</time>
                         </p>}
                 </header>
+                {found["has_pdf"] and <OpenPdf pdf={pdf} title={found["title"]}/>}
                 <PolicyText text={found["text"]}/>
             </article>
         </StorefrontShell>;
