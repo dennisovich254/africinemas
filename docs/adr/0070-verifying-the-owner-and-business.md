@@ -29,7 +29,7 @@ A cinema can't become public until AfriCinemas knows who runs it (threat model ย
 5. **Submit for review** needs:
    - every detail and file;
    - a county permit that hasn't expired;
-   - the owner's email confirmed (14.2);
+   - the owner's email confirmed (14.2), read from the account on the server (`confirmed_email`), never from what the page sends: a browser that signed in before 14.2 doesn't know its email. The page asks for it first, with **Send me a new link**;
    - the go-live essentials (ยง135): a venue, a screen with a published seat layout, prices, and the required policies (14.3b).
 
    What's missing comes back as a list, with links to where each essential is done. Submitting moves the cinema from `configuring` to `ready_for_go_live` and the record to `submitted`. Nothing can then be changed until a reviewer answers (14.5), and the cinema stays private until it's approved.

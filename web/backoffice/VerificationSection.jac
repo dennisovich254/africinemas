@@ -26,6 +26,7 @@ import from core.tenancy.verification {
     upload_verification_file,  # jac:ignore[W2037]
     submit_verification  # jac:ignore[W2037]
 }
+import from core.accounts.email_verification { send_email_check }  # jac:ignore[W2037]
 import from ..auth.session { signed_in_email }
 import from ..shell.AppLink { AppLink }
 import from .form_parts { TextField, FieldError, read_as_base64, submit_with }
@@ -275,12 +276,46 @@ def:pub VerificationSection(slug: str) -> JsxElement {
         set_view(answer);
     }
 
+    async def resend {
+        # A new confirmation link, to the email this browser signed in with (P14.2).
+        address = signed_in_email();
+        if not address {
+            set_failed("Sign out and back in, then send a new link from here.");
+            return;
+        }
+        set_busy("resend");
+        answer: any = None;  # jac:ignore[W1037]
+        try {
+            answer = await send_email_check(address);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("send_email_check failed", e);
+        }
+        set_busy("");
+        if answer is None or not answer["ok"] {
+            set_failed(
+                answer["error"]["message"]
+                    if answer is not None
+                    else "We couldn't reach AfriCinemas. Try again."
+            );
+            return;
+        }
+        set_failed("");
+        set_message(
+            "Your email is already confirmed."
+                if answer["confirmed"]
+                else f"We sent a new link to {address}. Open it, then come back here."
+        );
+        if answer["confirmed"] {
+            load();
+        }
+    }
+
     async def submit {
         set_busy("submit");
         set_message("");
         answer: any = None;  # jac:ignore[W1037]
         try {
-            answer = await submit_verification(slug, signed_in_email());  # jac:ignore[W2037]
+            answer = await submit_verification(slug);  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("submit failed", e);
         }
@@ -292,8 +327,8 @@ def:pub VerificationSection(slug: str) -> JsxElement {
             return;
         }
         if not answer["ok"] {
+            # Not load(): it would clear the message before it's read.
             set_failed(answer["error"]["message"]);
-            load();
             return;
         }
         set_failed("");
@@ -321,6 +356,8 @@ def:pub VerificationSection(slug: str) -> JsxElement {
     open: bool = shown["editable"];
     missing: list[dict[str, str]] = shown["missing"];
     essentials: list[dict[str, str]] = shown["essentials"];
+    confirmed: bool = shown["email_confirmed"];
+    blocked: bool = (len(missing) + len(essentials)) > 0 or not confirmed;
     def fields(rows: list[tuple[str, str, str]]) -> list[any] {  # jac:ignore[W1037]
         return [
             <TextField
@@ -462,10 +499,29 @@ def:pub VerificationSection(slug: str) -> JsxElement {
                     <h3 id="verify-submit" className="font-semibold">
                         Before you submit
                     </h3>
-                    {(len(missing) + len(essentials)) == 0
+                    {not blocked
                         and <p className="text-sm">
                             Everything's here. Send it to AfriCinemas to check.
                         </p>}
+                    {not confirmed
+                        and <div
+                            className="flex flex-wrap items-center gap-2 text-sm"
+                            data-testid="verification-email"
+                        >
+                            <span>
+                                Confirm your email, with the link we emailed you when you signed up.
+                            </span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="min-h-11 px-4"
+                                disabled={busy != ""}
+                                onClick={lambda { resend(); }}
+                            >
+                                {busy == "resend"
+                                    and <Spinner aria-hidden="true"/>}Send me a new link
+                            </Button>
+                        </div>}
                     {len(missing) > 0
                         and <ul
                             className="flex list-disc flex-col gap-1 pl-5 text-sm"
@@ -501,7 +557,7 @@ def:pub VerificationSection(slug: str) -> JsxElement {
                     <Button
                         type="button"
                         className="min-h-11 w-fit px-5"
-                        disabled={busy != "" or (len(missing) + len(essentials)) > 0}
+                        disabled={busy != "" or blocked}
                         data-testid="submit-verification"
                         onClick={lambda { submit(); }}
                     >

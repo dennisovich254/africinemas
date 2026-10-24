@@ -34,7 +34,6 @@ import from core.tenancy.models { Tenant }
 import from core.tenancy.state { TenantState, transition }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
-import from core.tenancy.identity { verified_sign_in }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.poster {
     media_store,
@@ -45,7 +44,7 @@ import from core.catalog.poster {
 import from core.catalog.documents { decode_pdf, process_pdf, PdfRejected }
 import from core.catalog.site_info { kenyan_number }
 import from core.catalog.policies { missing_policies, title_of }
-import from core.accounts.email_verification { is_confirmed }
+import from core.accounts.email_verification { confirmed_email }
 import from core.reporting.staff_home { setup_of }
 import from core.audit.log { audited }
 
@@ -315,6 +314,8 @@ def _view(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
         },
         "missing": missing_details(kept["details"], kept["files"], today),
         "essentials": _essentials(cinema),
+        # The owner's own email, confirmed (P14.2): asked before submitting.
+        "email_confirmed": bool(confirmed_email(node_id(root))),
         "editable": kept["status"] in EDITABLE
     };
 }
@@ -411,14 +412,16 @@ def file_answer(cinema: Tenant, item: str) -> dict[str, any] {  # jac:ignore[W10
     };
 }
 
-def _submit(tenant: str, email: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _submit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = _owner(tenant);
     cinema = scope.tenant;
     _editable(cinema);
-    mine = verified_sign_in(email) if email else "";
-    if not mine or "@" not in mine or not is_confirmed(node_id(root), mine) {
+    # Checked on the account, not on what the page sends: the browser may not know
+    # which email it signed in with.
+    if not confirmed_email(node_id(root)) {
         raise Refused(
-            "email_unverified", "Confirm your email first: we sent you a link."
+            "email_unverified",
+            "Confirm your email first, with the link we emailed you. You can send a new one from the banner at the top of the page."
         );
     }
     view = _view(cinema);
@@ -482,12 +485,12 @@ def:protect verification_file(tenant: str, item: str) -> dict[str, any] {  # jac
     );
 }
 
-def:protect submit_verification(tenant: str, email: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect submit_verification(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "verification.submitted",
         "verification",
         "",
-        lambda -> any { return _submit(tenant, email); }  # jac:ignore[W1037]
+        lambda -> any { return _submit(tenant); }  # jac:ignore[W1037]
     );
 }

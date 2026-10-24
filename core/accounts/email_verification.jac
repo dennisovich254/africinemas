@@ -56,6 +56,15 @@ def is_confirmed(root_id: str, email: str) -> bool {
     return holder(VERIFIED, same_id(root_id)) == email.strip().lower();
 }
 
+def confirmed_email(root_id: str) -> str {
+    # The account's confirmed email, or "": for checks that don't know which email the
+    # caller signed in with (P14.4).
+    if not root_id {
+        return "";
+    }
+    return holder(VERIFIED, same_id(root_id)) or "";
+}
+
 def _send_slot(root_id: str) -> int {
     # Takes one of the account's sends this hour: 0 if one was free, else the seconds
     # until the oldest frees up (as resending tickets does).

@@ -188,6 +188,16 @@ test "the owner fills the details and uploads the documents, checked on the serv
                     in ["forbidden", "not_found"] , f"{who} {name}";
             }
         }
+        # An owner whose email isn't confirmed can't submit, whatever the page sends.
+        _sign_up(app, "lee", "lee@example.com");
+        app.call("lee", "create_cinema", {"name": "Lee's", "slug": "lees"});
+        app.call("lee", "start_shift", {"tenant": "lees"});
+        assert not app.call("lee", "verification", {"tenant": "lees"})[
+            "email_confirmed"
+        ];
+        assert code_of(app.call("lee", "submit_verification", {"tenant": "lees"}))
+            == "email_unverified";
+        assert app.call("kim", "verification", {"tenant": "kims"})["email_confirmed"];
         logged = [
             e["action"]
             for e in app.call("kim", "audit_log", {"tenant": "kims", "limit": 10})[
@@ -208,9 +218,7 @@ test "submitting needs everything and the essentials, then waits for the review"
         for item in ["id_front", "id_back"] {
             assert _upload(app, item, "image/png", _png())["ok"];
         }
-        early = app.call(
-            "kim", "submit_verification", {"tenant": "kims", "email": KIM}
-        );
+        early = app.call("kim", "submit_verification", {"tenant": "kims"});
         assert code_of(early) == "not_ready" , early;
         assert sorted([m["field"] for m in early["error"]["missing"]])
             == ["county_permit", "kra_certificate", "registration_certificate"];
@@ -232,16 +240,7 @@ test "submitting needs everything and the essentials, then waits for the review"
                 }
             )["ok"];
         }
-        # Only with the owner's own, confirmed email.
-        assert code_of(
-            app.call(
-                "kim",
-                "submit_verification",
-                {"tenant": "kims", "email": "x@example.com"}
-            )
-        )
-            == "email_unverified";
-        done = app.call("kim", "submit_verification", {"tenant": "kims", "email": KIM});
+        done = app.call("kim", "submit_verification", {"tenant": "kims"});
         assert done["ok"] , done;
         assert done["status"] == "submitted"
             and done["state"] == "ready_for_go_live"

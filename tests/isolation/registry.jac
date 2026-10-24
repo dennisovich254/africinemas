@@ -207,7 +207,7 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "submit_verification": {
              "scope": "tenant",
              "audit": "verification.submitted",
-             "probe": {"tenant": "{tenant}", "email": "probe@example.com"}
+             "probe": {"tenant": "{tenant}"}
          },
          # A policy as a PDF, and the public documents (P14.3d).
          "upload_policy_pdf": {
