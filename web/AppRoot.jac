@@ -24,6 +24,7 @@ import from .backoffice.NewCinemaWizard { NewCinemaWizard }
 import from .backoffice.BackOffice { BackOffice }
 import from .routes.DesignSystemPage { DesignSystemPage }
 import from .routes.NotFoundPage { NotFoundPage }
+import from .routes.VerifiedPage { VerifiedPage }
 import from .storefront.StorefrontPage { StorefrontPage }
 import from .storefront.MoviePage { MoviePage }
 import from .storefront.ScreeningPage { ScreeningPage }
@@ -178,6 +179,7 @@ def MainSite(own_addresses: bool) -> JsxElement {
                 <Route path="/login" element={<LoginPage/>}/>
                 <Route path="/signup" element={<SignupPage/>}/>
                 <Route path="/verify-email" element={<VerifyEmailPage/>}/>
+                <Route path="/verified/:slug" element={<VerifiedPage/>}/>
                 {own_addresses and <Route path="/c/:slug/*" element={<OnOwnAddress/>}/>}
                 {own_addresses and <Route path="/c/:slug" element={<OnOwnAddress/>}/>}
                 {own_addresses

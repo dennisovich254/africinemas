@@ -196,7 +196,8 @@ import from core.tenancy.verification {
     save_verification,  # jac:ignore[W2037]
     upload_verification_file,  # jac:ignore[W2037]
     verification_file,  # jac:ignore[W2037]
-    submit_verification  # jac:ignore[W2037]
+    submit_verification,  # jac:ignore[W2037]
+    verified_cinema
 }
 # A cinema's public documents, linked from every storefront footer (P14.3d).
 import from core.catalog.documents {

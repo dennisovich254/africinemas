@@ -100,6 +100,10 @@ test "changes are asked, then the resubmitted cinema is approved and public" {
         assert "another business" in mails[0]["text"];
         # Kim resubmits; the reviewer approves.
         assert app.call("kim", "submit_verification", {"tenant": "kims"})["ok"];
+        waiting = app.call("boss", "platform_cinemas", {"search": "kims"})["cinemas"];
+        assert waiting[0]["verification"] == "submitted"
+            and not waiting[0]["verified_at"];
+        assert not browse(app, "verified_cinema", {"slug": "kims"})["verified"];
         assert code_of(browse(app, "public_branding", {"slug": "kims"})) == "not_found";
         approved = app.call(
             "checker",
@@ -108,6 +112,19 @@ test "changes are asked, then the resubmitted cinema is approved and public" {
         );
         assert approved["ok"] and approved["status"] == "approved" , approved;
         assert approved["reviewed_by"] == "checker@example.com";
+        # The badge's check on our own site: verified, with its one true address.
+        checked = browse(app, "verified_cinema", {"slug": "kims"});
+        assert checked["verified"] and checked["name"] == "Kim's Cinema" , checked;
+        assert "kims" in checked["address"];
+        # Not verified, unknown, or private: one answer, naming nothing.
+        for other in ["rift", "no-such-cinema"] {
+            assert browse(app, "verified_cinema", {"slug": other})
+                == {"ok": True, "verified": False};
+        }
+        # And in the console's list of cinemas.
+        listed = app.call("boss", "platform_cinemas", {"search": "kims"})["cinemas"];
+        assert listed[0]["verified_at"]
+            and listed[0]["verification"] == "approved" , listed;
         shown = browse(app, "public_branding", {"slug": "kims"});
         assert shown["ok"] and shown["verified_at"] , shown;
         assert app.call("boss", "platform_cinema", {"slug": "kims"})["cinema"]["state"]

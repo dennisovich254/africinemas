@@ -148,6 +148,14 @@ test "changes are asked, then the cinema is approved and public with its badge" 
             visitor.wait_for_selector('footer [data-testid="verified-badge"]');
             assert "Verified cinema"
                 in visitor.inner_text('[data-testid="verified-badge"]');
+            # The badge links to the check on AfriCinemas' own site, which confirms it.
+            href = visitor.get_attribute('[data-testid="verified-badge"]', "href")
+                or "";
+            assert href.endswith(f"/verified/{owner['slug']}") , href;
+            visitor.goto(href);
+            visitor.wait_for_selector('[data-testid="verified-yes"]');
+            visitor.goto(href.replace(owner["slug"], "no-such-cinema-here"));
+            visitor.wait_for_selector('[data-testid="verified-no"]');
             visitor.context.close();
         }
     } finally {

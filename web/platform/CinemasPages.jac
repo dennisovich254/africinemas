@@ -10,6 +10,8 @@ customer's details. The server checks every request (core/platform/cinemas_api.j
 import from react { useState, useEffect }
 import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.badge { Badge }
+import from "@hugeicons/react" { HugeiconsIcon }
+import from "@hugeicons/core-free-icons" { CheckmarkBadge01Icon }
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
@@ -65,7 +67,8 @@ def CinemaRow(cinema: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                         {cinema["slug"]}{owners and f" · {', '.join(owners)}"}
                     </span>
                 </span>
-                <span className="flex shrink-0 items-center gap-3 text-sm">
+                <span className="flex shrink-0 flex-wrap items-center gap-3 text-sm">
+                    <VerifiedMark cinema={cinema}/>
                     <Badge variant="outline">{cinema["state_label"]}</Badge>
                     <span className="text-muted-foreground">
                         {f"Joined {day_label(cinema['signed_up_at'])}"}
@@ -73,6 +76,33 @@ def CinemaRow(cinema: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 </span>
             </AppLink>
         </li>;
+}
+
+def VerifiedMark(cinema: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
+    # Verified (with the date it was checked), or waiting for its review (P14.5).
+    if cinema["verified_at"] {
+        return
+            <Badge
+                className="gap-1"
+                data-testid="cinema-verified"
+                title={f"Checked on {cinema['verified_at'][:10]}"}
+            >
+                <HugeiconsIcon
+                    icon={CheckmarkBadge01Icon}
+                    size={14}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                />
+                Verified
+            </Badge>;
+    }
+    if cinema["verification"] == "submitted" {
+        return
+            <Badge variant="secondary" data-testid="cinema-waiting">
+                Waiting for review
+            </Badge>;
+    }
+    return <span className="hidden"/>;
 }
 
 def:pub CinemasList -> JsxElement {
@@ -336,6 +366,7 @@ def:pub CinemaDetail(
                 <p
                     className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
                 >
+                    <VerifiedMark cinema={cinema}/>
                     <Badge variant="outline" data-testid="cinema-state-label">
                         {cinema["state_label"]}
                     </Badge>
