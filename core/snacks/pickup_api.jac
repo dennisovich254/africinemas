@@ -49,6 +49,8 @@ import from core.booking.redeem_api { staff_name }
 import from core.audit.log { audited }
 
 glob COLLECT: str = "concessions.collect",
+     # A snacks-only sale at the box office (P12.10) is collected within this many hours.
+     WALK_IN_HOURS: int = 24,
      COLLECTED: str = "snacks-collected",
      PICKUP_OPENS_MINUTES: int = 120,
      TICKET_CODE: str = "This is a ticket. It's scanned at the door, not here.";
@@ -106,6 +108,12 @@ def opens_at(screening: Screening) -> datetime {
         - timedelta(minutes=PICKUP_OPENS_MINUTES);
 }
 
+def _walk_in_open(order: Order, at: datetime) -> bool {
+    # A snacks-only sale's snacks can be handed over for WALK_IN_HOURS after it.
+    return at - datetime.fromisoformat(order.created_at)
+        < timedelta(hours=WALK_IN_HOURS);
+}
+
 def _view(
     scope: TenantScope, order: Order, screening: Screening | None
 ) -> dict[str, any] {  # jac:ignore[W1037]
@@ -116,7 +124,10 @@ def _view(
     venue = find_venue(scope.tenant, order.snack_venue_id);
     at = now();
     window = "open";
-    if screening is None or at >= datetime.fromisoformat(screening.ends_at) {
+    if not order.screening_id {
+        # Snacks only, at the box office (P12.10): handed over within a day.
+        window = "open" if _walk_in_open(order, at) else "over";
+    } elif screening is None or at >= datetime.fromisoformat(screening.ends_at) {
         window = "over";
     } elif at < opens_at(screening) {
         window = "early";
@@ -178,10 +189,14 @@ def _hand_over(tenant: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
         raise Refused("not_paid", "This order isn't paid.");
     }
     at = now();
-    if screening is None or at >= datetime.fromisoformat(screening.ends_at) {
+    if not order.screening_id {
+        # Snacks only, at the box office (P12.10): no showtime, a day to collect.
+        if not _walk_in_open(order, at) {
+            raise Refused("sale_over", "This sale is more than a day old.");
+        }
+    } elif screening is None or at >= datetime.fromisoformat(screening.ends_at) {
         raise Refused("showtime_over", "This showtime has ended.");
-    }
-    if at < opens_at(screening) {
+    } elif at < opens_at(screening) {
         raise Refused(
             "too_early",
             "Snacks for this showtime can't be collected yet.",

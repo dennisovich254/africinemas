@@ -20,8 +20,8 @@ import from e2e.support.web {
     context_options,
     artifact
 }
-import from e2e.support.api { call, PASSWORD }
-import from e2e.support.catalog { cinema_selling_tickets }
+import from e2e.support.api { PASSWORD }
+import from e2e.support.snacks { with_snacks }
 import from e2e.support.designs { ai_designed }
 
 glob SETTLE_MS: int = 30000,
@@ -34,85 +34,6 @@ glob SETTLE_MS: int = 30000,
   const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
   return hit && (hit === e || e.contains(hit)) ? 'ok' : 'covered by ' + (hit ? hit.outerHTML.slice(0, 80) : 'nothing'); }""",
      WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth";
-
-def _made(owner: dict[str, str], name: str, args: dict[str, any]) -> any {  # jac:ignore[W1037]
-    got = call(owner["token"], name, {"tenant": owner["slug"], ** args});
-    assert got["ok"] , (name, got);
-    return got;
-}
-
-def _row(values: list[str], price: int, tracked: bool = False) -> dict[str, any] {  # jac:ignore[W1037]
-    return {
-        "variant_id": "",
-        "option_values": values,
-        "sku": "",
-        "barcode": "",
-        "price_cents": price,
-        "available": True,
-        "track_stock": tracked
-    };
-}
-
-def _product(
-    owner: dict[str, str],
-    name: str,
-    category: str,
-    kind: str,
-    rows: list[dict[str, any]]  # jac:ignore[W1037]
-) -> dict[str, any] {  # jac:ignore[W1037]
-    made = _made(
-        owner,
-        "save_snack_product",
-        {
-            "product_id": "",
-            "name": name,
-            "brand": "",
-            "description": "",
-            "tags": [],
-            "category_id": category,
-            "kind": kind,
-            "option_names": ["Size"] if kind == "variants" else [],
-            "variants": rows
-        }
-    )["product"];
-    _made(owner, "publish_snack_product", {"product_id": made["product_id"]});
-    return made;
-}
-
-def _with_snacks(starts_in_minutes: int = 0) -> dict[str, str] {
-    owner = cinema_selling_tickets(starts_in_minutes=starts_in_minutes);
-    kinds = {
-        c["name"]: c["category_id"]
-        for c in _made(owner, "add_default_snack_categories", {})["categories"]
-    };
-    popcorn = _product(
-        owner,
-        "Popcorn",
-        kinds["Popcorn"],
-        "variants",
-        [_row(["Small"], 20000), _row(["Large"], 40000)]
-    );
-    _product(owner, "Coca-Cola", kinds["Beverages"], "single", [_row([], 15000, True)]);
-    group = _made(
-        owner,
-        "save_snack_addon_group",
-        {
-            "group_id": "",
-            "name": "Popcorn extras",
-            "label": "Extras",
-            "min_picks": 0,
-            "max_picks": 1,
-            "repeatable": False,
-            "options": [{"name": "Butter", "price_cents": 3000}]
-        }
-    )["group"];
-    _made(
-        owner,
-        "set_snack_product_addons",
-        {"product_id": popcorn["product_id"], "group_ids": [group["group_id"]]}
-    );
-    return owner;
-}
 
 def _press(page: any, project: str, selector: str) {  # jac:ignore[W1037]
     if project == "mobile" {
@@ -145,7 +66,7 @@ test "a visitor adds popcorn with butter, pays for it all, and sees it booked" {
     (pw, browser) = shared_browser();
     try {
         for project in PROJECTS {
-            owner = _with_snacks();
+            owner = with_snacks();
             page = browser.new_context(
                 **context_options(pw, project, "light")
             ).new_page();
@@ -200,7 +121,7 @@ test "a visitor adds popcorn with butter, pays for it all, and sees it booked" {
 
 test "the snack counter hands a paid order's snacks over once, by its pickup code" {
     # A showtime starting in 30 minutes, so pickup is open (from two hours before).
-    owner = _with_snacks(30);
+    owner = with_snacks(30);
     (pw, browser) = shared_browser();
     try {
         page = browser.new_context(
@@ -252,7 +173,7 @@ test "the snack counter hands a paid order's snacks over once, by its pickup cod
 test "skipping the snacks orders the ticket alone" {
     (pw, browser) = shared_browser();
     try {
-        owner = _with_snacks();
+        owner = with_snacks();
         page = browser.new_context(**context_options(pw, "mobile", "light")).new_page();
         _to_snacks(page, "mobile", owner, "A2");
         skipper = page.locator('[data-testid="skip-snacks"]');
@@ -272,7 +193,7 @@ test "under a cinema's AI-written design the snack step stays on screen and work
     (pw, browser) = shared_browser();
     try {
         for project in PROJECTS {
-            owner = _with_snacks();
+            owner = with_snacks();
             ai_designed(owner);
             page = browser.new_context(
                 **context_options(pw, project, "light"), reduced_motion="reduce"
@@ -320,7 +241,7 @@ test "review screenshots of the snack step" {
     try {
         for scheme in ["light", "dark"] {
             for project in PROJECTS {
-                owner = _with_snacks();
+                owner = with_snacks();
                 page = browser.new_context(
                     **context_options(pw, project, scheme), reduced_motion="reduce"
                 ).new_page();

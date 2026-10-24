@@ -89,7 +89,7 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
             order.pickup_reference = pickup[1];
             order.pickup_qr = pickup[2];
         }
-        hold: any = jobj(order.hold_id);  # jac:ignore[W1037]
+        hold: any = jobj(order.hold_id) if order.hold_id else None;  # jac:ignore[W1037]
         if isinstance(hold, SeatHold) {
             (hold as SeatHold).status = "paid";
         }

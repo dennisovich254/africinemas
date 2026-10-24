@@ -229,6 +229,16 @@ import from core.platform.review_api {
     platform_decide,  # jac:ignore[W2037]
     send_decision_mail  # jac:ignore[W2037]
 }
+# Snacks only, at the box office (P12.10).
+import from core.booking.snack_sale {
+    counter_snack_venues,  # jac:ignore[W2037]
+    counter_price_snacks,  # jac:ignore[W2037]
+    counter_snack_menu,  # jac:ignore[W2037]
+    place_snack_order,  # jac:ignore[W2037]
+    sell_snacks_for_cash,  # jac:ignore[W2037]
+    sell_snacks_with_mpesa,  # jac:ignore[W2037]
+    counter_snack_payment  # jac:ignore[W2037]
+}
 # Deleting personal files once they're no longer needed (P14.5b).
 import from core.tenancy.retention { delete_due_files }  # jac:ignore[W2037]
 # Verifying the owner and the business before going public (P14.4).

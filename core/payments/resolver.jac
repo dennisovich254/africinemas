@@ -141,7 +141,7 @@ def expire_order(cinema: Tenant, order: Order) {
     act_as(cinema.principal_root_id);
     try {
         order.status = "expired";
-        hold: any = jobj(order.hold_id);  # jac:ignore[W1037]
+        hold: any = jobj(order.hold_id) if order.hold_id else None;  # jac:ignore[W1037]
         if isinstance(hold, SeatHold) {
             (hold as SeatHold).status = "expired";
         }
