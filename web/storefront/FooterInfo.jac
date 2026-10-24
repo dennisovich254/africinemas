@@ -21,6 +21,7 @@ import from "@hugeicons/core-free-icons" {
     WhatsappIcon,
     Clock01Icon,
     Location01Icon,
+    CheckmarkBadge01Icon,
     Facebook01Icon,
     InstagramIcon,
     NewTwitterIcon,
@@ -53,6 +54,7 @@ def:pub FooterInfo(
     info: any,  # jac:ignore[W1037]
     policies: list[dict[str, str]] | None = None,
     documents: list[dict[str, str]] | None = None,
+    verified: str = "",
     framed: bool = False
 ) -> JsxElement {
     # `framed`: in our own footer, with its own width and a rule above; in an AI's
@@ -75,6 +77,7 @@ def:pub FooterInfo(
         or len(socials) > 0
         or len(pages) > 0
         or len(papers) > 0
+        or verified
     ) {
         return <span className="hidden" data-testid="footer-info"/>;
     }
@@ -89,6 +92,22 @@ def:pub FooterInfo(
             className={"col-span-full flex w-full basis-full flex-col gap-2 text-sm "
                 + frame}
         >
+            {verified
+                and <p
+                    className="inline-flex items-center gap-2 font-medium"
+                    data-testid="verified-badge"
+                >
+                    <HugeiconsIcon
+                        icon={CheckmarkBadge01Icon}
+                        size={18}
+                        strokeWidth={2}
+                        aria-hidden="true"
+                    />
+                    Verified cinema
+                    <span className="font-normal opacity-80">
+                        {f"· checked by AfriCinemas on {verified[:10]}"}
+                    </span>
+                </p>}
             <div
                 className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2"
             >

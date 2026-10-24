@@ -31,6 +31,10 @@ glob SEARCH_PAUSE_MS: int = 350,
      HISTORY_LABELS: dict[str, str] = {
          "signed_up": "Signed up",
          "platform.cinema_approved": "Approved: now public",
+         "platform.verification_approved": "Verification approved: now public",
+         "platform.verification_changes_requested": "Asked for changes to its verification",
+         "platform.verification_rejected": "Verification rejected",
+         "platform.verification_file_viewed": "Opened a verification document",
          "platform.support_replied": "We replied to a help request",
          "platform.support_closed": "We closed a help request",
          "platform.support_reopened": "We reopened a help request"
@@ -366,6 +370,15 @@ def:pub CinemaDetail(
                                 />}Approve: make it public
                         </Button>
                     </div>}
+                {review
+                    and cinema["verification"] == "submitted"
+                    and <AppLink
+                        to={f"/reviews/{cinema['slug']}"}
+                        testid="review-cinema"
+                        className="inline-flex min-h-11 w-fit items-center text-sm font-medium underline underline-offset-4"
+                    >
+                        It sent its details: review them
+                    </AppLink>}
                 {audit
                     and <AppLink
                         to={f"/audit?cinema={cinema['slug']}"}

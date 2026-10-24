@@ -17,6 +17,7 @@ only they are offered "Super admin", and only they can change or remove a super 
 made here.
 """
 
+import from .ReviewPages { ReviewQueue, ReviewPage, use_waiting_reviews }
 import from react { useState, useEffect }
 import from "@jac/runtime" { useParams, useNavigate }
 import from "@hugeicons/react" { HugeiconsIcon }
@@ -438,6 +439,9 @@ def:pub PlatformConsole -> JsxElement {
     granted: list[str] = seen["permissions"] or [];
     may_support: bool = bool(seen["platform"]) and "platform.support" in granted;
     waiting = use_open_requests(may_support);
+    # Reviews' count: cinemas waiting for a verification review (P14.5).
+    may_review: bool = bool(seen["platform"]) and "platform.review" in granted;
+    reviews = use_waiting_reviews(may_review);
 
     if failed {
         return
@@ -484,6 +488,16 @@ def:pub PlatformConsole -> JsxElement {
     if may(shown, "platform.read") {
         nav.append({"label": "Cinemas", "to": "/cinemas", "key": "cinemas"});
     }
+    if may(shown, "platform.review") {
+        nav.append(
+            {
+                "label": "Reviews",
+                "to": "/reviews",
+                "key": "reviews",
+                "count": str(reviews) if reviews else ""
+            }
+        );
+    }
     if may(shown, "platform.support") {
         nav.append(
             {
@@ -500,9 +514,10 @@ def:pub PlatformConsole -> JsxElement {
     if may(shown, "platform.audit") {
         nav.append({"label": "Audit log", "to": "/audit", "key": "audit"});
     }
-    # Only Cinemas and Support have pages under them (/cinemas/<slug>, /support/<id>).
+    # Only Cinemas, Reviews and Support have pages under them (/cinemas/<slug>,
+    # /reviews/<slug>, /support/<id>).
     allowed = section in [n["key"] for n in nav]
-        and (not item or section in ["cinemas", "support"]);
+        and (not item or section in ["cinemas", "reviews", "support"]);
     title = [
         n["label"]
         for n in nav
@@ -529,8 +544,15 @@ def:pub PlatformConsole -> JsxElement {
                         slug={item}
                         audit={may(shown, "platform.audit")}
                         review={may(shown, "platform.review")}
-                    />}{section == "audit" and allowed and <PlatformAuditPage/>}{section
-                    == "support"
+                    />}{section == "reviews"
+                    and allowed
+                    and not item
+                    and <ReviewQueue/>}{section == "reviews"
+                    and allowed
+                    and item
+                    and <ReviewPage key={item} slug={item}/>}{section == "audit"
+                    and allowed
+                    and <PlatformAuditPage/>}{section == "support"
                     and allowed
                     and not item
                     and <SupportInbox/>}{section == "support"

@@ -10,134 +10,22 @@ Staff and other cinemas can't see any of it, and no file is reachable without si
 in as the owner.
 """
 
-import io;
-import os;
 import base64;
-import tempfile;
-import from PIL { Image }
-import from pypdf { PdfWriter }
-import from tests.support.served { Served, served }
-import from tests.support.harness { Actor }
-import from tests.support.storefront_setup {
-    code_of,
-    open_cinema_for,
-    set_prices,
-    browse
-}
-import from tests.support.payment_setup { APP }
-
-glob PASSWORD: str = "Kim-Passw0rd!",
-     KIM: str = "kim@example.com",
-     DETAILS: dict[str, str] = {
-         "legal_name": "Kimani Wanjiru",
-         "id_number": "12345678",
-         "phone": "0712 345 678",
-         "registered_name": "Kim's Cinema Ltd",
-         "business_type": "limited_company",
-         "registration_number": "PVT-ABC123",
-         "kra_pin": "p051234567q",
-         "permit_expiry": "2099-12-31",
-         "premises_address": "Rupas Mall, Eldoret"
-     };
-
-def _png -> str {
-    out = io.BytesIO();
-    Image.new("RGB", (900, 600), (40, 90, 160)).save(out, format="PNG");
-    return base64.b64encode(out.getvalue()).decode();
-}
-
-def _pdf -> str {
-    writer = PdfWriter();
-    writer.add_blank_page(width=200, height=200);
-    out = io.BytesIO();
-    writer.write(out);
-    return base64.b64encode(out.getvalue()).decode();
-}
-
-def _sign_up(app: Served, label: str, email: str) {
-    # Signs up with an email identity, as the web form does, then signs in.
-    app.client.set_auth_token("");
-    made = app.client.post(
-        "/user/register",
-        json={
-            "identities": [{"type": "email", "value": email}],
-            "credential": {"type": "password", "password": PASSWORD}
-        }
-    );
-    assert made.status_code in (200, 201) , made.text;
-    login = app.client.post(
-        "/user/login",
-        json={
-            "identity": {"type": "email", "value": email},
-            "credential": {"type": "password", "password": PASSWORD}
-        }
-    );
-    assert login.status_code == 200 , login.text;
-    data: dict[str, any] = login.data or {};  # jac:ignore[W1037]
-    app.actors[label] = Actor(
-        username=email,
-        user_id=str(data.get("user_id", "")),
-        root_id=str(data.get("root_id", "")),
-        token=str(data["token"])
-    );
-}
-
-def _confirmed(app: Served) {
-    # Kim follows the emailed link (P14.2).
-    assert app.call("kim", "send_email_check", {"email": KIM})["ok"];
-    app.call("owner", "t_send_email_checks");
-    mails = [
-        m
-        for m in app.call("owner", "tm_outbox")
-        if m["to"] == KIM
-    ];
-    token = mails[-1]["text"].split("/verify-email#", 1)[1].split()[0];
-    assert browse(app, "confirm_email", {"token": token})["ok"];
-}
-
-def _app -> Served {
-    os.environ["AFRICINEMAS_OUTBOX_DIR"] = tempfile.mkdtemp(
-        prefix="africinemas-outbox-"
-    );
-    os.environ.pop("AFRICINEMAS_SMTP_HOST", None);
-    app = served(APP, ["owner", "usher", "rival"]);
-    _sign_up(app, "kim", KIM);
-    _confirmed(app);
-    kims = open_cinema_for(app, "kim", "kims", "Kim's Cinema", live=False);
-    set_prices(app, "kim", kims);
-    hire_usher(app, kims.venue);
-    app.call("rival", "create_cinema", {"name": "Rift", "slug": "rift"});
-    return app;
-}
-
-def hire_usher(app: Served, venue: str) {
-    invited = app.call(
-        "kim", "invite_staff", {"tenant": "kims", "role": "usher", "venue_id": venue}
-    );
-    assert app.call("usher", "accept_invite", {"token": invited["token"]})["ok"];
-    assert app.call("usher", "start_shift", {"tenant": "kims"})["ok"];
-}
-
-def _close(app: Served) {
-    os.environ.pop("AFRICINEMAS_OUTBOX_DIR", None);
-    app.close();
-}
-
-def _upload(app: Served, item: str, content_type: str, data: str) -> any {  # jac:ignore[W1037]
-    return app.call(
-        "kim",
-        "upload_verification_file",
-        {
-            "tenant": "kims",
-            "item": item,
-            "content_type": content_type,
-            "data_base64": data
-        }
-    );
+import from tests.support.served { Served }
+import from tests.support.storefront_setup { code_of, browse }
+import from tests.support.verification_setup {
+    DETAILS,
+    KIM,
+    verifying_app,
+    close_app,
+    upload_file,
+    png_base64,
+    pdf_base64,
+    sign_up_with_email
 }
 
 test "the owner fills the details and uploads the documents, checked on the server" {
-    app = _app();
+    app = verifying_app();
     try {
         fresh = app.call("kim", "verification", {"tenant": "kims"});
         assert fresh["status"] == "draft" and fresh["editable"] , fresh;
@@ -165,12 +53,16 @@ test "the owner fills the details and uploads the documents, checked on the serv
         assert saved["details"]["kra_pin"] == "P051234567Q";
         assert saved["details"]["phone"] == "+254712345678";
         assert code_of(
-            _upload(app, "id_front", "image/png", base64.b64encode(b"nope").decode())
+            upload_file(
+                app, "id_front", "image/png", base64.b64encode(b"nope").decode()
+            )
         )
             == "wrong_type";
-        assert code_of(_upload(app, "id_front", "text/plain", _png())) == "wrong_type";
-        assert code_of(_upload(app, "nope", "image/png", _png())) == "unknown_item";
-        shown = _upload(app, "id_front", "image/png", _png());
+        assert code_of(upload_file(app, "id_front", "text/plain", png_base64()))
+            == "wrong_type";
+        assert code_of(upload_file(app, "nope", "image/png", png_base64()))
+            == "unknown_item";
+        shown = upload_file(app, "id_front", "image/png", png_base64());
         assert shown["ok"] and shown["files"]["id_front"]["type"] == "image" , shown;
         mine = app.call(
             "kim", "verification_file", {"tenant": "kims", "item": "id_front"}
@@ -189,7 +81,7 @@ test "the owner fills the details and uploads the documents, checked on the serv
             }
         }
         # An owner whose email isn't confirmed can't submit, whatever the page sends.
-        _sign_up(app, "lee", "lee@example.com");
+        sign_up_with_email(app, "lee", "lee@example.com");
         app.call("lee", "create_cinema", {"name": "Lee's", "slug": "lees"});
         app.call("lee", "start_shift", {"tenant": "lees"});
         assert not app.call("lee", "verification", {"tenant": "lees"})[
@@ -207,16 +99,16 @@ test "the owner fills the details and uploads the documents, checked on the serv
         assert "verification.saved" in logged
             and "verification.file_uploaded" in logged , logged;
     } finally {
-        _close(app);
+        close_app(app);
     }
 }
 
 test "submitting needs everything and the essentials, then waits for the review" {
-    app = _app();
+    app = verifying_app();
     try {
         app.call("kim", "save_verification", {"tenant": "kims", "details": DETAILS});
         for item in ["id_front", "id_back"] {
-            assert _upload(app, item, "image/png", _png())["ok"];
+            assert upload_file(app, item, "image/png", png_base64())["ok"];
         }
         early = app.call("kim", "submit_verification", {"tenant": "kims"});
         assert code_of(early) == "not_ready" , early;
@@ -225,7 +117,7 @@ test "submitting needs everything and the essentials, then waits for the review"
         assert sorted([e["field"] for e in early["error"]["essentials"]])
             == ["policies", "policies", "policies"];
         for item in ["registration_certificate", "kra_certificate", "county_permit"] {
-            assert _upload(app, item, "application/pdf", _pdf())["ok"];
+            assert upload_file(app, item, "application/pdf", pdf_base64())["ok"];
         }
         for kind in ["terms", "privacy", "refunds"] {
             assert app.call(
@@ -249,13 +141,14 @@ test "submitting needs everything and the essentials, then waits for the review"
             app.call("kim", "save_verification", {"tenant": "kims", "details": DETAILS})
         )
             == "under_review";
-        assert code_of(_upload(app, "id_front", "image/png", _png())) == "under_review";
+        assert code_of(upload_file(app, "id_front", "image/png", png_base64()))
+            == "under_review";
         # Still not public: submitted isn't approved.
         assert code_of(browse(app, "public_branding", {"slug": "kims"})) == "not_found";
         # A tenant admin sets the cinema up, but isn't its owner.
         assert code_of(app.call("owner", "verification", {"tenant": "kims"}))
             == "not_found";
     } finally {
-        _close(app);
+        close_app(app);
     }
 }

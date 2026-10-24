@@ -145,6 +145,19 @@ def Status(view: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 </AlertDescription>
             </Alert>;
     }
+    if status == "rejected" {
+        refused: list[str] = view["reasons"] or [];
+        return
+            <Alert variant="destructive" data-testid="verification-status">
+                <AlertDescription>
+                    AfriCinemas couldn't verify your cinema, so it won't go public:
+                    <ul className="list-disc pl-5">
+                        {[<li key={f"{i}"}>{r}</li> for (i, r) in enumerate(refused)]}
+                    </ul>
+                    If you think this is a mistake, ask us from Help.
+                </AlertDescription>
+            </Alert>;
+    }
     if status == "approved" or view["state"] == "active" {
         return
             <Alert data-testid="verification-status">
