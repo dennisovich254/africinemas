@@ -136,6 +136,23 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"slug": "imax-rift"}
          },
+         # Reviewing a cinema's verification (P14.5): reviewers and super admins.
+         "platform_reviews": {"scope": "platform", "audit": "", "probe": {}},
+         "platform_review": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"slug": "imax-rift"}
+         },
+         "platform_review_file": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"slug": "imax-rift", "item": "id_front"}
+         },
+         "platform_decide": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"slug": "imax-rift", "decision": "approve", "reasons": []}
+         },
          "platform_cinema": {
              "scope": "platform",
              "audit": "",

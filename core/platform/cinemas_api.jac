@@ -28,6 +28,7 @@ import from core.reporting.report_api { cinema_records }
 import from core.audit.log { platform_events, platform_audited }
 import from core.platform.staff_api { require_platform }
 import from core.support.health { health_of }
+import from core.tenancy.verification { record_of }
 
 glob PAGE_SIZE: int = 20,
      PAGE_MAX: int = 50,
@@ -59,6 +60,11 @@ def all_cinemas -> list[Tenant] {
         }
     }
     return found;
+}
+
+def owners_of(cinema: Tenant) -> list[str] {
+    # Its owners' emails, as they signed in: where its review's answer goes (P14.5).
+    return _staffing(cinema).owners;
 }
 
 def _staffing(cinema: Tenant) -> Staffing {
@@ -206,6 +212,8 @@ def _cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     page["history"] = _history(cinema);
     # Its technical health (P13.5c): counts of problems, no customer's details.
     page["health"] = health_of(cinema);
+    # Where its verification is (P14.5): draft, submitted, approved...
+    page["verification"] = record_of(cinema)["status"];
     return {"ok": True, "cinema": page};
 }
 

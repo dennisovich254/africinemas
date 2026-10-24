@@ -73,6 +73,13 @@ glob VERIFY: str = "tenant.verification",
      IMAGE_TYPES: list[str] = ["image/jpeg", "image/png", "image/webp"],
      # Who may change the details: until submitted, and again when changes are asked.
      EDITABLE: list[str] = ["draft", "changes_requested"],
+     # A reviewer's decision (14.5) and the status it leaves.
+     DECISIONS: dict[str, str] = {
+         "approve": "approved",
+         "changes": "changes_requested",
+         "reject": "rejected"
+     },
+     REASON_MAX: int = 300,
      ESSENTIALS: list[tuple[str, str]] = [
          ("venue", "Add a venue"),
          ("screen", "Publish a screen's seat layout"),
@@ -89,7 +96,12 @@ node Verification {
         files: dict[str, dict[str, str]] = {},
         status: str = "draft",
         submitted_at: str = "",
-        reasons: list[str] = [];
+        reasons: list[str] = [],
+        # The review (14.5): when it was decided and by whom (a platform email), and
+        # when it was approved (the storefront's Verified badge).
+        decided_at: str = "",
+        reviewed_by: str = "",
+        approved_at: str = "";
 }
 
 obj Problem {
@@ -236,7 +248,10 @@ def record_of(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
                 "files": {},
                 "status": "draft",
                 "submitted_at": "",
-                "reasons": []
+                "reasons": [],
+                "decided_at": "",
+                "reviewed_by": "",
+                "approved_at": ""
             };
         }
         return {
@@ -244,7 +259,10 @@ def record_of(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
             "files": {k: dict(v) for (k, v) in found.files.items()},
             "status": found.status,
             "submitted_at": found.submitted_at,
-            "reasons": list(found.reasons)
+            "reasons": list(found.reasons),
+            "decided_at": found.decided_at,
+            "reviewed_by": found.reviewed_by,
+            "approved_at": found.approved_at
         };
     } finally {
         restore(me);
@@ -264,17 +282,8 @@ def _write(cinema: Tenant, tenant_id: str, changes: dict[str, any]) {  # jac:ign
             found = made;
         }
         kept: Verification = found;
-        if "details" in changes {
-            kept.details = changes["details"];
-        }
-        if "files" in changes {
-            kept.files = changes["files"];
-        }
-        if "status" in changes {
-            kept.status = changes["status"];
-        }
-        if "submitted_at" in changes {
-            kept.submitted_at = changes["submitted_at"];
+        for (field, value) in changes.items() {
+            setattr(kept, field, value);
         }
         flush_now();
     } finally {
@@ -450,6 +459,68 @@ def _submit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         {"status": "submitted", "submitted_at": now().isoformat()}
     );
     return _view(cinema);
+}
+
+def verified_at(cinema: Tenant) -> str {
+    # When AfriCinemas approved the cinema's verification, or "" (the Verified badge).
+    kept = record_of(cinema);
+    return kept["approved_at"] if kept["status"] == "approved" else "";
+}
+
+def decide(
+    cinema: Tenant, decision: str, reasons: list[str], reviewer: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # A reviewer's answer to a submitted cinema (14.5): "approve" makes it active and
+    # public; "changes" reopens the page with the reasons; "reject" closes it, with the
+    # reasons. The caller checks the reviewer may decide, and logs it.
+    if decision not in DECISIONS {
+        raise Refused("unknown_decision", "Approve, ask for changes, or reject.");
+    }
+    if record_of(cinema)["status"] != "submitted" {
+        raise Refused("not_waiting", "This cinema isn't waiting for a review.");
+    }
+    said = [
+        " ".join(str(r).split())
+        for r in (reasons if isinstance(reasons, list) else [])
+        if str(r).strip()
+    ];
+    if decision != "approve" and not said {
+        raise Refused(
+            "reasons_needed", "Say what the owner needs to change, or why it's refused."
+        );
+    }
+    if any([len(r) > REASON_MAX or "<" in r or ">" in r for r in said])
+        or len(said) > 10 {
+        raise Refused(
+            "invalid_reasons",
+            f"Up to 10 reasons of {REASON_MAX} characters each, in plain text."
+        );
+    }
+    stamp = now().isoformat();
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        target = TenantState.ACTIVE
+            if decision == "approve"
+            else TenantState.CONFIGURING;
+        if cinema.state == TenantState.READY_FOR_GO_LIVE.value {
+            cinema.move_to(target);
+        }
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    changes: dict[str, any] = {  # jac:ignore[W1037]
+        "status": DECISIONS[decision],
+        "reasons": said,
+        "decided_at": stamp,
+        "reviewed_by": reviewer
+    };
+    if decision == "approve" {
+        changes["approved_at"] = stamp;
+    }
+    _write(cinema, node_id(cinema), changes);
+    return record_of(cinema);
 }
 
 def:protect verification(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]

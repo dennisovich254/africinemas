@@ -21,10 +21,15 @@ obj Cinema {
 }
 
 def open_cinema_for(
-    app: Served, who: str, slug: str, name: str, live: bool = True
+    app: Served, who: str, slug: str, name: str, live: bool = True, email: str = ""
 ) -> Cinema {
     # A cinema, its owner on shift, one venue and a published five-seat screen.
-    app.call(who, "create_cinema", {"name": name, "slug": slug});
+    # `email`: the owner's sign-in email, kept as the cinema's, as the web form sends.
+    made: dict[str, str] = {"name": name, "slug": slug};
+    if email {
+        made["email"] = email;
+    }
+    app.call(who, "create_cinema", made);
     # Only a live cinema is public (P14.1); the platform's review isn't what's tested.
     if live {
         assert app.call(who, "t_go_live", {"slug": slug}) , f"{slug} didn't go live";

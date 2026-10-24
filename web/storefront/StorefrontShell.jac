@@ -191,6 +191,8 @@ def:pub StorefrontShell(
     [policies, set_policies] = useState([]);
     # And its public documents (P14.3d).
     [documents, set_documents] = useState([]);
+    # When AfriCinemas verified it, for the footer's badge (P14.5).
+    [verified, set_verified] = useState("");
     [missing, set_missing] = useState(False);
     [venues, set_venues] = useState([]);
     [menu_open, set_menu_open] = useState(False);
@@ -231,6 +233,7 @@ def:pub StorefrontShell(
         set_info(shown["info"]);
         set_policies(shown["policies"] or []);
         set_documents(shown["documents"] or []);
+        set_verified(shown["verified_at"] or "");
     }
 
     def start_loading {
@@ -479,6 +482,7 @@ def:pub StorefrontShell(
                             info={info}
                             policies={policies}
                             documents={documents}
+                            verified={verified}
                         />}
                     />}{written is None
                     and <footer className="border-t bg-card">
@@ -514,6 +518,7 @@ def:pub StorefrontShell(
                             info={info}
                             policies={policies}
                             documents={documents}
+                            verified={verified}
                             framed={True}
                         />
                         <div

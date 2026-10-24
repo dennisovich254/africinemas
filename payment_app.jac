@@ -143,6 +143,12 @@ import from core.support.requests {
 }
 # Emailing a cinema's owners when we reply (P13.5b), and a test-only way to run it.
 import from core.support.mail { send_support_due }
+import from core.platform.review_api { send_decisions_due }
+
+def:pub t_send_decision_mail -> int {
+    # Sends the queued review decisions now (P14.5).
+    return send_decisions_due();
+}
 
 def:pub t_send_support_mail -> int {
     return send_support_due();
@@ -175,6 +181,14 @@ import from core.catalog.policies {
     upload_policy_pdf,  # jac:ignore[W2037]
     remove_policy_pdf,  # jac:ignore[W2037]
     public_policy_pdf
+}
+# Reviewing cinemas' verification, in the platform console (P14.5).
+import from core.platform.review_api {
+    platform_reviews,  # jac:ignore[W2037]
+    platform_review,  # jac:ignore[W2037]
+    platform_review_file,  # jac:ignore[W2037]
+    platform_decide,  # jac:ignore[W2037]
+    send_decision_mail  # jac:ignore[W2037]
 }
 # Verifying the owner and the business before going public (P14.4).
 import from core.tenancy.verification {

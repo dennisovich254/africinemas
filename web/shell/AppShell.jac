@@ -65,6 +65,7 @@ glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
          "verification": IdVerifiedIcon,
          "settings": Settings01Icon,
          "cinemas": Projector01Icon,
+         "reviews": IdVerifiedIcon,
          "help": HelpCircleIcon,
          "support": CustomerSupportIcon
      };
