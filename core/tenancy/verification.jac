@@ -47,6 +47,8 @@ import from core.catalog.policies { missing_policies, title_of }
 import from core.accounts.email_verification { confirmed_email }
 import from core.reporting.staff_home { setup_of }
 import from core.audit.log { audited }
+import from core.tenancy.open_cinema { open_cinema }
+import from core.site { own_address, site_domain }
 
 glob VERIFY: str = "tenant.verification",
      TEXT_FIELDS: dict[str, tuple[str, int]] = {
@@ -462,9 +464,34 @@ def _submit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
 }
 
 def verified_at(cinema: Tenant) -> str {
-    # When AfriCinemas approved the cinema's verification, or "" (the Verified badge).
+    # When AfriCinemas approved the cinema's verification, or "" (the Verified badge):
+    # the cinema's own copy, or the record's for an approval made before it was kept.
+    if cinema.verified_at {
+        return cinema.verified_at;
+    }
     kept = record_of(cinema);
     return kept["approved_at"] if kept["status"] == "approved" else "";
+}
+
+def:pub verified_cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The badge's check, on AfriCinemas' own site (P14.5): whether `slug` is a public
+    # cinema AfriCinemas verified, its name, when, and its one true address. Anything
+    # else (unknown, private, not verified) gets the same answer, naming nothing.
+    cinema = open_cinema(slug);
+    if cinema is None or not verified_at(cinema) {
+        return {"ok": True, "verified": False};
+    }
+    when = verified_at(cinema);
+    return {
+        "ok": True,
+        "verified": True,
+        "name": cinema.name,
+        "verified_at": when,
+        "address": own_address(cinema.slug),
+        "host": f"{cinema.slug}.{site_domain()}",
+        # Where this check really lives: a copy of the page anywhere else is fake.
+        "checked_at_host": site_domain()
+    };
 }
 
 def decide(
@@ -506,6 +533,7 @@ def decide(
         if cinema.state == TenantState.READY_FOR_GO_LIVE.value {
             cinema.move_to(target);
         }
+        cinema.verified_at = stamp if decision == "approve" else "";
         flush_now();
     } finally {
         restore(me);

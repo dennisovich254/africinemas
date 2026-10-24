@@ -6,6 +6,7 @@ Refusals share one shape: {"ok": False, "error": {"code", "message"}}, with code
 "not_found" (no such cinema, or not yours) or "forbidden" (yours, but not allowed).
 """
 
+import from core.tenancy.reserved_words { name_claims, NAME_MESSAGE }
 import from core.authz.policy { Forbidden, ROLE_PERMISSIONS }
 import from core.authz.context {
     NoShift,
@@ -58,6 +59,8 @@ def:protect my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "tenant_id": scope.ctx.tenant_id,
         "name": scope.tenant.name,
         "state": scope.tenant.state,
+        # When AfriCinemas verified it (P14.5), for the back office's badge; "" if not.
+        "verified_at": scope.tenant.verified_at,
         "assignments": [
             {"role": a.role, "venue_ids": a.venue_ids} for a in scope.ctx.assignments
         ],
@@ -83,6 +86,9 @@ def _do_rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ignore[
         return refused(
             "invalid_name", f"Enter a cinema name of 1 to {NAME_MAX} characters."
         );
+    }
+    if name_claims(clean) {
+        return refused("invalid_name", NAME_MESSAGE);
     }
     scope.tenant.name = clean;
     return {"ok": True, "name": clean};

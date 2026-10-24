@@ -1088,6 +1088,12 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"slug": "{tenant}", "kind": "terms"}
          },
+         # The Verified badge's check (P14.5): the same answer for anything not verified.
+         "verified_cinema": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}"}
+         },
          "public_policies": {
              "scope": "storefront",
              "audit": "",

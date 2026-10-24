@@ -55,6 +55,7 @@ import from core.audit.log { record }
 import from core.tenancy.storefront_accounts { cinema_of_account }
 import from core.platform.accounts { account_email as platform_account_email }
 import from core.accounts.email_verification { is_confirmed }
+import from core.tenancy.reserved_words { name_claims, NAME_MESSAGE }
 
 glob SLUG_HOLD_ENV: str = "AFRICINEMAS_SIGNUP_SLUG_HOLD_S",
      SLUG_HOLD_DEFAULT_S: int = 900;
@@ -120,10 +121,21 @@ def _do_create_cinema(
             "invalid_name", f"Enter a cinema name of 1 to {NAME_MAX} characters."
         );
     }
+    # Only AfriCinemas shows the Verified badge (P14.5): nor in a name or an address.
+    if name_claims(clean_name) {
+        return _refused("invalid_name", NAME_MESSAGE);
+    }
     try {
         wanted = validate_slug(slug);
     } except InvalidSlug as e {
         return _refused("invalid_slug", str(e), e.reason);
+    }
+    if name_claims(wanted) {
+        return _refused(
+            "invalid_slug",
+            "Leave out \"verified\" and \"africinemas\" from the web address.",
+            "reserved"
+        );
     }
     if lookup_slug(wanted) is not None {
         return _refused(
@@ -184,6 +196,8 @@ def:protect my_cinemas -> list[dict[str, str | list[str]]] {
                     "slug": t.slug,
                     "name": t.name,
                     "state": t.state,
+                    # When AfriCinemas verified it (P14.5), for its badge; "" if not.
+                    "verified_at": t.verified_at,
                     "roles": records[0].roles,
                     "access": access_level(t)
                 }
@@ -206,6 +220,15 @@ def:protect check_slug(slug: str) -> dict[str, str | bool] {
             "available": False,
             "reason": e.reason,
             "message": str(e)
+        };
+    }
+    if name_claims(wanted) {
+        return {
+            "slug": wanted,
+            "valid": False,
+            "available": False,
+            "reason": "reserved",
+            "message": "Leave out \"verified\" and \"africinemas\" from the web address."
         };
     }
     if lookup_slug(wanted) is not None {

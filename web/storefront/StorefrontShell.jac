@@ -40,6 +40,7 @@ import from ...components.ui.sheet {
     SheetClose
 }
 import from .KitMark { KitMark }
+import from .VerifiedPill { VerifiedPill }
 import from .FooterInfo { FooterInfo }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppLink { AppLink }
@@ -334,6 +335,7 @@ def:pub StorefrontShell(
                         part="header"
                         cinema={place["name"]}
                         logo={look["logo"]}
+                        after_logo={<VerifiedPill slug={slug} verified={verified}/>}
                     />}{written is None
                     and <div className="sticky top-0 z-30">
                         <header
@@ -345,7 +347,7 @@ def:pub StorefrontShell(
                             >
                                 <h1
                                     data-testid="storefront-name"
-                                    className="design-header-brand mr-auto min-w-0 font-display text-2xl leading-none sm:text-3xl"
+                                    className="design-header-brand mr-auto flex min-w-0 items-center gap-2 font-display text-2xl leading-none sm:text-3xl"
                                 >
                                     <AppLink
                                         to={f"/c/{slug}"}
@@ -361,6 +363,7 @@ def:pub StorefrontShell(
                                                 {place["name"]}
                                             </span>}
                                     </AppLink>
+                                    <VerifiedPill slug={slug} verified={verified}/>
                                 </h1>
                                 <nav
                                     aria-label="Storefront"

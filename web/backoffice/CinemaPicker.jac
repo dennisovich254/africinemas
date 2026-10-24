@@ -3,7 +3,12 @@
 import from react { useState, useEffect }
 import from "@jac/runtime" { Link, useNavigate }
 import from "@hugeicons/react" { HugeiconsIcon }
-import from "@hugeicons/core-free-icons" { Add01Icon, ArrowRight01Icon, Film01Icon }
+import from "@hugeicons/core-free-icons" {
+    Add01Icon,
+    ArrowRight01Icon,
+    CheckmarkBadge01Icon,
+    Film01Icon
+}
 import from ...components.ui.alert { Alert, AlertDescription }
 import from ...components.ui.badge { Badge }
 import from ...components.ui.button { Button }
@@ -34,7 +39,20 @@ def CinemaLink(cinema: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                     {web_address(cinema["slug"])}
                 </span>
                 <span className="flex flex-wrap gap-1">
-                    {[
+                    {cinema["verified_at"]
+                        and <Badge
+                            className="gap-1"
+                            data-testid="cinema-verified"
+                            title={f"Verified by AfriCinemas on {cinema['verified_at'][:10]}"}
+                        >
+                            <HugeiconsIcon
+                                icon={CheckmarkBadge01Icon}
+                                size={14}
+                                strokeWidth={2}
+                                aria-hidden="true"
+                            />
+                            Verified
+                        </Badge>}{[
                         <Badge key={r} variant="secondary">{role_label(r)}</Badge>
                         for r in cinema["roles"]
                     ]}

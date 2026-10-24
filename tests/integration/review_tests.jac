@@ -100,6 +100,10 @@ test "changes are asked, then the resubmitted cinema is approved and public" {
         assert "another business" in mails[0]["text"];
         # Kim resubmits; the reviewer approves.
         assert app.call("kim", "submit_verification", {"tenant": "kims"})["ok"];
+        waiting = app.call("boss", "platform_cinemas", {"search": "kims"})["cinemas"];
+        assert waiting[0]["verification"] == "submitted"
+            and not waiting[0]["verified_at"];
+        assert not browse(app, "verified_cinema", {"slug": "kims"})["verified"];
         assert code_of(browse(app, "public_branding", {"slug": "kims"})) == "not_found";
         approved = app.call(
             "checker",
@@ -108,6 +112,27 @@ test "changes are asked, then the resubmitted cinema is approved and public" {
         );
         assert approved["ok"] and approved["status"] == "approved" , approved;
         assert approved["reviewed_by"] == "checker@example.com";
+        # The owner's back office and cinema list say so too.
+        assert app.call("kim", "my_access", {"tenant": "kims"})["verified_at"];
+        assert [
+            c["verified_at"] != ""
+            for c in app.call("kim", "my_cinemas")
+            if c["slug"] == "kims"
+        ]
+            == [True];
+        # The badge's check on our own site: verified, with its one true address.
+        checked = browse(app, "verified_cinema", {"slug": "kims"});
+        assert checked["verified"] and checked["name"] == "Kim's Cinema" , checked;
+        assert "kims" in checked["address"];
+        # Not verified, unknown, or private: one answer, naming nothing.
+        for other in ["rift", "no-such-cinema"] {
+            assert browse(app, "verified_cinema", {"slug": other})
+                == {"ok": True, "verified": False};
+        }
+        # And in the console's list of cinemas.
+        listed = app.call("boss", "platform_cinemas", {"search": "kims"})["cinemas"];
+        assert listed[0]["verified_at"]
+            and listed[0]["verification"] == "approved" , listed;
         shown = browse(app, "public_branding", {"slug": "kims"});
         assert shown["ok"] and shown["verified_at"] , shown;
         assert app.call("boss", "platform_cinema", {"slug": "kims"})["cinema"]["state"]
@@ -168,6 +193,37 @@ test "a rejected cinema stays private, and the owner can't resubmit" {
             )
         )
             == "unknown_decision";
+        # A cinema's own words can't imitate the badge (P14.5).
+        assert app.call(
+            "kim", "create_cinema", {"name": "Verified Cinema", "slug": "vc-one"}
+        )["error"]["code"]
+            == "invalid_name";
+        assert app.call(
+            "kim", "create_cinema", {"name": "Kim Two", "slug": "afri-cinemas-two"}
+        )["error"]["code"]
+            == "invalid_slug";
+        assert code_of(
+            app.call(
+                "kim",
+                "save_policy",
+                {
+                    "tenant": "kims",
+                    "kind": "house_rules",
+                    "text": "We're verified by AfriCinemas.",
+                    "published": False,
+                    "reviewed": False
+                }
+            )
+        )
+            == "badge_claim";
+        assert code_of(
+            app.call(
+                "kim",
+                "rename_cinema",
+                {"tenant": "kims", "name": "Kims, an AfriCinemas cinema"}
+            )
+        )
+            == "invalid_name";
     } finally {
         close_app(app);
     }

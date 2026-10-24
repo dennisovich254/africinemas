@@ -11,6 +11,7 @@ about ("sections.2.fields.map_url"), so the editor can show it beside that field
 Movies are named by id here; the storefront only ever sees their public keys.
 """
 
+import from core.tenancy.reserved_words { text_claims, TEXT_MESSAGE }
 import re;
 
 obj Field {
@@ -192,6 +193,9 @@ obj _Checker {
             self.problem(
                 path, "too_long", f"Keep this to {LIMITS[limit]} characters or fewer."
             );
+        } elif text_claims(cleaned) {
+            # Only AfriCinemas shows the Verified badge (P14.5).
+            self.problem(path, "badge_claim", TEXT_MESSAGE);
         }
         return cleaned;
     }

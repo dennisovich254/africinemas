@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-24
 - **Sub-phase:** P14.5a
-- **Code:** `core/platform/review_api.jac`, `core/tenancy/verification.jac` (`decide`, `verified_at`), `core/platform/cinemas_api.jac` (`owners_of`, `verification`), `core/theming/branding_api.jac` (`verified_at`), `web/platform/ReviewPages.jac`, `web/platform/PlatformConsole.jac`, `web/storefront/FooterInfo.jac` (the badge), `web/backoffice/VerificationSection.jac`
+- **Code:** `core/platform/review_api.jac`, `core/tenancy/verification.jac` (`decide`, `verified_at`), `core/platform/cinemas_api.jac` (`owners_of`, `verification`), `core/theming/branding_api.jac` (`verified_at`), `web/platform/ReviewPages.jac`, `web/platform/PlatformConsole.jac`, `web/storefront/FooterInfo.jac` (the badge), `web/routes/VerifiedPage.jac` (its check), `web/backoffice/VerificationSection.jac`
 - **Tests:** `tests/integration/review_tests.jac`, `tests/support/verification_setup.jac`, `tests/isolation/registry.jac`, `e2e/review_tests.jac`
 
 ## Context
@@ -27,8 +27,22 @@
    - **Reject:** reasons are required. The cinema stays private, and its page stays closed with the reasons. The owner can write to us from Help.
 
    A cinema that isn't waiting can't be decided on twice.
-5. **The owners are emailed** with the decision, its reasons and a link to their Verification page. The email is queued and sent by a job, as other emails are, to the owners' sign-in emails.
-6. **The old Approve stays:** the cinema page's **Approve: make it public** (ADR-0064) remains, for the demo cinemas. A cinema that has submitted its details shows a link to its review instead of relying on it.
+5. **A badge anyone can check.** The footer's badge is drawn by our code from our records, never by the cinema's design or text. But its look can be copied: words typed into a cinema's own text, or a look-alike site. So the badge is a link to `/verified/<slug>` on AfriCinemas' main address, which no cinema controls.
+   - **A verified cinema:** the page confirms it, with the date and the cinema's one true address.
+   - **Anything else** (unknown, private, not verified): the same answer, "We can't confirm this cinema… don't pay on it", naming nothing (`verified_cinema`).
+   - **The address it gives** is always the cinema's own, under our domain (`own_address`, e.g. `anga.africinemas.co.ke`), never this server's public address. In development that's a tunnel, which once showed up here.
+   - **A copy of the page.** Any page can be copied, so the check page doesn't ask to be trusted for what it says. It says where it really lives (`<our domain>/verified`) and asks the visitor to look at the browser's address bar: anywhere else, it's a copy. At `/verified`, a visitor can type a cinema's address and check it themself, without following a badge's link at all. The address bar is the one thing a look-alike site can't fake.
+   - **At the top too:** a Verified pill sits beside the logo, so visitors don't have to scroll to the footer (`VerifiedPill`). It's in our header, and in an AI-written header straight after its logo, or after the link around the logo, since a link can't hold another (`AiPart`'s `after_logo`). It has no colours of its own: it takes the header's text colour, with a thin outline, so it fits any design. It links to the same check.
+   - **In the console:** the list of cinemas shows **Verified** (with the date) or **Waiting for review** beside each cinema.
+   - **In the cinema's back office:** a **Verified** mark beside its name at the top of every page (`my_access`'s `verified_at`), and on Your cinemas (`my_cinemas`).
+
+   Every public cinema is verified anyway (only `active` is public, ADR-0064). The check is for copies.
+   - **A cinema's own words can't imitate it** (decided with the owner, 2026-10-24; `core/tenancy/reserved_words.jac`).
+     - **Names** can't contain "verified" or "AfriCinemas": the cinema's name and web address, its registered business name, and a document's title.
+     - **Longer text** can't claim the badge: the home page, policies, directions and the rest of the website information. That rules out "verified cinema", "verified by AfriCinemas", "AfriCinemas verified", "✓ Verified" and the like. Plain mentions stay allowed: our own privacy template says AfriCinemas runs the site, and "IDs are verified at the door" is fine.
+     - **Existing text** isn't changed. It's checked the next time it's saved.
+6. **The owners are emailed** with the decision, its reasons and a link to their Verification page. The email is queued and sent by a job, as other emails are, to the owners' sign-in emails.
+7. **The old Approve stays:** the cinema page's **Approve: make it public** (ADR-0064) remains, for the demo cinemas. A cinema that has submitted its details shows a link to its review instead of relying on it.
 
 ## Consequences
 - **14.5b** adds the retention jobs decided before 14.4:

@@ -71,4 +71,5 @@ The owner asked on 2026-10-23 that Jac problems found during other work keep goi
 - **JI-054:** a feature request. WebSockets can't send to chosen users, so private live updates (the support chat) poll instead. Reported as [jaseci-labs/jac#10319](https://github.com/jaseci-labs/jac/issues/10319) on 2026-10-23, once Phase 13 was done, as the owner asked (without the hotel analogy, which stays in our entry).
 - **JI-055:** in client code, `{key: value}` sets the key "key", not the variable's value. Found in P14.3a; worked around with `with_field`.
 - **JI-042 hit again** (2026-10-24, P14.3c): a consent node written after `commit_now()` in `start_payment` was lost on the first payment of each process. It's now a claim, and the entry has the details.
+- **JI-056:** the dev client build's kernel was killed (signal 9) with no reason given and nothing in the server log. It's likely memory on a 3.3 GB machine. Worked around by cutting a large import.
 - JI-050 and JI-051 (above) are still candidates, not written up.

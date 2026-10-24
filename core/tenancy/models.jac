@@ -41,6 +41,10 @@ node Tenant {
         policies_id: str = "",
         documents_id: str = "",
         verification_id: str = "",
+        # When AfriCinemas approved its verification (P14.5): the Verified badge. Kept
+        # here as well as on the record, so pages read it without the verification
+        # module.
+        verified_at: str = "",
         # Minutes before a showtime's start that its tickets can be scanned.
         doors_open_minutes: int = DOORS_OPEN_DEFAULT;
 

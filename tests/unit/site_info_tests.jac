@@ -60,3 +60,14 @@ test "a cinema sends offers only when it says so, plainly" {
     }
     assert public_view(parse_info({})[0])["sends_offers"] == False;
 }
+
+test "the information can't imitate the Verified badge" {
+    (_, problems) = parse_info(
+        {
+            "business_name": "AfriCinemas Verified Ltd",
+            "directions": "A verified cinema, 2nd floor."
+        }
+    );
+    assert sorted([(p.field, p.code) for p in problems])
+        == [("business_name", "badge_claim"), ("directions", "badge_claim")];
+}

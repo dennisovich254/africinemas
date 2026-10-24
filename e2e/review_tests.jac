@@ -14,9 +14,11 @@ import from e2e.support.web {
     shared_browser,
     close_contexts,
     PLATFORM_URL,
+    BASE_URL,
     PROJECTS,
     context_options,
-    store_url
+    store_url,
+    artifact
 }
 import from e2e.support.api { platform_admin, PASSWORD, call }
 import from e2e.support.catalog { cinema_selling_tickets }
@@ -141,13 +143,55 @@ test "changes are asked, then the cinema is approved and public with its badge" 
                 "document.querySelector('[data-testid=review-status]').innerText === 'Approved'"
             );
             us.context.close();
+            # The owner's back office shows it.
+            office = browser.new_context(
+                **context_options(pw, project, "light")
+            ).new_page();
+            office.goto(BASE_URL + "/login");
+            _type(office, "#email", owner["email"]);
+            _type(office, "#password", PASSWORD);
+            office.click('button[type="submit"]');
+            office.wait_for_url("**/app");
+            office.goto(f"{BASE_URL}/app/{owner['slug']}");
+            # Beside the name in the sidebar (desktop) or the top bar (phone): one of the
+            # two is hidden.
+            office.wait_for_selector(
+                '[data-testid="backoffice-verified"] >> visible=true'
+            );
+            # And on Your cinemas.
+            office.goto(f"{BASE_URL}/app");
+            office.wait_for_selector('[data-testid="cinema-list"]');
+            try {
+                office.wait_for_selector(
+                    f'[data-testid="cinema-list"] a[href="/app/{owner[
+                        "slug"
+                    ]}"] [data-testid="cinema-verified"]'
+                );
+            } except Exception as e {
+                office.screenshot(
+                    path=artifact(f"your-cinemas-{project}.png"), full_page=True
+                );
+                raise e;
+            }
+            office.context.close();
             visitor = browser.new_context(
                 **context_options(pw, project, "light")
             ).new_page();
             visitor.goto(store_url(owner["slug"]) + "/");
             visitor.wait_for_selector('footer [data-testid="verified-badge"]');
+            # And at the top, beside the logo, linking to the same check.
+            pill = visitor.get_attribute('[data-testid="verified-pill"]', "href") or "";
+            assert pill.endswith(f"/verified/{owner['slug']}") , pill;
             assert "Verified cinema"
                 in visitor.inner_text('[data-testid="verified-badge"]');
+            # The badge links to the check on AfriCinemas' own site, which confirms it.
+            href = visitor.get_attribute('[data-testid="verified-badge"]', "href")
+                or "";
+            assert href.endswith(f"/verified/{owner['slug']}") , href;
+            visitor.goto(href);
+            visitor.wait_for_selector('[data-testid="verified-yes"]');
+            visitor.goto(href.replace(owner["slug"], "no-such-cinema-here"));
+            visitor.wait_for_selector('[data-testid="verified-no"]');
             visitor.context.close();
         }
     } finally {
