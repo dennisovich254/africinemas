@@ -179,6 +179,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                     "Snack counter",
                     "Staff",
                     "Audit log",
+                    "Verification",
                     "Settings",
                     "Help"
                 ] , f"{project}: owner nav";
