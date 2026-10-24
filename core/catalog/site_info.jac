@@ -79,7 +79,10 @@ def empty_info -> dict[str, any] {  # jac:ignore[W1037]
         "directions": "",
         "parking": "",
         "ticket_notes": [],
-        "payment_note": ""
+        "payment_note": "",
+        # Whether the cinema sends offers to customers who ask (P14.3c): checkout and
+        # sign-up then offer the box.
+        "sends_offers": False
     };
 }
 
@@ -208,6 +211,7 @@ def parse_info(raw: any) -> tuple[dict[str, any], list[InfoProblem]] {  # jac:ig
             );
         }
     }
+    info["sends_offers"] = given.get("sends_offers", False) is True;
     return (info, problems);
 }
 
@@ -236,7 +240,8 @@ def public_view(info: dict[str, any]) -> dict[str, any] {  # jac:ignore[W1037]
         "directions": info.get("directions") or "",
         "parking": info.get("parking") or "",
         "ticket_notes": info.get("ticket_notes") or [],
-        "payment_note": info.get("payment_note") or ""
+        "payment_note": info.get("payment_note") or "",
+        "sends_offers": bool(info.get("sends_offers", False))
     };
 }
 

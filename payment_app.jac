@@ -170,7 +170,14 @@ import from core.catalog.site_info {
 import from core.catalog.policies {
     policies,  # jac:ignore[W2037]
     save_policy,  # jac:ignore[W2037]
-    public_policy
+    public_policy,
+    public_policies
+}
+# A customer's consent to a cinema's offers (P14.3c).
+import from core.notify.offer_consent { consent_of }
+import from core.notify.offer_consent {
+    my_offers,  # jac:ignore[W2037]
+    set_my_offers  # jac:ignore[W2037]
 }
 # The platform overview (P13.4).
 import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037]
@@ -286,6 +293,28 @@ def:pub pay_stored(slug: str, screening_id: str) -> list[list[str]] {
         key=lambda (p: PaymentIntent) -> str { return p.created_at; }  # jac:ignore[W1037]
     );
     return [[p.reference, p.state] for p in ordered];
+}
+
+def:pub pay_offer_consent(slug: str, email: str) -> dict[str, str] | None {
+    # The offer consent kept for `email` at the cinema (P14.3c).
+    cinema = open_cinema(slug);
+    assert cinema is not None;
+    return consent_of(cinema, email);
+}
+
+def:pub pay_terms_shown(slug: str, screening_id: str) -> list[dict[str, str]] {
+    # The policy versions each order of the showtime was paid under (P14.3c).
+    cinema = open_cinema(slug);
+    assert cinema is not None;
+    screening = find_screening(cinema, screening_id);
+    assert screening is not None;
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        return [dict(o.terms_shown) for o in [screening-->[?:Order]]];
+    } finally {
+        restore(me);
+    }
 }
 
 def _showtime(slug: str, screening_id: str) -> tuple[Tenant, Screening] {

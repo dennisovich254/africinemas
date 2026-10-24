@@ -2,7 +2,7 @@
 
 The business name and address, how to reach the cinema (phone, email, WhatsApp,
 support hours), its social media accounts, directions and parking, and booking notes
-(what each ticket type means, how to pay). For staff who change the cinema's settings;
+(what each ticket type means, how to pay), and whether it sends offers (P14.3c). For staff who change the cinema's settings;
 the server checks every field and reports every problem at once, each shown beside its
 field (core/catalog/site_info.jac). Saved, it shows in the strip under every storefront
 page, whatever the design.
@@ -208,6 +208,20 @@ def:pub SiteInfoSection(slug: str, shift_open: bool = True) -> JsxElement {
             <fieldset className="flex flex-col gap-4 rounded-lg border bg-card p-4">
                 <legend className="px-1 font-semibold">Contact</legend>
                 {fields(CONTACT_FIELDS)}
+                <label
+                    className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+                >
+                    <input
+                        type="checkbox"
+                        id="info-sends_offers"
+                        className="size-5"
+                        checked={bool(shown["sends_offers"])}
+                        onChange={lambda { put(
+                            "sends_offers", not shown["sends_offers"]
+                        ); }}
+                    />
+                    We send offers to customers who ask for them. Checkout and sign-up then offer a box to ask, never ticked for them.
+                </label>
             </fieldset>
             <fieldset className="flex flex-col gap-4 rounded-lg border bg-card p-4">
                 <legend className="px-1 font-semibold">Social media</legend>

@@ -19,6 +19,10 @@ import from .StorefrontShell { StorefrontShell, Loading }
 import from .venue_choice { use_title }
 import from ..shell.AppLink { AppLink }
 import from ..site { with_site_slug, local_path, main_origin }
+import from core.notify.offer_consent {
+    my_offers,  # jac:ignore[W2037]
+    set_my_offers  # jac:ignore[W2037]
+}
 
 def _day(iso: str) -> str {
     # "10 Oct 2026", in the visitor's own locale.
@@ -153,6 +157,76 @@ def ConnectHint(slug: str) -> JsxElement {
         </div>;
 }
 
+def OffersSetting(slug: str) -> JsxElement {
+    # The customer's choice of the cinema's offers (P14.3c): shown when the cinema sends
+    # them, or while they still get them.
+    [mine, set_mine] = useState(None);
+    [busy, set_busy] = useState(False);
+    [note, set_note] = useState("");
+    async def load {
+        try {
+            got: any = await my_offers(slug);  # jac:ignore[W1037,W2037]
+            if got["ok"] {
+                set_mine(got);
+            }
+        } except Exception as e {
+            console.warn("my_offers failed", e);
+        }
+    }
+    def start {
+        load();
+    }
+    useEffect(start, [slug]);
+    async def change(want: bool) {
+        set_busy(True);
+        set_note("");
+        got: any = None;  # jac:ignore[W1037]
+        try {
+            got = await set_my_offers(slug, want, "");  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("set_my_offers failed", e);
+        }
+        set_busy(False);
+        if got is None or not got["ok"] {
+            set_note(
+                got["error"]["message"]
+                    if got is not None
+                    else "We couldn't reach the cinema. Try again."
+            );
+            return;
+        }
+        set_mine(got);
+        set_note(
+            "You'll get our offers by email."
+                if want
+                else "You won't get offers from us."
+        );
+    }
+    found: dict[str, any] | None = mine;  # jac:ignore[W1037]
+    if found is None or (not found["sends_offers"] and not found["subscribed"]) {
+        return <span className="hidden"/>;
+    }
+    on: bool = found["subscribed"];
+    return
+        <div className="flex flex-col gap-2" data-testid="offers-setting">
+            <h2 className="text-lg font-semibold">Offers</h2>
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+                <input
+                    type="checkbox"
+                    id="account-offers"
+                    className="size-5"
+                    checked={on}
+                    disabled={busy}
+                    onChange={lambda { change(not on); }}
+                />
+                Email me this cinema's offers and news.
+            </label>
+            <p role="status" aria-live="polite" className="text-sm empty:hidden">
+                {note}
+            </p>
+        </div>;
+}
+
 def:pub AccountPage -> JsxElement {
     params: any = with_site_slug(useParams());  # jac:ignore[W1037,W1051]
     slug: str = params["slug"] or "";
@@ -255,6 +329,7 @@ def:pub AccountPage -> JsxElement {
                         </Button>
                     </div>
                 </div>
+                <OffersSetting slug={slug}/>
                 <div className="flex flex-col gap-3">
                     <h2 className="text-lg font-semibold">
                         Apps that can book for you

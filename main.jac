@@ -215,7 +215,13 @@ import from core.catalog.site_info {
 import from core.catalog.policies {
     policies,  # jac:ignore[W2037]
     save_policy,  # jac:ignore[W2037]
-    public_policy
+    public_policy,
+    public_policies
+}
+# A customer's consent to a cinema's offers (P14.3c).
+import from core.notify.offer_consent {
+    my_offers,  # jac:ignore[W2037]
+    set_my_offers  # jac:ignore[W2037]
 }
 # The platform overview (P13.4).
 import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037]

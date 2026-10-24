@@ -207,6 +207,16 @@ def published_policies(cinema: Tenant) -> list[dict[str, str]] {
     ];
 }
 
+def shown_at_checkout(cinema: Tenant) -> dict[str, str] {
+    # The published versions of the policies checkout links to (P14.3c), by kind.
+    kept = policies_of(cinema);
+    return {
+        kind: kept[kind].get("updated_at", "")
+        for kind in REQUIRED
+        if kept.get(kind, {}).get("published", False)
+    };
+}
+
 def missing_from(kept: dict[str, dict[str, any]]) -> list[str] {  # jac:ignore[W1037]
     # The required policies not published among `kept` (policies by kind).
     return [
@@ -325,4 +335,14 @@ def:pub public_policy(slug: str, kind: str) -> dict[str, any] {  # jac:ignore[W1
         "text": kept.get("text", ""),
         "updated_at": kept.get("updated_at", "")
     };
+}
+
+def:pub public_policies(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The titles of a public cinema's published policies, for checkout's notice above
+    # Pay (P14.3c).
+    cinema = open_cinema(slug);
+    if cinema is None {
+        return NOT_FOUND;
+    }
+    return {"ok": True, "policies": published_policies(cinema)};
 }

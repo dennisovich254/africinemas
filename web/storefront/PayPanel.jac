@@ -5,7 +5,8 @@ checks it), and pays: start_payment sends the PIN prompt to their phone. The pan
 says to check the phone and asks my_payment every few seconds what happened, announcing
 changes politely. Paid: the parent shows the tickets (Tickets). Failed or cancelled: the
 message, and the form again to try once more (a new attempt, with a new idempotency
-key). The visitor's PIN never touches the app (architecture §39).
+key). The visitor's PIN never touches the app (architecture §39). Above Pay, what
+paying agrees to, and the box for the cinema's offers (AgreeNotice.jac, P14.3c).
 """
 
 import from react { useState, useEffect }
@@ -20,6 +21,7 @@ import from core.payments.settlement { my_payment }
 import from .showtimes { listed }
 import from .checkout_rules { money, phone_problem, email_problem, order_key }
 import from .TicketDelivery { TicketDelivery }
+import from .AgreeNotice { use_agreement, AgreeNotice, OffersBox }
 
 glob WAITING: list[str] = ["created", "stk_requested", "timeout", "unknown"],
      RETRYABLE: list[str] = ["failed", "cancelled"],
@@ -174,6 +176,9 @@ def:pub PayPanel(
     email_wrong: str = email_error;
     [busy, set_busy] = useState(False);
     [problem, set_problem] = useState("");
+    # What paying agrees to, and the box for the cinema's offers (P14.3c).
+    agreement = use_agreement(slug);
+    [offers, set_offers] = useState(False);
     current: dict[str, any] | None = payment;  # jac:ignore[W1037]
     state: str = current["state"] if current is not None else "";
     waiting: bool = listed(state, WAITING);
@@ -226,7 +231,16 @@ def:pub PayPanel(
         set_busy(True);
         set_problem("");
         started = await call(
-            start_payment, [slug, screening_id, holder, phone, email, order_key()]
+            start_payment,
+            [
+                slug,
+                screening_id,
+                holder,
+                phone,
+                email,
+                order_key(),
+                "yes" if offers else ""
+            ]
         );
         set_busy(False);
         if started is None {
@@ -354,6 +368,8 @@ def:pub PayPanel(
                         We'll email your tickets here, with a link to open them again.
                     </p>}
             </div>
+            <OffersBox agreement={agreement} checked={offers} on_change={set_offers}/>
+            <AgreeNotice slug={slug} agreement={agreement} action="paying"/>
             <Button
                 type="submit"
                 data-testid="pay-mpesa"
