@@ -47,6 +47,8 @@ import from core.catalog.policies { missing_policies, title_of }
 import from core.accounts.email_verification { confirmed_email }
 import from core.reporting.staff_home { setup_of }
 import from core.audit.log { audited }
+import from core.tenancy.open_cinema { open_cinema }
+import from core.site { storefront_address }
 
 glob VERIFY: str = "tenant.verification",
      TEXT_FIELDS: dict[str, tuple[str, int]] = {
@@ -465,6 +467,24 @@ def verified_at(cinema: Tenant) -> str {
     # When AfriCinemas approved the cinema's verification, or "" (the Verified badge).
     kept = record_of(cinema);
     return kept["approved_at"] if kept["status"] == "approved" else "";
+}
+
+def:pub verified_cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The badge's check, on AfriCinemas' own site (P14.5): whether `slug` is a public
+    # cinema AfriCinemas verified, its name, when, and its one true address. Anything
+    # else (unknown, private, not verified) gets the same answer, naming nothing.
+    cinema = open_cinema(slug);
+    if cinema is None or not verified_at(cinema) {
+        return {"ok": True, "verified": False};
+    }
+    when = verified_at(cinema);
+    return {
+        "ok": True,
+        "verified": True,
+        "name": cinema.name,
+        "verified_at": when,
+        "address": storefront_address(cinema.slug)
+    };
 }
 
 def decide(

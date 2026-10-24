@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-24
 - **Sub-phase:** P14.5a
-- **Code:** `core/platform/review_api.jac`, `core/tenancy/verification.jac` (`decide`, `verified_at`), `core/platform/cinemas_api.jac` (`owners_of`, `verification`), `core/theming/branding_api.jac` (`verified_at`), `web/platform/ReviewPages.jac`, `web/platform/PlatformConsole.jac`, `web/storefront/FooterInfo.jac` (the badge), `web/backoffice/VerificationSection.jac`
+- **Code:** `core/platform/review_api.jac`, `core/tenancy/verification.jac` (`decide`, `verified_at`), `core/platform/cinemas_api.jac` (`owners_of`, `verification`), `core/theming/branding_api.jac` (`verified_at`), `web/platform/ReviewPages.jac`, `web/platform/PlatformConsole.jac`, `web/storefront/FooterInfo.jac` (the badge), `web/routes/VerifiedPage.jac` (its check), `web/backoffice/VerificationSection.jac`
 - **Tests:** `tests/integration/review_tests.jac`, `tests/support/verification_setup.jac`, `tests/isolation/registry.jac`, `e2e/review_tests.jac`
 
 ## Context
@@ -27,8 +27,14 @@
    - **Reject:** reasons are required. The cinema stays private, and its page stays closed with the reasons. The owner can write to us from Help.
 
    A cinema that isn't waiting can't be decided on twice.
-5. **The owners are emailed** with the decision, its reasons and a link to their Verification page. The email is queued and sent by a job, as other emails are, to the owners' sign-in emails.
-6. **The old Approve stays:** the cinema page's **Approve: make it public** (ADR-0064) remains, for the demo cinemas. A cinema that has submitted its details shows a link to its review instead of relying on it.
+5. **A badge anyone can check.** The footer's badge is drawn by our code from our records, never by the cinema's design or text. But its look can be copied: words typed into a cinema's own text, or a look-alike site. So the badge is a link to `/verified/<slug>` on AfriCinemas' main address, which no cinema controls.
+   - **A verified cinema:** the page confirms it, with the date and the cinema's one true address.
+   - **Anything else** (unknown, private, not verified): the same answer, "We can't confirm this cinema… don't pay on it", naming nothing (`verified_cinema`).
+   - **In the console:** the list of cinemas shows **Verified** (with the date) or **Waiting for review** beside each cinema.
+
+   Every public cinema is verified anyway (only `active` is public, ADR-0064). The check is for copies.
+6. **The owners are emailed** with the decision, its reasons and a link to their Verification page. The email is queued and sent by a job, as other emails are, to the owners' sign-in emails.
+7. **The old Approve stays:** the cinema page's **Approve: make it public** (ADR-0064) remains, for the demo cinemas. A cinema that has submitted its details shows a link to its review instead of relying on it.
 
 ## Consequences
 - **14.5b** adds the retention jobs decided before 14.4:

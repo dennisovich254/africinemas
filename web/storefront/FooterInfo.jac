@@ -14,7 +14,7 @@ part of any design. Nothing shows for a cinema that hasn't filled it in.
 """
 
 import from "@hugeicons/react" { HugeiconsIcon }
-import from ..site { local_path }
+import from ..site { local_path, main_origin }
 import from "@hugeicons/core-free-icons" {
     Call02Icon,
     Mail01Icon,
@@ -93,8 +93,13 @@ def:pub FooterInfo(
                 + frame}
         >
             {verified
-                and <p
-                    className="inline-flex items-center gap-2 font-medium"
+                and <a
+                    href={f"{main_origin()}/verified/{slug}"}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={INHERIT}
+                    aria-label="Verified cinema: check it on AfriCinemas"
+                    className="inline-flex min-h-11 w-fit flex-wrap items-center gap-2 font-medium underline-offset-4 hover:underline"
                     data-testid="verified-badge"
                 >
                     <HugeiconsIcon
@@ -107,7 +112,7 @@ def:pub FooterInfo(
                     <span className="font-normal opacity-80">
                         {f"· checked by AfriCinemas on {verified[:10]}"}
                     </span>
-                </p>}
+                </a>}
             <div
                 className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2"
             >

@@ -93,7 +93,11 @@ def _staffing(cinema: Tenant) -> Staffing {
 }
 
 def _row(cinema: Tenant, staffing: Staffing) -> dict[str, any] {  # jac:ignore[W1037]
+    kept = record_of(cinema);
     return {
+        # Its verification (P14.5): draft, submitted, approved..., and when approved.
+        "verification": kept["status"],
+        "verified_at": kept["approved_at"] if kept["status"] == "approved" else "",
         "name": cinema.name,
         "slug": cinema.slug,
         "state": cinema.state,
@@ -212,8 +216,6 @@ def _cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     page["history"] = _history(cinema);
     # Its technical health (P13.5c): counts of problems, no customer's details.
     page["health"] = health_of(cinema);
-    # Where its verification is (P14.5): draft, submitted, approved...
-    page["verification"] = record_of(cinema)["status"];
     return {"ok": True, "cinema": page};
 }
 
