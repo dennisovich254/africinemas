@@ -103,13 +103,14 @@ def cinema_with_programme -> dict[str, str] {
 }
 
 def cinema_selling_tickets(
-    cols: int = 6, starts_in_minutes: int = 0
+    cols: int = 6, starts_in_minutes: int = 0, live: bool = True
 ) -> dict[str, str] {
     # A cinema selling tickets for one showtime of Rafiki in two days (or
     # `starts_in_minutes` from now, so its door is open: P6.4): rows A and B of `cols`
     # seats (B's last seat blocked), Adult KES 800 and Child KES 500, a KES 30 booking
     # fee and no extras. Returns the owner, with "show" the showtime's id.
-    owner = owner_with_cinema();
+    # live=False: not yet verified (P14.4), its own team only.
+    owner = owner_with_cinema(live=live);
     venue = add_venue(owner, "Westgate");
     owner["venue"] = venue;
     owner["screen"] = add_screen(owner, venue, "Screen 1");

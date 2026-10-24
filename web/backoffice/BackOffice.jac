@@ -59,6 +59,7 @@ import from ..auth.EmailCheck { EmailCheckBanner }
 import from .SiteInfoSection { SiteInfoSection }
 import from .PoliciesSection { PoliciesSection }
 import from .DocumentsSection { DocumentsSection }
+import from .VerificationSection { VerificationSection }
 import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
 import from .MovieEditor { MovieEditor }
@@ -415,6 +416,8 @@ def:pub BackOffice -> JsxElement {
         content = <ReportsSection slug={slug} shift_open={shift_open}/>;
     } elif section == "audit" {
         content = <AuditSection slug={slug} shift_open={shift_open}/>;
+    } elif section == "verification" {
+        content = <VerificationSection slug={slug}/>;
     } elif section == "help" {
         content = <HelpSection slug={slug} shift_open={shift_open} item={item}/>;
     } elif section == "settings" {

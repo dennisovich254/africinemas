@@ -98,8 +98,9 @@ test "a new cinema's owner sees the setup checklist, quick actions and no showti
             _sign_in(page, owner["email"]);
             page.goto(f"{BASE_URL}/app/{owner['slug']}");
             page.wait_for_selector('[data-testid="setup-checklist"]');
-            assert _text(page, "setup-progress") == "0 of 7 done";
-            assert page.locator('a[data-testid^="setup-"]').count() == 7;
+            # Live (owner_with_cinema), so verifying is done (P14.4).
+            assert _text(page, "setup-progress") == "1 of 8 done";
+            assert page.locator('a[data-testid^="setup-"]').count() == 8;
             assert page.locator('[data-testid="home-no-showtimes"]').count() == 1;
             assert page.locator('[data-testid="quick-sell"]').count() == 1;
             assert "On shift" in _text(page, "shift-status");
@@ -126,7 +127,7 @@ test "the setup guide walks a new cinema's owner from one step to the next" {
         page.goto(f"{BASE_URL}/app/{owner['slug']}");
         guide = '[data-testid="setup-guide"]';
         page.wait_for_selector(f'{guide}[data-step="venue"]');
-        assert "Step 1 of 7"
+        assert "Step 1 of 8"
             in page.text_content('[data-testid="setup-guide-progress"]');
         page.click('[data-testid="guide-go"]');
         page.wait_for_url(f"**/app/{owner['slug']}/venues");
@@ -135,7 +136,7 @@ test "the setup guide walks a new cinema's owner from one step to the next" {
         add_venue(owner);
         page.goto(f"{BASE_URL}/app/{owner['slug']}");
         page.wait_for_selector(f'{guide}[data-step="screen"]');
-        assert "Step 2 of 7"
+        assert "Step 2 of 8"
             in page.text_content('[data-testid="setup-guide-progress"]');
         # Hidden, it stays hidden until the Overview's checklist brings it back.
         page.click('[data-testid="hide-setup-guide"]');

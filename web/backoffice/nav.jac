@@ -32,6 +32,8 @@ glob SUFFIX: str = ".africinemas.co.ke",
          ("staff", "Staff", "employees.read"),
          # Who changed what (P7.2, P7.3): owners and auditors.
          ("audit", "Audit log", "audit.read"),
+         # Verifying the owner and the business (P14.4): the owner alone.
+         ("verification", "Verification", "tenant.verification"),
          ("settings", "Settings", "tenant.settings.update"),
          # Asking AfriCinemas for technical help (P13.5a).
          ("help", "Help", "support.request")

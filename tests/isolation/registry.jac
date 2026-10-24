@@ -178,6 +178,37 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "reviewed": False
              }
          },
+         # Verifying the owner and the business (P14.4): the owner alone.
+         "verification": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "save_verification": {
+             "scope": "tenant",
+             "audit": "verification.saved",
+             "probe": {"tenant": "{tenant}", "details": {"legal_name": "Probe"}}
+         },
+         "upload_verification_file": {
+             "scope": "tenant",
+             "audit": "verification.file_uploaded",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "item": "id_front",
+                 "content_type": "application/pdf",
+                 "data_base64": "JVBERi0="
+             }
+         },
+         "verification_file": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "item": "id_front"}
+         },
+         "submit_verification": {
+             "scope": "tenant",
+             "audit": "verification.submitted",
+             "probe": {"tenant": "{tenant}"}
+         },
          # A policy as a PDF, and the public documents (P14.3d).
          "upload_policy_pdf": {
              "scope": "tenant",
