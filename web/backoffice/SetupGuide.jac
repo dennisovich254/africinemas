@@ -28,7 +28,8 @@ glob HIDDEN_EVENT: str = "africinemas-setup-guide",
          "movie": "Add a movie you'll show, with its poster and details.",
          "showtime": "Schedule the movie on a screen and publish the showtime so customers can book it.",
          "branding": "Upload your logo, let the AI design your storefront, then publish it.",
-         "team": "Invite the people who sell and check tickets."
+         "team": "Invite the people who sell and check tickets.",
+         "verify": "Your details and your business's documents, for AfriCinemas to check before you go live. The cinema's owner does this."
      };
 
 def _key(slug: str) -> str {

@@ -1,4 +1,5 @@
-"""A PDF chosen by dropping it on a dashed box or clicking it (P14.3d).
+"""A PDF (or, with `images`, a photo) chosen by dropping it on a dashed box or clicking it
+(P14.3d, P14.4).
 
 The same shape as the poster picker (MovieEditor's MediaPicker): the box is the file
 input's label, so clicking it, or tabbing to the visually hidden input, opens the file
@@ -11,7 +12,8 @@ import from "@hugeicons/react" { HugeiconsIcon }
 import from "@hugeicons/core-free-icons" { Pdf01Icon }
 import from ...components.ui.spinner { Spinner }
 
-glob MAX_BYTES: int = 10 * 1024 * 1024;
+glob MAX_BYTES: int = 10 * 1024 * 1024,
+     PHOTO_TYPES: list[str] = ["image/jpeg", "image/png", "image/webp"];
 
 def is_pdf(file: any) -> bool {  # jac:ignore[W1037]
     name: str = (file.name or "").lower();
@@ -25,18 +27,22 @@ def:pub PdfDrop(  # jac:ignore[W3030] a file field: id, label, state and handler
     busy: bool,
     disabled: bool,
     on_file: any,  # jac:ignore[W1037]
-    hint: str = "Up to 10 MB and 50 pages, without a password."
+    hint: str = "Up to 10 MB and 50 pages, without a password.",
+    images: bool = False
 ) -> JsxElement {
+    # `images`: a photo (JPEG, PNG or WebP, from the phone's camera too) is fine as well
+    # (P14.4); its size is the caller's to reduce.
     # `chosen`: the name of the file picked (or the PDF already there), "" for none.
     [over, set_over] = useState(False);
     [problem, set_problem] = useState("");
 
     def take(file: any) {  # jac:ignore[W1037]
-        if not is_pdf(file) {
-            set_problem("Choose a PDF file.");
+        photo = images and file.type in PHOTO_TYPES;
+        if not is_pdf(file) and not photo {
+            set_problem("Choose a photo or a PDF." if images else "Choose a PDF file.");
             return;
         }
-        if file.size > MAX_BYTES {
+        if not photo and file.size > MAX_BYTES {
             set_problem("Choose a PDF of up to 10 MB.");
             return;
         }
@@ -97,7 +103,11 @@ def:pub PdfDrop(  # jac:ignore[W3030] a file field: id, label, state and handler
                 )
                     if chosen
                     else <span className="flex flex-col gap-0.5">
-                        <span className="font-medium">Choose a PDF</span>
+                        <span className="font-medium">
+                            {"Take a photo, or choose a file"
+                                if images
+                                else "Choose a PDF"}
+                        </span>
                         <span className="text-muted-foreground">
                             or drag and drop it here
                         </span>
@@ -113,7 +123,9 @@ def:pub PdfDrop(  # jac:ignore[W3030] a file field: id, label, state and handler
             <input
                 id={field_id}
                 type="file"
-                accept="application/pdf,.pdf"
+                accept={"image/jpeg,image/png,image/webp,application/pdf,.pdf"
+                    if images
+                    else "application/pdf,.pdf"}
                 disabled={disabled}
                 aria-label={label}
                 aria-describedby={f"{field_id}-hint"}

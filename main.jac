@@ -221,6 +221,14 @@ import from core.catalog.policies {
     remove_policy_pdf,  # jac:ignore[W2037]
     public_policy_pdf
 }
+# Verifying the owner and the business before going public (P14.4).
+import from core.tenancy.verification {
+    verification,  # jac:ignore[W2037]
+    save_verification,  # jac:ignore[W2037]
+    upload_verification_file,  # jac:ignore[W2037]
+    verification_file,  # jac:ignore[W2037]
+    submit_verification  # jac:ignore[W2037]
+}
 # A cinema's public documents, linked from every storefront footer (P14.3d).
 import from core.catalog.documents {
     public_documents_admin,  # jac:ignore[W2037]

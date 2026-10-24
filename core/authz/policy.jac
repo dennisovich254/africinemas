@@ -45,7 +45,10 @@ glob PERMISSIONS: list[str] = [
          "concessions.inventory",
          "concessions.collect",
          # Asking AfriCinemas for technical help (P13.5a).
-         "support.request"
+         "support.request",
+         # The owner's own and the business's verification (P14.4): the owner role
+         # alone holds it.
+         "tenant.verification"
      ],
      _CATALOGUE_READ: set[str] = {"movies.read", "showtimes.read"},
      _FLOOR_READ: set[str] = {"seats.read", "venues.read"},

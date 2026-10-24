@@ -63,7 +63,10 @@ glob ACTIVITY: int = 5,
          ("movie", "Add a movie", "movies"),
          ("showtime", "Publish a showtime", "screenings"),
          ("branding", "Publish your branding", "settings"),
-         ("team", "Invite your team", "staff")
+         ("team", "Invite your team", "staff"),
+         # Owner only: the details AfriCinemas checks before the cinema goes public
+         # (P14.4). Done once submitted.
+         ("verify", "Verify your business", "verification")
      ];
 
 def _may(scope: TenantScope, action: str, venue_id: str | None = None) -> bool {
@@ -96,6 +99,7 @@ def _setup(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
         "movie": len([cinema-->[?:Movie]]) > 0,
         "showtime": any([x.state not in NOT_SHOWN for x in shows]),
         "branding": branded,
+        "verify": cinema.state != "configuring",
         "team": len(
             [
                 m
@@ -120,6 +124,17 @@ def _setup(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
         "total": len(steps),
         "steps": steps
     };
+}
+
+def setup_of(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
+    # Which setup steps the cinema has done, for callers outside a shift (P14.4).
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        return _setup(cinema);
+    } finally {
+        restore(me);
+    }
 }
 
 def _showtimes(scope: TenantScope, timezone: str, today: str) -> list[dict[str, any]] {  # jac:ignore[W1037]

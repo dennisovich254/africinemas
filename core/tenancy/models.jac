@@ -40,6 +40,7 @@ node Tenant {
         site_info_id: str = "",
         policies_id: str = "",
         documents_id: str = "",
+        verification_id: str = "",
         # Minutes before a showtime's start that its tickets can be scanned.
         doors_open_minutes: int = DOORS_OPEN_DEFAULT;
 

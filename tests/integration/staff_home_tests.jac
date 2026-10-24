@@ -30,7 +30,8 @@ glob TICKET: int = 93000,
          "movie",
          "showtime",
          "branding",
-         "team"
+         "team",
+         "verify"
      ];
 
 def _at(app: Served, screening: str, minutes: int) {
@@ -90,7 +91,8 @@ test "the owner's home: setup steps, today's showtimes, today's figures, recent 
             if not s["done"]
         ]
             == ["branding"] , setup;
-        assert setup["done"] == 6 and setup["total"] == 7;
+        # The cinema is live, so verifying is done too (P14.4).
+        assert setup["done"] == 7 and setup["total"] == 8;
         assert all([s["label"] and s["section"] for s in setup["steps"]]);
         # Today's showtimes: Rafiki, not tomorrow's.
         shows = home["showtimes"];
