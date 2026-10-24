@@ -193,6 +193,37 @@ test "a rejected cinema stays private, and the owner can't resubmit" {
             )
         )
             == "unknown_decision";
+        # A cinema's own words can't imitate the badge (P14.5).
+        assert app.call(
+            "kim", "create_cinema", {"name": "Verified Cinema", "slug": "vc-one"}
+        )["error"]["code"]
+            == "invalid_name";
+        assert app.call(
+            "kim", "create_cinema", {"name": "Kim Two", "slug": "afri-cinemas-two"}
+        )["error"]["code"]
+            == "invalid_slug";
+        assert code_of(
+            app.call(
+                "kim",
+                "save_policy",
+                {
+                    "tenant": "kims",
+                    "kind": "house_rules",
+                    "text": "We're verified by AfriCinemas.",
+                    "published": False,
+                    "reviewed": False
+                }
+            )
+        )
+            == "badge_claim";
+        assert code_of(
+            app.call(
+                "kim",
+                "rename_cinema",
+                {"tenant": "kims", "name": "Kims, an AfriCinemas cinema"}
+            )
+        )
+            == "invalid_name";
     } finally {
         close_app(app);
     }

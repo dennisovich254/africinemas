@@ -29,6 +29,7 @@ import from core.catalog.poster { media_store, read_media }
 import from core.audit.log { audited }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.responses { NOT_FOUND }
+import from core.tenancy.reserved_words { name_claims, NAME_MESSAGE }
 
 glob CONFIGURE: str = "tenant.settings.update",
      MAX_PDF_BYTES: int = 10 * 1024 * 1024,
@@ -218,6 +219,9 @@ def _upload(tenant: str, title: str, data_base64: str) -> dict[str, any] {  # ja
             "invalid_title",
             f"Give the document a title of up to {TITLE_MAX} characters, in plain text."
         );
+    }
+    if name_claims(name) {
+        raise Refused("invalid_title", NAME_MESSAGE);
     }
     items = documents_of(scope.tenant);
     if len(items) >= DOCUMENTS_MAX {

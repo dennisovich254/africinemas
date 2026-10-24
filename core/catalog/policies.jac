@@ -24,6 +24,7 @@ import from core.audit.log { audited }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.responses { NOT_FOUND }
 import from core.catalog.site_info { site_info_of }
+import from core.tenancy.reserved_words { text_claims, TEXT_MESSAGE }
 import from core.catalog.documents { store_pdf, pdf_answer }
 import from core.catalog.poster { media_store }
 
@@ -299,6 +300,9 @@ def _save(
             "too_long",
             f"Keep it to {TEXT_MAX} characters or fewer. Shorten it, then save."
         );
+    }
+    if text_claims(kept_text) {
+        raise Refused("badge_claim", TEXT_MESSAGE);
     }
     cinema: Tenant = scope.tenant;
     has_pdf = bool(policies_of(cinema).get(kind, {}).get("pdf_key", ""));

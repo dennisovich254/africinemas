@@ -34,6 +34,10 @@
    - **In the cinema's back office:** a **Verified** mark beside its name at the top of every page (`my_access`'s `verified_at`), and on Your cinemas (`my_cinemas`).
 
    Every public cinema is verified anyway (only `active` is public, ADR-0064). The check is for copies.
+   - **A cinema's own words can't imitate it** (decided with the owner, 2026-10-24; `core/tenancy/reserved_words.jac`).
+     - **Names** can't contain "verified" or "AfriCinemas": the cinema's name and web address, its registered business name, and a document's title.
+     - **Longer text** can't claim the badge: the home page, policies, directions and the rest of the website information. That rules out "verified cinema", "verified by AfriCinemas", "AfriCinemas verified", "✓ Verified" and the like. Plain mentions stay allowed: our own privacy template says AfriCinemas runs the site, and "IDs are verified at the door" is fine.
+     - **Existing text** isn't changed. It's checked the next time it's saved.
 6. **The owners are emailed** with the decision, its reasons and a link to their Verification page. The email is queued and sent by a job, as other emails are, to the owners' sign-in emails.
 7. **The old Approve stays:** the cinema page's **Approve: make it public** (ADR-0064) remains, for the demo cinemas. A cinema that has submitted its details shows a link to its review instead of relying on it.
 

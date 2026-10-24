@@ -23,6 +23,12 @@ import from core.catalog.answers { Refused, answer }
 import from core.audit.log { audited }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.responses { NOT_FOUND }
+import from core.tenancy.reserved_words {
+    name_claims,
+    text_claims,
+    NAME_MESSAGE,
+    TEXT_MESSAGE
+}
 
 glob CONFIGURE: str = "tenant.settings.update",
      TEXT_LIMITS: dict[str, int] = {
@@ -119,6 +125,18 @@ def _text(raw: any, field: str, limit: int, problems: list[InfoProblem]) -> str 
                 field=field,
                 code="too_long",
                 message=f"Keep it to {limit} characters or fewer."
+            )
+        );
+        return "";
+    }
+    # Only AfriCinemas shows the Verified badge (P14.5).
+    claims = name_claims(text) if field == "business_name" else text_claims(text);
+    if claims {
+        problems.append(
+            InfoProblem(
+                field=field,
+                code="badge_claim",
+                message=NAME_MESSAGE if field == "business_name" else TEXT_MESSAGE
             )
         );
         return "";
