@@ -48,7 +48,7 @@ import from core.accounts.email_verification { confirmed_email }
 import from core.reporting.staff_home { setup_of }
 import from core.audit.log { audited }
 import from core.tenancy.open_cinema { open_cinema }
-import from core.site { storefront_address }
+import from core.site { own_address, site_domain }
 
 glob VERIFY: str = "tenant.verification",
      TEXT_FIELDS: dict[str, tuple[str, int]] = {
@@ -487,7 +487,10 @@ def:pub verified_cinema(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
         "verified": True,
         "name": cinema.name,
         "verified_at": when,
-        "address": storefront_address(cinema.slug)
+        "address": own_address(cinema.slug),
+        "host": f"{cinema.slug}.{site_domain()}",
+        # Where this check really lives: a copy of the page anywhere else is fake.
+        "checked_at_host": site_domain()
     };
 }
 

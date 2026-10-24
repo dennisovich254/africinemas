@@ -50,6 +50,12 @@ def main_address -> str {
     return f"{site_scheme()}://{site_domain()}";
 }
 
+def own_address(slug: str) -> str {
+    # A cinema's own address under our domain, whatever this server's public address
+    # (a tunnel, in development): what we tell visitors is its one true address.
+    return f"{site_scheme()}://{slug}.{site_domain()}";
+}
+
 def platform_address -> str {
     return f"{site_scheme()}://{PLATFORM_LABEL}.{site_domain()}";
 }

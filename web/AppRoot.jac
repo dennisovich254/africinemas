@@ -179,6 +179,7 @@ def MainSite(own_addresses: bool) -> JsxElement {
                 <Route path="/login" element={<LoginPage/>}/>
                 <Route path="/signup" element={<SignupPage/>}/>
                 <Route path="/verify-email" element={<VerifyEmailPage/>}/>
+                <Route path="/verified" element={<VerifiedPage/>}/>
                 <Route path="/verified/:slug" element={<VerifiedPage/>}/>
                 {own_addresses and <Route path="/c/:slug/*" element={<OnOwnAddress/>}/>}
                 {own_addresses and <Route path="/c/:slug" element={<OnOwnAddress/>}/>}

@@ -30,6 +30,8 @@
 5. **A badge anyone can check.** The footer's badge is drawn by our code from our records, never by the cinema's design or text. But its look can be copied: words typed into a cinema's own text, or a look-alike site. So the badge is a link to `/verified/<slug>` on AfriCinemas' main address, which no cinema controls.
    - **A verified cinema:** the page confirms it, with the date and the cinema's one true address.
    - **Anything else** (unknown, private, not verified): the same answer, "We can't confirm this cinema… don't pay on it", naming nothing (`verified_cinema`).
+   - **The address it gives** is always the cinema's own, under our domain (`own_address`, e.g. `anga.africinemas.co.ke`), never this server's public address. In development that's a tunnel, which once showed up here.
+   - **A copy of the page.** Any page can be copied, so the check page doesn't ask to be trusted for what it says. It says where it really lives (`<our domain>/verified`) and asks the visitor to look at the browser's address bar: anywhere else, it's a copy. At `/verified`, a visitor can type a cinema's address and check it themself, without following a badge's link at all. The address bar is the one thing a look-alike site can't fake.
    - **In the console:** the list of cinemas shows **Verified** (with the date) or **Waiting for review** beside each cinema.
    - **In the cinema's back office:** a **Verified** mark beside its name at the top of every page (`my_access`'s `verified_at`), and on Your cinemas (`my_cinemas`).
 
