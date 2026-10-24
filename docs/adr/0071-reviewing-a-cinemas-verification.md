@@ -31,6 +31,7 @@
    - **A verified cinema:** the page confirms it, with the date and the cinema's one true address.
    - **Anything else** (unknown, private, not verified): the same answer, "We can't confirm this cinema… don't pay on it", naming nothing (`verified_cinema`).
    - **In the console:** the list of cinemas shows **Verified** (with the date) or **Waiting for review** beside each cinema.
+   - **In the cinema's back office:** a **Verified** mark beside its name at the top of every page (`my_access`'s `verified_at`), and on Your cinemas (`my_cinemas`).
 
    Every public cinema is verified anyway (only `active` is public, ADR-0064). The check is for copies.
 6. **The owners are emailed** with the decision, its reasons and a link to their Verification page. The email is queued and sent by a job, as other emails are, to the owners' sign-in emails.

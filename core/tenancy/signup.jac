@@ -55,6 +55,7 @@ import from core.audit.log { record }
 import from core.tenancy.storefront_accounts { cinema_of_account }
 import from core.platform.accounts { account_email as platform_account_email }
 import from core.accounts.email_verification { is_confirmed }
+import from core.tenancy.verification { verified_at }
 
 glob SLUG_HOLD_ENV: str = "AFRICINEMAS_SIGNUP_SLUG_HOLD_S",
      SLUG_HOLD_DEFAULT_S: int = 900;
@@ -184,6 +185,8 @@ def:protect my_cinemas -> list[dict[str, str | list[str]]] {
                     "slug": t.slug,
                     "name": t.name,
                     "state": t.state,
+                    # When AfriCinemas verified it (P14.5), for its badge; "" if not.
+                    "verified_at": verified_at(t),
                     "roles": records[0].roles,
                     "access": access_level(t)
                 }

@@ -27,6 +27,7 @@ import from "@hugeicons/core-free-icons" {
     UserGroupIcon,
     FileSearchIcon,
     IdVerifiedIcon,
+    CheckmarkBadge01Icon,
     Settings01Icon,
     Projector01Icon,
     HelpCircleIcon,
@@ -130,8 +131,30 @@ def NavLinks(
         </nav>;
 }
 
-def Brand(name: str, home: str, logo: str = "") -> JsxElement {
-    # The cinema's published logo (P3.8b) beside its name, or the name alone.
+def Verified(verified: str) -> JsxElement {
+    # The cinema's Verified mark (P14.5), with the date AfriCinemas checked it.
+    if not verified {
+        return <span className="hidden"/>;
+    }
+    return
+        <span
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+            title={f"Verified by AfriCinemas on {verified[:10]}"}
+            data-testid="backoffice-verified"
+        >
+            <HugeiconsIcon
+                icon={CheckmarkBadge01Icon}
+                size={14}
+                strokeWidth={2}
+                aria-hidden="true"
+            />
+            Verified
+        </span>;
+}
+
+def Brand(name: str, home: str, logo: str = "", verified: str = "") -> JsxElement {
+    # The cinema's published logo (P3.8b) beside its name, or the name alone; and its
+    # Verified mark once AfriCinemas has checked it (P14.5).
     return
         <Link
             to={home}
@@ -145,6 +168,7 @@ def Brand(name: str, home: str, logo: str = "") -> JsxElement {
                     className="h-7 w-auto max-w-24 shrink-0"
                 />}
             <span className="truncate">{name}</span>
+            <Verified verified={verified}/>
         </Link>;
 }
 
@@ -158,7 +182,8 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
     children: any = None,  # jac:ignore[W1037]
     actions: any = None,  # jac:ignore[W1037]
     account: any = None,  # jac:ignore[W1037]
-    title_hidden: bool = False
+    title_hidden: bool = False,
+    verified: str = ""
 ) -> JsxElement {
     # title_hidden: the page shows its own heading (the back office's home, P7.4); the
     # title stays the page's h1 for screen readers.
@@ -177,7 +202,7 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
                 data-testid="shell-sidebar"
                 className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col gap-6 overflow-y-auto border-r bg-card p-4 lg:flex"
             >
-                <Brand name={brand} home={home} logo={logo}/>
+                <Brand name={brand} home={home} logo={logo} verified={verified}/>
                 <NavLinks items={nav} current={location.pathname}/>
                 {account and <div className="mt-auto border-t pt-4">{account}</div>}
             </aside>
@@ -244,7 +269,7 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
                                 </div>}
                         </SheetContent>
                     </Sheet>
-                    <Brand name={brand} home={home} logo={logo}/>
+                    <Brand name={brand} home={home} logo={logo} verified={verified}/>
                 </header>
                 <main
                     id="content"

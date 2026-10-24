@@ -112,6 +112,14 @@ test "changes are asked, then the resubmitted cinema is approved and public" {
         );
         assert approved["ok"] and approved["status"] == "approved" , approved;
         assert approved["reviewed_by"] == "checker@example.com";
+        # The owner's back office and cinema list say so too.
+        assert app.call("kim", "my_access", {"tenant": "kims"})["verified_at"];
+        assert [
+            c["verified_at"] != ""
+            for c in app.call("kim", "my_cinemas")
+            if c["slug"] == "kims"
+        ]
+            == [True];
         # The badge's check on our own site: verified, with its one true address.
         checked = browse(app, "verified_cinema", {"slug": "kims"});
         assert checked["verified"] and checked["name"] == "Kim's Cinema" , checked;

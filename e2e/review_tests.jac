@@ -14,6 +14,7 @@ import from e2e.support.web {
     shared_browser,
     close_contexts,
     PLATFORM_URL,
+    BASE_URL,
     PROJECTS,
     context_options,
     store_url
@@ -141,6 +142,19 @@ test "changes are asked, then the cinema is approved and public with its badge" 
                 "document.querySelector('[data-testid=review-status]').innerText === 'Approved'"
             );
             us.context.close();
+            # The owner's back office shows it.
+            office = browser.new_context(
+                **context_options(pw, project, "light")
+            ).new_page();
+            office.goto(BASE_URL + "/login");
+            _type(office, "#email", owner["email"]);
+            _type(office, "#password", PASSWORD);
+            office.click('button[type="submit"]');
+            office.wait_for_url("**/app");
+            office.wait_for_selector('[data-testid="cinema-verified"]');
+            office.goto(f"{BASE_URL}/app/{owner['slug']}");
+            office.wait_for_selector('[data-testid="backoffice-verified"]');
+            office.context.close();
             visitor = browser.new_context(
                 **context_options(pw, project, "light")
             ).new_page();

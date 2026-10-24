@@ -6,6 +6,7 @@ Refusals share one shape: {"ok": False, "error": {"code", "message"}}, with code
 "not_found" (no such cinema, or not yours) or "forbidden" (yours, but not allowed).
 """
 
+import from core.tenancy.verification { verified_at }
 import from core.authz.policy { Forbidden, ROLE_PERMISSIONS }
 import from core.authz.context {
     NoShift,
@@ -58,6 +59,8 @@ def:protect my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "tenant_id": scope.ctx.tenant_id,
         "name": scope.tenant.name,
         "state": scope.tenant.state,
+        # When AfriCinemas verified it (P14.5), for the back office's badge; "" if not.
+        "verified_at": verified_at(scope.tenant),
         "assignments": [
             {"role": a.role, "venue_ids": a.venue_ids} for a in scope.ctx.assignments
         ],

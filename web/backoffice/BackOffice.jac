@@ -437,6 +437,7 @@ def:pub BackOffice -> JsxElement {
                 nav={nav}
                 brand={me["name"]}
                 logo={logo}
+                verified={me["verified_at"] or ""}
                 home={section_path(slug, "")}
                 account={<AccountActions slugs={[slug]} switch_to="/app"/>}
                 title_hidden={section == "" and allowed}
