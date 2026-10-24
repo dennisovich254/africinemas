@@ -16,7 +16,7 @@ the template's stylesheet, so the AI's CSS never reaches our own pages (movie,
 checkout, tickets) between its header and footer.
 """
 
-import from react { createElement, cloneElement, useState, useEffect }
+import from react { createElement, cloneElement, Fragment, useState, useEffect }
 
 # createElement for any tag the template names; its typed overloads expect one tag each.
 glob make: any = createElement;  # jac:ignore[W1037]
@@ -264,7 +264,10 @@ obj Fill {
         signed_in: bool = False,
         # Ours, added as the last child of `holder` (the cinema's information, P14.3a).
         inside: any = None,  # jac:ignore[W1037]
-        holder: any = None;  # jac:ignore[W1037]
+        holder: any = None,  # jac:ignore[W1037]
+        # Ours, drawn right after `after_el` (the Verified pill after the logo, P14.5).
+        after: any = None,  # jac:ignore[W1037]
+        after_el: any = None;  # jac:ignore[W1037]
 }
 
 def _motif_style(mask: str) -> dict[str, str] {
@@ -365,6 +368,30 @@ def _kids(fill: Fill, el: any, scope: dict[str, any], key: str) -> list[any] {  
 }
 
 def _draw(fill: Fill, el: any, scope: dict[str, any], key: str) -> any {  # jac:ignore[W1037]
+    # As _draw_one, with ours after the element it follows.
+    drawn: any = _draw_one(fill, el, scope, key);  # jac:ignore[W1037]
+    if fill.after is not None and el == fill.after_el and drawn is not None {
+        return make(
+            Fragment,
+            {"key": key},
+            [drawn, cloneElement(fill.after, {"key": f"{key}-ours"})]
+        );
+    }
+    return drawn;
+}
+
+def _after_logo(part: any) -> any {  # jac:ignore[W1037]
+    # The element ours follows in a part: its logo, or the link around it (a link
+    # can't hold another), or None when it has no logo.
+    found: any = part.querySelector('img[data-img="logo"]');  # jac:ignore[W1037]
+    if not found {
+        return None;
+    }
+    around: any = found.closest("a");  # jac:ignore[W1037]
+    return around if around else found;
+}
+
+def _draw_one(fill: Fill, el: any, scope: dict[str, any], key: str) -> any {  # jac:ignore[W1037]
     # One element of the template as a React element, filled from `scope`.
     svg = el.namespaceURI == SVG_NS;
     tag: str = el.tagName if svg else el.tagName.toLowerCase();
@@ -463,8 +490,10 @@ def:pub AiPart(  # jac:ignore[W3030] the part, its fillings and what we add
     logo: str = "",
     home: dict[str, any] | None = None,  # jac:ignore[W1037]
     motifs: list[str] | None = None,
-    inside: any = None  # jac:ignore[W1037]
+    inside: any = None,  # jac:ignore[W1037]
+    after_logo: any = None  # jac:ignore[W1037]
 ) -> JsxElement {
+    # `after_logo`: ours, right after the part's logo (the Verified pill, P14.5).
     # One part of the written page (header, home or footer) inside the stylesheet's
     # wrapper; nothing when the template has no such part. `motifs` are the brand kit's
     # masks as data URLs, single figure first. `inside` is ours, added as the last child
@@ -487,7 +516,9 @@ def:pub AiPart(  # jac:ignore[W3030] the part, its fillings and what we add
         motifs=motifs or [],
         signed_in=mine == "customer",
         inside=inside,
-        holder=_holder(found)
+        holder=_holder(found),
+        after=after_logo,
+        after_el=_after_logo(found) if after_logo is not None else None
     );
     return
         <div className="ai-page" data-ai-part={part} data-testid={f"ai-{part}"}>

@@ -160,6 +160,9 @@ test "changes are asked, then the cinema is approved and public with its badge" 
             ).new_page();
             visitor.goto(store_url(owner["slug"]) + "/");
             visitor.wait_for_selector('footer [data-testid="verified-badge"]');
+            # And at the top, beside the logo, linking to the same check.
+            pill = visitor.get_attribute('[data-testid="verified-pill"]', "href") or "";
+            assert pill.endswith(f"/verified/{owner['slug']}") , pill;
             assert "Verified cinema"
                 in visitor.inner_text('[data-testid="verified-badge"]');
             # The badge links to the check on AfriCinemas' own site, which confirms it.
