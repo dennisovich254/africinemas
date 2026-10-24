@@ -178,6 +178,36 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "reviewed": False
              }
          },
+         # A policy as a PDF, and the public documents (P14.3d).
+         "upload_policy_pdf": {
+             "scope": "tenant",
+             "audit": "policy.pdf_uploaded",
+             "probe": {"tenant": "{tenant}", "kind": "terms", "data_base64": "JVBERi0="}
+         },
+         "remove_policy_pdf": {
+             "scope": "tenant",
+             "audit": "policy.pdf_removed",
+             "probe": {"tenant": "{tenant}", "kind": "terms"}
+         },
+         "public_documents_admin": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "upload_public_document": {
+             "scope": "tenant",
+             "audit": "document.uploaded",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "title": "Probe",
+                 "data_base64": "JVBERi0="
+             }
+         },
+         "remove_public_document": {
+             "scope": "tenant",
+             "audit": "document.removed",
+             "probe": {"tenant": "{tenant}", "document_id": "probe"}
+         },
          # A pass for the cinema's own team to preview its storefront (P14.1).
          "storefront_preview": {
              "scope": "tenant",
@@ -1014,6 +1044,16 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "storefront",
              "audit": "",
              "probe": {"slug": "{tenant}"}
+         },
+         "public_policy_pdf": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "kind": "terms"}
+         },
+         "public_document": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "document_id": "probe"}
          },
          "public_venues": {
              "scope": "storefront",

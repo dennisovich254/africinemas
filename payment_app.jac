@@ -171,7 +171,17 @@ import from core.catalog.policies {
     policies,  # jac:ignore[W2037]
     save_policy,  # jac:ignore[W2037]
     public_policy,
-    public_policies
+    public_policies,
+    upload_policy_pdf,  # jac:ignore[W2037]
+    remove_policy_pdf,  # jac:ignore[W2037]
+    public_policy_pdf
+}
+# A cinema's public documents, linked from every storefront footer (P14.3d).
+import from core.catalog.documents {
+    public_documents_admin,  # jac:ignore[W2037]
+    upload_public_document,  # jac:ignore[W2037]
+    remove_public_document,  # jac:ignore[W2037]
+    public_document
 }
 # A customer's consent to a cinema's offers (P14.3c).
 import from core.notify.offer_consent { consent_of }

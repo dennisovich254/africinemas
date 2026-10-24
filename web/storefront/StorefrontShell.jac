@@ -189,6 +189,8 @@ def:pub StorefrontShell(
     [info, set_info] = useState(None);
     # Its published policies, linked from the footer (P14.3b).
     [policies, set_policies] = useState([]);
+    # And its public documents (P14.3d).
+    [documents, set_documents] = useState([]);
     [missing, set_missing] = useState(False);
     [venues, set_venues] = useState([]);
     [menu_open, set_menu_open] = useState(False);
@@ -228,6 +230,7 @@ def:pub StorefrontShell(
         set_cinema(shown["cinema"]);
         set_info(shown["info"]);
         set_policies(shown["policies"] or []);
+        set_documents(shown["documents"] or []);
     }
 
     def start_loading {
@@ -475,6 +478,7 @@ def:pub StorefrontShell(
                             cinema={place["name"]}
                             info={info}
                             policies={policies}
+                            documents={documents}
                         />}
                     />}{written is None
                     and <footer className="border-t bg-card">
@@ -509,6 +513,7 @@ def:pub StorefrontShell(
                             cinema={place["name"]}
                             info={info}
                             policies={policies}
+                            documents={documents}
                             framed={True}
                         />
                         <div

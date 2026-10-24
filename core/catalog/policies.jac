@@ -24,6 +24,8 @@ import from core.audit.log { audited }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.responses { NOT_FOUND }
 import from core.catalog.site_info { site_info_of }
+import from core.catalog.documents { store_pdf, pdf_answer }
+import from core.catalog.poster { media_store }
 
 glob CONFIGURE: str = "tenant.settings.update",
      KINDS: list[tuple[str, str]] = [
@@ -242,6 +244,7 @@ def _listing(cinema: Tenant) -> list[dict[str, any]] {  # jac:ignore[W1037]
             "text": kept.get(kind, {}).get("text", ""),
             "published": kept.get(kind, {}).get("published", False),
             "updated_at": kept.get(kind, {}).get("updated_at", ""),
+            "has_pdf": bool(kept.get(kind, {}).get("pdf_key", "")),
             "template": template_for(kind, cinema.name, info)
         } for (kind, title) in KINDS
     ];
@@ -250,6 +253,37 @@ def _listing(cinema: Tenant) -> list[dict[str, any]] {  # jac:ignore[W1037]
 def _get(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     scope = scoped(tenant, CONFIGURE);
     return {"ok": True, "policies": _listing(scope.tenant)};
+}
+
+def _put(
+    cinema: Tenant,
+    tenant_id: str,
+    kind: str,
+    changes: dict[str, any]  # jac:ignore[W1037]
+) {
+    # Merges `changes` into the cinema's `kind` policy, stamped now.
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        found = _kept(cinema);
+        if found is None {
+            made = Policies(tenant_id=tenant_id);
+            cinema ++> made;
+            attach_to_tenant(made, cinema);
+            cinema.policies_id = node_id(made);
+            found = made;
+        }
+        kept: Policies = found;
+        data: dict[str, any] = dict(kept.data);  # jac:ignore[W1037]
+        policy: dict[str, any] = dict(data.get(kind, {}));  # jac:ignore[W1037]
+        policy.update(changes);
+        policy["updated_at"] = now().isoformat();
+        data[kind] = policy;
+        kept.data = data;
+        flush_now();
+    } finally {
+        restore(me);
+    }
 }
 
 def _save(
@@ -266,8 +300,13 @@ def _save(
             f"Keep it to {TEXT_MAX} characters or fewer. Shorten it, then save."
         );
     }
-    if published and not kept_text {
-        raise Refused("empty_policy", "Write the policy before publishing it.");
+    cinema: Tenant = scope.tenant;
+    has_pdf = bool(policies_of(cinema).get(kind, {}).get("pdf_key", ""));
+    if published and not kept_text and not has_pdf {
+        raise Refused(
+            "empty_policy",
+            "Write the policy, or upload it as a PDF, before publishing it."
+        );
     }
     if published and not reviewed {
         raise Refused(
@@ -275,30 +314,12 @@ def _save(
             "Tick that you've read it and it's right for your cinema, then publish."
         );
     }
-    cinema: Tenant = scope.tenant;
-    me = node_id(root);
-    act_as(cinema.principal_root_id);
-    try {
-        found = _kept(cinema);
-        if found is None {
-            made = Policies(tenant_id=scope.ctx.tenant_id);
-            cinema ++> made;
-            attach_to_tenant(made, cinema);
-            cinema.policies_id = node_id(made);
-            found = made;
-        }
-        kept: Policies = found;
-        data: dict[str, any] = dict(kept.data);  # jac:ignore[W1037]
-        data[kind] = {
-            "text": kept_text,
-            "published": bool(published),
-            "updated_at": now().isoformat()
-        };
-        kept.data = data;
-        flush_now();
-    } finally {
-        restore(me);
-    }
+    _put(
+        cinema,
+        scope.ctx.tenant_id,
+        kind,
+        {"text": kept_text, "published": bool(published)}
+    );
     return {"ok": True, "policies": _listing(cinema)};
 }
 
@@ -333,6 +354,7 @@ def:pub public_policy(slug: str, kind: str) -> dict[str, any] {  # jac:ignore[W1
         "kind": kind,
         "title": title_of(kind),
         "text": kept.get("text", ""),
+        "has_pdf": bool(kept.get("pdf_key", "")),
         "updated_at": kept.get("updated_at", "")
     };
 }
@@ -345,4 +367,78 @@ def:pub public_policies(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
         return NOT_FOUND;
     }
     return {"ok": True, "policies": published_policies(cinema)};
+}
+
+def _attach_pdf(tenant: str, kind: str, data_base64: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A PDF of the policy (P14.3d), shown beside or instead of its text. It replaces
+    # any earlier one; publishing is unchanged.
+    scope = scoped(tenant, CONFIGURE);
+    if not title_of(kind) {
+        raise Refused("unknown_policy", "Choose one of the policies listed.");
+    }
+    old = policies_of(scope.tenant).get(kind, {}).get("pdf_key", "");
+    key = store_pdf(scope.ctx.tenant_id, data_base64);
+    try {
+        _put(scope.tenant, scope.ctx.tenant_id, kind, {"pdf_key": key});
+    } except Exception as e {
+        media_store().delete(key);
+        raise e;
+    }
+    if old {
+        on_commit(lambda { media_store().delete(old); });
+    }
+    return {"ok": True, "policies": _listing(scope.tenant)};
+}
+
+def _detach_pdf(tenant: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = scoped(tenant, CONFIGURE);
+    current = policies_of(scope.tenant).get(kind, {});
+    old = current.get("pdf_key", "");
+    if not old {
+        raise Refused("no_pdf", "This policy has no PDF.");
+    }
+    if current.get("published", False) and not current.get("text", "") {
+        raise Refused(
+            "pdf_in_use",
+            "This policy is published as this PDF alone. Write its text or unpublish it first."
+        );
+    }
+    _put(scope.tenant, scope.ctx.tenant_id, kind, {"pdf_key": ""});
+    on_commit(lambda { media_store().delete(old); });
+    return {"ok": True, "policies": _listing(scope.tenant)};
+}
+
+def:protect upload_policy_pdf(
+    tenant: str, kind: str, data_base64: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "policy.pdf_uploaded",
+        "policy",
+        kind,
+        lambda -> any { return _attach_pdf(tenant, kind, data_base64); }  # jac:ignore[W1037]
+    );
+}
+
+def:protect remove_policy_pdf(tenant: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "policy.pdf_removed",
+        "policy",
+        kind,
+        lambda -> any { return _detach_pdf(tenant, kind); }  # jac:ignore[W1037]
+    );
+}
+
+def:pub public_policy_pdf(slug: str, kind: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A published policy's PDF, as base64.
+    cinema = open_cinema(slug);
+    if cinema is None {
+        return NOT_FOUND;
+    }
+    kept = policies_of(cinema).get(kind, {});
+    if not kept.get("published", False) or not kept.get("pdf_key", "") {
+        return NOT_FOUND;
+    }
+    return pdf_answer(kept["pdf_key"], title_of(kind));
 }

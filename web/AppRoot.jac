@@ -35,6 +35,7 @@ import from .oauth.AuthorizePage { AuthorizePage }
 import from .storefront.MoviesPage { MoviesPage }
 import from .storefront.CinemasPage { CinemasPage }
 import from .storefront.PolicyPage { PolicyPage }
+import from .storefront.DocumentPage { DocumentPage }
 import from .auth.InvitePage { InvitePage }
 import from .auth.EmailCheck { VerifyEmailPage }
 import from .platform.PlatformConsole { PlatformConsole }
@@ -97,6 +98,7 @@ def StorefrontSite -> JsxElement {
                 <Route path="/movies" element={<MoviesPage/>}/>
                 <Route path="/cinemas" element={<CinemasPage/>}/>
                 <Route path="/policies/:kind" element={<PolicyPage/>}/>
+                <Route path="/documents/:document" element={<DocumentPage/>}/>
                 <Route path="/m/:movie" element={<MoviePage/>}/>
                 <Route path="/s/:screening" element={<ScreeningPage/>}/>
                 <Route path="/tickets/:token" element={<TicketsPage/>}/>
@@ -191,6 +193,11 @@ def MainSite(own_addresses: bool) -> JsxElement {
                     and <Route path="/c/:slug/cinemas" element={<CinemasPage/>}/>}
                 {not own_addresses
                     and <Route path="/c/:slug/policies/:kind" element={<PolicyPage/>}/>}
+                {not own_addresses
+                    and <Route
+                        path="/c/:slug/documents/:document"
+                        element={<DocumentPage/>}
+                    />}
                 {not own_addresses
                     and <Route path="/c/:slug/m/:movie" element={<MoviePage/>}/>}
                 {not own_addresses

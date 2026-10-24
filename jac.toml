@@ -205,6 +205,9 @@ materialyoucolor = "~=3.0"
 tinycss2 = "~=1.4"
 anthropic = "~=1.15"
 potracer = "~=0.0.4"
+# Public documents and policies as PDFs (P14.3d): each upload is rebuilt from its pages
+# alone, so no script, attachment or form survives (ADR-0069). Pure Python.
+pypdf = ">=5.1,<7"
 
 # ---------------------------------------------------------------------------
 # The AI booking agent (P8.1): Claude through byLLM (ADR-0049). No key here: the
