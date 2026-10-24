@@ -27,6 +27,13 @@
    - **Reject:** reasons are required. The cinema stays private, and its page stays closed with the reasons. The owner can write to us from Help.
 
    A cinema that isn't waiting can't be decided on twice.
+5. **The badge is plain text; customers find the real storefront from the cinema's own channels** (decided with the owner, 2026-10-24, replacing a linked badge). A link on the badge proved nothing: a fake site can copy the badge and link it to a copy of our check page, and a reassuring page makes a fake look more trusted. What protects customers is where they start from:
+   - **the real address:** a storefront only ever lives at `<cinema>.<our domain>`;
+   - **the cinema's official channels:** once verified, the owner's Verification page says to share that address on their Instagram, Facebook, TikTok and WhatsApp, with **Copy link**;
+   - **the M-Pesa prompt:** it names who is paid, which a site can't fake (Phase 15).
+
+   The check page stays, for people who go to it themselves; no storefront links to it. The earlier design follows, kept for the record.
+
 5. **A badge anyone can check.** The footer's badge is drawn by our code from our records, never by the cinema's design or text. But its look can be copied: words typed into a cinema's own text, or a look-alike site. So the badge is a link to `/verified/<slug>` on AfriCinemas' main address, which no cinema controls.
    - **A verified cinema:** the page confirms it, with the date and the cinema's one true address.
    - **Anything else** (unknown, private, not verified): the same answer, "We can't confirm this cinema… don't pay on it", naming nothing (`verified_cinema`).

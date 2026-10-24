@@ -1,8 +1,9 @@
 """`/verified` and `/verified/:slug` on AfriCinemas' own site: the check behind a
 cinema's Verified badge (P14.5, ADR-0071).
 
-Every storefront's badge links here, on the main address, which no cinema controls.
-For a cinema AfriCinemas verified, it says so, with the date and the cinema's own
+Visitors come here themselves (from our site or our social media), never from a link on
+a storefront: a fake site could link to a copy of this page. For a cinema AfriCinemas
+verified, it says so, with the date and the cinema's own
 address (always under our domain, never the server's tunnel). Anything else (unknown,
 private, not verified) gets one answer, naming nothing.
 
@@ -169,7 +170,7 @@ def:pub VerifiedPage -> JsxElement {
                 We can't confirm this cinema
             </p>
             <p>
-                AfriCinemas hasn't verified a cinema at this address. If a page showed you a Verified badge that brought you here, don't pay on it.
+                AfriCinemas hasn't verified a cinema at this address. Don't pay on a site that claims to be one.
             </p>
         </div>;
     }

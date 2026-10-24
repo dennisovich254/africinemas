@@ -335,7 +335,7 @@ def:pub StorefrontShell(
                         part="header"
                         cinema={place["name"]}
                         logo={look["logo"]}
-                        after_logo={<VerifiedPill slug={slug} verified={verified}/>}
+                        after_logo={<VerifiedPill verified={verified}/>}
                     />}{written is None
                     and <div className="sticky top-0 z-30">
                         <header
@@ -363,7 +363,7 @@ def:pub StorefrontShell(
                                                 {place["name"]}
                                             </span>}
                                     </AppLink>
-                                    <VerifiedPill slug={slug} verified={verified}/>
+                                    <VerifiedPill verified={verified}/>
                                 </h1>
                                 <nav
                                     aria-label="Storefront"

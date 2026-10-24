@@ -32,6 +32,7 @@ import from ..shell.AppLink { AppLink }
 import from .form_parts { TextField, FieldError, read_as_base64, submit_with }
 import from .PdfDrop { PdfDrop }
 import from .nav { section_path }
+import from ..site { storefront_address }
 
 glob MAX_PHOTO_BYTES: int = 4 * 1024 * 1024,
      MAX_SIDE: int = 2400,
@@ -165,6 +166,58 @@ def Status(view: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
             </Alert>;
     }
     return <span className="hidden" data-testid="verification-status"/>;
+}
+
+def location_origin -> str {
+    win: any = window;  # jac:ignore[W1037,W2001]
+    return win.location.origin;
+}
+
+def ShareLink(slug: str) -> JsxElement {
+    # Once verified (P14.5): where customers should find the real storefront. A badge
+    # proves nothing on a copied site; the cinema's own channels pointing here do.
+    [copied, set_copied] = useState(False);
+    found = storefront_address(slug);
+    # Off our domain (a tunnel, the desktop app) it's a path: make it a full address.
+    address = found if "://" in found else f"{location_origin()}{found}";
+    shown_address = address.split("://")[-1].rstrip("/");
+    async def copy {
+        try {
+            win: any = window;  # jac:ignore[W1037,W2001]
+            await win.navigator.clipboard.writeText(address);
+            set_copied(True);
+        } except Exception as e {
+            console.warn("copy failed", e);
+        }
+    }
+    return
+        <section
+            aria-labelledby="share-link"
+            className="flex flex-col gap-3 rounded-lg border bg-card p-4"
+            data-testid="share-link"
+        >
+            <h3 id="share-link" className="font-semibold">Share your real link</h3>
+            <p className="text-sm text-muted-foreground">
+                Put it on your official Instagram, Facebook, TikTok and WhatsApp, so customers find your real storefront and not a copy. Your storefront is only ever at this address.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+                <code
+                    className="break-all rounded-md border bg-muted px-3 py-2 text-sm"
+                    data-testid="share-address"
+                >
+                    {shown_address}
+                </code>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 px-4"
+                    data-testid="copy-link"
+                    onClick={lambda { copy(); }}
+                >
+                    {"Copied" if copied else "Copy link"}
+                </Button>
+            </div>
+        </section>;
 }
 
 def:pub VerificationSection(slug: str) -> JsxElement {
@@ -411,6 +464,8 @@ def:pub VerificationSection(slug: str) -> JsxElement {
                 Before your cinema goes public, AfriCinemas checks who runs it. Fill this in once; it takes about ten minutes with your ID and your business's certificates to hand.
             </p>
             <Status view={shown}/>
+            {(shown["status"] == "approved" or shown["state"] == "active")
+                and <ShareLink slug={slug}/>}
             <Notice/>
             <form
                 className="flex flex-col gap-6"

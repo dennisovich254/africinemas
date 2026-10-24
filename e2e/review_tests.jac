@@ -15,6 +15,7 @@ import from e2e.support.web {
     close_contexts,
     PLATFORM_URL,
     BASE_URL,
+    MAIN_URL,
     PROJECTS,
     context_options,
     store_url,
@@ -158,6 +159,10 @@ test "changes are asked, then the cinema is approved and public with its badge" 
             office.wait_for_selector(
                 '[data-testid="backoffice-verified"] >> visible=true'
             );
+            # Its Verification page asks the owner to share the real link.
+            office.goto(f"{BASE_URL}/app/{owner['slug']}/verification");
+            office.wait_for_selector('[data-testid="share-link"]');
+            assert owner["slug"] in office.inner_text('[data-testid="share-address"]');
             # And on Your cinemas.
             office.goto(f"{BASE_URL}/app");
             office.wait_for_selector('[data-testid="cinema-list"]');
@@ -179,18 +184,19 @@ test "changes are asked, then the cinema is approved and public with its badge" 
             ).new_page();
             visitor.goto(store_url(owner["slug"]) + "/");
             visitor.wait_for_selector('footer [data-testid="verified-badge"]');
-            # And at the top, beside the logo, linking to the same check.
-            pill = visitor.get_attribute('[data-testid="verified-pill"]', "href") or "";
-            assert pill.endswith(f"/verified/{owner['slug']}") , pill;
+            # And at the top, beside the logo. Neither is a link: a fake site could
+            # link to a copy of any page.
+            visitor.wait_for_selector('[data-testid="verified-pill"]');
             assert "Verified cinema"
                 in visitor.inner_text('[data-testid="verified-badge"]');
-            # The badge links to the check on AfriCinemas' own site, which confirms it.
-            href = visitor.get_attribute('[data-testid="verified-badge"]', "href")
-                or "";
-            assert href.endswith(f"/verified/{owner['slug']}") , href;
-            visitor.goto(href);
+            assert visitor.locator(
+                'a[data-testid="verified-badge"], a[data-testid="verified-pill"]'
+            ).count()
+                == 0;
+            # The check on AfriCinemas' own site, opened directly.
+            visitor.goto(f"{MAIN_URL}/verified/{owner['slug']}");
             visitor.wait_for_selector('[data-testid="verified-yes"]');
-            visitor.goto(href.replace(owner["slug"], "no-such-cinema-here"));
+            visitor.goto(f"{MAIN_URL}/verified/no-such-cinema-here");
             visitor.wait_for_selector('[data-testid="verified-no"]');
             visitor.context.close();
         }
