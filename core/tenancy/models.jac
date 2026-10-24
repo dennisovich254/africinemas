@@ -9,6 +9,7 @@ Ownership follows the Phase 1 ADRs:
 """
 
 import from core.tenancy.state { TenantState, transition }
+import from core.clock { now }
 
 glob ROLE_OWNER: str = "owner",
      # The one group per tenant that holds the graph grants on its nodes (ADR-0004).
@@ -45,11 +46,21 @@ node Tenant {
         # here as well as on the record, so pages read it without the verification
         # module.
         verified_at: str = "",
+        # When it began closing (P14.5b): its business documents are deleted a year on.
+        closed_at: str = "",
         # Minutes before a showtime's start that its tickets can be scanned.
         doors_open_minutes: int = DOORS_OPEN_DEFAULT;
 
     def move_to(target: TenantState) {
         self.state = transition(TenantState(self.state), target).value;
+        # When it left (P14.5b), for the retention rules; cleared if it comes back.
+        if target in [TenantState.CLOSING, TenantState.DELETED] {
+            if not self.closed_at {
+                self.closed_at = now().isoformat();
+            }
+        } else {
+            self.closed_at = "";
+        }
     }
 }
 

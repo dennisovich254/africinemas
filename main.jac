@@ -229,6 +229,8 @@ import from core.platform.review_api {
     platform_decide,  # jac:ignore[W2037]
     send_decision_mail  # jac:ignore[W2037]
 }
+# Deleting personal files once they're no longer needed (P14.5b).
+import from core.tenancy.retention { delete_due_files }  # jac:ignore[W2037]
 # Verifying the owner and the business before going public (P14.4).
 import from core.tenancy.verification {
     verification,  # jac:ignore[W2037]
