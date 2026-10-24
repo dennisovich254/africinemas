@@ -175,6 +175,46 @@ def _requests_of(cinema: Tenant) -> list[SupportRequest] {
     return found;
 }
 
+def drop_old_screenshots(cinema: Tenant, closed_before: str, stamp: str) -> int {
+    # Deletes the screenshots of the cinema's requests closed before `closed_before`
+    # (the retention rule, P14.5b): the written conversation stays, and each message
+    # notes when its screenshot went. How many were deleted.
+    dropped = 0;
+    for request in _requests_of(cinema) {
+        if request.status != CLOSED or request.updated_at >= closed_before {
+            continue;
+        }
+        kept: list[dict[str, str]] = [];
+        changed = False;
+        for m in request.messages {
+            message: dict[str, str] = dict(m);
+            if message.get("image", "") {
+                try {
+                    media_store().delete(message["image"]);
+                } except Exception as e {
+                    print(f"support screenshot of {cinema.slug} already gone: {e}");
+                }
+                message["image"] = "";
+                message["image_removed_at"] = stamp;
+                changed = True;
+                dropped += 1;
+            }
+            kept.append(message);
+        }
+        if changed {
+            me = node_id(root);
+            act_as(cinema.principal_root_id);
+            try {
+                request.messages = kept;
+                flush_now();
+            } finally {
+                restore(me);
+            }
+        }
+    }
+    return dropped;
+}
+
 def _newest_first(rows: list[dict[str, any]]) -> list[dict[str, any]] {  # jac:ignore[W1037]
     return sorted(
         rows,

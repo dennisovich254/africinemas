@@ -169,7 +169,14 @@ def FileView(slug: str, file: dict[str, str]) -> JsxElement {
                 )
                     if file["type"] and shown is None
                     else (
-                        <span className="text-sm text-muted-foreground">Not sent</span>
+                        <span
+                            className="text-sm text-muted-foreground"
+                            data-testid={f"file-state-{file['item']}"}
+                        >
+                            {f"Deleted {file['removed_at'][:10]}, as our retention rules say"
+                                if file["removed_at"]
+                                else "Not sent"}
+                        </span>
                             if not file["type"]
                             else <span className="hidden"/>
                     )}

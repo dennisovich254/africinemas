@@ -103,7 +103,9 @@ node Verification {
         # when it was approved (the storefront's Verified badge).
         decided_at: str = "",
         reviewed_by: str = "",
-        approved_at: str = "";
+        approved_at: str = "",
+        # Files deleted as the retention rules say (P14.5b): item -> when.
+        files_removed: dict[str, str] = {};
 }
 
 obj Problem {
@@ -253,7 +255,8 @@ def record_of(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
                 "reasons": [],
                 "decided_at": "",
                 "reviewed_by": "",
-                "approved_at": ""
+                "approved_at": "",
+                "files_removed": {}
             };
         }
         return {
@@ -264,7 +267,8 @@ def record_of(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
             "reasons": list(found.reasons),
             "decided_at": found.decided_at,
             "reviewed_by": found.reviewed_by,
-            "approved_at": found.approved_at
+            "approved_at": found.approved_at,
+            "files_removed": dict(found.files_removed)
         };
     } finally {
         restore(me);
@@ -405,6 +409,33 @@ def _upload(
         on_commit(lambda { media_store().delete(old); });
     }
     return _view(scope.tenant);
+}
+
+def remove_files(cinema: Tenant, items: list[str], stamp: str) -> int {
+    # Deletes the cinema's verification files `items` (the retention rules, P14.5b),
+    # noting when; how many were deleted.
+    kept = record_of(cinema);
+    files = kept["files"];
+    gone = [
+        i
+        for i in items
+        if i in files
+    ];
+    if not gone {
+        return 0;
+    }
+    removed = kept["files_removed"];
+    for item in gone {
+        try {
+            media_store().delete(files[item]["key"]);
+        } except Exception as e {
+            print(f"verification file {item} of {cinema.slug} already gone: {e}");
+        }
+        files.pop(item);
+        removed[item] = stamp;
+    }
+    _write(cinema, node_id(cinema), {"files": files, "files_removed": removed});
+    return len(gone);
 }
 
 def file_answer(cinema: Tenant, item: str) -> dict[str, any] {  # jac:ignore[W1037]

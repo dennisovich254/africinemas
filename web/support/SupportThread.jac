@@ -134,8 +134,11 @@ def:pub SupportThread(
                         {m["has_image"]
                             and load_image
                             and <ChatImage index={i} load_image={load_image}/>}{m[
-                            "text"
+                            "image_removed_at"
                         ]
+                            and <p className="text-xs italic opacity-80">
+                                Screenshot deleted 90 days after this request closed.
+                            </p>}{m["text"]
                             and <p className="whitespace-pre-wrap break-words">
                                 {m["text"]}
                             </p>}

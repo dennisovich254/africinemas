@@ -130,7 +130,7 @@ def find_cinemas(city: str, name: str = "") -> dict[str, any] {  # jac:ignore[W1
     return got;
 }
 
-sem find_cinemas = "List the cinemas selling tickets, optionally only those in one city or whose name contains some text. Use a cinema's slug in the other tools.";
+sem find_cinemas = "List the cinemas selling tickets, optionally only those in one city or whose name contains some text. Use a cinema's slug in the other tools. A cinema with a verified_at date is verified: AfriCinemas checked its owner and business documents on that date.";
 sem find_cinemas.city = "A city name such as Nairobi, or an empty string for every city.";
 sem find_cinemas.name = "Part of the cinema's name, such as Westgate, or an empty string for every cinema.";
 

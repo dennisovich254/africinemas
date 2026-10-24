@@ -144,6 +144,30 @@ import from core.support.requests {
 # Emailing a cinema's owners when we reply (P13.5b), and a test-only way to run it.
 import from core.support.mail { send_support_due }
 import from core.platform.review_api { send_decisions_due }
+import from core.tenancy.retention { retention_due }
+import from core.clock { now as clock_now }
+import from core.tenancy.state { TenantState }
+import from core.tenancy.principal { flush_now }
+
+def:pub t_retention(days_ahead: str) -> dict[str, int] {
+    # Runs the retention job as of `days_ahead` days from now (P14.5b).
+    return retention_due(clock_now() + timedelta(days=int(days_ahead)));
+}
+
+def:pub t_close_cinema(slug: str) -> str {
+    # The cinema starts closing (no endpoint does this yet), as of now (P14.5b).
+    cinema = tenant_by_id(str(lookup_slug(slug)));
+    assert cinema is not None;
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        cinema.move_to(TenantState.CLOSING);
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    return cinema.closed_at;
+}
 
 def:pub t_send_decision_mail -> int {
     # Sends the queued review decisions now (P14.5).
@@ -190,6 +214,8 @@ import from core.platform.review_api {
     platform_decide,  # jac:ignore[W2037]
     send_decision_mail  # jac:ignore[W2037]
 }
+# Deleting personal files once they're no longer needed (P14.5b).
+import from core.tenancy.retention { delete_due_files }  # jac:ignore[W2037]
 # Verifying the owner and the business before going public (P14.4).
 import from core.tenancy.verification {
     verification,  # jac:ignore[W2037]
