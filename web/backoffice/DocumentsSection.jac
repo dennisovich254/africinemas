@@ -18,6 +18,7 @@ import from core.catalog.documents {
     remove_public_document  # jac:ignore[W2037]
 }
 import from .form_parts { read_as_base64, submit_with }
+import from .PdfDrop { PdfDrop }
 
 def:pub DocumentsSection(slug: str) -> JsxElement {
     [listed, set_listed] = useState(None);
@@ -55,6 +56,18 @@ def:pub DocumentsSection(slug: str) -> JsxElement {
     }
     useEffect(start, [slug]);
 
+    def chose(picked: any) {  # jac:ignore[W1037]
+        # The PDF to upload; its name, without ".pdf", as the title until one is typed.
+        set_file(picked);
+        set_failed("");
+        set_message("");
+        if not title.strip() {
+            name: str = picked.name or "";
+            stem = name[:-4] if name.lower().endswith(".pdf") else name;
+            set_title(" ".join(" ".join(stem.split("_")).split("-")).strip());
+        }
+    }
+
     async def upload {
         set_message("");
         if not title.strip() {
@@ -86,11 +99,6 @@ def:pub DocumentsSection(slug: str) -> JsxElement {
         seen(answer);
         set_title("");
         set_file(None);
-        doc: any = document;  # jac:ignore[W1037,W2001]
-        picker: any = doc.getElementById("document-file");  # jac:ignore[W1037]
-        if picker {
-            picker.value = "";
-        }
         set_message("Uploaded. It's linked from your storefront's footer now.");
     }
 
@@ -190,6 +198,14 @@ def:pub DocumentsSection(slug: str) -> JsxElement {
                 data-testid="document-upload"
             >
                 <h3 className="font-semibold">Add a document</h3>
+                <PdfDrop
+                    field_id="document-file"
+                    label="PDF"
+                    chosen={file.name if file is not None else ""}
+                    busy={busy}
+                    disabled={busy}
+                    on_file={chose}
+                />
                 <div className="flex flex-col gap-1.5">
                     <Label htmlFor="document-title">Title</Label>
                     <Input
@@ -203,25 +219,6 @@ def:pub DocumentsSection(slug: str) -> JsxElement {
                     <datalist id="document-titles">
                         {[<option key={t} value={t}/> for t in ideas]}
                     </datalist>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="document-file">PDF</Label>
-                    <input
-                        id="document-file"
-                        type="file"
-                        accept="application/pdf,.pdf"
-                        aria-describedby="document-file-help"
-                        className="min-h-11 text-sm"
-                        onChange={lambda (e: any) { set_file(  # jac:ignore[W1037]
-                            e.target.files[0] if len(e.target.files) > 0 else None
-                        ); }}
-                    />
-                    <p
-                        id="document-file-help"
-                        className="text-sm text-muted-foreground"
-                    >
-                        Up to 10 MB and 50 pages, without a password.
-                    </p>
                 </div>
                 {failed
                     and <Alert variant="destructive" role="alert">

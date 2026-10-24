@@ -17,9 +17,9 @@ Cinemas want to show visitors their KFCB film exhibition licence, county busines
    - **Where it's stored:** the new file goes under a random name in the cinema's media folder.
    - **Refusals:** a refused file says why: not a readable PDF, password-protected, too many pages, or too large.
 2. **Public documents.** Up to 10 per cinema, each a title and a PDF, kept on a `PublicDocuments` node owned by the cinema.
-   - **Managing them:** Settings → Documents, by staff who change the cinema's settings. The title field suggests the three usual documents. Each upload and removal is audited.
+   - **Managing them:** Settings → Documents, by staff who change the cinema's settings. A PDF is dropped on a dashed box or chosen from it (`PdfDrop`, shared with the policy editor), and its file name becomes the title until one is typed. The title field suggests the three usual documents. Each upload and removal is audited.
    - **On the storefront:** every footer links to each document, and its page (`/documents/<id>`) opens the PDF.
-3. **A policy may be a PDF.** It's uploaded in the policy's editor and shown on the policy's page above any text.
+3. **A policy may be a PDF.** The policy's editor asks how to share it: **Write it here** (our template, or the cinema's own text) or **Upload a PDF** (the cinema's own, from its lawyer). The PDF is shown on the policy's page. Chosen as a PDF, the written text isn't kept.
    - **Publishing:** a policy can be published with text, with a PDF, or with both.
    - **Removing:** a PDF can't be removed while it's the only content of a published policy.
 4. **Opening a PDF.** The server sends it as base64 (as posters are sent), and the page makes a local blob URL.

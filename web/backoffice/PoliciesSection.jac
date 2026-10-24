@@ -24,6 +24,12 @@ import from core.catalog.policies {
 }
 import from ..storefront.PolicyPage { PolicyText }
 import from .form_parts { on_input, read_as_base64 }
+import from .PdfDrop { PdfDrop }
+
+glob MODES: list[tuple[str, str, str]] = [
+         ("write", "Write it here", "Start from our template, or paste your own."),
+         ("pdf", "Upload a PDF", "Already have it as a PDF? Use that instead.")
+     ];
 
 def status_of(p: dict[str, any]) -> str {  # jac:ignore[W1037]
     if p["published"] {
@@ -37,6 +43,8 @@ def:pub PoliciesSection(slug: str) -> JsxElement {
     [open_kind, set_open_kind] = useState("");
     [text, set_text] = useState("");
     [reviewed, set_reviewed] = useState(False);
+    # "write": the text, written here; "pdf": a PDF instead (P14.3d).
+    [mode, set_mode] = useState("write");
     [busy, set_busy] = useState("");
     [message, set_message] = useState("");
     [failed, set_failed] = useState("");
@@ -64,6 +72,7 @@ def:pub PoliciesSection(slug: str) -> JsxElement {
 
     def choose(p: dict[str, any]) {  # jac:ignore[W1037]
         set_open_kind(p["kind"]);
+        set_mode("pdf" if p["has_pdf"] and not p["text"] else "write");
         set_text(p["text"]);
         set_reviewed(False);
         set_message("");
@@ -105,12 +114,18 @@ def:pub PoliciesSection(slug: str) -> JsxElement {
         );
     }
 
+    def attach(file: any) {  # jac:ignore[W1037]
+        change_pdf(open_kind, file);
+    }
+
     async def save(kind: str, publish: bool) {
         set_busy("publish" if publish else "save");
         set_message("");
         answer: any = None;  # jac:ignore[W1037]
         try {
-            answer = await save_policy(slug, kind, text, publish, reviewed);  # jac:ignore[W2037]
+            # A PDF instead of text: what's written isn't kept.
+            sent = text if mode == "write" else "";
+            answer = await save_policy(slug, kind, sent, publish, reviewed);  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("save_policy failed", e);
         }
@@ -194,44 +209,57 @@ def:pub PoliciesSection(slug: str) -> JsxElement {
                     data-testid="policy-editor"
                     className="flex flex-col gap-4 rounded-lg border bg-card p-4"
                 >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 id="policy-editing" className="text-lg font-semibold">
-                            {current["title"]}
-                        </h3>
-                        {not text
-                            and <Button
+                    <h3 id="policy-editing" className="text-lg font-semibold">
+                        {current["title"]}
+                    </h3>
+                    <div
+                        role="radiogroup"
+                        aria-label="How to share it"
+                        className="grid gap-2 sm:grid-cols-2"
+                    >
+                        {[
+                            <button
+                                key={m[0]}
                                 type="button"
-                                variant="outline"
-                                className="min-h-11 px-4"
-                                data-testid="use-template"
-                                onClick={lambda { set_text(current["template"]); }}
+                                role="radio"
+                                aria-checked={"true" if mode == m[0] else "false"}
+                                data-testid={f"policy-mode-{m[0]}"}
+                                onClick={lambda { set_mode(m[0]); }}
+                                className={"flex min-h-14 flex-col items-start justify-center rounded-md border px-4 py-2 text-left "
+                                    + (
+                                        "border-primary bg-primary/10"
+                                            if mode == m[0]
+                                            else "hover:bg-muted/50"
+                                    )}
                             >
-                                Start from our template
-                            </Button>}
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="policy-text">Text</Label>
-                        <Textarea
-                            id="policy-text"
-                            value={text}
-                            rows={16}
-                            aria-describedby="policy-format"
-                            onChange={on_input(lambda (v: str) { set_text(v); })}
-                        />
-                        <p id="policy-format" className="text-sm text-muted-foreground">
-                            Leave a blank line between paragraphs. Start a line with ## for a heading, or with - for a list item.
-                        </p>
-                    </div>
-                    <div className="flex flex-col gap-1.5" data-testid="policy-pdf">
-                        {(
-                            <div className="flex flex-wrap items-center gap-2 text-sm">
-                                <span>
-                                    This policy also has a PDF, shown above its text.
+                                <span className="font-medium">{m[1]}</span>
+                                <span className="text-sm text-muted-foreground">
+                                    {m[2]}
                                 </span>
-                                <Button
+                            </button> for m in MODES
+                        ]}
+                    </div>
+                    {mode == "pdf"
+                        and <div
+                            className="flex flex-col gap-3"
+                            data-testid="policy-pdf"
+                        >
+                            <PdfDrop
+                                field_id="policy-pdf-file"
+                                label="Your PDF"
+                                chosen={"Your PDF is uploaded"
+                                    if current["has_pdf"]
+                                    else ""}
+                                busy={busy == "pdf"}
+                                disabled={busy != ""}
+                                on_file={attach}
+                                hint="Visitors open it from the policy's page. Up to 10 MB and 50 pages, without a password."
+                            />
+                            {current["has_pdf"]
+                                and <Button
                                     type="button"
                                     variant="outline"
-                                    className="min-h-11 px-4"
+                                    className="min-h-11 w-fit px-4"
                                     disabled={busy != ""}
                                     data-testid="remove-policy-pdf"
                                     onClick={lambda { change_pdf(
@@ -239,41 +267,50 @@ def:pub PoliciesSection(slug: str) -> JsxElement {
                                     ); }}
                                 >
                                     Remove the PDF
-                                </Button>
-                            </div>
-                        )
-                            if current["has_pdf"]
-                            else <>
-                                <Label htmlFor="policy-pdf-file">
-                                    Or upload it as a PDF
-                                </Label>
-                                <input
-                                    id="policy-pdf-file"
-                                    type="file"
-                                    accept="application/pdf,.pdf"
-                                    className="min-h-11 text-sm"
-                                    disabled={busy != ""}
-                                    onChange={lambda (e: any) { if len(e.target.files)  # jac:ignore[W1037]
-                                        > 0 {
-                                        change_pdf(current["kind"], e.target.files[0]);
-                                    }}}
+                                </Button>}
+                        </div>}
+                    {mode == "write"
+                        and <div className="flex flex-col gap-4">
+                            {not text
+                                and <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="min-h-11 w-fit px-4"
+                                    data-testid="use-template"
+                                    onClick={lambda { set_text(current["template"]); }}
+                                >
+                                    Start from our template
+                                </Button>}
+                            <div className="flex flex-col gap-1.5">
+                                <Label htmlFor="policy-text">Text</Label>
+                                <Textarea
+                                    id="policy-text"
+                                    value={text}
+                                    rows={16}
+                                    aria-describedby="policy-format"
+                                    onChange={on_input(
+                                        lambda (v: str) { set_text(v); }
+                                    )}
                                 />
-                                <p className="text-sm text-muted-foreground">
-                                    A PDF from your lawyer, up to 10 MB. Visitors can open it from the policy's page.
+                                <p
+                                    id="policy-format"
+                                    className="text-sm text-muted-foreground"
+                                >
+                                    Leave a blank line between paragraphs. Start a line with ## for a heading, or with - for a list item.
                                 </p>
-                            </>}
-                    </div>
-                    {text
-                        and <details className="rounded-md border p-3">
-                            <summary
-                                className="min-h-11 cursor-pointer content-center font-medium"
-                            >
-                                Preview
-                            </summary>
-                            <div className="pt-3">
-                                <PolicyText text={text}/>
                             </div>
-                        </details>}
+                            {text
+                                and <details className="rounded-md border p-3">
+                                    <summary
+                                        className="min-h-11 cursor-pointer content-center font-medium"
+                                    >
+                                        Preview
+                                    </summary>
+                                    <div className="pt-3">
+                                        <PolicyText text={text}/>
+                                    </div>
+                                </details>}
+                        </div>}
                     <label
                         className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
                     >
