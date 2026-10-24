@@ -17,7 +17,8 @@ import from e2e.support.web {
     BASE_URL,
     PROJECTS,
     context_options,
-    store_url
+    store_url,
+    artifact
 }
 import from e2e.support.api { platform_admin, PASSWORD, call }
 import from e2e.support.catalog { cinema_selling_tickets }
@@ -151,9 +152,23 @@ test "changes are asked, then the cinema is approved and public with its badge" 
             _type(office, "#password", PASSWORD);
             office.click('button[type="submit"]');
             office.wait_for_url("**/app");
-            office.wait_for_selector('[data-testid="cinema-verified"]');
             office.goto(f"{BASE_URL}/app/{owner['slug']}");
             office.wait_for_selector('[data-testid="backoffice-verified"]');
+            # And on Your cinemas.
+            office.goto(f"{BASE_URL}/app");
+            office.wait_for_selector('[data-testid="cinema-list"]');
+            try {
+                office.wait_for_selector(
+                    f'[data-testid="cinema-list"] a[href="/app/{owner[
+                        "slug"
+                    ]}"] [data-testid="cinema-verified"]'
+                );
+            } except Exception as e {
+                office.screenshot(
+                    path=artifact(f"your-cinemas-{project}.png"), full_page=True
+                );
+                raise e;
+            }
             office.context.close();
             visitor = browser.new_context(
                 **context_options(pw, project, "light")
