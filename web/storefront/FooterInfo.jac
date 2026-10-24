@@ -4,9 +4,8 @@ Drawn by StorefrontShell inside the footer, whatever the cinema's design: in our
 footer, and appended inside the footer the AI wrote (AiPart's `inside`), so no design
 can leave it out. Who runs the cinema and where, how to reach it (phone, email,
 WhatsApp, support hours), its social media and links to its published policies
-(P14.3b) and public documents, such as its licences (P14.3d). "Report this cinema"
-(14.6) joins it. Every link was built on the server
-from what the cinema typed (core/catalog/site_info.jac), never taken as typed.
+(P14.3b) and public documents, such as its licences (P14.3d). Every link was built
+on the server from what the cinema typed (core/catalog/site_info.jac), never taken as typed.
 
 Two quiet rows: who and where (with the socials), then how to reach it. It takes the
 footer's own colours (its links too, whatever the design's CSS says), so it reads as
