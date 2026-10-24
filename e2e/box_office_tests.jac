@@ -17,6 +17,7 @@ import from e2e.support.web {
 }
 import from e2e.support.api { add_staff, call, PASSWORD }
 import from e2e.support.catalog { cinema_selling_tickets }
+import from e2e.support.snacks { with_snacks }
 
 glob SETTLE_MS: int = 30000;
 
@@ -103,6 +104,58 @@ test "an M-Pesa sale at the counter: the customer's prompt, then the tickets" {
         );
         page.wait_for_selector('[data-testid="counter-done"]', timeout=SETTLE_MS);
         assert page.locator('[data-testid="ticket"]').count() == 2;
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "snacks only: a walk-in buys a Large Popcorn for cash, and it's handed over" {
+    # P12.10 (improvements #21, #26).
+    (pw, browser) = shared_browser();
+    try {
+        for project in PROJECTS {
+            owner = with_snacks();
+            agent = add_staff(owner, "box_office_agent", owner["venue"]);
+            assert call(agent["token"], "start_shift", {"tenant": owner["slug"]})["ok"];
+            page = browser.new_context(
+                **context_options(pw, project, "light")
+            ).new_page();
+            page.goto(BASE_URL + "/login");
+            _type(page, "#email", agent["email"]);
+            _type(page, "#password", PASSWORD);
+            page.click('button[type="submit"]');
+            page.wait_for_function("!!localStorage.getItem('jac_token')");
+            page.wait_for_url(
+                lambda (url: str) -> bool { return "/login" not in url; }
+            );
+            page.goto(f"{BASE_URL}/app/{owner['slug']}/box-office");
+            _press(page, project, '[data-testid="sale-kind-snacks"]');
+            page.wait_for_selector(
+                '[data-testid="snack-sale"] [data-testid="snack-product"]'
+            );
+            _press(page, project, '[data-testid="snack-product"]:has-text("Popcorn")');
+            _press(page, project, '[data-testid="snack-variant"]:has-text("Large")');
+            _press(page, project, '[data-testid="snack-add"]');
+            page.wait_for_function(
+                "document.querySelector('[data-testid=snack-sale-total]')?.innerText === 'KES 400'"
+            );
+            _press(page, project, '[data-testid="snack-sale-pay"]');
+            page.wait_for_selector('[data-testid="snack-sale-payment"]');
+            assert "KES 400" in page.inner_text('[data-testid="snack-sale-amount"]');
+            _press(page, project, '[data-testid="snack-sale-cash"]');
+            _press(page, project, '[data-testid="snack-sale-confirm-cash"]');
+            page.wait_for_selector('[data-testid="snack-sale-done"]');
+            assert page.inner_text('[data-testid="snack-sale-code"]').strip();
+            _press(page, project, '[data-testid="snack-sale-hand-over"]');
+            page.wait_for_selector('[data-testid="snack-sale-handed"]');
+            _press(page, project, '[data-testid="snack-sale-new"]');
+            page.wait_for_selector('[data-testid="snack-sale-pay"]');
+            assert page.evaluate(
+                "document.documentElement.scrollWidth - document.documentElement.clientWidth"
+            )
+                <= 0 , f"{project}: scrolls sideways";
+            page.context.close();
+        }
     } finally {
         close_contexts(browser);
     }

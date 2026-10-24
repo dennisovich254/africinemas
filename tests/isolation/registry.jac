@@ -774,6 +774,63 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"tenant": "{tenant}"}
          },
+         # Snacks only, at the box office (P12.10): selling at the venue.
+         "counter_snack_venues": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "counter_price_snacks": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "venue_id": "x", "lines": []}
+         },
+         "counter_snack_menu": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "venue_id": "x"}
+         },
+         "place_snack_order": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "venue_id": "x",
+                 "holder": "probe-holder-0123456789abcdef",
+                 "idempotency_key": "probe-idempotency-key-xxxxxxxx",
+                 "snacks": []
+             }
+         },
+         "sell_snacks_for_cash": {
+             "scope": "tenant",
+             "audit": "sale.snacks_cash",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "venue_id": "x",
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
+         "sell_snacks_with_mpesa": {
+             "scope": "tenant",
+             "audit": "sale.snacks_mpesa",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "venue_id": "x",
+                 "holder": "probe-holder-0123456789abcdef",
+                 "phone": "0712345678",
+                 "email": "",
+                 "idempotency_key": "probe-idempotency-key-xxxxxxxx"
+             }
+         },
+         "counter_snack_payment": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "venue_id": "x",
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
          "sell_for_cash": {
              "scope": "tenant",
              "audit": "sale.cash",

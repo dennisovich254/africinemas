@@ -257,6 +257,37 @@ def _start_payment(  # jac:ignore[W3030] the payment, the seller and the consent
     # keeps their versions. offers "yes": the customer ticked the box for the cinema's
     # offers.
     (cinema, screening) = showtime_on_sale(slug, screening_id);
+
+    def find_order -> Order | None {
+        return pending_order(cinema, screening, holder);
+    }
+    return pay_order(
+        cinema,
+        find_order,
+        "You haven't placed an order for this showtime.",
+        holder,
+        phone,
+        email,
+        idempotency_key,
+        sold_by,
+        offers
+    );
+}
+
+def pay_order(  # jac:ignore[W3030] the cinema, the order's lookup and the payment's details
+    cinema: Tenant,
+    find_order: any,  # jac:ignore[W1037]
+    no_order: str,
+    holder: str,
+    phone: str,
+    email: str,
+    idempotency_key: str,
+    sold_by: str = "",
+    offers: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # Starts paying the order `find_order()` gives (pending, for `holder`), or refuses
+    # with `no_order`: a showtime's (above) or a snacks-only sale at a venue's counter
+    # (P12.10, core/booking/snack_sale.jac).
     # No money before AfriCinemas has verified the cinema (P14.1).
     require_live(cinema);
     check_holder(holder);
@@ -272,10 +303,11 @@ def _start_payment(  # jac:ignore[W3030] the payment, the seller and the consent
     if existing is not None {
         return _replay(cinema, existing, number, provider);
     }
-    order = pending_order(cinema, screening, holder);
-    if order is None {
-        raise Refused("no_order", "You haven't placed an order for this showtime.");
+    found: Order | None = find_order();
+    if found is None {
+        raise Refused("no_order", no_order);
     }
+    order: Order = found;
     if not order.pay_by or datetime.fromisoformat(order.pay_by) <= now() {
         raise Refused(
             "order_expired",
@@ -319,7 +351,7 @@ def _start_payment(  # jac:ignore[W3030] the payment, the seller and the consent
         intent = PaymentIntent(
             tenant_id=node_id(cinema),
             order_id=order_id,
-            screening_id=screening_id,
+            screening_id=order.screening_id,
             holder=holder,
             idempotency_key=idempotency_key,
             reference=secrets.token_hex(5).upper(),

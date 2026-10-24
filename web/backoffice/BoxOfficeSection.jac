@@ -11,6 +11,7 @@ counter holder id, one per sale) and takes the money (CounterPay):
 
 An email address for the tickets is optional. Once paid (CounterDone), the tickets show
 with their QR codes, to print or show; New sale starts over with a new holder id.
+**Snacks only** (P12.10) sells snacks to a walk-in without a ticket (SnackOnlySale).
 """
 
 import from react { useState, useEffect }
@@ -33,6 +34,7 @@ import from ..storefront.checkout_rules {
     random_id
 }
 import from .CounterPicker { CounterPicker }
+import from .SnackOnlySale { SnackOnlySale }
 
 glob POLL_MS: int = 3000;
 
@@ -319,8 +321,38 @@ def CounterDone(payment: dict[str, any], on_new_sale: any) -> JsxElement {  # ja
         </section>;
 }
 
+def SaleKind(kind: str, on_kind: any) -> JsxElement {  # jac:ignore[W1037]
+    # Tickets (with snacks if the customer wants) or snacks only (P12.10).
+    return
+        <div
+            role="group"
+            aria-label="What's being sold"
+            className="flex gap-2 border-b"
+        >
+            {[
+                <button
+                    key={k}
+                    type="button"
+                    aria-pressed={"true" if kind == k else "false"}
+                    data-testid={f"sale-kind-{k}"}
+                    onClick={lambda { on_kind(k); }}
+                    className={"-mb-px inline-flex min-h-11 items-center border-b-2 px-3 text-sm font-medium "
+                        + (
+                            "border-primary text-foreground"
+                                if kind == k
+                                else "border-transparent text-muted-foreground hover:text-foreground"
+                        )}
+                >
+                    {label}
+                </button>
+                for (k, label) in [("tickets", "Tickets"), ("snacks", "Snacks only")]
+            ]}
+        </div>;
+}
+
 def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
     # shift_open: reload once the member starts their shift (the server refuses without).
+    [kind, set_kind] = useState("tickets");
     [page, set_page] = useState(None);
     [chosen, set_chosen] = useState("");
     [holder, set_holder] = useState(_counter_holder());
@@ -354,6 +386,14 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
         new_sale();
     }
 
+    if kind == "snacks" {
+        return
+            <div className="flex flex-col gap-6">
+                <SaleKind kind={kind} on_kind={set_kind}/>
+                <SnackOnlySale slug={slug} shift_open={shift_open}/>
+            </div>;
+    }
+    tabs = <SaleKind kind={kind} on_kind={set_kind}/>;
     if found is None {
         return <Spinner aria-label="Loading"/>;
     }
@@ -372,9 +412,12 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
     cinema_slug: str = found["slug"];
     if len(showtimes) == 0 {
         return
-            <p data-testid="nothing-on-sale" className="text-muted-foreground">
-                Nothing is on sale at your venues right now. Showtimes appear here once they're published.
-            </p>;
+            <div className="flex flex-col gap-6">
+                {tabs}
+                <p data-testid="nothing-on-sale" className="text-muted-foreground">
+                    No tickets are on sale at your venues right now; showtimes appear here once they're published. You can still sell snacks.
+                </p>
+            </div>;
     }
     pay_panel = lambda (placed: any, on_paid: any, on_expired: any) -> any { return  # jac:ignore[W1037]
         <CounterPay
@@ -389,6 +432,7 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
         <CounterDone payment={paid} on_new_sale={new_sale}/>; };
     return
         <div data-testid="box-office" className="flex flex-col gap-6">
+            {tabs}
             <CounterPicker
                 showtimes={showtimes}
                 slug={cinema_slug}

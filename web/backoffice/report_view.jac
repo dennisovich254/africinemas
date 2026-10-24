@@ -131,6 +131,8 @@ glob:pub ACTIONS: list[tuple[str, str]] = [
          ("support.replied", "Replied to AfriCinemas"),
          ("sale.cash", "Cash sale"),
          ("sale.mpesa_started", "M-Pesa sale started"),
+         ("sale.snacks_cash", "Snacks sold for cash"),
+         ("sale.snacks_mpesa", "Snacks sale by M-Pesa started"),
          ("ticket.scanned", "Ticket scanned"),
          ("shift.started", "Shift started"),
          ("shift.ended", "Shift ended"),

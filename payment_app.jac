@@ -145,6 +145,7 @@ import from core.support.requests {
 import from core.support.mail { send_support_due }
 import from core.platform.review_api { send_decisions_due }
 import from core.tenancy.retention { retention_due }
+import from core.catalog.models { Venue }
 import from core.clock { now as clock_now }
 import from core.tenancy.state { TenantState }
 import from core.tenancy.principal { flush_now }
@@ -213,6 +214,16 @@ import from core.platform.review_api {
     platform_review_file,  # jac:ignore[W2037]
     platform_decide,  # jac:ignore[W2037]
     send_decision_mail  # jac:ignore[W2037]
+}
+# Snacks only, at the box office (P12.10).
+import from core.booking.snack_sale {
+    counter_snack_venues,  # jac:ignore[W2037]
+    counter_price_snacks,  # jac:ignore[W2037]
+    counter_snack_menu,  # jac:ignore[W2037]
+    place_snack_order,  # jac:ignore[W2037]
+    sell_snacks_for_cash,  # jac:ignore[W2037]
+    sell_snacks_with_mpesa,  # jac:ignore[W2037]
+    counter_snack_payment  # jac:ignore[W2037]
 }
 # Deleting personal files once they're no longer needed (P14.5b).
 import from core.tenancy.retention { delete_due_files }  # jac:ignore[W2037]
@@ -385,6 +396,25 @@ def _showtime(slug: str, screening_id: str) -> tuple[Tenant, Screening] {
 }
 
 def _intent(slug: str, screening_id: str, reference: str) -> PaymentIntent {
+    # A showtime's payment; with screening_id "", a snacks-only sale's at any of the
+    # cinema's venues (P12.10).
+    if not screening_id {
+        cinema = tenant_by_id(str(lookup_slug(slug)));
+        assert cinema is not None;
+        me = node_id(root);
+        act_as(cinema.principal_root_id);
+        try {
+            sold = [
+                p for v in [cinema-->[?:Venue]] for o in [v-->[?:Order]]
+                for p in [o-->[?:PaymentIntent]]
+                if p.reference == reference
+            ];
+        } finally {
+            restore(me);
+        }
+        assert sold , reference;
+        return sold[0];
+    }
     (cinema, screening) = _showtime(slug, screening_id);
     me = node_id(root);
     act_as(cinema.principal_root_id);
