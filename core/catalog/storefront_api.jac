@@ -555,7 +555,10 @@ def:pub public_cinemas(city: str = "", name: str = "") -> dict[str, any] {  # ja
                 "name": cinema.name,
                 "slug": cinema.slug,
                 "cities": cities,
-                "showtimes": on_sale
+                "showtimes": on_sale,
+                # When AfriCinemas verified it (P14.5b), "" if it wasn't: the Verified
+                # badge in listings.
+                "verified_at": cinema.verified_at
             }
         );
     }

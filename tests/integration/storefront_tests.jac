@@ -182,6 +182,8 @@ test "the cinema directory lists cinemas selling tickets only, by city, with no 
         nova_row = listed["cinemas"][0];
         assert nova_row["name"] == "Nova Cinemas" and nova_row["cities"] == ["Nairobi"];
         assert nova_row["showtimes"] == 1;
+        # Not reviewed (made live directly for the test), so not verified (P14.5b).
+        assert nova_row["verified_at"] == "";
         assert [
             c["slug"]
             for c in browse(app, "public_cinemas", {"city": "nairobi"})["cinemas"]

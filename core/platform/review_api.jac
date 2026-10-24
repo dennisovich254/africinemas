@@ -110,7 +110,9 @@ def _review(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
                 "item": item,
                 "label": label,
                 "type": kept["files"].get(item, {}).get("type", ""),
-                "uploaded_at": kept["files"].get(item, {}).get("uploaded_at", "")
+                "uploaded_at": kept["files"].get(item, {}).get("uploaded_at", ""),
+                # Deleted by the retention rules (P14.5b), and when.
+                "removed_at": kept["files_removed"].get(item, "")
             } for (item, label) in FILES.items()
         ],
         "checklist": CHECKLIST
