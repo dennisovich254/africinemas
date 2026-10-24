@@ -464,7 +464,11 @@ def _submit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
 }
 
 def verified_at(cinema: Tenant) -> str {
-    # When AfriCinemas approved the cinema's verification, or "" (the Verified badge).
+    # When AfriCinemas approved the cinema's verification, or "" (the Verified badge):
+    # the cinema's own copy, or the record's for an approval made before it was kept.
+    if cinema.verified_at {
+        return cinema.verified_at;
+    }
     kept = record_of(cinema);
     return kept["approved_at"] if kept["status"] == "approved" else "";
 }
@@ -526,6 +530,7 @@ def decide(
         if cinema.state == TenantState.READY_FOR_GO_LIVE.value {
             cinema.move_to(target);
         }
+        cinema.verified_at = stamp if decision == "approve" else "";
         flush_now();
     } finally {
         restore(me);

@@ -7,7 +7,6 @@ Refusals share one shape: {"ok": False, "error": {"code", "message"}}, with code
 """
 
 import from core.tenancy.reserved_words { name_claims, NAME_MESSAGE }
-import from core.tenancy.verification { verified_at }
 import from core.authz.policy { Forbidden, ROLE_PERMISSIONS }
 import from core.authz.context {
     NoShift,
@@ -61,7 +60,7 @@ def:protect my_access(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "name": scope.tenant.name,
         "state": scope.tenant.state,
         # When AfriCinemas verified it (P14.5), for the back office's badge; "" if not.
-        "verified_at": verified_at(scope.tenant),
+        "verified_at": scope.tenant.verified_at,
         "assignments": [
             {"role": a.role, "venue_ids": a.venue_ids} for a in scope.ctx.assignments
         ],

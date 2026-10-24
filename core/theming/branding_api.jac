@@ -27,7 +27,6 @@ import logging;
 import from core.catalog.site_info { public_view, site_info_of }
 import from core.catalog.policies { published_policies }
 import from core.catalog.documents { public_list }
-import from core.tenancy.verification { verified_at }
 import from concurrent.futures { ThreadPoolExecutor }
 import from core.clock { now }
 import from core.authz.context { TenantScope, scoped }
@@ -741,7 +740,7 @@ def:pub public_branding(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
         # Its public documents, linked from every footer too (P14.3d).
         "documents": public_list(cinema),
         # When AfriCinemas verified it, for the Verified badge (P14.5); "" if it wasn't.
-        "verified_at": verified_at(cinema)
+        "verified_at": cinema.verified_at
     };
 }
 
