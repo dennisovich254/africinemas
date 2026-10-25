@@ -24,6 +24,10 @@ A walk-in may want popcorn without a ticket. Every order was a showtime's: place
 3. **Starting a payment takes the order's lookup.** `pay_order(cinema, find_order, …)` is `_start_payment`'s body, unchanged. The showtime path passes `pending_order` for its showtime, and the venue path passes the venue's pending order for the sale.
 4. **Handing over:** the pickup code, and the Snack counter's `hand_over_snacks`, on the same page. Without a showtime, the snacks can be handed over for 24 hours after the sale.
 5. **Who:** staff who sell at the venue (`bookings.create` there), on shift, at a live cinema, as for tickets. The box office page has **Tickets** and **Snacks only** tabs. Snacks only works even when no showtime is on sale.
+6. **Mixed ticket and snack sales:** the paid screen shows both ticket codes and the
+   one snack pickup code. Staff can record the handover there immediately; the public
+   two-hour pickup window still applies to orders bought outside the counter. Printing
+   includes the pickup code when the customer will collect the snacks later.
 
 ## Consequences
 - Snacks-only takings are in the ledger and the sales report. 12.11 shows them apart from ticket money.

@@ -102,6 +102,8 @@ test "the report matches the day's sales: online and counter, M-Pesa and cash" {
                 "refunds_cents": 0,
                 "adjustments_cents": 0,
                 "net_cents": 5 * TICKET,
+                "tickets_cents": 5 * TICKET,
+                "snacks_cents": 0,
                 "mpesa_cents": 3 * TICKET,
                 "cash_cents": 2 * TICKET,
                 "online_cents": 2 * TICKET,

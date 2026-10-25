@@ -17,6 +17,8 @@ import from core.reporting.aggregates {
     Show,
     SoldTicket,
     Money,
+    SnackSold,
+    snack_share,
     period_of,
     sales_report
 }
@@ -135,6 +137,8 @@ test "takings: gross, refunds and adjustments, net, by method and by channel" {
             "refunds_cents": 1430,
             "adjustments_cents": -100,
             "net_cents": 6690,
+            "tickets_cents": 6690,
+            "snacks_cents": 0,
             "mpesa_cents": 7220,
             "cash_cents": 1000,
             "online_cents": 4220,
@@ -298,4 +302,95 @@ test "a period is one to 366 of the cinema's days, first to last" {
             assert False , f"{first}..{last} was accepted";
         } except ValueError {}
     }
+}
+
+
+test "snack ledger allocation is exact for full payments and symmetric for refunds" {
+    assert snack_share(171000, 78000, 171000) == 78000;
+    assert snack_share(-171000, 78000, 171000) == -78000;
+    assert snack_share(75000, 75000, 75000) == 75000;
+    assert snack_share(100, 0, 100) == 0;
+    assert snack_share(0, 0, 0) == 0;
+    assert snack_share(1, 1, 2) == 1;
+    assert snack_share(-1, 1, 2) == -1;
+}
+
+test "snack takings include venues without shows and reconcile after refunds" {
+    stamp = "2026-10-05T12:00:00+00:00";
+    money = [
+        Money("s1", "payment", 1500, stamp, snacks_cents=500),
+        Money("s1", "refund_due", -300, stamp, snacks_cents=-100),
+        Money("", "payment", 700, stamp, venue_id="kiosk", snacks_cents=700),
+        Money(
+            "",
+            "payment",
+            200,
+            "2026-10-06T21:00:00+00:00",
+            venue_id="kiosk",
+            snacks_cents=200
+        )
+    ];
+    period = period_of(NAIROBI, "2026-10-05", "2026-10-06");
+    got = sales_report(period, _shows(), [], money, venue_names={"kiosk": "Kiosk"});
+    assert got["takings"]["net_cents"] == 1900;
+    assert got["takings"]["tickets_cents"] == 800;
+    assert got["takings"]["snacks_cents"] == 1100;
+    assert sum(v["takings_net_cents"] for v in got["venues"]) == 1900;
+    assert sum(d["takings_net_cents"] for d in got["by_day"]) == 1900;
+    kiosk = sales_report(
+        period, _shows(), [], money, "kiosk", venue_names={"kiosk": "Kiosk"}
+    );
+    assert kiosk["takings"]["net_cents"] == 700;
+    assert kiosk["attendance"]["tickets_sold"] == 0;
+    assert kiosk["venues"][0]["name"] == "Kiosk";
+    assert kiosk["venues"][0]["screens"] == [];
+}
+
+test "top snack products combine variants using sale prices and local payment days" {
+    sold = [
+        SnackSold(
+            "cbd",
+            "pop",
+            "small",
+            "Popcorn · Small",
+            2,
+            400,
+            "2026-10-04T21:00:00+00:00",
+            "Popcorn"
+        ),
+        SnackSold(
+            "cbd",
+            "pop",
+            "large",
+            "Popcorn · Large",
+            1,
+            500,
+            "2026-10-05T12:00:00+00:00",
+            "Popcorn"
+        ),
+        SnackSold(
+            "mall", "drink", "coke", "Coke", 3, 600, "2026-10-05T12:00:00+00:00", "Coke"
+        ),
+        SnackSold(
+            "cbd",
+            "pop",
+            "small",
+            "Popcorn · Small",
+            1,
+            200,
+            "2026-10-05T21:00:00+00:00",
+            "Popcorn"
+        )
+    ];
+    period = period_of(NAIROBI, "2026-10-05", "2026-10-05");
+    got = sales_report(period, [], [], [], snacks=sold)["snacks"];
+    assert got["units"] == 6 and got["sales_cents"] == 1500;
+    assert [[r["name"], r["quantity"], r["revenue_cents"]] for r in got["top_products"]]
+        == [["Popcorn", 3, 900], ["Coke", 3, 600]];
+    assert [r["id"] for r in got["top_variants"]] == ["coke", "large", "small"];
+    one = sales_report(period, [], [], [], "cbd", snacks=sold)["snacks"];
+    assert one["units"] == 3 and one["sales_cents"] == 900;
+    assert len(one["top_products"]) == 1;
+    empty = sales_report(period, [], [], [])["snacks"];
+    assert empty["units"] == 0 and empty["top_products"] == [];
 }

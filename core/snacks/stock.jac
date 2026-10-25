@@ -9,6 +9,8 @@ atomic, in core/claims.jac); available = on hand − reserved. Every change has 
 - stock_allows: whether a tracked variant can sell `quantity` more (its at-zero rule).
 """
 
+glob:pub FEW_LEFT: int = 5;
+
 glob REASONS: list[str] = ["received", "damaged", "count", "other"],
      AT_ZERO: list[str] = ["unavailable", "allow"],
      QUANTITY_MAX: int = 100000;
