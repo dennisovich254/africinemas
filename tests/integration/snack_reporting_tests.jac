@@ -4,7 +4,7 @@ import uuid;
 import from tests.support.served { Served }
 import from tests.support.payment_setup { paying_cinema, fresh_phone, settle, hire }
 import from tests.support.snack_setup { snack_menu, owner_call }
-import from tests.support.storefront_setup { browse, code_of }
+import from tests.support.storefront_setup { browse, code_of, open_cinema_for }
 
 def _report(app: Served, venue: str = "", who: str = "owner") -> any {  # jac:ignore[W1037]
     return app.call(
@@ -49,19 +49,6 @@ test "reports split mixed M-Pesa and snacks-only cash, with stock per venue" {
                 "note": ""
             }
         );
-        for venue in [nova.venue, kiosk] {
-            owner_call(
-                app,
-                "set_snack_stock_rules",
-                {
-                    "product_id": made["coke"],
-                    "variant_id": made["coke_v"],
-                    "venue_id": venue,
-                    "low_threshold": 2,
-                    "at_zero": "unavailable"
-                }
-            );
-        }
         holder = f"holder-{uuid.uuid4().hex}";
         where = {"slug": "nova", "screening_id": screening, "holder": holder};
         assert browse(app, "hold_seats", {** where, "labels": ["A3"]})["ok"];
@@ -138,8 +125,11 @@ test "reports split mixed M-Pesa and snacks-only cash, with stock per venue" {
         levels = {r["venue_id"]: r for r in snacks["low_stock"]};
         assert levels[nova.venue]["available"] == 2;
         assert levels[nova.venue]["status"] == "low";
+        assert levels[nova.venue]["few_left"];
+        assert levels[nova.venue]["low_threshold"] == 0;
         assert levels[kiosk]["on_hand"] == 1 and levels[kiosk]["reserved"] == 1;
         assert levels[kiosk]["available"] == 0 and levels[kiosk]["status"] == "out";
+        assert not levels[kiosk]["few_left"];
         assert {v["venue_id"] for v in got["venues"]} == {nova.venue, kiosk};
         one = _report(app, kiosk)["report"];
         assert one["takings"]["net_cents"] == one["takings"]["snacks_cents"] == 55000;
@@ -165,10 +155,8 @@ test "reports split mixed M-Pesa and snacks-only cash, with stock per venue" {
         assert after["low_stock"] == [];
         assert after["sales_cents"] == 118000;
         # Another cinema cannot read these products or counts.
-        rival = app.call("rival", "create_cinema", {"name": "Rift", "slug": "rift"});
-        assert rival["ok"] , rival;
         assert code_of(_report(app, who="rival")) == "not_found";
-        assert app.call("rival", "start_shift", {"tenant": "rift"})["ok"];
+        open_cinema_for(app, "rival", "rift", "Rift Cinemas");
         other = app.call(
             "rival",
             "sales_report",

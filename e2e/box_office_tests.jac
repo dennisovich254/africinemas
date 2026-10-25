@@ -109,6 +109,59 @@ test "an M-Pesa sale at the counter: the customer's prompt, then the tickets" {
     }
 }
 
+test "a mixed counter sale shows the snack code and records immediate handover" {
+    (pw, browser) = shared_browser();
+    try {
+        owner = with_snacks();
+        agent = add_staff(owner, "box_office_agent", owner["venue"]);
+        assert call(agent["token"], "start_shift", {"tenant": owner["slug"]})["ok"];
+        page = browser.new_context(
+            **context_options(pw, "desktop", "light")
+        ).new_page();
+        page.goto(BASE_URL + "/login");
+        _type(page, "#email", agent["email"]);
+        _type(page, "#password", PASSWORD);
+        page.click('button[type="submit"]');
+        page.wait_for_function("!!localStorage.getItem('jac_token')");
+        page.goto(f"{BASE_URL}/app/{owner['slug']}/box-office");
+        page.wait_for_selector('[data-testid="counter-showtime"]');
+        page.click('[data-testid="counter-showtime"]');
+        page.wait_for_selector('[data-testid="seat"][data-seat="A1"]');
+        page.click('[data-testid="seat"][data-seat="A1"]');
+        page.click('[data-testid="hold-seats"]');
+        page.wait_for_selector('[data-testid="pay"]:has-text("Continue")');
+        page.click('[data-testid="pay"]');
+        page.wait_for_selector('[data-testid="snack-step"]');
+        page.click('[data-testid="snack-product"]:has-text("Popcorn")');
+        page.click('[data-testid="snack-variant"]:has-text("Large")');
+        page.click('[data-testid="snack-add"]');
+        page.wait_for_selector(
+            '[data-testid="snack-cart"]:has-text("Popcorn · Large")'
+        );
+        page.wait_for_function(
+            "document.querySelector('[data-testid=checkout-total]')?.innerText === 'KES 1,230'"
+        );
+        page.wait_for_selector('[data-testid="snacks-continue"]:not([disabled])');
+        page.click('[data-testid="snacks-continue"]');
+        page.wait_for_selector('[data-testid="counter-pay"]');
+        page.click('[data-testid="cash-received"]');
+        page.click('[data-testid="confirm-cash"]');
+        page.wait_for_selector('[data-testid="counter-done"]');
+        assert page.locator('[data-testid="ticket-qr"]').count() == 1;
+        assert page.get_attribute(
+            '[data-testid="pickup-qr"]', "data-payload"
+        ).startswith(
+            "SNK1."
+        );
+        assert "Popcorn · Large" in page.inner_text('[data-testid="booked-snacks"]');
+        page.click('[data-testid="counter-hand-over-snacks"]');
+        page.wait_for_selector('[data-testid="counter-snacks-handed"]');
+        assert page.locator('[data-testid="counter-hand-over-snacks"]').count() == 0;
+    } finally {
+        close_contexts(browser);
+    }
+}
+
 test "snacks only: a walk-in buys a Large Popcorn for cash, and it's handed over" {
     # P12.10 (improvements #21, #26).
     (pw, browser) = shared_browser();

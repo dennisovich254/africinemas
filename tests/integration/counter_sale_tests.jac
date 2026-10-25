@@ -14,8 +14,13 @@ import uuid;
 import from tests.support.served { Served }
 import from tests.support.storefront_setup { browse, code_of }
 import from tests.support.payment_setup { paying_cinema, hire, fresh_phone, settle }
+import from tests.support.snack_setup { snack_menu }
 
-def _counter_order(app: Served, screening: str) -> str {
+def _counter_order(
+    app: Served,
+    screening: str,
+    snacks: list[dict[str, any]] | None = None  # jac:ignore[W1037]
+) -> str {
     # The agent holds A3 and A4 for a walk-in customer and orders two Adults; returns
     # the counter holder id.
     holder = f"counter-{uuid.uuid4().hex}";
@@ -30,11 +35,46 @@ def _counter_order(app: Served, screening: str) -> str {
             "items": [
                 {"seat_label": "A3", "ticket_type": "ADULT"},
                 {"seat_label": "A4", "ticket_type": "ADULT"}
-            ]
+            ],
+            "snacks": snacks or []
         }
     );
     assert ordered["ok"] , ordered;
     return holder;
+}
+
+test "a mixed cash sale returns its pickup code and can hand snacks over immediately" {
+    os.environ["AFRICINEMAS_CLOCK_CONTROL"] = "1";
+    (app, nova, screening) = paying_cinema(["agent"]);
+    try {
+        made = snack_menu(app, nova.venue);
+        hire(app, "agent", "box_office_agent", nova.venue);
+        holder = _counter_order(
+            app, screening, [{"variant_id": made["large"], "quantity": 1}]
+        );
+        sold = _cash(app, "agent", screening, holder);
+        assert sold["ok"] , sold;
+        payment = sold["payment"];
+        assert [s["name"] for s in payment["snacks"]] == ["Popcorn · Large"];
+        assert payment["pickup"]["qr"].startswith("SNK1.") , payment;
+        # Public pickups are not open this early, but a counter sale is handed to the
+        # customer who is standing there.
+        app.call(
+            "owner",
+            "rd_freeze",
+            {"slug": "nova", "screening_id": screening, "minutes": -150}
+        );
+        handed = app.call(
+            "agent",
+            "hand_over_snacks",
+            {"tenant": "nova", "code": payment["pickup"]["qr"]}
+        );
+        assert handed["ok"] and handed["pickup"]["window"] == "open" , handed;
+        assert handed["pickup"]["collected_at"];
+    } finally {
+        app.call("owner", "rd_unfreeze");
+        app.close();
+    }
 }
 
 def _cash(app: Served, who: str, screening: str, holder: str, email: str = "") -> any {  # jac:ignore[W1037]

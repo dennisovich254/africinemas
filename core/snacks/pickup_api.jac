@@ -12,7 +12,8 @@ owners; a venue-limited role only at its venues):
   checked: invalid_code (not a code this server made, nor a reference), ticket_code (a
   ticket's, which is scanned at the door), unknown_pickup (no such pickup here; another
   cinema's gets the same answer), not_paid, too_early (pickup opens PICKUP_OPENS_MINUTES
-  before the showtime starts), showtime_over (it closes when the showtime ends) and
+  before the showtime starts, except a sale taken by staff at the counter can be handed
+  over immediately), showtime_over (it closes when the showtime ends) and
   already_collected (with when, and who handed them over).
 
 One handover per order, however many counters race: the order is claimed (COLLECTED,
@@ -46,6 +47,7 @@ import from core.booking.ticket_codes {
     typed_reference
 }
 import from core.booking.redeem_api { staff_name }
+import from core.payments.ledger { LedgerEntry }
 import from core.audit.log { audited }
 
 glob COLLECT: str = "concessions.collect",
@@ -114,6 +116,25 @@ def _walk_in_open(order: Order, at: datetime) -> bool {
         < timedelta(hours=WALK_IN_HOURS);
 }
 
+def _sold_at_counter(scope: TenantScope, order: Order) -> bool {
+    # Counter cash and M-Pesa payments record the staff member who took the sale.
+    # Those snacks are already in front of the customer, so they can be handed over
+    # immediately instead of waiting for the public showtime pickup window.
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        found = any(
+            [
+                e.kind == "payment" and bool(e.recorded_by)
+                for e in [order-->[?:LedgerEntry]]
+            ]
+        );
+    } finally {
+        restore(me);
+    }
+    return found;
+}
+
 def _view(
     scope: TenantScope, order: Order, screening: Screening | None
 ) -> dict[str, any] {  # jac:ignore[W1037]
@@ -129,7 +150,7 @@ def _view(
         window = "open" if _walk_in_open(order, at) else "over";
     } elif screening is None or at >= datetime.fromisoformat(screening.ends_at) {
         window = "over";
-    } elif at < opens_at(screening) {
+    } elif not _sold_at_counter(scope, order) and at < opens_at(screening) {
         window = "early";
     }
     return {
@@ -196,7 +217,7 @@ def _hand_over(tenant: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
         }
     } elif screening is None or at >= datetime.fromisoformat(screening.ends_at) {
         raise Refused("showtime_over", "This showtime has ended.");
-    } elif at < opens_at(screening) {
+    } elif not _sold_at_counter(scope, order) and at < opens_at(screening) {
         raise Refused(
             "too_early",
             "Snacks for this showtime can't be collected yet.",

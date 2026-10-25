@@ -40,7 +40,9 @@ showtimes in the selected period, so a venue selling only snacks could be missin
 5. Low-stock alerts are a **current snapshot**, independent of the date range,
    filtered by venue. Reuse the inventory counters and thresholds: available is
    on hand minus reserved, clamped at zero. Include low and out-of-stock tracked
-   variants, excluding archived products and items switched off at that venue.
+   variants, plus the same five-or-fewer "Few left" range shown in the sales menu,
+   even when the configured alert threshold is zero. Exclude archived products and
+   items switched off at that venue.
    The response records `stock_as_of`; the page labels this section "Low stock now".
 6. Extend the existing responsive dashboard with two net tiles, semantic product
    and variant tables, and wrapping stock cards. Status is written in words, not

@@ -9,8 +9,9 @@ counter holder id, one per sale) and takes the money (CounterPay):
 - M-Pesa: the customer's number gets the PIN prompt (sell_with_mpesa); the page follows
   the payment (my_payment) until it's paid or refused.
 
-An email address for the tickets is optional. Once paid (CounterDone), the tickets show
-with their QR codes, to print or show; New sale starts over with a new holder id.
+An email address for the tickets is optional. Once paid (CounterDone), the tickets and
+any snack pickup show with their QR codes; snacks can be handed over there immediately,
+or all codes can be printed. New sale starts over with a new holder id.
 **Snacks only** (P12.10) sells snacks to a walk-in without a ticket (SnackOnlySale).
 """
 
@@ -25,8 +26,9 @@ import from core.booking.counter_api {
     sell_with_mpesa  # jac:ignore[W2037]
 }
 import from core.payments.settlement { my_payment }
+import from core.snacks.pickup_api { hand_over_snacks }  # jac:ignore[W2037]
 import from ..storefront.Checkout { Checkout }
-import from ..storefront.PayPanel { TicketCard }
+import from ..storefront.PayPanel { TicketCard, PickupCard }
 import from ..storefront.checkout_rules {
     money,
     email_problem,
@@ -276,11 +278,35 @@ def _print {
     win.print();
 }
 
-def CounterDone(payment: dict[str, any], on_new_sale: any) -> JsxElement {  # jac:ignore[W1037]
+def CounterDone(tenant: str, payment: dict[str, any], on_new_sale: any) -> JsxElement {  # jac:ignore[W1037]
     tickets: list[dict[str, str]] = payment["tickets"];
+    snacks: list[dict[str, any]] = payment["snacks"] or [];  # jac:ignore[W1037]
+    pickup: any = payment["pickup"];  # jac:ignore[W1037]
+    [busy, set_busy] = useState(False);
+    [handed, set_handed] = useState(False);
+    [problem, set_problem] = useState("");
+    is_busy: bool = busy;
+    is_handed: bool = handed;
+    trouble: str = problem;
 
     def print_tickets {
         _print();
+    }
+
+    async def hand_over {
+        set_busy(True);
+        set_problem("");
+        done: any = await _call(hand_over_snacks, [tenant, pickup["qr"]]);  # jac:ignore[W1037,W2037]
+        set_busy(False);
+        if done is None or not done["ok"] {
+            set_problem(
+                done["error"]["message"]
+                    if done is not None
+                    else "The server didn't answer. Nothing changed; try again."
+            );
+            return;
+        }
+        set_handed(True);
     }
     return
         <section
@@ -295,12 +321,49 @@ def CounterDone(payment: dict[str, any], on_new_sale: any) -> JsxElement {  # ja
                 <p className="text-sm text-muted-foreground">
                     {f"Paid {money(
                         payment['amount_cents'], payment['currency']
-                    )}. Give the customer their tickets: print them, or let them photograph the QR codes."}
+                    )}. Give the customer their tickets"
+                        + (
+                            " and snacks. Print the pickup code if they will collect the snacks later."
+                                if len(snacks) > 0
+                                else ": print them, or let them photograph the QR codes."
+                        )}
                 </p>
             </div>
             <ul className="grid gap-3 sm:grid-cols-2">
                 {[<TicketCard key={t["reference"]} ticket={t}/> for t in tickets]}
             </ul>
+            {len(snacks) > 0
+                and <PickupCard
+                    snacks={snacks}
+                    pickup={pickup}
+                    note="Hand these snacks over now, or print this code for later collection."
+                />}
+            {len(snacks) > 0
+                and not is_handed
+                and pickup is not None
+                and <Button
+                    data-testid="counter-hand-over-snacks"
+                    disabled={is_busy}
+                    onClick={lambda { hand_over(); }}
+                    className="min-h-11 w-fit print:hidden"
+                >
+                    {is_busy and <Spinner aria-hidden="true"/>}Hand over snacks now
+                </Button>}
+            {is_handed
+                and <p
+                    role="status"
+                    data-testid="counter-snacks-handed"
+                    className="text-sm font-medium text-green-700 dark:text-green-400"
+                >
+                    Snacks handed over.
+                </p>}
+            {len(trouble) > 0
+                and <p
+                    role="alert"
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm"
+                >
+                    {trouble}
+                </p>}
             <div className="flex flex-wrap gap-2 print:hidden">
                 <Button
                     variant="outline"
@@ -308,7 +371,9 @@ def CounterDone(payment: dict[str, any], on_new_sale: any) -> JsxElement {  # ja
                     onClick={print_tickets}
                     className="min-h-11"
                 >
-                    Print tickets
+                    {"Print tickets and pickup code"
+                        if len(snacks) > 0
+                        else "Print tickets"}
                 </Button>
                 <Button
                     data-testid="new-sale"
@@ -429,7 +494,7 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
             on_expired={on_expired}
         />; };
     done_panel = lambda (paid: any) -> any { return  # jac:ignore[W1037]
-        <CounterDone payment={paid} on_new_sale={new_sale}/>; };
+        <CounterDone tenant={cinema_slug} payment={paid} on_new_sale={new_sale}/>; };
     return
         <div data-testid="box-office" className="flex flex-col gap-6">
             {tabs}

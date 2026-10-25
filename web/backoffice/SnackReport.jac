@@ -117,12 +117,19 @@ def:pub SnackReport(snacks: dict[str, any], currency: str) -> JsxElement {  # ja
                             <p className="mt-2 text-sm font-medium">
                                 {f"{r['available']} available · "}{"Out of stock"
                                     if r["status"] == "out"
-                                    else "Low stock"}
+                                    else (
+                                        "Few left"
+                                            if r.get("few_left", False)
+                                            else "Low stock"
+                                    )}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                                {f"{r['on_hand']} on hand · {r[
-                                    'reserved'
-                                ]} reserved · alert at {r['low_threshold']}"}
+                                {f"{r['on_hand']} on hand · {r['reserved']} reserved"
+                                    + (
+                                        f" · alert at {r['low_threshold']}"
+                                            if r["low_threshold"] > 0
+                                            else ""
+                                    )}
                             </p>
                         </li> for r in low
                     ]}

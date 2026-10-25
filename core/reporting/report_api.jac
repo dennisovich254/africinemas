@@ -41,6 +41,7 @@ import from core.reporting.aggregates {
 
 import from core.snacks.models { SnackProduct, SnackVariant }
 import from core.snacks.inventory_api { level_of }
+import from core.snacks.stock { FEW_LEFT }
 import from core.snacks.catalog { variant_label }
 
 glob READ: str = "financial_reports.read",
@@ -200,9 +201,16 @@ def _low_stock(cinema: Tenant, venue_id: str) -> list[dict[str, any]] {  # jac:i
                         continue;
                     }
                     level = level_of(cinema, v, vid);
-                    if level["status"] == "ok" {
+                    few = level["available"] > 0 and level["available"] <= FEW_LEFT;
+                    if level["status"] == "ok" and not few {
                         continue;
                     }
+                    # Reports and the sales menu share the same "Few left" cutoff.
+                    # A cinema's configured threshold can add alerts, but a zero/default
+                    # threshold must not hide stock the menu already calls scarce.
+                    status = "low"
+                        if few and level["status"] == "ok"
+                        else level["status"];
                     label = p.name
                         if p.kind != "variants"
                         else f"{p.name} · {variant_label(v.option_values)}";
@@ -213,7 +221,9 @@ def _low_stock(cinema: Tenant, venue_id: str) -> list[dict[str, any]] {  # jac:i
                             "product_id": node_id(p),
                             "variant_id": node_id(v),
                             "name": label,
-                            ** level
+                            ** level,
+                            "status": status,
+                            "few_left": few
                         }
                     );
                 }

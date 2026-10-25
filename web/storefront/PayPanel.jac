@@ -69,7 +69,8 @@ def:pub TicketCard(ticket: dict[str, str]) -> JsxElement {
 
 def:pub PickupCard(
     snacks: list[dict[str, any]],  # jac:ignore[W1037]
-    pickup: any  # jac:ignore[W1037] {reference, qr}, or None before 12.9's codes
+    pickup: any,  # jac:ignore[W1037] {reference, qr}, or None before 12.9's codes
+    note: str = ""
 ) -> JsxElement {
     # The snacks bought with the tickets and their pickup code (P12.9): the QR the snack
     # counter scans, dark on white in either theme like a ticket's, and the reference to
@@ -117,9 +118,12 @@ def:pub PickupCard(
                     </p>
                 </div>}
             <p className="text-xs text-muted-foreground">
-                {"Show this code at the snack counter, from two hours before the showtime."
-                    if len(qr) > 0
-                    else "Collect them at the snack counter with your ticket."}
+                {note
+                    or (
+                        "Show this code at the snack counter, from two hours before the showtime."
+                            if len(qr) > 0
+                            else "Collect them at the snack counter with your ticket."
+                    )}
             </p>
         </div>;
 }
