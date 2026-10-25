@@ -133,8 +133,8 @@ node StorefrontScreening {
     has screening_id: str,
         starts_at: str,
         ends_at: str,
-        format: str = "2D",
         state: str,
+        format: str = "2D",
         movie: dict[str, any] = {},  # jac:ignore[W1037]
         venue: dict[str, str] = {},
         screen: dict[str, str] = {},
