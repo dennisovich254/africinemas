@@ -11,8 +11,9 @@ records from the cinema's graph:
 - every showtime that was put on sale (never a draft or one only scheduled), with its
   seats on sale (its seat slots that aren't blocked or house seats);
 - the tickets of its orders, priced from their order's lines (service fee included);
-- the ledger entries of its orders: a payment recorded by a member of staff is a box
-  office sale.
+- the ledger entries of showtime and snacks-only venue orders: a payment recorded
+  by a member of staff is a box office sale;
+- paid snack snapshots for product/variant rankings, and current stock alerts.
 """
 
 import from zoneinfo { ZoneInfo }
@@ -32,9 +33,15 @@ import from core.reporting.aggregates {
     Show,
     SoldTicket,
     Money,
+    SnackSold,
+    snack_share,
     period_of,
     sales_report as counted
 }
+
+import from core.snacks.models { SnackProduct, SnackVariant }
+import from core.snacks.inventory_api { level_of }
+import from core.snacks.catalog { variant_label }
 
 glob READ: str = "financial_reports.read",
      NEVER_ON_SALE: list[str] = ["draft", "scheduled"];
@@ -42,11 +49,13 @@ glob READ: str = "financial_reports.read",
 obj Records {
     has shows: list[Show] = [],
         tickets: list[SoldTicket] = [],
-        money: list[Money] = [];
+        money: list[Money] = [],
+        snacks: list[SnackSold] = [],
+        venues: dict[str, str] = {};
 }
 
-def _of_order(order: Order, into: Records) {
-    # The order's tickets and ledger entries. Call as the cinema's principal.
+def _of_order(order: Order, into: Records, venue_id: str, products: dict[str, str]) {
+    # The order's tickets, ledger and paid snacks. Call as the cinema's principal.
     lines = {str(line.get("seat_label", "")): line for line in order.lines};
     for t in [order-->[?:Ticket]] {
         line = lines.get(t.seat_label, {});
@@ -59,7 +68,8 @@ def _of_order(order: Order, into: Records) {
             )
         );
     }
-    for e in [order-->[?:LedgerEntry]] {
+    entries = [order-->[?:LedgerEntry]];
+    for e in entries {
         into.money.append(
             Money(
                 screening_id=order.screening_id,
@@ -67,24 +77,68 @@ def _of_order(order: Order, into: Records) {
                 amount_cents=e.amount_cents,
                 taken_at=e.created_at,
                 method=e.method,
-                counter=bool(e.recorded_by)
+                counter=bool(e.recorded_by),
+                venue_id=venue_id,
+                snacks_cents=snack_share(
+                    e.amount_cents, order.snacks_cents, order.total_cents
+                )
             )
         );
+    }
+    # Failed payments owed back are not sales. Count each confirmed order's snack
+    # snapshots once, even if it has more than one ledger entry.
+    refunded = {
+        e.intent_id
+        for e in entries
+        if e.kind == "refund_due"
+    };
+    paid_at = sorted(
+        [
+            e.created_at
+            for e in entries
+            if e.kind == "payment"
+                and e.amount_cents > 0
+                and e.intent_id not in refunded
+        ]
+    );
+    if order.status == "confirmed" and paid_at {
+        for line in order.snack_lines {
+            pid = str(line.get("product_id", ""));
+            name = str(line.get("name", "Snack"));
+            into.snacks.append(
+                SnackSold(
+                    venue_id=venue_id,
+                    product_id=pid,
+                    variant_id=str(line.get("variant_id", "")),
+                    name=name,
+                    quantity=int(line.get("quantity", 0)),
+                    line_cents=int(line.get("line_cents", 0)),
+                    sold_at=paid_at[0],
+                    product_name=products.get(pid, name)
+                )
+            );
+        }
     }
 }
 
 def cinema_records(cinema: Tenant) -> Records {
-    # Every showtime the cinema put on sale, with its tickets and money (the sales
-    # report and the staff home page, P7.4).
+    # Showtimes, their orders, and venue-owned snacks-only orders (the sales report
+    # and the staff home page).
     found = Records();
     titles: dict[str, str] = {};
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
+        products = {node_id(p): p.name for p in [cinema-->[?:SnackProduct]]};
         for m in [cinema-->[?:Movie]] {
             titles[node_id(m)] = m.title;
         }
         for venue in [cinema-->[?:Venue]] {
+            vid = node_id(venue);
+            found.venues[vid] = venue.name;
+            for order in [venue-->[?:Order]] {
+                _of_order(order, found, vid, products);
+            }
             for screen in [venue-->[?:Auditorium]] {
                 for s in [screen-->[?:Screening]] {
                     if s.state in NEVER_ON_SALE {
@@ -110,7 +164,7 @@ def cinema_records(cinema: Tenant) -> Records {
                         )
                     );
                     for order in [s-->[?:Order]] {
-                        _of_order(order, found);
+                        _of_order(order, found, vid, products);
                     }
                 }
             }
@@ -119,6 +173,64 @@ def cinema_records(cinema: Tenant) -> Records {
         restore(me);
     }
     return found;
+}
+
+def _low_stock(cinema: Tenant, venue_id: str) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # Current inventory, not a historical count. Called after financial_reports.read.
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    rows: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    try {
+        venues = [
+            v
+            for v in [cinema-->[?:Venue]]
+            if not venue_id or node_id(v) == venue_id
+        ];
+        for p in [cinema-->[?:SnackProduct]] {
+            if p.status == "archived" {
+                continue;
+            }
+            for v in [p-->[?:SnackVariant]] {
+                if not v.track_stock {
+                    continue;
+                }
+                for venue in venues {
+                    vid = node_id(venue);
+                    if vid in p.off_at or vid in v.off_at {
+                        continue;
+                    }
+                    level = level_of(cinema, v, vid);
+                    if level["status"] == "ok" {
+                        continue;
+                    }
+                    label = p.name
+                        if p.kind != "variants"
+                        else f"{p.name} · {variant_label(v.option_values)}";
+                    rows.append(
+                        {
+                            "venue_id": vid,
+                            "venue": venue.name,
+                            "product_id": node_id(p),
+                            "variant_id": node_id(v),
+                            "name": label,
+                            ** level
+                        }
+                    );
+                }
+            }
+        }
+    } finally {
+        restore(me);
+    }
+    def by_venue(row: dict[str, any]) -> tuple[str, int, str, str] {  # jac:ignore[W1037]
+        return (
+            str(row["venue"]),
+            int(row["available"]),
+            str(row["name"]),
+            str(row["variant_id"])
+        );
+    }
+    return sorted(rows, key=by_venue);
 }
 
 def _sales_report(
@@ -140,11 +252,25 @@ def _sales_report(
         );
     }
     found = cinema_records(scope.tenant);
+    result = counted(
+        period,
+        found.shows,
+        found.tickets,
+        found.money,
+        venue_id,
+        found.snacks,
+        found.venues
+    );
+    result["snacks"]["low_stock"] = _low_stock(scope.tenant, venue_id);
+    result["snacks"]["stock_as_of"] = now().isoformat();
     return {
         "ok": True,
         "today": today,
         "currency": CURRENCY,
-        "report": counted(period, found.shows, found.tickets, found.money, venue_id)
+        "venues": [
+            {"venue_id": vid, "name": name} for (vid, name) in found.venues.items()
+        ],
+        "report": result
     };
 }
 

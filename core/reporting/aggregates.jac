@@ -29,7 +29,9 @@ glob MAX_DAYS: int = 366,
      SOLD: list[str] = ["issued", "used"],
      USED: str = "used",
      CANCELLED: str = "cancelled",
-     REFUNDS: list[str] = ["refund_due", "refund", "reversal"];
+     REFUNDS: list[str] = ["refund_due", "refund", "reversal"],
+     # How many snacks the report ranks (P12.11).
+     TOP_SNACKS: int = 10;
 
 obj Period {
     # The cinema's local days first..last, both included.
@@ -78,12 +80,38 @@ obj SoldTicket {
 
 obj Money {
     # A ledger entry: counter is True when a member of staff took it at the box office.
+    # venue_id: where it was taken ("" for the showtime's venue); snacks_cents: the part
+    # of it that paid for snacks, in proportion to its order (P12.11).
     has screening_id: str,
         kind: str,
         amount_cents: int,
         taken_at: str,
         method: str = "",
-        counter: bool = False;
+        counter: bool = False,
+        venue_id: str = "",
+        snacks_cents: int = 0;
+}
+
+obj SnackSold {
+    # One line of snacks in a paid order (P12.11): sold_at is when it was paid.
+    has venue_id: str,
+        product_id: str,
+        variant_id: str,
+        name: str,
+        quantity: int,
+        line_cents: int,
+        sold_at: str,
+        product_name: str = "";
+}
+
+def snack_share(amount: int, snacks: int, total: int) -> int {
+    # Allocate ledger entries by the immutable order total. Integer rounding, with
+    # the same magnitude for a payment and its reversal; tickets get the remainder.
+    if total <= 0 or snacks <= 0 {
+        return 0;
+    }
+    part = (abs(amount) * min(snacks, total) * 2 + total) // (2 * total);
+    return -part if amount < 0 else part;
 }
 
 def period_of(timezone: str, date_from: str, date_to: str) -> Period {
@@ -164,6 +192,9 @@ def _takings(entries: list[Money]) -> dict[str, int] {
             ]
         ),
         "net_cents": sum([e.amount_cents for e in entries]),
+        # The net split between tickets and snacks (P12.11).
+        "snacks_cents": sum([e.snacks_cents for e in entries]),
+        "tickets_cents": sum([e.amount_cents - e.snacks_cents for e in entries]),
         "mpesa_cents": sum(
             [
                 e.amount_cents
@@ -220,7 +251,10 @@ def _ranked(rows: list[dict[str, any]], name: str) -> list[dict[str, any]] {  # 
 }
 
 def _drill_down(
-    shows: list[Show], sold: dict[str, list[SoldTicket]], net_by_venue: dict[str, int]
+    shows: list[Show],
+    sold: dict[str, list[SoldTicket]],
+    net_by_venue: dict[str, int],
+    venue_names: dict[str, str]
 ) -> list[dict[str, any]] {  # jac:ignore[W1037]
     by_time = sorted(shows, key=lambda (s: Show) -> str { return s.starts_at; });  # jac:ignore[W1037]
     venues: list[dict[str, any]] = [];  # jac:ignore[W1037]
@@ -268,6 +302,20 @@ def _drill_down(
                 "screens": _by_name(screens, "name")
             }
         );
+    }
+    listed = {v["venue_id"] for v in venues};
+    for (vid, net) in net_by_venue.items() {
+        if vid not in listed {
+            venues.append(
+                {
+                    "venue_id": vid,
+                    "name": venue_names.get(vid, "Venue"),
+                    "takings_net_cents": net,
+                    ** _attendance([], sold),
+                    "screens": []
+                }
+            );
+        }
     }
     return _by_name(venues, "name");
 }
@@ -328,19 +376,61 @@ def _chart(days: list[dict[str, any]]) -> dict[str, any] {  # jac:ignore[W1037]
     return {"unit": "week", "points": points};
 }
 
+def _snacks(period: Period, sold: list[SnackSold], venue_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The snacks sold in the period (P12.11): units, what they came to, and the top
+    # snacks by what they took (each size of a product apart).
+    counted = [
+        s
+        for s in sold
+        if period.covers(s.sold_at) and (not venue_id or s.venue_id == venue_id)
+    ];
+    def ranked(by_product: bool) -> list[dict[str, any]] {  # jac:ignore[W1037]
+        rows: dict[str, dict[str, any]] = {};  # jac:ignore[W1037]
+        for s in counted {
+            key = s.product_id if by_product else s.variant_id;
+            name = (s.product_name or s.name) if by_product else s.name;
+            row = rows.setdefault(
+                key, {"id": key, "name": name, "quantity": 0, "revenue_cents": 0}
+            );
+            row["quantity"] = row["quantity"] + s.quantity;
+            row["revenue_cents"] = row["revenue_cents"] + s.line_cents;
+        }
+        def by_takings(row: dict[str, any]) -> tuple[int, str, str] {  # jac:ignore[W1037]
+            return (-int(row["revenue_cents"]), str(row["name"]), str(row["id"]));
+        }
+        return sorted(rows.values(), key=by_takings)[:TOP_SNACKS];
+    }
+    return {
+        "units": sum([s.quantity for s in counted]),
+        "sales_cents": sum([s.line_cents for s in counted]),
+        "top_products": ranked(True),
+        "top_variants": ranked(False)
+    };
+}
+
 def sales_report(
     period: Period,
     shows: list[Show],
     tickets: list[SoldTicket],
     money: list[Money],
-    venue_id: str = ""
+    venue_id: str = "",
+    snacks: list[SnackSold] | None = None,
+    venue_names: dict[str, str] | None = None
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # The report for `period`, of one venue's showtimes and money when `venue_id` is
-    # given. `shows` are every showtime the tickets and money belong to.
+    # given. `shows` are every showtime the tickets and money belong to; `snacks` every
+    # snack line sold (P12.11).
     show_of = {s.screening_id: s for s in shows};
+    names = {s.venue_id: s.venue for s in shows};
+    names.update(venue_names or {});
     def in_venue(sid: str) -> bool {
         found = show_of.get(sid);
         return not venue_id or (found is not None and found.venue_id == venue_id);
+    }
+    def venue_of(m: Money) -> str {
+        # Where money was taken: its own venue (a snacks-only sale), else its showtime's.
+        found = show_of.get(m.screening_id);
+        return m.venue_id or (found.venue_id if found is not None else "");
     }
     counted = [
         s
@@ -358,14 +448,13 @@ def sales_report(
     taken = [
         m
         for m in money
-        if period.covers(m.taken_at) and in_venue(m.screening_id)
+        if period.covers(m.taken_at) and (not venue_id or venue_of(m) == venue_id)
     ];
     net_by_venue: dict[str, int] = {};
     for m in taken {
-        found = show_of.get(m.screening_id);
-        if found is not None {
-            net_by_venue[found.venue_id] = net_by_venue.get(found.venue_id, 0)
-                + m.amount_cents;
+        where = venue_of(m);
+        if where {
+            net_by_venue[where] = net_by_venue.get(where, 0) + m.amount_cents;
         }
     }
     movie_rows: list[dict[str, any]] = [];  # jac:ignore[W1037]
@@ -405,8 +494,9 @@ def sales_report(
         "attendance": _attendance(counted, sold),
         "top_movies": _ranked(movie_rows, "title"),
         "top_showtimes": _ranked(show_rows, "movie"),
-        "venues": _drill_down(counted, sold, net_by_venue),
+        "venues": _drill_down(counted, sold, net_by_venue, names),
         "by_day": days,
-        "chart": _chart(days)
+        "chart": _chart(days),
+        "snacks": _snacks(period, snacks or [], venue_id)
     };
 }
