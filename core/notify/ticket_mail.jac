@@ -25,7 +25,9 @@ obj MailTicket {
     has seat_label: str,
         ticket_name: str,
         reference: str,
-        qr: str;
+        qr: str,
+        format: str = "2D",
+        glasses_bought: bool = False;
 }
 
 obj TicketMail {
@@ -76,12 +78,26 @@ def ticket_mail(data: TicketMail, from_addr: str) -> OutgoingMail {
                 content_id=cid
             )
         );
-        text_seats.append(f"- Seat {t.seat_label} · {t.ticket_name}: {t.reference}");
+        glasses = " · 3D glasses: bought"
+            if t.glasses_bought
+            else (" · 3D glasses: bring your own" if t.format == "3D" else "");
+        text_seats.append(
+            f"- Seat {t.seat_label} · {t.ticket_name} · {t.format}{glasses}: {t.reference}"
+        );
         html_seats.append(
             '<tr><td style="padding:16px 0;border-top:1px solid #e5e5e5;text-align:center">'
-                + f'<p style="margin:0 0 8px;font-weight:600">Seat {e(t.seat_label)} · {e(
+                + f'<p style="margin:0 0 4px;font-weight:600">Seat {e(t.seat_label)} · {e(
                     t.ticket_name
-                )}</p>'
+                )} · {e(t.format)}</p>'
+                + (
+                    '<p style="margin:0 0 8px">3D glasses: bought</p>'
+                        if t.glasses_bought
+                        else (
+                            '<p style="margin:0 0 8px">3D glasses: bring your own</p>'
+                                if t.format == "3D"
+                                else ""
+                        )
+                )
                 + f'<img src="cid:{cid}" width="{QR_SIZE_PX}" height="{QR_SIZE_PX}" '
                 + f'alt="QR code for seat {e(
                     t.seat_label

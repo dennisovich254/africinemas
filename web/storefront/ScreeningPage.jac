@@ -102,7 +102,7 @@ def:pub ScreeningPage -> JsxElement {
                         </p>
                     </div>
                 </div>
-                <dl className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-3">
+                <dl className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-4">
                     <Fact name="Day" text={long_day_label(starts_at, tz)}/>
                     <Fact
                         name="Time"
@@ -110,6 +110,7 @@ def:pub ScreeningPage -> JsxElement {
                         testid="screening-time"
                     />
                     <Fact name="Where" text={where_label(screening)}/>
+                    <Fact name="Format" text={screening.get("format", "2D")}/>
                 </dl>
                 <GoodToKnow info={info}/>
                 <Checkout slug={slug} screening_id={screening_id} tz={tz}/>

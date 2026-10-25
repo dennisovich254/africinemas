@@ -4,7 +4,6 @@ import from e2e.support.web {
     shared_browser,
     close_contexts,
     BASE_URL,
-    PROJECTS,
     context_options,
     artifact
 }
@@ -14,7 +13,7 @@ import from e2e.support.catalog { cinema_selling_tickets }
 test "3D checkout starts with bring-your-own and can add glasses per ticket" {
     (pw, browser) = shared_browser();
     try {
-        for project in PROJECTS {
+        for (project, width) in [("mobile", 375), ("tablet", 768), ("desktop", 1440)] {
             owner = cinema_selling_tickets();
             movie = call(owner["token"], "list_movies", {"tenant": owner["slug"]})[
                 "movies"
@@ -22,7 +21,18 @@ test "3D checkout starts with bring-your-own and can add glasses per ticket" {
             assert call(
                 owner["token"],
                 "update_movie",
-                {"tenant": owner["slug"], ** movie, "format": "3D"}
+                {
+                    "tenant": owner["slug"],
+                    "movie_id": movie["movie_id"],
+                    "title": movie["title"],
+                    "synopsis": movie["synopsis"],
+                    "runtime_minutes": movie["runtime_minutes"],
+                    "age_rating": movie["age_rating"],
+                    "genres": movie["genres"],
+                    "language": movie["language"],
+                    "release_date": movie["release_date"],
+                    "format": "3D"
+                }
             )["ok"];
             assert call(
                 owner["token"],
@@ -53,8 +63,13 @@ test "3D checkout starts with bring-your-own and can add glasses per ticket" {
                 }
             )["ok"];
             page = browser.new_context(
-                **context_options(pw, project, "light")
+                **context_options(
+                    pw, "mobile" if project == "mobile" else "desktop", "light"
+                )
             ).new_page();
+            if width == 768 {
+                page.set_viewport_size({"width": width, "height": 900});
+            }
             page.goto(f"{BASE_URL}/c/{owner['slug']}/s/{owner['show']}");
             seat = page.locator('[data-testid="seat"][data-seat="A1"]');
             seat.tap() if project == "mobile" else seat.click();
@@ -62,10 +77,15 @@ test "3D checkout starts with bring-your-own and can add glasses per ticket" {
             page.wait_for_selector('[data-testid="glasses-choice"]');
             choice = page.locator('[data-testid="glasses-choice"] input');
             assert not choice.is_checked();
+            assert choice.locator("xpath=..").bounding_box()["height"] >= 44;
             assert "I'll bring my own"
                 in page.inner_text('[data-testid="glasses-choice"]');
             choice.check();
             assert "KES 950" == page.inner_text('[data-testid="checkout-total"]');
+            assert page.evaluate(
+                "document.documentElement.scrollWidth - document.documentElement.clientWidth"
+            )
+                <= 1 , f"{width}px checkout scrolls sideways";
             page.screenshot(path=artifact(f"3d-glasses-{project}.png"), full_page=True);
             page.context.close();
         }

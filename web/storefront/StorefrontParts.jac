@@ -124,6 +124,9 @@ def:pub ShowtimeLink(
                     starts_at, tz
                 )}
             </span>
+            <span className="text-xs font-medium text-muted-foreground">
+                {showtime.get("format", showtime["movie"].get("format", "2D"))}
+            </span>
             {with_place
                 and <span className="text-xs text-muted-foreground">
                     {where_label(showtime)}

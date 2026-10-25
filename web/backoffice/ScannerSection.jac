@@ -77,7 +77,10 @@ def:pub describe(answer: dict[str, any], tz: str) -> dict[str, str] {  # jac:ign
         return {
             "kind": "admit",
             "title": "Admit",
-            "detail": f"Seat {t['seat_label']} · {t['ticket_name']}"
+            "detail": f"Seat {t['seat_label']} · {t['ticket_name']} · {t.get(
+                'format', '2D'
+            )}"
+                + (" · Hand over 3D glasses" if t.get("glasses_bought") else "")
         };
     }
     e: dict[str, any] = answer["error"];  # jac:ignore[W1037]

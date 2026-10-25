@@ -62,6 +62,7 @@ node Movie {
         age_rating: str = "",
         genres: list[str] = [],
         language: str = "",
+        format: str = "2D",
         poster_key: str = "",
         # An optional landscape image for the storefront's hero (P4.1c), stored like
         # the poster, or "" for none.
@@ -88,6 +89,7 @@ node Screening {
         layout_version: int,
         starts_at: str,
         ends_at: str,
+        format: str = "2D",
         state: str = "draft",
         created_at: str = "",
         updated_at: str = "";
@@ -131,6 +133,7 @@ node StorefrontScreening {
     has screening_id: str,
         starts_at: str,
         ends_at: str,
+        format: str = "2D",
         state: str,
         movie: dict[str, any] = {},  # jac:ignore[W1037]
         venue: dict[str, str] = {},

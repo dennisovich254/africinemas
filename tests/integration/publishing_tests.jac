@@ -203,6 +203,7 @@ test "the storefront shows published screenings with public details only, withou
                 "age_rating": "18",
                 "genres": ["Drama"],
                 "language": "English, Swahili",
+                "format": "2D",
                 "has_poster": False,
                 "has_backdrop": False,
                 "release_date": "",

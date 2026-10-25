@@ -33,6 +33,7 @@ node SnackProduct {
         brand: str = "",
         description: str = "",
         tags: list[str] = [],
+        purpose: str = "",
         kind: str = "single",
         option_names: list[str] = [],
         status: str = "draft",
@@ -43,6 +44,16 @@ node SnackProduct {
         created_at: str = "",
         updated_at: str = "",
         published_at: str = "";
+}
+
+node GlassesConfig {
+    # Per-venue switch for the dedicated tracked snack product used by 3D checkout.
+    has tenant_id: str,
+        venue_id: str,
+        product_id: str,
+        variant_id: str,
+        sold: bool = False,
+        updated_at: str = "";
 }
 
 node SnackVariant {

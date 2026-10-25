@@ -162,6 +162,9 @@ def _left_shown(o: Offer) -> int | None {
 
 def _product_at(shelf: Shelf, p: SnackProduct, venue_id: str) -> dict[str, any] | None {  # jac:ignore[W1037]
     # How the menu shows a product at the venue, or None when nothing of it is on sale.
+    if p.purpose {
+        return None;
+    }
     mine = [
         o
         for o in shelf.offers.values()
@@ -412,6 +415,7 @@ def price_cart(
             {
                 "variant_id": vid,
                 "product_id": node_id(o.product),
+                "purpose": o.product.purpose,
                 "name": name,
                 "quantity": quantity,
                 "unit_cents": unit,

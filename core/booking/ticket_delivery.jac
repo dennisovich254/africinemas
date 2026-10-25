@@ -143,6 +143,7 @@ def booking_view(cinema: Tenant, order: Order) -> dict[str, any] {  # jac:ignore
         "snacks": [
             {"name": l["name"], "quantity": l["quantity"], "addons": l["addons"]}
             for l in order.snack_lines
+            if not l.get("purpose")
         ],
         "pickup": {"reference": order.pickup_reference, "qr": order.pickup_qr}
             if order.pickup_reference
@@ -152,6 +153,8 @@ def booking_view(cinema: Tenant, order: Order) -> dict[str, any] {  # jac:ignore
             {
                 "seat_label": t.seat_label,
                 "ticket_name": t.ticket_name,
+                "format": t.format,
+                "glasses_bought": t.glasses_bought,
                 "reference": t.reference,
                 "qr": t.qr,
                 "status": t.status
@@ -197,7 +200,9 @@ def _mail_for(cinema: Tenant, order: Order, address: str) -> TicketMail {
                 seat_label=t["seat_label"],
                 ticket_name=t["ticket_name"],
                 reference=t["reference"],
-                qr=t["qr"]
+                qr=t["qr"],
+                format=t["format"],
+                glasses_bought=t["glasses_bought"]
             ) for t in view["tickets"]
         ]
     );

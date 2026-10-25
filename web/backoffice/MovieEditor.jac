@@ -59,6 +59,7 @@ glob RATINGS: list[str] = ["GE", "PG", "16", "18", "R"],
          "rating": "movie-rating",
          "genres": "movie-genres",
          "language": "movie-language",
+         "format": "movie-format",
          "release_date": "movie-release-date"
      },
      BLANK: dict[str, str] = {
@@ -68,6 +69,7 @@ glob RATINGS: list[str] = ["GE", "PG", "16", "18", "R"],
          "rating": "",
          "genres": "",
          "language": "",
+         "format": "2D",
          "release_date": ""
      };
 
@@ -225,6 +227,7 @@ def form_from(movie: dict[str, any]) -> dict[str, str] {  # jac:ignore[W1037]
         "rating": movie["age_rating"],
         "genres": ", ".join(movie["genres"]),
         "language": movie["language"],
+        "format": movie.get("format", "2D"),
         "release_date": movie.get("release_date", "") or ""
     };
 }
@@ -475,7 +478,8 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                     values["rating"],
                     genres,
                     values["language"],
-                    values["release_date"]
+                    values["release_date"],
+                    values["format"]
                 );
             } else {
                 answer = await update_movie(  # jac:ignore[W2037]
@@ -487,7 +491,8 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                     values["rating"],
                     genres,
                     values["language"],
-                    values["release_date"]
+                    values["release_date"],
+                    values["format"]
                 );
             }
         } except Exception as e {
@@ -662,6 +667,21 @@ def:pub MovieEditor(slug: str, movie_id: str) -> JsxElement {
                 error={field_errors[FIELDS["language"]] or ""}
                 on_value={lambda (text: str) { change("language", text); }}
             />
+            <div className="flex flex-col gap-1.5">
+                <Label htmlFor={FIELDS["format"]}>Default format</Label>
+                <select
+                    id={FIELDS["format"]}
+                    value={values["format"]}
+                    onChange={on_input(lambda (text: str) { change("format", text); })}
+                    className={SELECT_CLASSES}
+                >
+                    <option value="2D">2D</option>
+                    <option value="3D">3D</option>
+                </select>
+                <p className="text-sm text-muted-foreground">
+                    New showtimes inherit this. You can change an individual showtime later.
+                </p>
+            </div>
             <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor={FIELDS["release_date"]}>Release date (optional)</Label>
                 <input

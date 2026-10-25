@@ -1,6 +1,8 @@
 """P12.13: 2D/3D catalogue data and the venue's tracked 3D-glasses offer."""
 
 import from os { path }
+import os;
+import uuid;
 import from tests.support.served { Served, served }
 import from tests.support.storefront_setup {
     Cinema,
@@ -9,6 +11,7 @@ import from tests.support.storefront_setup {
     set_prices,
     browse
 }
+import from tests.support.payment_setup { fresh_phone, settle }
 
 glob APP: str = path.join(
          path.dirname(path.dirname(path.dirname(path.abspath(__file__)))),
@@ -115,5 +118,89 @@ test "a 2D showtime never offers or accepts glasses" {
         assert menu["glasses"] is None , menu;
     } finally {
         app.close();
+    }
+}
+
+test "bought glasses are snack sales and stay attached to their ticket" {
+    os.environ["AFRICINEMAS_CLOCK_CONTROL"] = "1";
+    (app, cinema, screening) = setup();
+    try {
+        glasses = configure(app, cinema, 15000);
+        app.call(
+            "owner",
+            "adjust_snack_stock",
+            {
+                "tenant": "nova",
+                "product_id": glasses["product_id"],
+                "variant_id": glasses["variant_id"],
+                "venue_id": cinema.venue,
+                "reason": "received",
+                "quantity": 4,
+                "note": ""
+            }
+        );
+        holder = f"holder-{uuid.uuid4().hex}";
+        where = {"slug": "nova", "screening_id": screening, "holder": holder};
+        assert browse(app, "hold_seats", {** where, "labels": ["A1", "A2"]})["ok"];
+        order = browse(
+            app,
+            "place_order",
+            {
+                ** where,
+                "idempotency_key": f"order-{uuid.uuid4().hex}",
+                "items": [
+                    {"seat_label": "A1", "ticket_type": "ADULT"},
+                    {"seat_label": "A2", "ticket_type": "ADULT"}
+                ],
+                "glasses_seats": ["A2"]
+            }
+        );
+        assert order["ok"] and order["order"]["glasses_seats"] == ["A2"] , order;
+        assert order["order"]["snacks"][0]["purpose"] == "3d_glasses";
+        assert order["order"]["snacks_cents"] == 15000;
+        started = browse(
+            app,
+            "start_payment",
+            {
+                ** where,
+                "phone": fresh_phone(),
+                "email": "viewer@example.com",
+                "idempotency_key": f"pay-{uuid.uuid4().hex}"
+            }
+        );
+        assert started["ok"] , started;
+        settle(app, screening, started["payment"]["reference"]);
+        paid = browse(app, "my_payment", where)["payment"];
+        tickets = {t["seat_label"]: t for t in paid["tickets"]};
+        assert tickets["A1"]["format"] == "3D" and not tickets["A1"]["glasses_bought"];
+        assert tickets["A2"]["format"] == "3D" and tickets["A2"]["glasses_bought"];
+        app.call(
+            "owner",
+            "rd_freeze",
+            {"slug": "nova", "screening_id": screening, "minutes": -30}
+        );
+        plain = app.call(
+            "owner",
+            "redeem_ticket",
+            {"tenant": "nova", "screening_id": screening, "code": tickets["A1"]["qr"]}
+        );
+        handover = app.call(
+            "owner",
+            "redeem_ticket",
+            {"tenant": "nova", "screening_id": screening, "code": tickets["A2"]["qr"]}
+        );
+        assert plain["ok"] and not plain["ticket"]["glasses_bought"] , plain;
+        assert handover["ok"] and handover["ticket"]["glasses_bought"] , handover;
+        sales = app.call(
+            "owner",
+            "sales_report",
+            {"tenant": "nova", "date_from": "", "date_to": "", "venue_id": cinema.venue}
+        );
+        assert sales["report"]["snacks"]["units"] == 1 , sales;
+        assert sales["report"]["snacks"]["sales_cents"] == 15000 , sales;
+    } finally {
+        app.call("owner", "rd_unfreeze");
+        app.close();
+        os.environ.pop("AFRICINEMAS_CLOCK_CONTROL", None);
     }
 }
