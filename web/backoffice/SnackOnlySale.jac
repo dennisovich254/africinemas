@@ -233,8 +233,9 @@ def:pub SnackOnlySale(slug: str, shift_open: bool = True) -> JsxElement {
                 {problem or "You can't sell at any venue."}
             </p>;
     }
-    cost: dict[str, any] = priced or {};  # jac:ignore[W1037]
-    total: int = cost["total_cents"] if cost and cost["ok"] else 0;
+    cost: dict[str, any] | None = priced;  # jac:ignore[W1037]
+    # Test absence explicitly: an empty dict from Jac's `and` is truthy in JS.
+    total: int = cost["total_cents"] if cost is not None and cost["ok"] else 0;
     return
         <div data-testid="snack-sale" className="flex flex-col gap-4">
             {len(places) > 1

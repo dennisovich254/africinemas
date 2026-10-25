@@ -133,6 +133,8 @@ test "snacks only: a walk-in buys a Large Popcorn for cash, and it's handed over
             page.wait_for_selector(
                 '[data-testid="snack-sale"] [data-testid="snack-product"]'
             );
+            assert page.inner_text('[data-testid="snack-sale-total"]') == "KES 0";
+            assert page.locator('[data-testid="snack-sale-pay"]').is_disabled();
             _press(page, project, '[data-testid="snack-product"]:has-text("Popcorn")');
             _press(page, project, '[data-testid="snack-variant"]:has-text("Large")');
             _press(page, project, '[data-testid="snack-add"]');
@@ -150,6 +152,8 @@ test "snacks only: a walk-in buys a Large Popcorn for cash, and it's handed over
             page.wait_for_selector('[data-testid="snack-sale-handed"]');
             _press(page, project, '[data-testid="snack-sale-new"]');
             page.wait_for_selector('[data-testid="snack-sale-pay"]');
+            assert page.inner_text('[data-testid="snack-sale-total"]') == "KES 0";
+            assert page.locator('[data-testid="snack-sale-pay"]').is_disabled();
             assert page.evaluate(
                 "document.documentElement.scrollWidth - document.documentElement.clientWidth"
             )
