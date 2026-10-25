@@ -125,7 +125,7 @@ def:pub ShowtimeLink(
                 )}
             </span>
             <span className="text-xs font-medium text-muted-foreground">
-                {showtime.get("format", showtime["movie"].get("format", "2D"))}
+                {showtime.get("format") or "2D"}
             </span>
             {with_place
                 and <span className="text-xs text-muted-foreground">
