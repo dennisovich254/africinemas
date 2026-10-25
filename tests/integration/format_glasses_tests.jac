@@ -174,6 +174,13 @@ test "bought glasses are snack sales and stay attached to their ticket" {
         tickets = {t["seat_label"]: t for t in paid["tickets"]};
         assert tickets["A1"]["format"] == "3D" and not tickets["A1"]["glasses_bought"];
         assert tickets["A2"]["format"] == "3D" and tickets["A2"]["glasses_bought"];
+        sales = app.call(
+            "owner",
+            "sales_report",
+            {"tenant": "nova", "date_from": "", "date_to": "", "venue_id": cinema.venue}
+        );
+        assert sales["report"]["snacks"]["units"] == 1 , sales;
+        assert sales["report"]["snacks"]["sales_cents"] == 15000 , sales;
         app.call(
             "owner",
             "rd_freeze",
@@ -191,13 +198,6 @@ test "bought glasses are snack sales and stay attached to their ticket" {
         );
         assert plain["ok"] and not plain["ticket"]["glasses_bought"] , plain;
         assert handover["ok"] and handover["ticket"]["glasses_bought"] , handover;
-        sales = app.call(
-            "owner",
-            "sales_report",
-            {"tenant": "nova", "date_from": "", "date_to": "", "venue_id": cinema.venue}
-        );
-        assert sales["report"]["snacks"]["units"] == 1 , sales;
-        assert sales["report"]["snacks"]["sales_cents"] == 15000 , sales;
     } finally {
         app.call("owner", "rd_unfreeze");
         app.close();
