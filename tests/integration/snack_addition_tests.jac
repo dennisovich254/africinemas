@@ -63,6 +63,8 @@ test "paid additions keep the booking and pickup, including after collection" {
         payment = browse(app, "more_snacks", args);
         assert payment["ok"] and payment["payment"]["amount_cents"] == 15000 , payment;
         settle(app, screening, payment["payment"]["reference"]);
+        assert browse(app, "more_snacks", args)["payment"]["reference"]
+            == payment["payment"]["reference"];
         settle(app, screening, payment["payment"]["reference"]);
         overview = app.call(
             "owner", "pay_overview", {"slug": "nova", "screening_id": screening}

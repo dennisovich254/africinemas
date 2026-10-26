@@ -187,6 +187,12 @@ def _run(  # jac:ignore[W3030] shared checkout RPC fields
             "payment": payment_view(intent) if intent is not None else None
         };
     }
+    if action == "pay" and order.status == "confirmed" {
+        paid_intent = latest_intent(cinema, order);
+        if paid_intent is not None {
+            return {"ok": True, "payment": payment_view(paid_intent)};
+        }
+    }
     if action == "cash" and scope is not None and order.status == "confirmed" {
         return {"ok": True, "order": _view(order)};
     }
