@@ -25,7 +25,7 @@ glob SUFFIX: str = ".africinemas.co.ke",
          ("prices", "Prices", "tenant.settings.update"),
          ("box-office", "Box office", "bookings.create"),
          # The snack catalog (P12): managers build it; the box office reads it here.
-         ("snacks", "Snacks", "concessions.read"),
+         ("snacks", "Snacks & glasses", "concessions.read"),
          ("scanner", "Scanner", "tickets.scan"),
          # Handing over snacks bought with tickets, by their pickup code (P12.9).
          ("snack-counter", "Snack counter", "concessions.collect"),

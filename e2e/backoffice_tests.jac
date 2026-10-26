@@ -174,7 +174,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                     "Screenings",
                     "Prices",
                     "Box office",
-                    "Snacks",
+                    "Snacks & glasses",
                     "Scanner",
                     "Snack counter",
                     "Staff",
