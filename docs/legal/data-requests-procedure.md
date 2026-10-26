@@ -83,6 +83,6 @@ Much of this can be self-service (P15.0b and later):
 
 - staff see and change their name and password on **Your profile** (P12.15); customers
   on **My account**;
-- customers stop offers with one click from any offers email (P14.3c);
+- customers withdraw their consent to a cinema's offers on **My account** (P14.3c);
 - [to build: "Download my data" and "Delete my account" for customers, for the cinema
   to answer requests quickly]

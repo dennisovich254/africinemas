@@ -214,10 +214,17 @@ over; nothing else is asked about children.
 
 ## 10. Marketing
 
-AfriCinemas doesn't send customers marketing. A **cinema** may send its own offers, only
-to customers who ticked to receive them; every email names the cinema and has a one-click
-way to stop (s.37; regs 15 to 17). We may email cinema owners about AfriCinemas'
-services; you can stop these at any time from the email.
+**AfriCinemas doesn't send customers marketing**, and no cinema can send you offers
+through AfriCinemas.
+
+A cinema may choose to send its own offers. If it does, its checkout, sign-up page and
+My account show a box to ask for them, never ticked for you. We record your choice for
+that cinema (when, and where you made it), and the cinema sends its offers itself,
+under its own privacy policy. You can withdraw at any time on **My account** at that
+cinema, or by telling the cinema; your objection to marketing always succeeds (reg 8).
+
+We may email cinema owners about AfriCinemas' own services; they can stop these at any
+time from the email.
 
 ## 11. Changes to this policy
 

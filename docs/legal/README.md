@@ -60,9 +60,12 @@ Found while drafting. Each is small, and listed so it isn't lost:
 ## Already decided by the owner
 
 - No tracking without a consent banner first (2026-10-24).
+- AfriCinemas sends no marketing. A cinema's offers are off unless it turns them on, and
+  the cinema sends them itself (2026-10-26).
 - Retention: ID photos 90 days after approval; business documents while active and a
   year after closing; support screenshots 90 days after the request closes; no selfie
   (2026-10-24).
 - The verified badge is plain text; the check page is at `/verified` (2026-10-24).
-- The fee: 10% of the order total, invoiced monthly, not refunded on refunds,
+- The fee: 10% of the order total, invoiced monthly; credited on M-Pesa refunds and
+  Platform failures, kept on cash refunds (2026-10-26);
   suspension by a person only (plan P15.1 to P15.5).

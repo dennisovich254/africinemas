@@ -194,7 +194,17 @@ responsible for what your staff do on the Platform.
 6.7 **Cash.** You count and keep the cash taken at your box office. Cash sales are
 recorded on the Platform as they happen, and the Fee applies to them.
 
-6.8 **Acceptable use.** You and your staff follow schedule 4.
+6.8 **Your marketing.** Offers are off unless you turn them on (in **Website
+information**: "We send offers to customers who ask for them"). When they're on, the
+Platform shows Customers an unticked box at checkout, at sign-up and on My account, and
+records who agreed, when and where, and who withdrew. **AfriCinemas doesn't send your
+offers.** You send them yourself, and as the controller of your marketing you're
+responsible for it: sending only to Customers whose consent is current, naming your
+cinema, and giving a free, simple way to stop in every message (Data Protection Act,
+s.37; General Regulations, regs 14 to 17). When a Customer asks you to stop, you stop
+within the time the law allows and record it on the Platform.
+
+6.9 **Acceptable use.** You and your staff follow schedule 4.
 
 ## 7. Verification
 
@@ -487,7 +497,7 @@ Protection Act, 2019 and regulation 24 of the Data Protection (General) Regulati
 |---|---|
 | **Subject matter** | Providing the Platform for the Cinema's sales to Customers |
 | **Duration** | While the agreement lasts, and until deletion or return under clause 14 |
-| **Nature and purpose** | Hosting the Storefront; Customer accounts at the Cinema; taking bookings and holding seats; starting and confirming M-Pesa payments with the Cinema's keys; recording cash sales; sending tickets and booking emails; scanning tickets; snack pickup; reports; the booking assistant on the Storefront and the AI-app connector; sending the Cinema's offers to Customers who consented; support; security and fraud prevention for these |
+| **Nature and purpose** | Hosting the Storefront; Customer accounts at the Cinema; taking bookings and holding seats; starting and confirming M-Pesa payments with the Cinema's keys; recording cash sales; sending tickets and booking emails; scanning tickets; snack pickup; reports; the booking assistant on the Storefront and the AI-app connector; if the Cinema turns on offers, showing Customers the box to ask for them and recording each Customer's consent and its withdrawal; support; security and fraud prevention for these |
 | **Types of personal data** | Customers' names, email addresses, phone numbers (for M-Pesa), account passwords (stored hashed), bookings (showtimes, seats, snacks, glasses), payment records (amount, M-Pesa receipt number, phone, status), ticket and pickup codes, scan times, offers consent and its history, messages with the booking assistant, apps they connected and when, the Cinema's staff's names and actions on Customers' orders |
 | **Categories of data subjects** | The Cinema's Customers and Storefront visitors who book; people named on bookings; the Cinema's staff, as far as their actions on Customers' orders are recorded |
 | **Sensitive personal data** | None intended. The Cinema doesn't ask Customers for sensitive data through the Platform. Accessibility needs a Customer chooses to mention (for example, a wheelchair space) are used only to serve them |
@@ -547,7 +557,7 @@ The Cinema authorises AfriCinemas to use the sub-processors listed below. AfriCi
 | Sub-processor | What for | Where | Transfer basis |
 |---|---|---|---|
 | [Hosting provider, chosen in P17.3] | Servers, database, file storage, backups | [Country] | [s.48 / reg 41 safeguards, or reg 42 (AU Convention country)] |
-| [Email provider, chosen at go-live] | Sending tickets, booking emails, offers | [Country] | [as above] |
+| [Email provider, chosen at go-live] | Sending tickets and booking emails | [Country] | [as above] |
 | Anthropic, PBC | The booking assistant and AI designs (the model reads the conversation to answer it; no Customer data is used for AI designs) | United States | [s.48(c)(i) necessity for the service the Customer asks for, plus contractual safeguards under reg 41(1)(a); advocate to confirm] |
 
 Safaricom isn't our sub-processor: it processes M-Pesa payments for the Cinema under

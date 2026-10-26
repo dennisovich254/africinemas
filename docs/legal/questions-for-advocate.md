@@ -19,11 +19,13 @@ affects. The laws are in [law-register.md](law-register.md).
    verification DPIA to the ODPC 60 days before the first real cinema is verified?**
    Does it apply to other processing (bookings at scale, the AI assistant)? This could
    set the pilot's earliest date. ([DPIA](dpia-verification.md) Part 4.)
-3. **ODPC registration.** We read the Registration Regulations as requiring us to
-   register as both **controller and processor**, regardless of size, because we
-   process data for direct marketing (cinemas' offers emails). Do you agree? Must each
-   **cinema** register too (hospitality? direct marketing?), and should the agreement
-   make that their duty? ([Checklist](registrations-checklist.md) 5, 6; agreement 6.1.)
+3. **ODPC registration.** AfriCinemas sends no marketing. Offers are off for every
+   cinema unless it turns them on; then we only record customers' consent, and the
+   cinema sends its own offers. Does recording that consent make us a processor "for
+   direct marketing", or are cinemas "hospitality", so that we must register whatever
+   our size? We plan to register as both **controller and processor** before the pilot
+   anyway. Must each **cinema** register, and should the agreement make that its duty?
+   ([Checklist](registrations-checklist.md) 5, 6; agreement 6.1, 6.8.)
 4. **Amendments.** We read the Data Protection Act as gazetted in 2019, the General
    Regulations as gazetted in 2021, the Consumer Protection Act as revised to 31
    December 2022, and the Films and Stage Plays Act as revised in 2012. **Have any been
@@ -42,8 +44,9 @@ affects. The laws are in [law-register.md](law-register.md).
    either side ends the agreement?
 8. **Disputes.** Arbitration (Arbitration Act, 1995) or the courts, between AfriCinemas
    and cinemas (17.4)? Which mediation body?
-9. **The fee on refunds.** Is keeping the fee on refunded orders (5.3) sound, and
-   should cancellations by the cinema or Platform failures be treated differently?
+9. **The fee on refunds.** The fee is credited on M-Pesa refunds and on refunds
+   caused by a Platform failure, and kept on cash refunds (which can't be checked).
+   Is clause 5.3 sound and clear?
 10. **Late payment.** Can we charge interest on late invoices, and at what rate (5.8)?
 11. **Suspension.** Is a 30-day period after the due date, with 7 days' notice, enough
     (12.1, 12.3)? What do we owe customers holding tickets for a suspended cinema?
