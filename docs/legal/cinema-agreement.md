@@ -490,7 +490,10 @@ KES 50 booking fee.
 
 - **Online:** tickets and booking fee KES 1,250 × 7% = KES 87.50; popcorn KES 300 × 20%
   = KES 60. The Fee is **KES 147.50** (plus VAT when registered).
-- **At the box office:** KES 1,550 × 3% = **KES 46.50**. If you later refund the Customer, the Fee stays.
+- **At the box office:** KES 1,550 × 3% = **KES 46.50**.
+
+If you later refund the online Order in full by M-Pesa, the KES 147.50 is credited on
+your next statement; if you refund a box office sale in cash, its Fee stays (clause 5.3).
 
 ---
 
