@@ -15,6 +15,7 @@ paid for A1 and A2.
 - The conversation a client sends back keeps only plain user and assistant turns.
 """
 
+import os;
 import json;
 import uuid;
 import from tests.support.served { Served }
@@ -25,6 +26,11 @@ import from tests.support.storefront_setup {
     add_screening
 }
 import from tests.support.payment_setup { ANNA, ANNA_EMAIL, paying_cinema, paid }
+
+# The chat is off unless switched on (core/agent/switch.jac).
+with entry {
+    os.environ["AFRICINEMAS_CHAT"] = "1";
+}
 
 glob HOLDER: str = "holder-agent-0123456789abcdef",
      HIDDEN: list[str] = [
