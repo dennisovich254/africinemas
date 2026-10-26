@@ -70,7 +70,9 @@ test "paid additions keep the booking and pickup, including after collection" {
             "owner", "pay_overview", {"slug": "nova", "screening_id": screening}
         );
         assert overview["tickets"] == ["A1", "A2"];
-        assert overview["ledger"] == [["payment", 15000], ["payment", 186000]];
+        # In whatever order the orders come back.
+        assert sorted(overview["ledger"])
+            == [["payment", 15000], ["payment", 186000]] , overview["ledger"];
         after = browse(app, "tickets_by_link", {"slug": "nova", "token": token})[
             "booking"
         ];

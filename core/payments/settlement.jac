@@ -43,6 +43,7 @@ import from core.tenancy.principal {
 }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.models { Screening }
+import from core.catalog.storefront { PUBLIC_STATES }
 import from core.catalog.venues { find_screening }
 import from core.booking.models { Order, Ticket }
 import from core.booking.confirm { Takings, confirm_order }
@@ -304,7 +305,7 @@ def settle(cinema: Tenant, intent: PaymentIntent, provider: PaymentProvider) -> 
     if order.booking_id {
         screening = find_screening(cinema, order.screening_id);
         if screening is None
-            or screening.state not in ["on_sale", "sales_closed"]
+            or screening.state not in PUBLIC_STATES
             or now() >= datetime.fromisoformat(screening.starts_at) {
             _attention(cinema, intent, "showtime_started", filed, True);
             return intent.state;

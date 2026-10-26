@@ -1283,7 +1283,7 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "counter_more_snacks": {
              "scope": "tenant",
              "audit": "sale.extra_snacks",
-             "probe": {"tenant": "{tenant}", "reference": "UNKNOWN"}
+             "probe": {"tenant": "{tenant}", "reference": "UNKNOWN", "action": "place"}
          },
          "tickets_by_link": {
              "scope": "storefront",

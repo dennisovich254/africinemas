@@ -9,11 +9,14 @@ import from datetime { datetime }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.principal { node_id, act_as, restore }
 import from core.booking.models { Order }
+import from core.catalog.storefront { PUBLIC_STATES }
 
 def addition_allowed(
-    status: str, starts_at: str, at: datetime, state: str = "on_sale"
+    status: str, starts_at: str, at: datetime, state: str = "published"
 ) -> bool {
-    return state in ["on_sale", "sales_closed"]
+    # A paid booking, before its showtime starts, while the showtime is on the
+    # storefront (PUBLIC_STATES: a published showtime is "published", not "on_sale").
+    return state in PUBLIC_STATES
         and status == "confirmed"
         and bool(starts_at)
         and at < datetime.fromisoformat(starts_at);
