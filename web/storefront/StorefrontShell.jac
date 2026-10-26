@@ -194,6 +194,8 @@ def:pub StorefrontShell(
     [documents, set_documents] = useState([]);
     # When AfriCinemas verified it, for the footer's badge (P14.5).
     [verified, set_verified] = useState("");
+    # Whether the booking chat is on for the platform (core/agent/switch.jac).
+    [chat_offered, set_chat_offered] = useState(False);
     [missing, set_missing] = useState(False);
     [venues, set_venues] = useState([]);
     [menu_open, set_menu_open] = useState(False);
@@ -235,6 +237,7 @@ def:pub StorefrontShell(
         set_policies(shown["policies"] or []);
         set_documents(shown["documents"] or []);
         set_verified(shown["verified_at"] or "");
+        set_chat_offered(bool(shown["chat"]));
     }
 
     def start_loading {
@@ -471,6 +474,7 @@ def:pub StorefrontShell(
                     >
                         {children}
                     </main>}{chat
+                    and chat_offered
                     and <ChatLauncher slug={slug} cinema={place["name"]}/>}{written
                     is not None
                     and <AiPart

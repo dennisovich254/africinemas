@@ -31,6 +31,11 @@ import from tests.support.storefront_setup {
 }
 import from tests.support.payment_setup { ANNA, paying_cinema, paid }
 
+# The chat is off unless switched on (core/agent/switch.jac).
+with entry {
+    os.environ["AFRICINEMAS_CHAT"] = "1";
+}
+
 glob HOLDER: str = "holder-chat-0123456789abcdef",
      PER_MINUTE_ENV: str = "AFRICINEMAS_CHAT_PER_MINUTE",
      HIDDEN: list[str] = [
@@ -313,6 +318,24 @@ test "a signed-in customer's bookings come as a card, without private details" {
             assert hidden not in json.dumps(got["cards"]) , hidden;
         }
     } finally {
+        app.close();
+    }
+}
+
+test "with the chat switched off, nothing asks the model and storefronts hide it" {
+    (app, _, _) = paying_cinema([]);
+    try {
+        _mock(app, ["Should not answer."]);
+        assert browse(app, "public_branding", {"slug": "nova"})["chat"];
+        os.environ["AFRICINEMAS_CHAT"] = "0";
+        assert not browse(app, "public_branding", {"slug": "nova"})["chat"];
+        assert code_of(_chat(app, "Hi", None)) == "chat_off";
+        off = browse(
+            app, "agent_chat", {"message": "Hi", "history": [], "holder": HOLDER}
+        );
+        assert code_of(off) == "chat_off";
+    } finally {
+        os.environ["AFRICINEMAS_CHAT"] = "1";
         app.close();
     }
 }

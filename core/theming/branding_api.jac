@@ -67,6 +67,7 @@ import from core.theming.pagereview {
 }
 import from core.catalog.storefront_api { public_home, public_poster }
 import from core.audit.log { audited }
+import from core.agent.switch { chat_on }
 
 glob logger = logging.getLogger(__name__),
      CONFIGURE: str = "tenant.settings.update",
@@ -740,7 +741,9 @@ def:pub public_branding(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
         # Its public documents, linked from every footer too (P14.3d).
         "documents": public_list(cinema),
         # When AfriCinemas verified it, for the Verified badge (P14.5); "" if it wasn't.
-        "verified_at": cinema.verified_at
+        "verified_at": cinema.verified_at,
+        # Whether to show the booking chat (core/agent/switch.jac): off for now.
+        "chat": chat_on()
     };
 }
 
