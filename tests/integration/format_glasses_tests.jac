@@ -69,6 +69,23 @@ test "a showtime inherits its movie format and can be changed independently" {
             app, "public_screening", {"slug": "nova", "screening_id": screening}
         );
         assert public["screening"]["format"] == "2D" , public;
+        # Every discovery response must preserve an override, in both directions.
+        for format in ["3D", "2D"] {
+            assert app.call(
+                "owner",
+                "set_screening_format",
+                {"tenant": "nova", "screening_id": screening, "format": format}
+            )["ok"];
+            home = browse(app, "public_home", {"slug": "nova"});
+            movie = home["movies"][0];
+            assert movie["format"] == "3D";
+            assert movie["next"][0]["format"] == format;
+            assert home["showtimes"][0]["format"] == format;
+            detail = browse(
+                app, "public_movie", {"slug": "nova", "movie_key": movie["movie_key"]}
+            );
+            assert detail["screenings"][0]["format"] == format;
+        }
     } finally {
         app.close();
     }

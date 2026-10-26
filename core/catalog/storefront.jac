@@ -249,6 +249,7 @@ def showtime(shown: StorefrontScreening) -> dict[str, any] {  # jac:ignore[W1037
     # A screening as a line in a movie's list of showtimes.
     return {
         "screening_id": shown.screening_id,
+        "format": shown.format,
         "starts_at": shown.starts_at,
         "venue": shown.venue,
         "screen": shown.screen

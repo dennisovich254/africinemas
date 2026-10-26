@@ -70,6 +70,28 @@ test "3D checkout starts with bring-your-own and can add glasses per ticket" {
             if width == 768 {
                 page.set_viewport_size({"width": width, "height": 900});
             }
+            page.goto(f"{BASE_URL}/c/{owner['slug']}");
+            links = page.locator(
+                f'[data-testid="showtime"][href$="/s/{owner["show"]}"]'
+            );
+            links.first.wait_for(state="visible");
+            assert "3D" in links.first.inner_text();
+            assert call(
+                owner["token"],
+                "set_screening_format",
+                {"tenant": owner["slug"], "screening_id": owner["show"], "format": "2D"}
+            )["ok"];
+            page.reload();
+            links.first.wait_for(state="visible");
+            assert "2D" in links.first.inner_text();
+            assert call(
+                owner["token"],
+                "set_screening_format",
+                {"tenant": owner["slug"], "screening_id": owner["show"], "format": "3D"}
+            )["ok"];
+            page.reload();
+            links.first.wait_for(state="visible");
+            assert "3D" in links.first.inner_text();
             page.goto(f"{BASE_URL}/c/{owner['slug']}/s/{owner['show']}");
             seat = page.locator('[data-testid="seat"][data-seat="A1"]');
             seat.tap() if project == "mobile" else seat.click();
