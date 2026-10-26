@@ -228,6 +228,12 @@ import from core.booking.snack_sale {
     sell_snacks_with_mpesa,  # jac:ignore[W2037]
     counter_snack_payment  # jac:ignore[W2037]
 }
+# The signed-in person's own name and password (P12.15).
+import from core.accounts.profile {
+    my_profile,  # jac:ignore[W2037]
+    save_my_name,  # jac:ignore[W2037]
+    change_my_password  # jac:ignore[W2037]
+}
 # Deleting personal files once they're no longer needed (P14.5b).
 import from core.tenancy.retention { delete_due_files }  # jac:ignore[W2037]
 # Verifying the owner and the business before going public (P14.4).

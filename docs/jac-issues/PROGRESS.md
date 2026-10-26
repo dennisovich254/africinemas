@@ -73,3 +73,4 @@ The owner asked on 2026-10-23 that Jac problems found during other work keep goi
 - **JI-042 hit again** (2026-10-24, P14.3c): a consent node written after `commit_now()` in `start_payment` was lost on the first payment of each process. It's now a claim, and the entry has the details.
 - **JI-056:** the dev client build's kernel was killed (signal 9) with no reason given and nothing in the server log. It's likely memory on a 3.3 GB machine. Worked around by cutting a large import.
 - JI-050 and JI-051 (above) are still candidates, not written up.
+- **JI-058 and JI-059** (2026-10-26, P12.15): there's no way to change a sign-in email, and a password change leaves other sessions signed in, with no sign-out-everywhere. JI-059 is a security gap, and it's worth reporting first when reporting resumes.

@@ -192,6 +192,7 @@ def:pub my_storefront_account(slug: str) -> dict[str, any] {  # jac:ignore[W1037
         "signed_in": bool(me),
         "customer": mine,
         "email": found["email"] if mine else "",
+        "name": str((found or {}).get("name", "")) if mine else "",
         "account_cinema": found["slug"] if found is not None else ""
     };
 }
