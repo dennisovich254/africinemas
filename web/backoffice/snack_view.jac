@@ -22,6 +22,7 @@ glob STATUS_LABELS: dict[str, str] = {
          ("", "Products"),
          ("categories", "Categories"),
          ("extras", "Combos & Add-ons"),
+         ("glasses", "3D glasses"),
          ("stock", "Stock"),
          ("import", "Import & export")
      ];

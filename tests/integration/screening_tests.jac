@@ -131,6 +131,7 @@ test "a screening is created as a draft, pinned to the screen's published layout
                 "layout_version": 1,
                 "starts_at": _utc(0),
                 "ends_at": _utc(115),
+                "format": "2D",
                 "state": "draft"
             } , got;
         _create(s, 300);

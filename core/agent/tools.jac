@@ -155,7 +155,8 @@ def whats_on(cinema: str, day: str) -> dict[str, any] {  # jac:ignore[W1037]
                 "movie_key": s["movie"].get("movie_key", ""),
                 "venue": s["venue"].get("name", ""),
                 "city": s["venue"].get("city", ""),
-                "screen": s["screen"].get("name", "")
+                "screen": s["screen"].get("name", ""),
+                "format": s.get("format", "2D")
             }
         );
     }
@@ -189,13 +190,15 @@ def movie_details(cinema: str, movie_key: str) -> dict[str, any] {  # jac:ignore
             "age_rating": movie.get("age_rating", ""),
             "genres": movie.get("genres", []),
             "language": movie.get("language", ""),
+            "format": movie.get("format", "2D"),
             "trailer_url": movie.get("trailer_url", ""),
             "showtimes": [
                 {
                     "showtime_id": s["screening_id"],
                     "starts": _local(s["starts_at"], tz),
                     "venue": s["venue"].get("name", ""),
-                    "screen": s["screen"].get("name", "")
+                    "screen": s["screen"].get("name", ""),
+                    "format": s.get("format", "2D")
                 } for s in got["screenings"]
             ]
         }

@@ -43,7 +43,7 @@ def:pub facts_line(card: dict[str, any]) -> str {  # jac:ignore[W1037]
             else f"{minutes} min";
     }
     genres: list[str] = card["genres"] or [];
-    parts = [card["age_rating"], length, ", ".join(genres)];
+    parts = [card.get("format", "2D"), card["age_rating"], length, ", ".join(genres)];
     return " · ".join(
         [
             p
@@ -70,6 +70,9 @@ def TimeLink(slug: str, showtime: dict[str, any], with_day: bool) -> JsxElement 
         >
             <span className="font-medium tabular-nums">
                 {(day_name(starts[:10]) + " · " if with_day else "") + starts[11:16]}
+            </span>
+            <span className="text-xs font-medium text-muted-foreground">
+                {showtime.get("format", "2D")}
             </span>
             {place and <span className="text-xs text-muted-foreground">{place}</span>}
         </AppLink>;

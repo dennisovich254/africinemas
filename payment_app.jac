@@ -121,6 +121,7 @@ import from core.snacks.product_api {
     remove_snack_image  # jac:ignore[W2037]
 }
 import from core.snacks.menu_api { public_snacks, price_snacks, public_snack_image }
+import from core.snacks.glasses_api { configure_3d_glasses, list_3d_glasses }
 import from core.snacks.pickup_api { snack_pickup, hand_over_snacks }  # jac:ignore[W2037]
 # The platform's own audit log, and its sign-ins (P13.3).
 import from core.platform.audit_api {
@@ -268,7 +269,13 @@ import from core.platform.staff_api {
     remove_platform_staff  # jac:ignore[W2037]
 }
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
-import from core.catalog.movie_api { create_movie, upload_poster, set_trailer }  # jac:ignore[W2037]
+import from core.catalog.movie_api {
+    create_movie,
+    list_movies,
+    update_movie,
+    upload_poster,
+    set_trailer
+}  # jac:ignore[W2037]
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]
 import from core.oauth.provider {
     oauth_server_metadata,
@@ -281,6 +288,8 @@ import from core.oauth.provider {
 }  # jac:ignore[W2037]
 import from core.catalog.screening_api {
     create_screening,  # jac:ignore[W2037]
+    get_screening,  # jac:ignore[W2037]
+    set_screening_format,  # jac:ignore[W2037]
     schedule_screening,  # jac:ignore[W2037]
     publish_screening  # jac:ignore[W2037]
 }

@@ -86,6 +86,15 @@ def _with_ticket(
     return found;
 }
 
+def _with_glasses(chosen: list[str], label: str, checked: bool) -> list[str] {
+    without = [
+        x
+        for x in chosen
+        if x != label
+    ];
+    return sorted(without + [label]) if checked else without;
+}
+
 def _line_for(quote: any, label: str) -> any {  # jac:ignore[W1037]
     if quote is None {
         return None;
@@ -209,11 +218,19 @@ def:pub Checkout(
     [snack_step, set_snack_step] = useState(False);
     [cart, set_cart] = useState([]);
     [snack_price, set_snack_price] = useState(None);
+    # One explicit, unchecked choice per ticket when this 3D venue has glasses in stock.
+    [glasses, set_glasses] = useState(None);
+    [glasses_seats, set_glasses_seats] = useState([]);
     asked_count = useRef(0);
     snacks_asked = useRef(0);
     picked: list[str] = chosen;
     lines: list[dict[str, str]] = items;
     tickets: list[dict[str, str]] = types;
+    selected_glasses: list[str] = glasses_seats;
+    glasses_now: dict[str, any] | None = glasses;  # jac:ignore[W1037]
+    glasses_cents: int = int(glasses_now["price_cents"])
+        if glasses_now is not None
+        else 0;
     current: dict[str, any] | None = hold;  # jac:ignore[W1037]
     priced_now: dict[str, any] | None = quote;  # jac:ignore[W1037]
 
@@ -236,6 +253,9 @@ def:pub Checkout(
     async def load_menu {
         found = await call(public_snacks, [slug, screening_id]);
         set_menu(found["categories"] if found is not None and found["ok"] else []);
+        set_glasses(
+            found.get("glasses") if found is not None and found["ok"] else None
+        );
     }
 
     def begin_tickets(held: dict[str, any], codes: list[dict[str, str]]) {  # jac:ignore[W1037]
@@ -335,6 +355,7 @@ def:pub Checkout(
         set_pay_state(None);
         set_quote(None);
         set_chosen([]);
+        set_glasses_seats([]);
         set_expired(False);
         set_problem("");
         load_map();
@@ -498,6 +519,7 @@ def:pub Checkout(
         set_busy(False);
         set_hold(None);
         set_quote(None);
+        set_glasses_seats([]);
         set_problem("");
         load_map();
     }
@@ -506,13 +528,15 @@ def:pub Checkout(
         set_busy(True);
         sent = cart_lines(snacks);
         placed = await call(
-            place_order, [slug, screening_id, holder, key, items, sent]
+            place_order,
+            [slug, screening_id, holder, key, items, sent, selected_glasses]
         );
         if _code(placed) == "order_in_progress" {
             # The same order is still being made: ask again with the same key.
             await new(Promise, lambda (done: any) { setTimeout(done, 1000); });  # jac:ignore[W1037,W2001]
             placed = await call(
-                place_order, [slug, screening_id, holder, key, items, sent]
+                place_order,
+                [slug, screening_id, holder, key, items, sent, selected_glasses]
             );
         }
         set_busy(False);
@@ -722,7 +746,10 @@ def:pub Checkout(
                             className="text-lg font-semibold tabular-nums"
                         >
                             {money(
-                                tickets_cents + snacks_priced["total_cents"], currency
+                                tickets_cents
+                                    + snacks_priced["total_cents"]
+                                    + len(selected_glasses) * glasses_cents,
+                                currency
                             )
                                 if snacks_priced is not None
                                 else "…"}
@@ -842,6 +869,49 @@ def:pub Checkout(
                         </li> for item in lines
                     ]}
                 </ul>
+                {glasses_now is not None
+                    and <fieldset
+                        data-testid="glasses-choice"
+                        className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3"
+                    >
+                        <legend className="px-1 text-sm font-semibold">
+                            3D glasses
+                        </legend>
+                        <p className="text-sm text-muted-foreground">
+                            I'll bring my own is the default. Buy only for the people who need a pair.
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                            {[
+                                <label
+                                    key={item["seat_label"]}
+                                    className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border bg-background px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={listed(
+                                            item["seat_label"], selected_glasses
+                                        )}
+                                        onChange={lambda (e: any) { set_glasses_seats(  # jac:ignore[W1037]
+                                            _with_glasses(
+                                                selected_glasses,
+                                                item["seat_label"],
+                                                e.target.checked
+                                            )
+                                        ); }}
+                                        className="size-5 accent-primary"
+                                    />
+                                    <span
+                                        className="flex min-w-0 flex-1 justify-between gap-2"
+                                    >
+                                        <span>{f"Seat {item['seat_label']}"}</span>
+                                        <span className="tabular-nums">
+                                            {money(glasses_cents, currency)}
+                                        </span>
+                                    </span>
+                                </label> for item in lines
+                            ]}
+                        </div>
+                    </fieldset>}
                 <p className="text-xs text-muted-foreground">
                     Prices include the booking fee.
                 </p>
@@ -865,7 +935,11 @@ def:pub Checkout(
                         data-testid="checkout-total"
                         className="text-lg font-semibold tabular-nums"
                     >
-                        {money(priced_now["total_cents"], priced_now["currency"])
+                        {money(
+                            priced_now["total_cents"]
+                                + len(selected_glasses) * glasses_cents,
+                            priced_now["currency"]
+                        )
                             if priced_now is not None
                             else "…"}
                     </span>

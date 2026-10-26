@@ -378,7 +378,7 @@ def _latest_order(cinema: Tenant, screening: Screening, holder: str) -> Order | 
     return found[-1] if found else None;
 }
 
-def _tickets(cinema: Tenant, order: Order) -> list[dict[str, str]] {
+def _tickets(cinema: Tenant, order: Order) -> list[dict[str, any]] {  # jac:ignore[W1037]
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -386,6 +386,8 @@ def _tickets(cinema: Tenant, order: Order) -> list[dict[str, str]] {
             {
                 "seat_label": t.seat_label,
                 "ticket_name": t.ticket_name,
+                "format": t.format,
+                "glasses_bought": t.glasses_bought,
                 "reference": t.reference,
                 "qr": t.qr,
                 "status": t.status
@@ -395,7 +397,8 @@ def _tickets(cinema: Tenant, order: Order) -> list[dict[str, str]] {
         restore(me);
     }
     return sorted(
-        found, key=lambda (t: dict[str, str]) -> str { return t["seat_label"]; }
+        found,
+        key=lambda (t: dict[str, any]) -> str { return t["seat_label"]; }  # jac:ignore[W1037]
     );  # jac:ignore[W1037]
 }
 
@@ -429,6 +432,7 @@ def _my_payment(slug: str, screening_id: str, holder: str) -> dict[str, any] {  
     view["snacks"] = [
         {"name": l["name"], "quantity": l["quantity"], "addons": l["addons"]}
         for l in order.snack_lines
+        if not l.get("purpose")
     ]
         if paid
         else [];

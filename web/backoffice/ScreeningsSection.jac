@@ -33,6 +33,7 @@ import from core.catalog.screening_api {
     list_screenings,  # jac:ignore[W2037]
     create_screening,  # jac:ignore[W2037]
     reschedule_screening,  # jac:ignore[W2037]
+    set_screening_format,  # jac:ignore[W2037]
     schedule_screening,  # jac:ignore[W2037]
     publish_screening,  # jac:ignore[W2037]
     unpublish_screening,  # jac:ignore[W2037]
@@ -470,6 +471,16 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
         }
     }
 
+    async def change_format(sid: str, format: str) {
+        if await step(
+            lambda -> any { return set_screening_format(slug, sid, format); },  # jac:ignore[W1037,W2037]
+            f"problem-{sid}",
+            f"Showtime changed to {format}."
+        ) {
+            await reload();
+        }
+    }
+
     async def confirm_cancel {
         target: dict[str, str] = confirming;
         set_confirming(None);
@@ -894,7 +905,9 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                             <StateBadge state={state}/>
                         </div>
                         <span className="text-sm tabular-nums text-muted-foreground">
-                            {clock_of(s["starts_at"])} – {clock_of(s["ends_at"])}
+                            {f"{s.get('format', '2D')} · {clock_of(s['starts_at'])} – {clock_of(
+                                s['ends_at']
+                            )}"}
                         </span>
                     </div>
                 </div>
@@ -907,6 +920,19 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                                 onClick={lambda { publish(s); }}
                             >
                                 Publish
+                            </Button>}
+                        {state != "cancelled"
+                            and <Button
+                                variant="outline"
+                                className="min-h-11 px-4"
+                                disabled={busy}
+                                onClick={lambda { change_format(
+                                    sid, "2D" if s.get("format", "2D") == "3D" else "3D"
+                                ); }}
+                            >
+                                {f"Change to {'2D'
+                                    if s.get('format', '2D') == '3D'
+                                    else '3D'}"}
                             </Button>}
                         {live
                             and <Button

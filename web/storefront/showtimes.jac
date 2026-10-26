@@ -44,7 +44,7 @@ def:pub runtime_label(minutes: int) -> str {
 
 def:pub details_line(movie: dict[str, any]) -> str {  # jac:ignore[W1037]
     # "16 · 1 h 23 min · Drama", leaving out what the cinema hasn't filled in.
-    parts: list[str] = [];
+    parts: list[str] = [movie.get("format", "2D")];
     if movie["age_rating"] {
         parts.append(movie["age_rating"]);
     }

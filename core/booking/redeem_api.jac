@@ -232,6 +232,8 @@ def _redeem(tenant: str, screening_id: str, code: str) -> dict[str, any] {  # ja
         "ticket": {
             "seat_label": ticket.seat_label,
             "ticket_name": ticket.ticket_name,
+            "format": ticket.format,
+            "glasses_bought": ticket.glasses_bought,
             "reference": ticket.reference,
             "used_at": stamp
         }

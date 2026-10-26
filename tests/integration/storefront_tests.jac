@@ -36,6 +36,7 @@ glob MAIN: str = path.join(
      # What the home page shows about a movie, and about each of its next showtimes.
      MOVIE_KEYS: list[str] = [
          "age_rating",
+         "format",
          "genres",
          "has_backdrop",
          "has_poster",
@@ -56,7 +57,13 @@ glob MAIN: str = path.join(
          "slug": "nova",
          "timezone": "Africa/Nairobi"
      },
-     SHOWTIME_KEYS: list[str] = ["screen", "screening_id", "starts_at", "venue"];
+     SHOWTIME_KEYS: list[str] = [
+         "format",
+         "screen",
+         "screening_id",
+         "starts_at",
+         "venue"
+     ];
 
 def _nova(names: list[str] | None = None) -> tuple[Served, Cinema] {  # jac:ignore[W1037]
     app = served(MAIN, ["owner"] + (names or []));

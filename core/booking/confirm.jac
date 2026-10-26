@@ -70,7 +70,7 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
     }
     # An order with snacks gets its pickup code (P12.9), claimed the same way.
     pickup: list[str] = [];
-    if order.snack_lines {
+    if any(not l.get("purpose") for l in order.snack_lines) {
         pickup_owner = f"{tenant_id}|{node_id(order)}";
         pickup_ref = reserve_reference(
             pickup_owner, PROVISIONAL_SECONDS, namespace=PICKUPS
@@ -126,6 +126,8 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
                 seat_label=str(line["seat_label"]),
                 ticket_type=str(line["ticket_type"]),
                 ticket_name=str(line.get("ticket_name", "")),
+                format=order.format,
+                glasses_bought=str(line["seat_label"]) in order.glasses_seats,
                 reference=code[2],
                 qr=code[3],
                 issued_at=stamp

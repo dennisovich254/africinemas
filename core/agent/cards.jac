@@ -63,6 +63,7 @@ def movie_card(
         "age_rating": details.get("age_rating", ""),
         "genres": details.get("genres", []),
         "language": details.get("language", ""),
+        "format": details.get("format", "2D"),
         "trailer_url": link,
         "trailer_embed": trailer_embed(link),
         "showtimes": details.get("showtimes", [])

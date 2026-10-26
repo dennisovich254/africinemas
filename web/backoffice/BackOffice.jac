@@ -49,6 +49,7 @@ import from .SnackProductEditor { SnackProductEditor }
 import from .SnackCategoriesPage { SnackCategoriesPage }
 import from .SnackExtrasPage { SnackExtrasPage }
 import from .SnackStockPage { SnackStockPage }
+import from .SnackGlassesPage { SnackGlassesPage }
 import from .SnackImportPage { SnackImportPage }
 import from .StaffSection { StaffSection }
 import from .ReportsSection { ReportsSection }
@@ -349,7 +350,11 @@ def:pub BackOffice -> JsxElement {
     } elif section == "snacks" and item {
         title = "Snack categories"
             if item == "categories"
-            else ("New product" if item == "new" else "Snack product");
+            else (
+                "3D glasses"
+                    if item == "glasses"
+                    else ("New product" if item == "new" else "Snack product")
+            );
     }
     content: any = None;  # jac:ignore[W1037]
     if not allowed {
@@ -394,6 +399,8 @@ def:pub BackOffice -> JsxElement {
         content = <SnackImportPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "stock" {
         content = <SnackStockPage slug={slug} permissions={permissions}/>;
+    } elif section == "snacks" and item == "glasses" {
+        content = <SnackGlassesPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "extras" {
         content = <SnackExtrasPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "categories" {

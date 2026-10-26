@@ -169,7 +169,9 @@ def _view(
                 "quantity": l["quantity"],
                 "addons": [a["name"] for a in l.get("addons", [])],
                 "choices": [c["name"] for c in l.get("choices", [])]
-            } for l in order.snack_lines
+            }
+            for l in order.snack_lines
+            if not l.get("purpose")
         ],
         "collected_at": order.snacks_collected_at,
         "collected_by": staff_name(scope.tenant, order.snacks_collected_by)

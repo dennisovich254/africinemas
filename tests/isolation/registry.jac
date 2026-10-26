@@ -670,6 +670,21 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "variants": []
              }
          },
+         "configure_3d_glasses": {
+             "scope": "tenant",
+             "audit": "snack_glasses.configured",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "venue_id": "x",
+                 "sold": False,
+                 "price_cents": 0
+             }
+         },
+         "list_3d_glasses": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
          "publish_snack_product": {
              "scope": "tenant",
              "audit": "snack_product.published",
@@ -719,6 +734,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "movie_id": "x",
                  "starts_at": "2030-01-01T18:00:00+00:00"
              }
+         },
+         "set_screening_format": {
+             "scope": "tenant",
+             "audit": "showtime.format_changed",
+             "probe": {"tenant": "{tenant}", "screening_id": "x", "format": "3D"}
          },
          "list_screenings": {
              "scope": "tenant",

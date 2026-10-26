@@ -54,6 +54,7 @@ import from core.catalog.screening_api {
     create_screening,  # jac:ignore[W2037]
     list_screenings,  # jac:ignore[W2037]
     get_screening,  # jac:ignore[W2037]
+    set_screening_format,  # jac:ignore[W2037]
     reschedule_screening,  # jac:ignore[W2037]
     schedule_screening,  # jac:ignore[W2037]
     cancel_screening,  # jac:ignore[W2037]
@@ -176,6 +177,7 @@ import from core.snacks.product_api {
     upload_snack_image,  # jac:ignore[W2037]
     remove_snack_image  # jac:ignore[W2037]
 }
+import from core.snacks.glasses_api { configure_3d_glasses, list_3d_glasses }
 # The AfriCinemas platform console: platform staff and their roles (P13.1).
 # The platform's own audit log, and its sign-ins (P13.3).
 import from core.platform.audit_api {
