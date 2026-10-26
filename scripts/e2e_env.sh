@@ -24,6 +24,9 @@ E2E_MEDIA_DIR="$(mktemp -d -t africinemas-e2e-media-XXXXXX)"
 export AFRICINEMAS_MEDIA_DIR="$E2E_MEDIA_DIR"
 # The storefront chat (P8.4) answers from a script the browser tests write, never the
 # real model: no key, no cost (core/agent/agent.jac, SCRIPT_ENV).
+# The booking chat is off in production for now (core/agent/switch.jac); its browser
+# tests turn it on.
+export AFRICINEMAS_CHAT="${AFRICINEMAS_CHAT:-1}"
 export AFRICINEMAS_AGENT_SCRIPT="${AFRICINEMAS_AGENT_SCRIPT:-$PWD/e2e/artifacts/agent_script.json}"
 # The brand kit (ADR-0046, ADR-0049): Claude's plan comes from a file the browser tests
 # write, never the real model (core/theming/brandkit.jac, PLAN_ENV).

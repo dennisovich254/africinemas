@@ -9,11 +9,15 @@ the seats the conversation holds); it's checked like the storefront's.
 The client sends the conversation back each time, so it's untrusted: only plain user
 and assistant turns with text are kept (a forged "system" turn, a tool result or an
 injected tool call is dropped), each cut to MESSAGE_MAX, the last HISTORY_MAX of them.
+
+Both refuse with "chat_off" while the chat is off (core/agent/switch.jac), before the
+model is asked.
 """
 
 import os;
 import time;
-import from core.catalog.answers { answer }
+import from core.catalog.answers { Refused, answer }
+import from core.agent.switch { chat_on }
 import from core.booking.hold_api { check_holder }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.principal { node_id }
@@ -28,6 +32,15 @@ glob ROLES: list[str] = ["user", "assistant"],
      PER_MINUTE_DEFAULT: int = 30,
      # Model calls per cinema in the last minute, on this server (one replica's view).
      _recent: dict[str, list[float]] = {};
+
+def _check_on {
+    if not chat_on() {
+        raise Refused(
+            "chat_off",
+            "The booking chat is off. Browse showtimes and book on the website."
+        );
+    }
+}
 
 def clean_history(history: list[any]) -> list[dict[str, any]] {  # jac:ignore[W1037]
     # The client's conversation, keeping plain user and assistant text turns only.
@@ -50,6 +63,7 @@ def _agent_chat(
     history: list[any],  # jac:ignore[W1037]
     holder: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
+    _check_on();
     check_holder(holder);
     return agent_reply(message, clean_history(history), holder);
 }
@@ -104,6 +118,7 @@ def _cinema_chat(
     history: list[any],  # jac:ignore[W1037]
     holder: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
+    _check_on();
     cinema = open_cinema(slug);
     if cinema is None {
         return NOT_FOUND;
