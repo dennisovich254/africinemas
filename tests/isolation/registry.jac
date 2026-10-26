@@ -189,6 +189,15 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"email": "probe@example.com"}
          },
+         # The registrations checklist (P15.0b): super admins only.
+         "registrations_checklist": {"scope": "platform", "audit": ""},
+         "tick_registration": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"key": "domain", "done": True, "reference": "probe"}
+         },
+         # AfriCinemas' legal pages (P15.0b): public.
+         "legal_document": {"scope": "public", "audit": "", "probe": {"name": "terms"}},
          "check_slug": {"scope": "caller", "audit": "", "probe": {"slug": "free-name"}},
          "my_access": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
          # The cinema's public information (P14.3a): its staff who change settings.
