@@ -101,8 +101,12 @@ have been exposed.
 
 ## 5. The Fee, invoices and payment
 
-5.1 **The Fee** is the percentage in schedule 1 (today **10%**) of the Order Total of
-every paid Order, online or at your box office, by M-Pesa or by cash.
+5.1 **The Fee** is a percentage of every paid Order, at the rates in schedule 1,
+which depend on where the Order was made and what it contains:
+
+- **online** (your Storefront, or an AI app a Customer connects): one rate for tickets,
+  3D glasses and your booking fee, and a higher one for snacks;
+- **at your box office**, by cash or M-Pesa: one lower rate for everything.
 
 5.2 The Fee is worked out when an Order is paid and fixed on that Order, with the
 version of the fee rule that applied. A later change to the fee rule never changes it.
@@ -467,7 +471,9 @@ the English version prevails.
 
 | Item | Amount |
 |---|---|
-| The Fee | **10%** of the Order Total of every paid Order (tickets, snacks, 3D glasses and your booking fee), online or at the box office, by M-Pesa or cash |
+| **Online: tickets, 3D glasses and your booking fee** | **7%** |
+| **Online: snacks** (everything on your snack menu except 3D glasses) | **20%** |
+| **At the box office** (cash or M-Pesa): everything | **3%** |
 | Set-up fee | None |
 | Monthly subscription | None |
 | M-Pesa charges | Safaricom's charges on your paybill or till are yours, under your contract with Safaricom |
@@ -480,8 +486,14 @@ Version [1], applying from [date]. The fee rule's history is kept in the platfor
 console (P15.1).
 
 **Worked example.** A Customer buys two tickets at KES 600, a popcorn at KES 300 and a
-KES 50 booking fee: the Order Total is KES 1,550, and the Fee is KES 155 (plus VAT when
-registered). If you later refund the Customer, the Fee stays.
+KES 50 booking fee.
+
+- **Online:** tickets and booking fee KES 1,250 × 7% = KES 87.50; popcorn KES 300 × 20%
+  = KES 60. The Fee is **KES 147.50** (plus VAT when registered).
+- **At the box office:** KES 1,550 × 3% = **KES 46.50**.
+
+If you later refund the online Order in full by M-Pesa, the KES 147.50 is credited on
+your next statement; if you refund a box office sale in cash, its Fee stays (clause 5.3).
 
 ---
 
