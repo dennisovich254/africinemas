@@ -1,6 +1,6 @@
 """`/c/:slug/account`: a customer's account at this cinema (P8.6d).
 
-The email they signed up with, the apps they've let book for them here (Claude, through
+The email they signed up with, their name and password (P12.15), the apps they've let book for them here (Claude, through
 the cinema's connector) with when each was connected, and Sign out. Disconnecting an
 app asks first, in its row ("Disconnect Claude?"), then ends its access at once
 (disconnect_app). With no apps, the page says how to connect Claude: the cinema's
@@ -16,6 +16,7 @@ import from core.oauth.connections {
     disconnect_app  # jac:ignore[W2037] authenticated endpoint
 }
 import from .StorefrontShell { StorefrontShell, Loading }
+import from ..auth.ProfileForms { NameForm, PasswordForm }
 import from .venue_choice { use_title }
 import from ..shell.AppLink { AppLink }
 import from ..site { with_site_slug, local_path, main_origin }
@@ -328,6 +329,17 @@ def:pub AccountPage -> JsxElement {
                             Sign out
                         </Button>
                     </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                    <h2 className="text-lg font-semibold">Your name</h2>
+                    <NameForm name={seen["name"] or ""}/>
+                </div>
+                <div className="flex flex-col gap-3">
+                    <h2 className="text-lg font-semibold">Your password</h2>
+                    <p className="text-sm text-muted-foreground">
+                        Changing it doesn't sign you out on your other devices. Sign out on them yourself.
+                    </p>
+                    <PasswordForm sign_in=""/>
                 </div>
                 <OffersSetting slug={slug}/>
                 <div className="flex flex-col gap-3">

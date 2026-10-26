@@ -48,6 +48,22 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"token": "made-up-token"}
          },
+         # The caller's own name and password (P12.15).
+         "my_profile": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {"sign_in": "owner@example.com"}
+         },
+         "save_my_name": {"scope": "caller", "audit": "", "probe": {"name": "Probe"}},
+         "change_my_password": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {
+                 "sign_in": "owner@example.com",
+                 "current_password": "wrong-password",
+                 "new_password": "Another-passw0rd"
+             }
+         },
          "email_status": {
              "scope": "caller",
              "audit": "",

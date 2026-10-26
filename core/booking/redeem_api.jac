@@ -24,6 +24,7 @@ before the error goes on (a replayed request then claims it again, rather than f
 its own claim and refusing).
 """
 
+import from core.accounts.profile { name_of }
 import from datetime { datetime, timedelta }
 import from core.clock { now }
 import from core.claims { claim, release, holder }
@@ -125,6 +126,11 @@ def staff_name(tenant: Tenant, member_id: str) -> str {
         ];
     } finally {
         restore(me);
+    }
+    # The name they gave themselves (their profile, P12.15) first.
+    named = name_of(member_id);
+    if named {
+        return named;
     }
     if found {
         return found[0].email or found[0].label or "a staff member";

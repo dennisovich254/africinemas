@@ -63,6 +63,7 @@ import from .DocumentsSection { DocumentsSection }
 import from .VerificationSection { VerificationSection }
 import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
+import from .ProfileSection { ProfileSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
@@ -427,6 +428,8 @@ def:pub BackOffice -> JsxElement {
         content = <VerificationSection slug={slug}/>;
     } elif section == "help" {
         content = <HelpSection slug={slug} shift_open={shift_open} item={item}/>;
+    } elif section == "profile" {
+        content = <ProfileSection slug={slug}/>;
     } elif section == "settings" {
         content = <SettingsPage
             slug={slug}

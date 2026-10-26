@@ -181,7 +181,8 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                     "Audit log",
                     "Verification",
                     "Settings",
-                    "Help"
+                    "Help",
+                    "Your profile"
                 ] , f"{project}: owner nav";
             page.goto(BASE_URL + "/app");
             # Waits for the list to load; fails if the new cinema never appears.

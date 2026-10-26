@@ -36,7 +36,9 @@ glob SUFFIX: str = ".africinemas.co.ke",
          ("verification", "Verification", "tenant.verification"),
          ("settings", "Settings", "tenant.settings.update"),
          # Asking AfriCinemas for technical help (P13.5a).
-         ("help", "Help", "support.request")
+         ("help", "Help", "support.request"),
+         # Everyone's own name and password (P12.15).
+         ("profile", "Your profile", "")
      ];
 
 def:pub web_address(slug: str) -> str {
