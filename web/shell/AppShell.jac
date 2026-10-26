@@ -31,7 +31,8 @@ import from "@hugeicons/core-free-icons" {
     Projector01Icon,
     HelpCircleIcon,
     CustomerSupportIcon,
-    UserCircleIcon
+    UserCircleIcon,
+    CheckListIcon
 }
 import from ...components.ui.button { Button }
 import from ...components.ui.sheet {
@@ -68,7 +69,8 @@ glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
          "reviews": IdVerifiedIcon,
          "help": HelpCircleIcon,
          "support": CustomerSupportIcon,
-         "profile": UserCircleIcon
+         "profile": UserCircleIcon,
+         "registrations": CheckListIcon
      };
 
 def nav_icon(section: any) -> any {  # jac:ignore[W1037]

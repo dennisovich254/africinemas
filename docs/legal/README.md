@@ -37,11 +37,12 @@ read in the official text, taken from a law firm's summary, or still to be confi
 
 Found while drafting. Each is small, and listed so it isn't lost:
 
-- **Publish the documents** at `/legal/...`, each with its version and date, linked
+- ~~**Publish the documents**~~ (done in P15.0b, ADR-0078; version 0.1, before the
+  advocate's review) at `/legal/...`, each with its version and date, linked
   from the main site's footer, the sign-up page, and every storefront's footer
   (**Cookies and storage** included); a new version of the cinema agreement must be
   accepted again (P15.1).
-- **The registrations checklist** in the console.
+- ~~**The registrations checklist** in the console.~~ (done in P15.0b)
 - **The confirmation email names the version of the terms agreed**, with a link
   (Consumer Protection Act, s.32).
 - **A test that every browser-storage key is listed** in the cookie notice.

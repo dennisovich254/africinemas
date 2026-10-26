@@ -25,6 +25,7 @@ import from .backoffice.BackOffice { BackOffice }
 import from .routes.DesignSystemPage { DesignSystemPage }
 import from .routes.NotFoundPage { NotFoundPage }
 import from .routes.VerifiedPage { VerifiedPage }
+import from .legal.LegalPage { LegalPage }
 import from .storefront.StorefrontPage { StorefrontPage }
 import from .storefront.MoviePage { MoviePage }
 import from .storefront.ScreeningPage { ScreeningPage }
@@ -181,6 +182,7 @@ def MainSite(own_addresses: bool) -> JsxElement {
                 <Route path="/verify-email" element={<VerifyEmailPage/>}/>
                 <Route path="/verified" element={<VerifiedPage/>}/>
                 <Route path="/verified/:slug" element={<VerifiedPage/>}/>
+                <Route path="/legal/:document" element={<LegalPage/>}/>
                 {own_addresses and <Route path="/c/:slug/*" element={<OnOwnAddress/>}/>}
                 {own_addresses and <Route path="/c/:slug" element={<OnOwnAddress/>}/>}
                 {own_addresses

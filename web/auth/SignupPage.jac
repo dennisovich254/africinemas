@@ -80,6 +80,30 @@ def:pub SignupPage -> JsxElement {
                         hint={f"At least {PASSWORD_MIN} characters."}
                         min_length={PASSWORD_MIN}
                     />
+                    <p
+                        data-testid="signup-legal"
+                        className="text-sm text-muted-foreground"
+                    >
+                        By creating an account, you agree to AfriCinemas'{" "}
+                        <a href="/legal/terms" className="underline underline-offset-4">
+                            terms of use
+                        </a>{" "}
+                        and{" "}
+                        <a
+                            href="/legal/privacy"
+                            className="underline underline-offset-4"
+                        >
+                            privacy policy
+                        </a>
+                        . Your cinema accepts the{" "}
+                        <a
+                            href="/legal/cinema-agreement"
+                            className="underline underline-offset-4"
+                        >
+                            cinema agreement
+                        </a>{" "}
+                        before it sells.
+                    </p>
                     <Button type="submit" disabled={busy} className="h-11 w-full">
                         {busy and <Spinner aria-hidden="true"/>}{"Creating your account…"
                             if busy

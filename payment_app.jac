@@ -234,6 +234,12 @@ import from core.accounts.profile {
     save_my_name,  # jac:ignore[W2037]
     change_my_password  # jac:ignore[W2037]
 }
+# AfriCinemas' legal pages and the registrations checklist (P15.0b).
+import from core.legal.legal_api { legal_document }
+import from core.legal.registrations {
+    registrations_checklist,  # jac:ignore[W2037]
+    tick_registration  # jac:ignore[W2037]
+}
 # Deleting personal files once they're no longer needed (P14.5b).
 import from core.tenancy.retention { delete_due_files }  # jac:ignore[W2037]
 # Verifying the owner and the business before going public (P14.4).
