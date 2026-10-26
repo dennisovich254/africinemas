@@ -1275,6 +1275,16 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "idempotency_key": "probe-key-xxxxxxxxxxxxxxxx"
              }
          },
+         "more_snacks": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "token": "probetokenxxxxxxxxxxxxxxxx"}
+         },
+         "counter_more_snacks": {
+             "scope": "tenant",
+             "audit": "sale.extra_snacks",
+             "probe": {"tenant": "{tenant}", "reference": "UNKNOWN"}
+         },
          "tickets_by_link": {
              "scope": "storefront",
              "audit": "",

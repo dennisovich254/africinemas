@@ -11,4 +11,10 @@ test "snack additions close at the start, not a second later" {
     assert not addition_allowed("pending_payment", "2026-10-26T18:00:00+00:00", at);
     assert not addition_allowed("expired", "2026-10-26T18:00:00+00:00", at);
     assert not addition_allowed("confirmed", "", at);
+    assert not addition_allowed(
+        "confirmed", "2026-10-26T18:00:00+00:00", at, "cancelled"
+    );
+    assert addition_allowed(
+        "confirmed", "2026-10-26T18:00:00+00:00", at, "sales_closed"
+    );
 }

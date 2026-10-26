@@ -6,6 +6,8 @@ per phone number) and the payments stored for a showtime. Run with
 AFRICINEMAS_PAYMENTS=simulator.
 """
 
+import from core.booking.more_snacks_api { more_snacks, counter_more_snacks }  # jac:ignore[W2037]
+
 import json;
 
 import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]

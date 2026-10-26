@@ -37,6 +37,7 @@ import from ..storefront.checkout_rules {
 }
 import from .CounterPicker { CounterPicker }
 import from .SnackOnlySale { SnackOnlySale }
+import from ..storefront.MoreSnacks { CounterMoreSnacks }
 
 glob POLL_MS: int = 3000;
 
@@ -392,7 +393,7 @@ def SaleKind(kind: str, on_kind: any) -> JsxElement {  # jac:ignore[W1037]
         <div
             role="group"
             aria-label="What's being sold"
-            className="flex gap-2 border-b"
+            className="flex flex-wrap gap-2 border-b"
         >
             {[
                 <button
@@ -410,7 +411,11 @@ def SaleKind(kind: str, on_kind: any) -> JsxElement {  # jac:ignore[W1037]
                 >
                     {label}
                 </button>
-                for (k, label) in [("tickets", "Tickets"), ("snacks", "Snacks only")]
+                for (k, label) in [
+                    ("tickets", "Tickets"),
+                    ("snacks", "Snacks only"),
+                    ("extra", "Existing booking")
+                ]
             ]}
         </div>;
 }
@@ -451,6 +456,13 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
         new_sale();
     }
 
+    if kind == "extra" {
+        return
+            <div className="flex flex-col gap-6">
+                <SaleKind kind={kind} on_kind={set_kind}/>
+                <CounterMoreSnacks slug={slug}/>
+            </div>;
+    }
     if kind == "snacks" {
         return
             <div className="flex flex-col gap-6">

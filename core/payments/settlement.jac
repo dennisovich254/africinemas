@@ -24,6 +24,7 @@ waiting for the job.
 """
 
 import os;
+import from datetime { datetime }
 import re;
 import json;
 import from http { HTTPMethod }
@@ -42,6 +43,7 @@ import from core.tenancy.principal {
 }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.models { Screening }
+import from core.catalog.venues { find_screening }
 import from core.booking.models { Order, Ticket }
 import from core.booking.confirm { Takings, confirm_order }
 import from core.booking.ticket_delivery { link_path }
@@ -298,6 +300,15 @@ def settle(cinema: Tenant, intent: PaymentIntent, provider: PaymentProvider) -> 
         or order.status != "pending_payment" {
         _attention(cinema, intent, "late_success", filed, True);
         return intent.state;
+    }
+    if order.booking_id {
+        screening = find_screening(cinema, order.screening_id);
+        if screening is None
+            or screening.state not in ["on_sale", "sales_closed"]
+            or now() >= datetime.fromisoformat(screening.starts_at) {
+            _attention(cinema, intent, "showtime_started", filed, True);
+            return intent.state;
+        }
     }
     if filed is not None and paid != intent.amount_cents {
         _attention(cinema, intent, "amount_mismatch", filed, True);
