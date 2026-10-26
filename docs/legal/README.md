@@ -66,6 +66,7 @@ Found while drafting. Each is small, and listed so it isn't lost:
   year after closing; support screenshots 90 days after the request closes; no selfie
   (2026-10-24).
 - The verified badge is plain text; the check page is at `/verified` (2026-10-24).
-- The fee: 10% of the order total, invoiced monthly; credited on M-Pesa refunds and
+- The fee (model C): online 7% on tickets, glasses and booking fee, 20% on snacks;
+  box office 3%; invoiced monthly; credited on M-Pesa refunds and
   Platform failures, kept on cash refunds (2026-10-26);
   suspension by a person only (plan P15.1 to P15.5).
