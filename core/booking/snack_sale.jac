@@ -18,6 +18,7 @@ there does; the cinema must be live (P14.1).
 """
 
 import secrets;
+import json;
 import from datetime { datetime, timedelta }
 import from core.clock { now }
 import from core.claims { claim, release, renew, holder as claim_holder }
@@ -36,11 +37,12 @@ import from core.tenancy.principal {
 import from core.tenancy.open_cinema { require_live }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.models { Venue }
-import from core.catalog.venues { find_venue }
+import from core.catalog.venues { find_venue, find_screening }
 import from core.catalog.pricing { CURRENCY }
 import from core.snacks.menu { menu_of, price_cart }
 import from core.snacks.order_stock { reserve_snacks, release_snacks }
 import from core.booking.models { Order }
+import from core.booking.snack_additions { additions }
 import from core.booking.hold_api { check_holder, seconds_from_env }
 import from core.booking.order_api {
     ORDER_KEYS,
@@ -89,7 +91,7 @@ def _orders(cinema: Tenant, venue: Venue, holder: str) -> list[Order] {
         found = [
             o
             for o in [venue-->[?:Order]]
-            if o.holder == holder
+            if o.holder == holder and not o.booking_id
         ];
     } finally {
         restore(me);
@@ -116,6 +118,7 @@ def _view(order: Order) -> dict[str, any] {  # jac:ignore[W1037]
         "pay_by": order.pay_by,
         # Paid: the code the Snack counter hands them over with (P12.9).
         "pickup_reference": order.pickup_reference,
+        "pickup_qr": order.pickup_qr,
         "handed_over": bool(order.snacks_collected_at)
     };
 }
@@ -178,7 +181,18 @@ def _place(
     snacks: any  # jac:ignore[W1037]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     (scope, venue) = _venue(tenant, venue_id);
-    cinema = scope.tenant;
+    return place_sale(scope.tenant, venue, holder, idempotency_key, snacks);
+}
+
+def place_sale(
+    cinema: Tenant,
+    venue: Venue,
+    holder: str,
+    idempotency_key: str,
+    snacks: any,  # jac:ignore[W1037]
+    booking: Order | None = None
+) -> dict[str, any] {  # jac:ignore[W1037]
+    venue_id = node_id(venue);
     check_holder(holder);
     check_key(idempotency_key);
     asked = snack_request(snacks);
@@ -186,11 +200,25 @@ def _place(
         raise Refused("no_snacks", "Choose at least one snack.");
     }
     key_name = f"{node_id(cinema)}:{holder}:{idempotency_key}";
+    if booking is not None {
+        key_name = f"addition:{node_id(booking)}:{holder}:{idempotency_key}";
+    }
     existing = claim_holder(ORDER_KEYS, key_name);
     if existing is not None {
         # The same request again (a retried tap): the order it made.
-        for o in _orders(cinema, venue, holder) {
+        found = _orders(cinema, venue, holder);
+        if booking is not None {
+            found = additions(cinema, booking);
+        }
+        for o in found {
             if node_id(o) == existing {
+                if booking is not None
+                    and o.snack_request != json.dumps(asked, sort_keys=True) {
+                    raise Refused(
+                        "idempotency_conflict",
+                        "These snacks differ from the saved request. Start a new addition."
+                    );
+                }
                 return {"ok": True, "order": _view(o)};
             }
         }
@@ -202,6 +230,12 @@ def _place(
     if problems {
         raise Refused(
             "snacks_unavailable", problems[0]["message"], {"problems": problems}
+        );
+    }
+    if booking is not None and any(l.get("purpose") for l in lines) {
+        raise Refused(
+            "invalid_snacks",
+            "Glasses cannot be added to an issued ticket through the snack menu."
         );
     }
     order_ref = fresh_node_id();
@@ -219,13 +253,17 @@ def _place(
         act_as(cinema.principal_root_id);
         order = Order(
             tenant_id=node_id(cinema),
-            screening_id="",
+            screening_id=booking.screening_id if booking is not None else "",
+            booking_id=node_id(booking) if booking is not None else "",
+            pickup_reference=booking.pickup_reference if booking is not None else "",
+            pickup_qr=booking.pickup_qr if booking is not None else "",
             holder=holder,
             hold_id="",
             idempotency_key=idempotency_key,
             reference=secrets.token_hex(4).upper(),
             currency=CURRENCY,
             total_cents=cents,
+            snack_request=json.dumps(asked, sort_keys=True),
             snack_lines=lines,
             snacks_cents=cents,
             snack_venue_id=venue_id,
@@ -236,7 +274,17 @@ def _place(
             ).isoformat()
         );
         assign_id(order, order_ref);
-        venue ++> order;
+        if booking is None {
+            venue ++> order;
+        } else {
+            screening = find_screening(cinema, booking.screening_id);
+            booking ++> order;
+            if screening is None {
+                raise NotFound();
+            }
+            screening ++> order;
+            order.pay_by = min(order.pay_by, screening.starts_at);
+        }
         attach_to_tenant(order, cinema);
         commit_now();
     } except Exception as e {
@@ -274,7 +322,10 @@ def _cash(tenant: str, venue_id: str, holder: str) -> dict[str, any] {  # jac:ig
             "Sales can't be completed right now (the server has no signing key). Ask an administrator."
         );
     }
-    order = _waiting(scope, venue, holder);
+    return cash_sale(scope, _waiting(scope, venue, holder));
+}
+
+def cash_sale(scope: TenantScope, order: Order) -> dict[str, any] {  # jac:ignore[W1037]
     order_id = node_id(order);
     active = claim_holder(ORDER_PAYMENT, order_id);
     if active is not None {
@@ -299,7 +350,9 @@ def _cash(tenant: str, venue_id: str, holder: str) -> dict[str, any] {  # jac:ig
                 payment_id=f"cash-{fresh_node_id()}",
                 amount_cents=order.total_cents,
                 receipt=f"CASH-{order.reference}",
-                note="Cash at the box office, snacks only",
+                note="Cash at the box office, extra snacks"
+                    if order.booking_id
+                    else "Cash at the box office, snacks only",
                 method="cash",
                 recorded_by=member
             )

@@ -16,6 +16,7 @@ import from .venue_choice { use_title }
 import from .showtimes { long_day_label, time_label }
 import from .PayPanel { TicketCard, PickupCard }
 import from .TicketDelivery { TicketDelivery }
+import from .MoreSnacks { MoreSnacks }
 import from ..shell.AppLink { AppLink }
 import from ..site { with_site_slug }
 
@@ -132,6 +133,8 @@ def:pub TicketsPage -> JsxElement {
                     >
                         Your snacks have been collected.
                     </p>}
+                {booking["can_add_snacks"]
+                    and <MoreSnacks slug={slug} token={token} on_paid={load}/>}
                 <TicketDelivery
                     link={f"/c/{slug}/tickets/{token}"}
                     email={booking["email"]}

@@ -232,6 +232,7 @@ import from core.platform.review_api {
     send_decision_mail  # jac:ignore[W2037]
 }
 # Snacks only, at the box office (P12.10).
+import from core.booking.more_snacks_api { more_snacks, counter_more_snacks }  # jac:ignore[W2037]
 import from core.booking.snack_sale {
     counter_snack_venues,  # jac:ignore[W2037]
     counter_price_snacks,  # jac:ignore[W2037]

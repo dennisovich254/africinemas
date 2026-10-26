@@ -81,7 +81,7 @@ def:pub SnackCounterSection(slug: str, shift_open: bool = True) -> JsxElement {
         set_problem("");
         answer: any = None;  # jac:ignore[W1037]
         try {
-            answer = await hand_over_snacks(slug, code);  # jac:ignore[W2037]
+            answer = await hand_over_snacks(slug, code, shown["collection_token"]);  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("hand_over_snacks failed", e);
         }
@@ -234,6 +234,21 @@ def:pub SnackCounterSection(slug: str, shift_open: bool = True) -> JsxElement {
                             </li> for (n, s) in enumerate(shown["snacks"])
                         ]}
                     </ul>
+                    {len(shown["collected_snacks"] or []) > 0
+                        and <div
+                            className="text-sm text-muted-foreground"
+                            data-testid="previous-snacks"
+                        >
+                            <p className="font-medium">Already collected</p>
+                            <ul>
+                                {[
+                                    <li key={f"{i}"}>
+                                        {f"{s['quantity']} × {s['name']}"}
+                                    </li>
+                                    for (i, s) in enumerate(shown["collected_snacks"])
+                                ]}
+                            </ul>
+                        </div>}
                     {shown["collected_at"]
                         and <p className="text-sm" data-testid="pickup-collected">
                             {f"Handed over at {time_label(

@@ -42,6 +42,8 @@ node Order {
         hold_id: str,
         idempotency_key: str,
         reference: str,
+        # P12.14: a separately paid snack batch linked to the original booking.
+        booking_id: str = "",
         request: list[list[str]] = [],
         format: str = "2D",
         status: str = "pending_payment",
