@@ -12,7 +12,13 @@ import from .PasswordField { PasswordField }
 import from .session { sign_up, next_path, use_staff_session }
 import from core.accounts.email_verification { send_email_check }  # jac:ignore[W2037] authenticated endpoint
 
-glob PASSWORD_MIN: int = 8;
+glob PASSWORD_MIN: int = 8,
+     # AfriCinemas' own documents (P15.0b), each a full-size tap target.
+     LEGAL_LINKS: list[tuple[str, str]] = [
+         ("/legal/terms", "Terms of use"),
+         ("/legal/privacy", "Privacy policy"),
+         ("/legal/cinema-agreement", "Cinema agreement")
+     ];
 
 def:pub SignupPage -> JsxElement {
     nav: any = useNavigate();  # jac:ignore[W1037,W1051]
@@ -80,30 +86,26 @@ def:pub SignupPage -> JsxElement {
                         hint={f"At least {PASSWORD_MIN} characters."}
                         min_length={PASSWORD_MIN}
                     />
-                    <p
+                    <div
                         data-testid="signup-legal"
-                        className="text-sm text-muted-foreground"
+                        className="flex flex-col gap-1 text-sm text-muted-foreground"
                     >
-                        By creating an account, you agree to AfriCinemas'{" "}
-                        <a href="/legal/terms" className="underline underline-offset-4">
-                            terms of use
-                        </a>{" "}
-                        and{" "}
-                        <a
-                            href="/legal/privacy"
-                            className="underline underline-offset-4"
-                        >
-                            privacy policy
-                        </a>
-                        . Your cinema accepts the{" "}
-                        <a
-                            href="/legal/cinema-agreement"
-                            className="underline underline-offset-4"
-                        >
-                            cinema agreement
-                        </a>{" "}
-                        before it sells.
-                    </p>
+                        <p>
+                            By creating an account, you agree to AfriCinemas' terms of use and privacy policy. Your cinema accepts the cinema agreement before it sells.
+                        </p>
+                        <ul className="flex flex-wrap gap-x-5">
+                            {[
+                                <li key={href}>
+                                    <a
+                                        href={href}
+                                        className="inline-flex min-h-11 items-center underline underline-offset-4"
+                                    >
+                                        {label}
+                                    </a>
+                                </li> for (href, label) in LEGAL_LINKS
+                            ]}
+                        </ul>
+                    </div>
                     <Button type="submit" disabled={busy} className="h-11 w-full">
                         {busy and <Spinner aria-hidden="true"/>}{"Creating your account…"
                             if busy
