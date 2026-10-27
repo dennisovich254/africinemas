@@ -154,6 +154,15 @@ def submitted(app: Served, slug: str = "kims") {
             }
         )["ok"];
     }
+    accept_agreement(app, "kim", slug);
     done = app.call("kim", "submit_verification", {"tenant": slug});
     assert done["ok"] , done;
+}
+
+def accept_agreement(app: Served, who: str, slug: str) {
+    # `who` accepts the current cinema agreement for `slug` (P15.1).
+    current = app.call(who, "cinema_agreement_status", {"tenant": slug})["current"];
+    assert app.call(
+        who, "accept_cinema_agreement", {"tenant": slug, "version": current}
+    )["ok"];
 }

@@ -82,7 +82,8 @@ glob MAX_PHOTO_BYTES: int = 4 * 1024 * 1024,
          "venue": "venues",
          "screen": "screens",
          "prices": "prices",
-         "policies": "settings/policies"
+         "policies": "settings/policies",
+         "agreement": "agreement"
      };
 
 async def smaller_photo(file: any) -> str {  # jac:ignore[W1037]

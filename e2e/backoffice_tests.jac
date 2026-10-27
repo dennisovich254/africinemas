@@ -180,6 +180,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                     "Staff",
                     "Audit log",
                     "Verification",
+                    "Cinema agreement",
                     "Settings",
                     "Help",
                     "Your profile"

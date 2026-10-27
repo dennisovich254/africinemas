@@ -236,6 +236,15 @@ import from core.accounts.profile {
 }
 # AfriCinemas' legal pages and the registrations checklist (P15.0b).
 import from core.legal.legal_api { legal_document }
+import from core.legal.fee_rule {
+    fee_rules,  # jac:ignore[W2037]
+    set_fee_rule  # jac:ignore[W2037]
+}
+import from core.legal.agreement_api {
+    cinema_agreement_status,  # jac:ignore[W2037]
+    cinema_agreement_text,  # jac:ignore[W2037]
+    accept_cinema_agreement  # jac:ignore[W2037]
+}
 import from core.legal.registrations {
     registrations_checklist,  # jac:ignore[W2037]
     tick_registration  # jac:ignore[W2037]
@@ -887,6 +896,15 @@ import from core.platform.accounts { join_link, SETUP_TTL_S }
 
 def:pub t_platform_setup_link(email: str) -> str {
     return join_link(email, SETUP_TTL_S);
+}
+
+# Test-only: as if a new version of the cinema agreement had been published (P15.1);
+# "" goes back to the real one.
+import from core.legal.agreement { set_current_version }
+
+def:pub t_agreement_version(version: str) -> str {
+    set_current_version(version);
+    return version;
 }
 
 # For the storefront tests that run here, so cinemas can go live (P14.1).

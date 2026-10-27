@@ -44,6 +44,7 @@ import from core.catalog.poster {
 import from core.catalog.documents { decode_pdf, process_pdf, PdfRejected }
 import from core.catalog.site_info { kenyan_number }
 import from core.catalog.policies { missing_policies, title_of }
+import from core.legal.agreement { accepted_current }
 import from core.accounts.email_verification { confirmed_email }
 import from core.reporting.staff_home { setup_of }
 import from core.audit.log { audited }
@@ -309,6 +310,10 @@ def _essentials(cinema: Tenant) -> list[dict[str, str]] {
         gaps.append(
             {"field": "policies", "message": f"Publish your {title_of(kind).lower()}"}
         );
+    }
+    # The current cinema agreement, accepted by the owner (P15.1).
+    if not accepted_current(cinema) {
+        gaps.append({"field": "agreement", "message": "Accept the cinema agreement"});
     }
     return gaps;
 }
