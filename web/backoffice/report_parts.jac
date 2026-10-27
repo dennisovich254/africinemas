@@ -1,12 +1,15 @@
 """The dashboard's pieces (P7.3): KPI tiles, the takings chart, top movies, drill-down.
 
-Charts are plain HTML, not SVG, so labels stay legible at phone width. One series each,
-in `--chart-bar` (checked with the dataviz palette validator, core/theming/css.jac);
-values and labels wear text colours, never the bar's. Every chart has a hover/tap/focus
-readout and a table view, so nothing depends on seeing the bars.
+Charts are plain HTML (the donut's ring is SVG), so labels stay legible at phone width.
+Colours are the categorical slots `--chart-1..4` and `--chart-other`, in fixed order
+(checked with the dataviz palette validator, core/theming/css.jac); values and labels
+wear text colours, never a mark's. Every chart has a legend or direct labels with the
+amounts, a hover/tap/focus readout, and a table view or the numbers in text, so nothing
+depends on seeing the colours.
 """
 
 import from react { useState }
+import from "@hugeicons/react" { HugeiconsIcon }
 import from .report_view {
     day_label,
     point_label,
@@ -17,33 +20,64 @@ import from .report_view {
 }
 import from ..storefront.showtimes { day_label as show_day, time_label }
 
-def:pub KpiTile(
-    label: str, value: str, note: str = "", testid: str = ""
+def:pub KpiTile(  # jac:ignore[W3030] a figure: its words, value, note, test id, size and icon
+    label: str,
+    value: str,
+    note: str = "",
+    testid: str = "",
+    large: bool = False,
+    icon: any = None,  # jac:ignore[W1037]
+    slot: str = "1"
 ) -> JsxElement {
+    # `icon`: a Hugeicons icon in a soft circle of the chart slot `slot`'s colour, on
+    # the label's line; the value on its own line, never wrapping.
     return
         <div
-            className="flex flex-col gap-1 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+            className="flex min-w-0 flex-col gap-2 rounded-2xl bg-card p-4 ring-1 ring-foreground/10"
         >
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p data-testid={testid} className="text-2xl font-semibold tabular-nums">
+            <div className="flex min-w-0 items-center gap-2">
+                {icon is not None
+                    and <span
+                        aria-hidden="true"
+                        className="inline-flex size-8 shrink-0 items-center justify-center rounded-full"
+                        style={{
+                            "background": f"color-mix(in srgb, var(--chart-{slot}) 18%, transparent)",
+                            "color": f"var(--chart-{slot})"
+                        }}
+                    >
+                        <HugeiconsIcon icon={icon} size={16} strokeWidth={2}/>
+                    </span>}
+                <p className="min-w-0 truncate text-sm text-muted-foreground">
+                    {label}
+                </p>
+            </div>
+            <p
+                data-testid={testid}
+                # Two cards across on a phone: an amount may wrap there rather than
+                # push the page sideways; from sm up it stays on one line.
+                className={("text-4xl" if large else "text-lg sm:text-2xl")
+                    + " font-semibold tabular-nums [overflow-wrap:anywhere] sm:whitespace-nowrap"}
+            >
                 {value}
             </p>
             {note and <p className="text-xs text-muted-foreground">{note}</p>}
         </div>;
 }
 
-def ChartBar(
+def ChartBar(  # jac:ignore[W3030] one column: its place, two heights, its words and its state
     index: int,
     height: float,
     readout: str,
     active: bool,
     side: str,
     on_show: any,  # jac:ignore[W1037]
-    on_hide: any  # jac:ignore[W1037]
+    on_hide: any,  # jac:ignore[W1037]
+    snacks_height: float = 0.0
 ) -> JsxElement {
-    # One bar: a hit target the full column tall (bigger than the mark), a 4px rounded
-    # top, and its readout above it while hovered, tapped or focused. `side` keeps the
-    # readout inside the chart at the ends ("left", "right", or "" centred).
+    # One bar: a hit target the full column tall (bigger than the mark), tickets below
+    # and snacks above (`snacks_height`, of the same scale) with a 2px gap, the top one
+    # with a 4px rounded top, and its readout above it while hovered, tapped or focused.
+    # `side` keeps the readout inside the chart at the ends ("left", "right", "").
     place = "left-1/2 -translate-x-1/2";
     if side == "left" {
         place = "left-0";
@@ -64,14 +98,27 @@ def ChartBar(
         >
             <span
                 aria-hidden="true"
-                className="w-full rounded-t-[4px] bg-(--chart-bar)"
-                style={{"height": f"{height}%"}}
-            />
+                className="flex w-full flex-col justify-end gap-[2px]"
+                style={{"height": f"{height + snacks_height}%"}}
+            >
+                {snacks_height > 0
+                    and <span
+                        className="w-full shrink-0 rounded-t-[4px] bg-(--chart-2)"
+                        style={{
+                            "height": f"{snacks_height * 100
+                                / (height + snacks_height)}%"
+                        }}
+                    />}{height > 0
+                    and <span
+                        className={"w-full min-h-0 flex-1 bg-(--chart-1)"
+                            + ("" if snacks_height > 0 else " rounded-t-[4px]")}
+                    />}
+            </span>
             {active
                 and <span
                     role="tooltip"
                     data-testid="chart-readout"
-                    className={f"pointer-events-none absolute bottom-full z-10 mb-2 whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 {place}"}
+                    className={f"pointer-events-none absolute bottom-full z-10 mb-2 w-max max-w-[14rem] rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 {place}"}
                 >
                     {readout}
                 </span>}
@@ -104,6 +151,7 @@ def:pub TakingsChart(
     labels = [];
     for (i, p) in enumerate(points) {
         cents = int(p["takings_net_cents"]);
+        snacks = max(0, min(int(p.get("snacks_net_cents", 0)), max(0, cents)));
         name = point_label(p["start"], unit);
         tickets = int(p[count_key]);
         side = "";
@@ -116,8 +164,11 @@ def:pub TakingsChart(
             <ChartBar
                 key={p["start"]}
                 index={i}
-                height={max(0, cents) * 100 / top}
-                readout={f"{name}: {money_label(cents, currency)} taken, {tickets} {count_words}"}
+                height={(max(0, cents) - snacks) * 100 / top}
+                snacks_height={snacks * 100 / top}
+                readout={f"{name}: {money_label(cents, currency)} taken ({money_label(
+                    max(0, cents) - snacks, currency
+                )} tickets, {money_label(snacks, currency)} snacks), {tickets} {count_words}"}
                 active={active == i}
                 side={side}
                 on_show={show}
@@ -132,8 +183,29 @@ def:pub TakingsChart(
     }
     return
         <figure className="flex flex-col gap-3" data-testid="takings-chart">
-            <figcaption className="text-sm font-medium">
-                {"Net takings by week" if unit == "week" else "Net takings by day"}
+            <figcaption className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-medium">
+                    {"Net takings by week" if unit == "week" else "Net takings by day"}
+                </span>
+                <span
+                    data-testid="takings-legend"
+                    className="flex items-center gap-4 text-xs text-muted-foreground"
+                >
+                    <span className="flex items-center gap-1.5">
+                        <span
+                            aria-hidden="true"
+                            className="size-2.5 rounded-sm bg-(--chart-1)"
+                        />
+                        Tickets
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                        <span
+                            aria-hidden="true"
+                            className="size-2.5 rounded-sm bg-(--chart-2)"
+                        />
+                        Snacks
+                    </span>
+                </span>
             </figcaption>
             <div className="flex gap-2">
                 <div
@@ -175,6 +247,7 @@ def:pub TakingsChart(
                                 {"Week" if unit == "week" else "Day"}
                             </th>
                             <th className="py-2 text-right font-medium">Net takings</th>
+                            <th className="py-2 text-right font-medium">Snacks</th>
                             <th className="py-2 text-right font-medium">
                                 {count_heading}
                             </th>
@@ -188,6 +261,11 @@ def:pub TakingsChart(
                                 </td>
                                 <td className="py-2 text-right tabular-nums">
                                     {money_label(int(p["takings_net_cents"]), currency)}
+                                </td>
+                                <td className="py-2 text-right tabular-nums">
+                                    {money_label(
+                                        int(p.get("snacks_net_cents", 0)), currency
+                                    )}
                                 </td>
                                 <td className="py-2 text-right tabular-nums">
                                     {p[count_key]}

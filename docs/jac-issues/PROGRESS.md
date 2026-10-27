@@ -75,3 +75,4 @@ The owner asked on 2026-10-23 that Jac problems found during other work keep goi
 - JI-050 and JI-051 (above) are still candidates, not written up.
 - **JI-058 and JI-059** (2026-10-26, P12.15): there's no way to change a sign-in email, and a password change leaves other sessions signed in, with no sign-out-everywhere. JI-059 is a security gap, and it's worth reporting first when reporting resumes.
 - **JI-060** (2026-10-27, P15.2): an omitted endpoint parameter arrives as the text of its default, so `False` becomes the true string `"False"`. Found when a refund credited the fee as if the Platform had failed. Worth reporting.
+- **JI-061** (2026-10-27, Reports charts): a nested tuple in a client comprehension loses its names. `jac check` passes, and the build's free-name audit catches it.

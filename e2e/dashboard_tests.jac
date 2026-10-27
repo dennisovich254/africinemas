@@ -121,16 +121,31 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
             assert _text(page, "kpi-net") == SALE;
             assert _text(page, "kpi-occupancy") == "18.2%";
             assert "Rafiki" in _text(page, "top-movies");
+            # The money splits: one cash sale at the box office, tickets only.
+            assert "100%" in _text(page, "split-method-right") , project;
+            assert "Cash" in _text(page, "split-method-right");
+            assert "100%" in _text(page, "split-channel-right");
+            assert "100%" in _text(page, "split-items-left");
+            # The donut: all the ticket revenue is Rafiki's.
+            assert "Rafiki" in _text(page, "movie-share")
+                and "100%" in _text(page, "movie-share");
+            assert "Snacks" in _text(page, "takings-legend");
+            # The headline compares with the days just before: nothing then.
+            assert "previous" in _text(page, "trend") , project;
+            # The occupancy meter leads the showtimes: 18.2% shows as 18%.
+            assert "18%" in _text(page, "occupancy-meter") , project;
             assert page.locator('[data-testid="chart-bar"]').count() == 7;
             # The chart answers a tap or a hover with the day's figures.
             _press(page, project, '[data-testid="chart-bar"]');
             assert SALE in _text(page, "chart-readout");
             assert _no_side_scroll(page) , f"{project}: the page scrolls sideways";
             if project == "mobile" {
-                # Tiles stack: the first two start at the same left edge.
-                first = page.locator('[data-testid="kpi-net"]').bounding_box();
-                second = page.locator('[data-testid="kpi-gross"]').bounding_box();
-                assert abs(first["x"] - second["x"]) < 2 and second["y"] > first["y"];
+                # The headline sits above "The numbers", whose tiles go two across.
+                headline = page.locator('[data-testid="kpi-net"]').bounding_box();
+                first = page.locator('[data-testid="kpi-gross"]').bounding_box();
+                second = page.locator('[data-testid="kpi-mpesa"]').bounding_box();
+                assert first["y"] > headline["y"];
+                assert abs(first["y"] - second["y"]) < 2 and second["x"] > first["x"];
             }
             page.context.close();
         }

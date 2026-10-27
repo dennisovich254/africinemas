@@ -218,13 +218,33 @@ test "one venue: everything counts that venue's showtimes and money only" {
 test "by day: net takings on the day taken, tickets on the showtime's day, every day listed" {
     assert _report()["by_day"]
         == [
-            {"day": "2026-10-05", "takings_net_cents": 2790, "tickets_sold": 3},
-            {"day": "2026-10-06", "takings_net_cents": 3900, "tickets_sold": 7}
+            {
+                "day": "2026-10-05",
+                "takings_net_cents": 2790,
+                "snacks_net_cents": 0,
+                "tickets_sold": 3
+            },
+            {
+                "day": "2026-10-06",
+                "takings_net_cents": 3900,
+                "snacks_net_cents": 0,
+                "tickets_sold": 7
+            }
         ] , _report()["by_day"];
     assert _report("mall")["by_day"]
         == [
-            {"day": "2026-10-05", "takings_net_cents": 0, "tickets_sold": 0},
-            {"day": "2026-10-06", "takings_net_cents": 3000, "tickets_sold": 5}
+            {
+                "day": "2026-10-05",
+                "takings_net_cents": 0,
+                "snacks_net_cents": 0,
+                "tickets_sold": 0
+            },
+            {
+                "day": "2026-10-06",
+                "takings_net_cents": 3000,
+                "snacks_net_cents": 0,
+                "tickets_sold": 5
+            }
         ];
     assert sum([d["takings_net_cents"] for d in _report()["by_day"]])
         == _report()["takings"]["net_cents"];
