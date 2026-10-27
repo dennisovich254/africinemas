@@ -347,6 +347,8 @@ import from core.payments.payment_api { start_payment }
 import from core.payments.settlement { my_payment, mpesa_callback, settle_callbacks }  # jac:ignore[W2037]
 # Resolving stuck payments and releasing unpaid orders (P5.5).
 import from core.payments.resolver { resolve_payments, end_my_order }  # jac:ignore[W2037]
+# Back from paying to change the seats, tickets or snacks (owner, 2026-10-27).
+import from core.booking.change_order { change_order }
 # The hold expiry sweeper (P4.4) runs on a schedule; importing it registers the task.
 import from core.booking.sweeper { sweep_holds }  # jac:ignore[W2037]
 # The browser tests' super admin join link (P13.1b.a); does nothing unless they set it.
