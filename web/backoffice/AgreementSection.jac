@@ -2,7 +2,8 @@
 every back-office page until the current version is accepted.
 
 AgreementSection shows the agreement's version, what was accepted (the version, by whom,
-when) and the text. The owner ticks that they've read it and accepts it for the cinema;
+when) and the text, with the box to accept it below the text, so it's read first. The
+owner ticks that they've read it and accepts it for the cinema;
 the version they accept is the one on the page, so a change since they opened it is
 refused. AgreementNotice asks the owner to accept it and tells other staff when sales
 are paused for a new version. Nobody but the cinema's own team sees the text: the
@@ -170,6 +171,7 @@ def:pub AgreementSection(slug: str, cinema: str) -> JsxElement {
                     {note}
                 </p>
             </div>
+            <LegalText text={text_shown["text"]}/>
             {shown["needs_acceptance"]
                 and shown["may_accept"]
                 and <div
@@ -203,6 +205,5 @@ def:pub AgreementSection(slug: str, cinema: str) -> JsxElement {
                 and <p className="text-sm text-muted-foreground">
                     Only your cinema's owner can accept the agreement.
                 </p>}
-            <LegalText text={text_shown["text"]}/>
         </section>;
 }
