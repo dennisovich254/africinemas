@@ -6,7 +6,10 @@ docs/legal/ by scripts/publish_legal.py). Each has a version and the date it app
 from. Version 0.1 was published before the advocate's review (owner, 2026-10-26), so
 every page says it's being reviewed.
 
-legal_document(name) answers anyone: these pages are public.
+legal_document(name) answers anyone for the public ones. The cinema agreement is
+confidential (owner, 2026-10-27): it isn't a public page, and only a signed-in account
+gets it (cinema_agreement), for the owner to read and accept when creating a cinema
+(P15.1).
 """
 
 import os;
@@ -22,6 +25,8 @@ glob VERSION: str = "0.1",
          "cookies": ("Cookies and storage", "cookies.md"),
          "cinema-agreement": ("Cinema agreement", "cinema-agreement.md")
      },
+     # The documents anyone may read.
+     PUBLIC: list[str] = ["terms", "privacy", "cookies"],
      PUBLISHED_DIR: str = os.path.join(
          os.path.dirname(os.path.abspath(__file__)), "published"
      );
@@ -37,10 +42,7 @@ def document_text(name: str) -> str {
     }
 }
 
-def:pub legal_document(name: str) -> dict[str, any] {  # jac:ignore[W1037]
-    if not isinstance(name, str) or name not in DOCUMENTS {
-        return NOT_FOUND;
-    }
+def _document(name: str) -> dict[str, any] {  # jac:ignore[W1037]
     return {
         "ok": True,
         "name": name,
@@ -50,4 +52,16 @@ def:pub legal_document(name: str) -> dict[str, any] {  # jac:ignore[W1037]
         "note": REVIEW_NOTE,
         "text": document_text(name)
     };
+}
+
+def:pub legal_document(name: str) -> dict[str, any] {  # jac:ignore[W1037]
+    if not isinstance(name, str) or name not in PUBLIC {
+        return NOT_FOUND;
+    }
+    return _document(name);
+}
+
+def:protect cinema_agreement -> dict[str, any] {  # jac:ignore[W1037]
+    # The cinema agreement, for a signed-in account only (never a public page).
+    return _document("cinema-agreement");
 }

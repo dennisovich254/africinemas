@@ -235,7 +235,10 @@ import from core.accounts.profile {
     change_my_password  # jac:ignore[W2037]
 }
 # AfriCinemas' legal pages and the registrations checklist (P15.0b).
-import from core.legal.legal_api { legal_document }
+import from core.legal.legal_api {
+    legal_document,
+    cinema_agreement  # jac:ignore[W2037]
+}
 import from core.legal.registrations {
     registrations_checklist,  # jac:ignore[W2037]
     tick_registration  # jac:ignore[W2037]

@@ -12,7 +12,7 @@ read in the official text, taken from a law firm's summary, or still to be confi
 
 | Document | For | Published at | Accepted how |
 |---|---|---|---|
-| [The cinema agreement](cinema-agreement.md), with schedules: 1 the fee, **2 the data processing agreement**, 3 support and service levels, 4 acceptable use | Each cinema (the contract with AfriCinemas) | `africinemas.co.ke/legal/cinema-agreement` | Ticked and accepted in the back office, versioned (P15.1) |
+| [The cinema agreement](cinema-agreement.md), with schedules: 1 the fee, **2 the data processing agreement**, 3 support and service levels, 4 acceptable use | Each cinema (the contract with AfriCinemas) | **Confidential:** not public; shown to the owner when creating a cinema (P15.1) | Ticked and accepted in the back office, versioned (P15.1) |
 | [Terms of use](terms-of-use.md) | Visitors and customers | `africinemas.co.ke/legal/terms`; every footer | Paying or creating an account, with the notice beside the button (P14.3c) |
 | [Privacy policy](privacy-policy.md) | Everyone, for AfriCinemas' own data | `africinemas.co.ke/legal/privacy`; every footer | Read, not accepted |
 | [Cookies and storage](cookies-and-storage.md) | Everyone, for every AfriCinemas site and storefront | `africinemas.co.ke/legal/cookies`; every footer as **Cookies and storage** | Read, not accepted (nothing optional is stored) |
