@@ -4,7 +4,8 @@ Drawn by StorefrontShell inside the footer, whatever the cinema's design: in our
 footer, and appended inside the footer the AI wrote (AiPart's `inside`), so no design
 can leave it out. Who runs the cinema and where, how to reach it (phone, email,
 WhatsApp, support hours), its social media and links to its published policies
-(P14.3b) and public documents, such as its licences (P14.3d). Every link was built
+(P14.3b) and public documents, such as its licences (P14.3d), and AfriCinemas' own
+terms, privacy policy and cookie notice (P15.0b), always. Every link was built
 on the server from what the cinema typed (core/catalog/site_info.jac), never taken as typed.
 
 Two quiet rows: who and where (with the socials), then how to reach it. It takes the
@@ -13,7 +14,7 @@ part of any design. Nothing shows for a cinema that hasn't filled it in.
 """
 
 import from "@hugeicons/react" { HugeiconsIcon }
-import from ..site { local_path }
+import from ..site { local_path, main_origin }
 import from "@hugeicons/core-free-icons" {
     Call02Icon,
     Mail01Icon,
@@ -37,7 +38,12 @@ glob NETWORK_ICONS: dict[str, any] = {  # jac:ignore[W1037]
      },
      LINK: str = "inline-flex min-h-11 items-center gap-2 underline-offset-4 hover:underline",
      # The footer's colour for our links: an AI design's `a` rule would win over a class.
-     INHERIT: dict[str, str] = {"color": "inherit"};
+     INHERIT: dict[str, str] = {"color": "inherit"},
+     LEGAL: list[tuple[str, str]] = [
+         ("terms", "AfriCinemas terms"),
+         ("privacy", "AfriCinemas privacy"),
+         ("cookies", "Cookies and storage")
+     ];
 
 def Reach(icon: any, children: any = None) -> JsxElement {  # jac:ignore[W1037]
     return
@@ -69,6 +75,25 @@ def:pub FooterInfo(
     has_contact = phone or email or whatsapp or hours;
     pages: list[dict[str, str]] = policies or [];
     papers: list[dict[str, str]] = documents or [];
+    # AfriCinemas' own pages (P15.0b), on the main site: in every footer, whatever the
+    # cinema filled in.
+    legal = <ul
+        className="flex flex-wrap items-center gap-x-6"
+        data-testid="info-legal"
+        aria-label="AfriCinemas"
+    >
+        {[
+            <li key={key}>
+                <a
+                    href={f"{main_origin()}/legal/{key}"}
+                    style={INHERIT}
+                    className={LINK}
+                >
+                    {label}
+                </a>
+            </li> for (key, label) in LEGAL
+        ]}
+    </ul>;
     if not (
         name
         or address
@@ -78,7 +103,20 @@ def:pub FooterInfo(
         or len(papers) > 0
         or verified
     ) {
-        return <span className="hidden" data-testid="footer-info"/>;
+        # Only AfriCinemas' own pages, for a cinema that hasn't filled anything in.
+        return
+            <section
+                aria-label="AfriCinemas"
+                data-testid="footer-info"
+                className={"col-span-full flex w-full basis-full flex-col gap-2 text-sm "
+                    + (
+                        "mx-auto max-w-5xl border-t px-4 py-4 text-muted-foreground"
+                            if framed
+                            else "pt-4"
+                    )}
+            >
+                {legal}
+            </section>;
     }
     frame = "mx-auto max-w-5xl border-t px-4 py-6 text-muted-foreground"
         if framed
@@ -225,5 +263,6 @@ def:pub FooterInfo(
                         </li> for d in papers
                     ]}
                 </ul>}
+            {legal}
         </section>;
 }

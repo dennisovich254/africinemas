@@ -41,6 +41,8 @@ import from ..backoffice.PlainLayout { PlainLayout }
 import from .platform_session { platform_sign_out }
 import from .CinemasPages { CinemasList, CinemaDetail }
 import from .PlatformAuditPage { PlatformAuditPage }
+import from .RegistrationsPage { RegistrationsPage }
+import from .FeesPage { FeesPage }
 import from .OverviewFigures { OverviewFigures }
 import from .SupportPages { SupportInbox, SupportRequestPage }
 import from ..support.live { use_open_requests }
@@ -514,6 +516,16 @@ def:pub PlatformConsole -> JsxElement {
     if may(shown, "platform.audit") {
         nav.append({"label": "Audit log", "to": "/audit", "key": "audit"});
     }
+    # The fee rule (P15.1): platform staff read it; super admins add versions.
+    if may(shown, "platform.read") {
+        nav.append({"label": "Fees", "to": "/fees", "key": "fees"});
+    }
+    # What we register outside the app before going live (P15.0b): super admins.
+    if may(shown, "platform.settings") {
+        nav.append(
+            {"label": "Registrations", "to": "/registrations", "key": "registrations"}
+        );
+    }
     # Only Cinemas, Reviews and Support have pages under them (/cinemas/<slug>,
     # /reviews/<slug>, /support/<id>).
     allowed = section in [n["key"] for n in nav]
@@ -552,7 +564,12 @@ def:pub PlatformConsole -> JsxElement {
                     and item
                     and <ReviewPage key={item} slug={item}/>}{section == "audit"
                     and allowed
-                    and <PlatformAuditPage/>}{section == "support"
+                    and <PlatformAuditPage/>}{section == "registrations"
+                    and allowed
+                    and <RegistrationsPage/>}{section == "fees"
+                    and allowed
+                    and <FeesPage may_change={may(shown, "platform.settings")}/>}{section
+                    == "support"
                     and allowed
                     and not item
                     and <SupportInbox/>}{section == "support"

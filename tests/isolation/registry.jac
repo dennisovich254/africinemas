@@ -48,6 +48,22 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"token": "made-up-token"}
          },
+         # The caller's own name and password (P12.15).
+         "my_profile": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {"sign_in": "owner@example.com"}
+         },
+         "save_my_name": {"scope": "caller", "audit": "", "probe": {"name": "Probe"}},
+         "change_my_password": {
+             "scope": "caller",
+             "audit": "",
+             "probe": {
+                 "sign_in": "owner@example.com",
+                 "current_password": "wrong-password",
+                 "new_password": "Another-passw0rd"
+             }
+         },
          "email_status": {
              "scope": "caller",
              "audit": "",
@@ -173,6 +189,43 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"email": "probe@example.com"}
          },
+         # The fee rule (P15.1): platform staff read it, super admins set it.
+         "fee_rules": {"scope": "platform", "audit": ""},
+         "set_fee_rule": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {
+                 "online_ticket_percent": 7,
+                 "online_snack_percent": 20,
+                 "counter_percent": 3,
+                 "applies_from": "2099-01-01"
+             }
+         },
+         # The cinema agreement (P15.1): any member reads its status; the owner accepts.
+         "cinema_agreement_status": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "cinema_agreement_text": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "accept_cinema_agreement": {
+             "scope": "tenant",
+             "audit": "cinema.agreement_accepted",
+             "probe": {"tenant": "{tenant}", "version": "0.1"}
+         },
+         # The registrations checklist (P15.0b): super admins only.
+         "registrations_checklist": {"scope": "platform", "audit": ""},
+         "tick_registration": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"key": "domain", "done": True, "reference": "probe"}
+         },
+         # AfriCinemas' legal pages (P15.0b): public.
+         "legal_document": {"scope": "public", "audit": "", "probe": {"name": "terms"}},
          "check_slug": {"scope": "caller", "audit": "", "probe": {"slug": "free-name"}},
          "my_access": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
          # The cinema's public information (P14.3a): its staff who change settings.
@@ -670,6 +723,21 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "variants": []
              }
          },
+         "configure_3d_glasses": {
+             "scope": "tenant",
+             "audit": "snack_glasses.configured",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "venue_id": "x",
+                 "sold": False,
+                 "price_cents": 0
+             }
+         },
+         "list_3d_glasses": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
          "publish_snack_product": {
              "scope": "tenant",
              "audit": "snack_product.published",
@@ -719,6 +787,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "movie_id": "x",
                  "starts_at": "2030-01-01T18:00:00+00:00"
              }
+         },
+         "set_screening_format": {
+             "scope": "tenant",
+             "audit": "showtime.format_changed",
+             "probe": {"tenant": "{tenant}", "screening_id": "x", "format": "3D"}
          },
          "list_screenings": {
              "scope": "tenant",
@@ -1254,6 +1327,16 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "email": "probe@example.com",
                  "idempotency_key": "probe-key-xxxxxxxxxxxxxxxx"
              }
+         },
+         "more_snacks": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "token": "probetokenxxxxxxxxxxxxxxxx"}
+         },
+         "counter_more_snacks": {
+             "scope": "tenant",
+             "audit": "sale.extra_snacks",
+             "probe": {"tenant": "{tenant}", "reference": "UNKNOWN", "action": "place"}
          },
          "tickets_by_link": {
              "scope": "storefront",

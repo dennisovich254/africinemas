@@ -42,7 +42,10 @@ node Order {
         hold_id: str,
         idempotency_key: str,
         reference: str,
+        # P12.14: a separately paid snack batch linked to the original booking.
+        booking_id: str = "",
         request: list[list[str]] = [],
+        format: str = "2D",
         status: str = "pending_payment",
         currency: str = "",
         price_list_version: int = 0,
@@ -59,6 +62,7 @@ node Order {
         snack_request: str = "",
         snack_venue_id: str = "",
         snack_stock: list[dict[str, any]] = [],  # jac:ignore[W1037]
+        glasses_seats: list[str] = [],
         pickup_reference: str = "",
         pickup_qr: str = "",
         snacks_collected_at: str = "",
@@ -77,6 +81,8 @@ node Ticket {
         ticket_type: str,
         ticket_name: str,
         reference: str,
+        format: str = "2D",
+        glasses_bought: bool = False,
         qr: str = "",
         status: str = "issued",
         issued_at: str = "",

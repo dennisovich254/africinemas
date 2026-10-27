@@ -49,6 +49,7 @@ import from .SnackProductEditor { SnackProductEditor }
 import from .SnackCategoriesPage { SnackCategoriesPage }
 import from .SnackExtrasPage { SnackExtrasPage }
 import from .SnackStockPage { SnackStockPage }
+import from .SnackGlassesPage { SnackGlassesPage }
 import from .SnackImportPage { SnackImportPage }
 import from .StaffSection { StaffSection }
 import from .ReportsSection { ReportsSection }
@@ -62,6 +63,8 @@ import from .DocumentsSection { DocumentsSection }
 import from .VerificationSection { VerificationSection }
 import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
+import from .ProfileSection { ProfileSection }
+import from .AgreementSection { AgreementSection, AgreementNotice }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
@@ -349,7 +352,11 @@ def:pub BackOffice -> JsxElement {
     } elif section == "snacks" and item {
         title = "Snack categories"
             if item == "categories"
-            else ("New product" if item == "new" else "Snack product");
+            else (
+                "3D glasses"
+                    if item == "glasses"
+                    else ("New product" if item == "new" else "Snack product")
+            );
     }
     content: any = None;  # jac:ignore[W1037]
     if not allowed {
@@ -394,6 +401,8 @@ def:pub BackOffice -> JsxElement {
         content = <SnackImportPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "stock" {
         content = <SnackStockPage slug={slug} permissions={permissions}/>;
+    } elif section == "snacks" and item == "glasses" {
+        content = <SnackGlassesPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "extras" {
         content = <SnackExtrasPage slug={slug} permissions={permissions}/>;
     } elif section == "snacks" and item == "categories" {
@@ -420,6 +429,10 @@ def:pub BackOffice -> JsxElement {
         content = <VerificationSection slug={slug}/>;
     } elif section == "help" {
         content = <HelpSection slug={slug} shift_open={shift_open} item={item}/>;
+    } elif section == "profile" {
+        content = <ProfileSection slug={slug}/>;
+    } elif section == "agreement" {
+        content = <AgreementSection slug={slug} cinema={me["name"]}/>;
     } elif section == "settings" {
         content = <SettingsPage
             slug={slug}
@@ -446,6 +459,7 @@ def:pub BackOffice -> JsxElement {
                     and <p className="-mt-3 text-sm text-muted-foreground">
                         {web_address(slug)}
                     </p>}
+                {allowed and <AgreementNotice slug={slug} section={section}/>}
                 {not shift_open
                     and allowed
                     and <ShiftBanner

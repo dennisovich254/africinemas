@@ -6,6 +6,8 @@ per phone number) and the payments stored for a showtime. Run with
 AFRICINEMAS_PAYMENTS=simulator.
 """
 
+import from core.booking.more_snacks_api { more_snacks, counter_more_snacks }  # jac:ignore[W2037]
+
 import json;
 
 import from core.tenancy.signup { create_cinema }  # jac:ignore[W2037]
@@ -121,6 +123,7 @@ import from core.snacks.product_api {
     remove_snack_image  # jac:ignore[W2037]
 }
 import from core.snacks.menu_api { public_snacks, price_snacks, public_snack_image }
+import from core.snacks.glasses_api { configure_3d_glasses, list_3d_glasses }
 import from core.snacks.pickup_api { snack_pickup, hand_over_snacks }  # jac:ignore[W2037]
 # The platform's own audit log, and its sign-ins (P13.3).
 import from core.platform.audit_api {
@@ -225,6 +228,27 @@ import from core.booking.snack_sale {
     sell_snacks_with_mpesa,  # jac:ignore[W2037]
     counter_snack_payment  # jac:ignore[W2037]
 }
+# The signed-in person's own name and password (P12.15).
+import from core.accounts.profile {
+    my_profile,  # jac:ignore[W2037]
+    save_my_name,  # jac:ignore[W2037]
+    change_my_password  # jac:ignore[W2037]
+}
+# AfriCinemas' legal pages and the registrations checklist (P15.0b).
+import from core.legal.legal_api { legal_document }
+import from core.legal.fee_rule {
+    fee_rules,  # jac:ignore[W2037]
+    set_fee_rule  # jac:ignore[W2037]
+}
+import from core.legal.agreement_api {
+    cinema_agreement_status,  # jac:ignore[W2037]
+    cinema_agreement_text,  # jac:ignore[W2037]
+    accept_cinema_agreement  # jac:ignore[W2037]
+}
+import from core.legal.registrations {
+    registrations_checklist,  # jac:ignore[W2037]
+    tick_registration  # jac:ignore[W2037]
+}
 # Deleting personal files once they're no longer needed (P14.5b).
 import from core.tenancy.retention { delete_due_files }  # jac:ignore[W2037]
 # Verifying the owner and the business before going public (P14.4).
@@ -268,7 +292,13 @@ import from core.platform.staff_api {
     remove_platform_staff  # jac:ignore[W2037]
 }
 import from core.catalog.layout_api { save_layout, publish_layout }  # jac:ignore[W2037]
-import from core.catalog.movie_api { create_movie, upload_poster, set_trailer }  # jac:ignore[W2037]
+import from core.catalog.movie_api {
+    create_movie,
+    list_movies,
+    update_movie,
+    upload_poster,
+    set_trailer
+}  # jac:ignore[W2037]
 import from core.mcp.server { mcp, cinema_mcp }  # jac:ignore[W2037]
 import from core.oauth.provider {
     oauth_server_metadata,
@@ -281,6 +311,8 @@ import from core.oauth.provider {
 }  # jac:ignore[W2037]
 import from core.catalog.screening_api {
     create_screening,  # jac:ignore[W2037]
+    get_screening,  # jac:ignore[W2037]
+    set_screening_format,  # jac:ignore[W2037]
     schedule_screening,  # jac:ignore[W2037]
     publish_screening  # jac:ignore[W2037]
 }
@@ -864,6 +896,15 @@ import from core.platform.accounts { join_link, SETUP_TTL_S }
 
 def:pub t_platform_setup_link(email: str) -> str {
     return join_link(email, SETUP_TTL_S);
+}
+
+# Test-only: as if a new version of the cinema agreement had been published (P15.1);
+# "" goes back to the real one.
+import from core.legal.agreement { set_current_version }
+
+def:pub t_agreement_version(version: str) -> str {
+    set_current_version(version);
+    return version;
 }
 
 # For the storefront tests that run here, so cinemas can go live (P14.1).

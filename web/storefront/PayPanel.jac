@@ -27,7 +27,7 @@ glob WAITING: list[str] = ["created", "stk_requested", "timeout", "unknown"],
      RETRYABLE: list[str] = ["failed", "cancelled"],
      POLL_MS: int = 3000;
 
-def:pub TicketCard(ticket: dict[str, str]) -> JsxElement {
+def:pub TicketCard(ticket: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     # One ticket: its seat, the QR code the door scans (P6.1) and the reference under
     # it, for reading out or typing in when a scan fails. The code is always dark on a
     # white tile with a margin, in either theme, so scanners read it. A ticket issued
@@ -39,8 +39,19 @@ def:pub TicketCard(ticket: dict[str, str]) -> JsxElement {
             className="flex flex-col items-center gap-3 rounded-lg border p-4"
         >
             <p className="self-start font-medium">
-                {f"Seat {ticket['seat_label']} · {ticket['ticket_name']}"}
+                {f"Seat {ticket['seat_label']} · {ticket['ticket_name']} · {ticket.get(
+                    'format', '2D'
+                )}"}
             </p>
+            {ticket.get("format") == "3D"
+                and <p
+                    data-testid="ticket-glasses"
+                    className="self-start text-sm text-muted-foreground"
+                >
+                    {"3D glasses: bought"
+                        if ticket.get("glasses_bought")
+                        else "3D glasses: bring your own"}
+                </p>}
             {len(qr) > 0
                 and <div className="rounded-md bg-white p-2">
                     <QRCodeSVG  # jac:ignore[W1051]
@@ -69,7 +80,8 @@ def:pub TicketCard(ticket: dict[str, str]) -> JsxElement {
 
 def:pub PickupCard(
     snacks: list[dict[str, any]],  # jac:ignore[W1037]
-    pickup: any  # jac:ignore[W1037] {reference, qr}, or None before 12.9's codes
+    pickup: any,  # jac:ignore[W1037] {reference, qr}, or None before 12.9's codes
+    note: str = ""
 ) -> JsxElement {
     # The snacks bought with the tickets and their pickup code (P12.9): the QR the snack
     # counter scans, dark on white in either theme like a ticket's, and the reference to
@@ -117,16 +129,19 @@ def:pub PickupCard(
                     </p>
                 </div>}
             <p className="text-xs text-muted-foreground">
-                {"Show this code at the snack counter, from two hours before the showtime."
-                    if len(qr) > 0
-                    else "Collect them at the snack counter with your ticket."}
+                {note
+                    or (
+                        "Show this code at the snack counter, from two hours before the showtime."
+                            if len(qr) > 0
+                            else "Collect them at the snack counter with your ticket."
+                    )}
             </p>
         </div>;
 }
 
 def:pub Tickets(payment: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
     # A paid order's tickets: one card per seat, with its QR code and reference.
-    tickets: list[dict[str, str]] = payment["tickets"];
+    tickets: list[dict[str, any]] = payment["tickets"];  # jac:ignore[W1037]
     snacks: list[dict[str, any]] = payment["snacks"] or [];  # jac:ignore[W1037]
     link: str = payment["link"] or "";
     return

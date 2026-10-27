@@ -3,7 +3,7 @@ cinema's day, in its own time zone."""
 
 import from datetime { datetime, timezone }
 import from core.catalog.models { StorefrontScreening }
-import from core.catalog.storefront { not_started, on_day, by_cinema_day }
+import from core.catalog.storefront { not_started, on_day, by_cinema_day, showtime }
 
 def _entry(screening_id: str, starts_at: str) -> StorefrontScreening {
     return StorefrontScreening(
@@ -55,4 +55,14 @@ test "showtimes group by the cinema's calendar day, for the next seven days" {
     assert [(d, [e.screening_id for e in group]) for (d, group) in days]
         == [("2026-10-03", ["a"]), ("2026-10-04", ["b", "c"]), ("2026-10-09", ["d"])];
     assert by_cinema_day([], at, "Africa/Nairobi", 7) == [];
+}
+
+
+test "compact showtimes preserve the screening format independently of the movie" {
+    shown = _entry("three-d", "2026-10-03T21:00:00+00:00");
+    shown.movie = {"format": "2D"};
+    shown.format = "3D";
+    assert showtime(shown)["format"] == "3D";
+    shown.format = "2D";
+    assert showtime(shown)["format"] == "2D";
 }

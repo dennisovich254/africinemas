@@ -25,7 +25,7 @@ glob SUFFIX: str = ".africinemas.co.ke",
          ("prices", "Prices", "tenant.settings.update"),
          ("box-office", "Box office", "bookings.create"),
          # The snack catalog (P12): managers build it; the box office reads it here.
-         ("snacks", "Snacks", "concessions.read"),
+         ("snacks", "Snacks & glasses", "concessions.read"),
          ("scanner", "Scanner", "tickets.scan"),
          # Handing over snacks bought with tickets, by their pickup code (P12.9).
          ("snack-counter", "Snack counter", "concessions.collect"),
@@ -34,9 +34,13 @@ glob SUFFIX: str = ".africinemas.co.ke",
          ("audit", "Audit log", "audit.read"),
          # Verifying the owner and the business (P14.4): the owner alone.
          ("verification", "Verification", "tenant.verification"),
+         # Reading and accepting the cinema agreement (P15.1): the owner alone.
+         ("agreement", "Cinema agreement", "tenant.verification"),
          ("settings", "Settings", "tenant.settings.update"),
          # Asking AfriCinemas for technical help (P13.5a).
-         ("help", "Help", "support.request")
+         ("help", "Help", "support.request"),
+         # Everyone's own name and password (P12.15).
+         ("profile", "Your profile", "")
      ];
 
 def:pub web_address(slug: str) -> str {

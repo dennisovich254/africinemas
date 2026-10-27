@@ -20,6 +20,7 @@ import from e2e.support.web {
 }
 import from e2e.support.api { add_staff, call, PASSWORD }
 import from e2e.support.catalog { cinema_selling_tickets }
+import from e2e.support.snacks { with_snacks, made_by }
 
 glob SALE: str = "KES 1,660";
 
@@ -243,6 +244,101 @@ test "review screenshots of Reports and the audit log" {
                 page.screenshot(
                     path=artifact(f"audit-{project}-{scheme}.png"), full_page=True
                 );
+                page.context.close();
+            }
+        }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+
+test "snack reports show paid totals, rankings and current stock on phone and desktop" {
+    (pw, browser) = shared_browser();
+    try {
+        owner = with_snacks();
+        kiosk = made_by(
+            owner,
+            "create_venue",
+            {"name": "Snack kiosk", "city": "Nairobi", "address": ""}
+        )["venue"]["venue_id"];
+        for (venue, size) in [(owner["venue"], "Large"), (kiosk, "Small")] {
+            menu = made_by(owner, "counter_snack_menu", {"venue_id": venue})[
+                "categories"
+            ];
+            popcorn = [
+                p for c in menu
+                for p in c["products"]
+                if p["name"] == "Popcorn"
+            ][0];
+            variant = [
+                v
+                for v in popcorn["variants"]
+                if v["option_values"] == [size]
+            ][0];
+            holder = f"counter-{uuid.uuid4().hex}";
+            made_by(
+                owner,
+                "place_snack_order",
+                {
+                    "venue_id": venue,
+                    "holder": holder,
+                    "idempotency_key": f"snack-{uuid.uuid4().hex}",
+                    "snacks": [{"variant_id": variant["variant_id"], "quantity": 1}]
+                }
+            );
+            made_by(
+                owner, "sell_snacks_for_cash", {"venue_id": venue, "holder": holder}
+            );
+        }
+        for project in PROJECTS {
+            for scheme in ["light", "dark"] {
+                page = browser.new_context(
+                    **context_options(pw, project, scheme), reduced_motion="reduce"
+                ).new_page();
+                _sign_in(page, owner["email"]);
+                page.goto(f"{BASE_URL}/app/{owner['slug']}/reports");
+                _wait_text(page, "kpi-net", "KES 600");
+                assert _text(page, "kpi-snack-net") == "KES 600";
+                assert _text(page, "kpi-ticket-net") == "KES 0";
+                assert "2 units sold" in _text(page, "snack-sales-summary");
+                assert "KES 600" in _text(page, "top-snack-products");
+                assert "Large" in _text(page, "top-snack-variants");
+                assert "Small" in _text(page, "top-snack-variants");
+                assert "Coca-Cola" in _text(page, "snack-low-stock");
+                assert "Out of stock" in _text(page, "snack-low-stock");
+                assert _no_side_scroll(page);
+                assert page.locator("#report-venue").bounding_box()["height"] >= 44;
+                page.screenshot(
+                    path=artifact(f"snack-reports-{project}-{scheme}.png"),
+                    full_page=True
+                );
+                if project == "mobile" {
+                    for width in [375, 768] {
+                        page.set_viewport_size({"width": width, "height": 900});
+                        assert _no_side_scroll(page) , f"reports overflow at {width}px";
+                        assert page.locator("#report-venue").bounding_box()["height"]
+                            >= 44;
+                        page.screenshot(
+                            path=artifact(f"snack-reports-{width}-{scheme}.png"),
+                            full_page=True
+                        );
+                    }
+                    page.set_viewport_size({"width": 412, "height": 915});
+                }
+                page.select_option("#report-venue", kiosk);
+                _wait_text(page, "kpi-net", "KES 200");
+                assert _text(page, "kpi-snack-net") == "KES 200";
+                assert "Large" not in _text(page, "top-snack-variants");
+                assert "Snack kiosk" in _text(page, "snack-low-stock");
+                _press(page, project, '[data-testid="preset-custom"]');
+                _type(page, "#report-from", "2020-01-01");
+                _type(page, "#report-to", "2020-01-01");
+                _press(page, project, '[data-testid="custom-show"]');
+                _wait_text(page, "kpi-net", "KES 0");
+                assert "No snacks sold" in _text(page, "top-snack-products");
+                assert "Out of stock" in _text(page, "snack-low-stock");
+                assert _no_side_scroll(page);
                 page.context.close();
             }
         }

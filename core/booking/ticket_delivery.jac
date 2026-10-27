@@ -18,6 +18,12 @@ the ticket email and resending it.
 """
 
 import os;
+import from core.clock { now }
+import from core.booking.snack_additions {
+    snack_batches,
+    snack_lines_of,
+    addition_allowed
+}
 import math;
 import from core.site { storefront_address }
 import from core.claims { claim, release, make_permanent, claims_in, holder }
@@ -130,7 +136,16 @@ def booking_view(cinema: Tenant, order: Order) -> dict[str, any] {  # jac:ignore
     (venue, screen) = _place(cinema, screening.venue_id, screening.auditorium_id)
         if screening is not None
         else ("", "");
+    batches = snack_batches(cinema, order);
     return {
+        "can_add_snacks": bool(order.lines)
+            and not order.booking_id
+            and addition_allowed(
+                order.status,
+                screening.starts_at if screening is not None else "",
+                now(),
+                screening.state if screening is not None else ""
+            ),
         "reference": order.reference,
         "movie_title": movie.title if movie is not None else "",
         "starts_at": screening.starts_at if screening is not None else "",
@@ -142,16 +157,20 @@ def booking_view(cinema: Tenant, order: Order) -> dict[str, any] {  # jac:ignore
         # gives them.
         "snacks": [
             {"name": l["name"], "quantity": l["quantity"], "addons": l["addons"]}
-            for l in order.snack_lines
+            for l in snack_lines_of(batches)
+            if not l.get("purpose")
         ],
         "pickup": {"reference": order.pickup_reference, "qr": order.pickup_qr}
             if order.pickup_reference
             else None,
-        "snacks_collected": bool(order.snacks_collected_at),
+        "snacks_collected": bool(batches)
+            and all(bool(o.snacks_collected_at) for o in batches),
         "tickets": [
             {
                 "seat_label": t.seat_label,
                 "ticket_name": t.ticket_name,
+                "format": t.format,
+                "glasses_bought": t.glasses_bought,
                 "reference": t.reference,
                 "qr": t.qr,
                 "status": t.status
@@ -197,7 +216,9 @@ def _mail_for(cinema: Tenant, order: Order, address: str) -> TicketMail {
                 seat_label=t["seat_label"],
                 ticket_name=t["ticket_name"],
                 reference=t["reference"],
-                qr=t["qr"]
+                qr=t["qr"],
+                format=t["format"],
+                glasses_bought=t["glasses_bought"]
             ) for t in view["tickets"]
         ]
     );

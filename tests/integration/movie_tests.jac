@@ -97,6 +97,7 @@ test "an owner creates, lists, edits and deletes movies, and they persist" {
                 "age_rating": "18",
                 "genres": ["Drama", "Romance"],
                 "language": "English, Swahili",
+                "format": "2D",
                 "has_poster": False,
                 "has_backdrop": False,
                 "release_date": "",

@@ -12,15 +12,17 @@ owners; a venue-limited role only at its venues):
   checked: invalid_code (not a code this server made, nor a reference), ticket_code (a
   ticket's, which is scanned at the door), unknown_pickup (no such pickup here; another
   cinema's gets the same answer), not_paid, too_early (pickup opens PICKUP_OPENS_MINUTES
-  before the showtime starts), showtime_over (it closes when the showtime ends) and
+  before the showtime starts, except a sale taken by staff at the counter can be handed
+  over immediately), showtime_over (it closes when the showtime ends) and
   already_collected (with when, and who handed them over).
 
-One handover per order, however many counters race: the order is claimed (COLLECTED,
+One handover per paid batch (P12.14), however many counters race: each batch is claimed (COLLECTED,
 an atomic claim, ADR-0007) before it is marked collected, and the claim is released if
 saving fails, as at the door (core/booking/redeem_api.jac).
 """
 
 import from datetime { datetime, timedelta }
+import hashlib;
 import from core.clock { now }
 import from core.claims { claim, release, holder }
 import from core.authz.policy { Resource, require }
@@ -37,6 +39,7 @@ import from core.catalog.models { Screening }
 import from core.catalog.venues { find_screening, find_movie, find_venue }
 import from core.catalog.storefront_api { cinema_timezone }
 import from core.booking.models { Order }
+import from core.booking.snack_additions { snack_batches, snack_lines_of }
 import from core.booking.ticket_codes {
     REFS,
     VERSION,
@@ -46,6 +49,7 @@ import from core.booking.ticket_codes {
     typed_reference
 }
 import from core.booking.redeem_api { staff_name }
+import from core.payments.ledger { LedgerEntry }
 import from core.audit.log { audited }
 
 glob COLLECT: str = "concessions.collect",
@@ -114,6 +118,40 @@ def _walk_in_open(order: Order, at: datetime) -> bool {
         < timedelta(hours=WALK_IN_HOURS);
 }
 
+def _sold_at_counter(scope: TenantScope, order: Order) -> bool {
+    # Counter cash and M-Pesa payments record the staff member who took the sale.
+    # Those snacks are already in front of the customer, so they can be handed over
+    # immediately instead of waiting for the public showtime pickup window.
+    batches = snack_batches(scope.tenant, order);
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        found = any(
+            [
+                e.kind == "payment" and bool(e.recorded_by) for batch in batches
+                for e in [batch-->[?:LedgerEntry]]
+            ]
+        );
+    } finally {
+        restore(me);
+    }
+    return found;
+}
+
+def collection_token(batches: list[Order]) -> str {
+    return hashlib.sha256(
+        "|".join(
+            sorted(
+                [
+                    node_id(o)
+                    for o in batches
+                    if not o.snacks_collected_at
+                ]
+            )
+        ).encode()
+    ).hexdigest();
+}
+
 def _view(
     scope: TenantScope, order: Order, screening: Screening | None
 ) -> dict[str, any] {  # jac:ignore[W1037]
@@ -129,12 +167,22 @@ def _view(
         window = "open" if _walk_in_open(order, at) else "over";
     } elif screening is None or at >= datetime.fromisoformat(screening.ends_at) {
         window = "over";
-    } elif at < opens_at(screening) {
+    } elif not _sold_at_counter(scope, order) and at < opens_at(screening) {
         window = "early";
     }
+    batches = snack_batches(scope.tenant, order);
+    waiting = [
+        o
+        for o in batches
+        if not o.snacks_collected_at
+    ];
+    last = max(batches, key=lambda (o: Order) -> str { return o.snacks_collected_at; })
+        if batches
+        else order;
     return {
         "reference": order.pickup_reference,
         "order_reference": order.reference,
+        "collection_token": collection_token(batches),
         "paid": order.status == "confirmed",
         "movie_title": movie.title if movie is not None else "",
         "starts_at": screening.starts_at if screening is not None else "",
@@ -148,11 +196,25 @@ def _view(
                 "quantity": l["quantity"],
                 "addons": [a["name"] for a in l.get("addons", [])],
                 "choices": [c["name"] for c in l.get("choices", [])]
-            } for l in order.snack_lines
+            }
+            for l in snack_lines_of(waiting if waiting else batches)
+            if not l.get("purpose")
         ],
-        "collected_at": order.snacks_collected_at,
-        "collected_by": staff_name(scope.tenant, order.snacks_collected_by)
-            if order.snacks_collected_by
+        "collected_snacks": [
+            {"name": l["name"], "quantity": l["quantity"]}
+            for l in snack_lines_of(
+                [
+                    o
+                    for o in batches
+                    if o.snacks_collected_at
+                ]
+            )
+        ]
+            if waiting
+            else [],
+        "collected_at": "" if waiting else last.snacks_collected_at,
+        "collected_by": staff_name(scope.tenant, last.snacks_collected_by)
+            if not waiting and last.snacks_collected_by
             else ""
     };
 }
@@ -183,7 +245,7 @@ def _snack_pickup(tenant: str, code: str) -> dict[str, any] {  # jac:ignore[W103
     return {"ok": True, "pickup": _view(scope, order, screening)};
 }
 
-def _hand_over(tenant: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
+def _hand_over(tenant: str, code: str, expected: str = "") -> dict[str, any] {  # jac:ignore[W1037]
     (scope, order, screening) = _found(tenant, code);
     if order.status != "confirmed" {
         raise Refused("not_paid", "This order isn't paid.");
@@ -196,32 +258,64 @@ def _hand_over(tenant: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
         }
     } elif screening is None or at >= datetime.fromisoformat(screening.ends_at) {
         raise Refused("showtime_over", "This showtime has ended.");
-    } elif at < opens_at(screening) {
+    } elif not _sold_at_counter(scope, order) and at < opens_at(screening) {
         raise Refused(
             "too_early",
             "Snacks for this showtime can't be collected yet.",
             {"opens_at": opens_at(screening).isoformat()}
         );
     }
-    if order.snacks_collected_at {
-        raise _collected(scope, order.snacks_collected_at, order.snacks_collected_by);
+    batches = snack_batches(scope.tenant, order);
+    waiting = sorted(
+        [
+            o
+            for o in batches
+            if not o.snacks_collected_at
+        ],
+        key=lambda (o: Order) -> str { return node_id(o); }
+    );
+    if not waiting {
+        last = max(
+            batches, key=lambda (o: Order) -> str { return o.snacks_collected_at; }
+        )
+            if batches
+            else order;
+        raise _collected(scope, last.snacks_collected_at, last.snacks_collected_by);
+    }
+    if expected and expected != collection_token(waiting) {
+        raise Refused(
+            "pickup_changed",
+            "The snacks have changed. Look up this code again before handing them over."
+        );
     }
     member = scope.ctx.member_root_id;
     stamp = at.isoformat();
     mine = f"{member}|{stamp}|{fresh_node_id()}";
-    won = claim(COLLECTED, node_id(order), mine);
-    if won != mine {
-        (giver, _, rest) = won.partition("|");
-        raise _collected(scope, rest.partition("|")[0], giver);
+    claimed: list[str] = [];
+    for batch in waiting {
+        batch_id = node_id(batch);
+        won = claim(COLLECTED, batch_id, mine);
+        if won != mine {
+            for taken in claimed {
+                release(COLLECTED, taken, mine);
+            }
+            (giver, _, rest) = won.partition("|");
+            raise _collected(scope, rest.partition("|")[0], giver);
+        }
+        claimed.append(batch_id);
     }
     me = node_id(root);
     act_as(scope.tenant.principal_root_id);
     try {
-        order.snacks_collected_at = stamp;
-        order.snacks_collected_by = member;
+        for batch in waiting {
+            batch.snacks_collected_at = stamp;
+            batch.snacks_collected_by = member;
+        }
         commit_now();
     } except Exception as e {
-        release(COLLECTED, node_id(order), mine);
+        for taken in claimed {
+            release(COLLECTED, taken, mine);
+        }
         raise e;
     } finally {
         restore(me);
@@ -233,16 +327,18 @@ def:protect snack_pickup(tenant: str, code: str) -> dict[str, any] {  # jac:igno
     return answer(lambda -> any { return _snack_pickup(tenant, code); });  # jac:ignore[W1037]
 }
 
-def _do_hand_over(tenant: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return answer(lambda -> any { return _hand_over(tenant, code); });  # jac:ignore[W1037]
+def _do_hand_over(tenant: str, code: str, expected: str = "") -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _hand_over(tenant, code, expected); });  # jac:ignore[W1037]
 }
 
-def:protect hand_over_snacks(tenant: str, code: str) -> dict[str, any] {  # jac:ignore[W1037]
+def:protect hand_over_snacks(
+    tenant: str, code: str, expected: str = ""
+) -> dict[str, any] {  # jac:ignore[W1037]
     return audited(
         tenant,
         "snacks.handed_over",
         "order",
         "",
-        lambda -> any { return _do_hand_over(tenant, code); }  # jac:ignore[W1037]
+        lambda -> any { return _do_hand_over(tenant, code, expected); }  # jac:ignore[W1037]
     );
 }

@@ -55,13 +55,23 @@ def BookingRow(booking: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                             )}
                     </p>}
             </div>
-            <AppLink
-                to={booking["link"]}
-                testid="open-saved-booking"
-                className="inline-flex min-h-11 w-fit items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
-            >
-                {"Open tickets and snacks" if len(snacks) > 0 else "Open tickets"}
-            </AppLink>
+            <div className="flex flex-wrap gap-2">
+                {booking["can_add_snacks"]
+                    and <AppLink
+                        to={booking["link"] + "#more-snacks"}
+                        testid="saved-add-snacks"
+                        className="inline-flex min-h-11 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
+                    >
+                        Add snacks
+                    </AppLink>}
+                <AppLink
+                    to={booking["link"]}
+                    testid="open-saved-booking"
+                    className="inline-flex min-h-11 w-fit items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
+                >
+                    {"Open tickets and snacks" if len(snacks) > 0 else "Open tickets"}
+                </AppLink>
+            </div>
         </li>;
 }
 

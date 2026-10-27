@@ -24,6 +24,7 @@ waiting for the job.
 """
 
 import os;
+import from datetime { datetime }
 import re;
 import json;
 import from http { HTTPMethod }
@@ -42,6 +43,8 @@ import from core.tenancy.principal {
 }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.models { Screening }
+import from core.catalog.storefront { PUBLIC_STATES }
+import from core.catalog.venues { find_screening }
 import from core.booking.models { Order, Ticket }
 import from core.booking.confirm { Takings, confirm_order }
 import from core.booking.ticket_delivery { link_path }
@@ -299,6 +302,15 @@ def settle(cinema: Tenant, intent: PaymentIntent, provider: PaymentProvider) -> 
         _attention(cinema, intent, "late_success", filed, True);
         return intent.state;
     }
+    if order.booking_id {
+        screening = find_screening(cinema, order.screening_id);
+        if screening is None
+            or screening.state not in PUBLIC_STATES
+            or now() >= datetime.fromisoformat(screening.starts_at) {
+            _attention(cinema, intent, "showtime_started", filed, True);
+            return intent.state;
+        }
+    }
     if filed is not None and paid != intent.amount_cents {
         _attention(cinema, intent, "amount_mismatch", filed, True);
         return intent.state;
@@ -378,7 +390,7 @@ def _latest_order(cinema: Tenant, screening: Screening, holder: str) -> Order | 
     return found[-1] if found else None;
 }
 
-def _tickets(cinema: Tenant, order: Order) -> list[dict[str, str]] {
+def _tickets(cinema: Tenant, order: Order) -> list[dict[str, any]] {  # jac:ignore[W1037]
     me = node_id(root);
     act_as(cinema.principal_root_id);
     try {
@@ -386,6 +398,8 @@ def _tickets(cinema: Tenant, order: Order) -> list[dict[str, str]] {
             {
                 "seat_label": t.seat_label,
                 "ticket_name": t.ticket_name,
+                "format": t.format,
+                "glasses_bought": t.glasses_bought,
                 "reference": t.reference,
                 "qr": t.qr,
                 "status": t.status
@@ -395,7 +409,8 @@ def _tickets(cinema: Tenant, order: Order) -> list[dict[str, str]] {
         restore(me);
     }
     return sorted(
-        found, key=lambda (t: dict[str, str]) -> str { return t["seat_label"]; }
+        found,
+        key=lambda (t: dict[str, any]) -> str { return t["seat_label"]; }  # jac:ignore[W1037]
     );  # jac:ignore[W1037]
 }
 
@@ -429,6 +444,7 @@ def _my_payment(slug: str, screening_id: str, holder: str) -> dict[str, any] {  
     view["snacks"] = [
         {"name": l["name"], "quantity": l["quantity"], "addons": l["addons"]}
         for l in order.snack_lines
+        if not l.get("purpose")
     ]
         if paid
         else [];

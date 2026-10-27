@@ -227,6 +227,8 @@ def _sell_for_cash(
             "currency": order.currency,
             "reference": order.reference,
             "tickets": view["tickets"],
+            "snacks": view["snacks"],
+            "pickup": view["pickup"],
             "link": link_path(scope.tenant, order),
             "email": masked_email(order.email) if order.email else ""
         }

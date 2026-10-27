@@ -33,7 +33,12 @@ import from core.booking.ticket_codes {
     qr_payload,
     pickup_payload
 }
-import from core.booking.ticket_delivery { claim_link, keep_link, queue_mail }
+import from core.booking.ticket_delivery {
+    claim_link,
+    keep_link,
+    queue_mail,
+    order_of_cinema
+}
 import from core.payments.ledger { record_entry }
 import from core.snacks.order_stock { sell_snacks }
 
@@ -70,7 +75,8 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
     }
     # An order with snacks gets its pickup code (P12.9), claimed the same way.
     pickup: list[str] = [];
-    if order.snack_lines {
+    if not order.pickup_reference
+        and any(not l.get("purpose") for l in order.snack_lines) {
         pickup_owner = f"{tenant_id}|{node_id(order)}";
         pickup_ref = reserve_reference(
             pickup_owner, PROVISIONAL_SECONDS, namespace=PICKUPS
@@ -126,6 +132,8 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
                 seat_label=str(line["seat_label"]),
                 ticket_type=str(line["ticket_type"]),
                 ticket_name=str(line.get("ticket_name", "")),
+                format=order.format,
+                glasses_bought=str(line["seat_label"]) in order.glasses_seats,
                 reference=code[2],
                 qr=code[3],
                 issued_at=stamp
@@ -146,7 +154,8 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
     }
     # The ticket link for good, and the tickets on their way by email (P6.3).
     keep_link(cinema, order);
-    if order.email {
-        queue_mail(cinema, order, order.email);
+    delivery = order_of_cinema(cinema, order.booking_id) if order.booking_id else order;
+    if order.email and delivery is not None {
+        queue_mail(cinema, delivery, order.email);
     }
 }

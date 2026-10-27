@@ -18,6 +18,7 @@ import from core.catalog.answers { Refused }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.registry { lookup_slug }
 import from core.tenancy.principal { node_id, act_as, restore, system_root_id }
+import from core.legal.agreement { may_sell }
 
 glob PUBLIC_STATES: list[str] = ["active"],
      # States a preview pass opens: before going live.
@@ -55,6 +56,13 @@ def require_live(cinema: Tenant) {
         raise Refused(
             "not_live",
             "This cinema isn't taking bookings yet. It goes live once AfriCinemas has verified it."
+        );
+    }
+    # A new version of the cinema agreement waits for the owner (P15.1).
+    if not may_sell(cinema) {
+        raise Refused(
+            "agreement_needed",
+            "This cinema isn't taking bookings right now. Please try again later."
         );
     }
 }

@@ -21,7 +21,7 @@ def:pub movie_path(slug: str, movie_id: str) -> str {
 
 def:pub movie_facts(m: dict[str, any]) -> str {  # jac:ignore[W1037]
     # "83 min · 18 · Drama, Romance"
-    parts = [f"{m['runtime_minutes']} min"];
+    parts = [m.get("format", "2D"), f"{m['runtime_minutes']} min"];
     if m["age_rating"] {
         parts.append(m["age_rating"]);
     }

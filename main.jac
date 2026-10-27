@@ -54,6 +54,7 @@ import from core.catalog.screening_api {
     create_screening,  # jac:ignore[W2037]
     list_screenings,  # jac:ignore[W2037]
     get_screening,  # jac:ignore[W2037]
+    set_screening_format,  # jac:ignore[W2037]
     reschedule_screening,  # jac:ignore[W2037]
     schedule_screening,  # jac:ignore[W2037]
     cancel_screening,  # jac:ignore[W2037]
@@ -176,6 +177,7 @@ import from core.snacks.product_api {
     upload_snack_image,  # jac:ignore[W2037]
     remove_snack_image  # jac:ignore[W2037]
 }
+import from core.snacks.glasses_api { configure_3d_glasses, list_3d_glasses }
 # The AfriCinemas platform console: platform staff and their roles (P13.1).
 # The platform's own audit log, and its sign-ins (P13.3).
 import from core.platform.audit_api {
@@ -230,6 +232,7 @@ import from core.platform.review_api {
     send_decision_mail  # jac:ignore[W2037]
 }
 # Snacks only, at the box office (P12.10).
+import from core.booking.more_snacks_api { more_snacks, counter_more_snacks }  # jac:ignore[W2037]
 import from core.booking.snack_sale {
     counter_snack_venues,  # jac:ignore[W2037]
     counter_price_snacks,  # jac:ignore[W2037]
@@ -238,6 +241,27 @@ import from core.booking.snack_sale {
     sell_snacks_for_cash,  # jac:ignore[W2037]
     sell_snacks_with_mpesa,  # jac:ignore[W2037]
     counter_snack_payment  # jac:ignore[W2037]
+}
+# The signed-in person's own name and password (P12.15).
+import from core.accounts.profile {
+    my_profile,  # jac:ignore[W2037]
+    save_my_name,  # jac:ignore[W2037]
+    change_my_password  # jac:ignore[W2037]
+}
+# AfriCinemas' legal pages and the registrations checklist (P15.0b).
+import from core.legal.legal_api { legal_document }
+import from core.legal.fee_rule {
+    fee_rules,  # jac:ignore[W2037]
+    set_fee_rule  # jac:ignore[W2037]
+}
+import from core.legal.agreement_api {
+    cinema_agreement_status,  # jac:ignore[W2037]
+    cinema_agreement_text,  # jac:ignore[W2037]
+    accept_cinema_agreement  # jac:ignore[W2037]
+}
+import from core.legal.registrations {
+    registrations_checklist,  # jac:ignore[W2037]
+    tick_registration  # jac:ignore[W2037]
 }
 # Deleting personal files once they're no longer needed (P14.5b).
 import from core.tenancy.retention { delete_due_files }  # jac:ignore[W2037]

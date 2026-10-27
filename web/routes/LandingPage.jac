@@ -27,6 +27,7 @@ import from "@hugeicons/core-free-icons" {
 import from ...components.ui.button { Button }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppLink { AppLink }
+import from ..legal.LegalPage { LegalLinks }
 import from .landing_content {
     HERO,
     FEATURES_HEAD,
@@ -467,9 +468,14 @@ def:pub LandingPage -> JsxElement {
                     </section>
                 </main>
                 <footer className="border-t">
-                    <p className={WIDTH + " py-6 text-sm text-muted-foreground"}>
-                        {FOOTER}
-                    </p>
+                    <div
+                        data-testid="landing-legal"
+                        className={WIDTH
+                            + " flex flex-col gap-2 py-6 text-sm text-muted-foreground"}
+                    >
+                        <p>{FOOTER}</p>
+                        <LegalLinks/>
+                    </div>
                 </footer>
             </div>
         </ThemeProvider>;

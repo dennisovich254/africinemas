@@ -17,6 +17,8 @@ import from core.reporting.report_api { sales_report }  # jac:ignore[W2037] auth
 import from .report_view { PRESETS, preset_range, period_label, percent, money_label }
 import from .report_parts { KpiTile, TakingsChart, TopMovies, DrillDown }
 
+import from .SnackReport { SnackReport }
+
 glob SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-auto";
 
 def PresetButton(preset: str, label: str, chosen: str, on_pick: any) -> JsxElement {  # jac:ignore[W1037]
@@ -64,20 +66,8 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
         set_failed("");
         set_today(got["today"]);
         set_answer(got);
-        if not venue_id {
-            # The venue filter lists every venue seen in a whole-cinema report.
-            known: list[dict[str, str]] = venues;
-            seen: list[str] = [v["venue_id"] for v in known];
-            added: list[dict[str, str]] = [];
-            for v in got["report"]["venues"] {
-                if v["venue_id"] not in seen {
-                    added.append({"venue_id": v["venue_id"], "name": v["name"]});
-                }
-            }
-            if len(added) > 0 {
-                set_venues(known + added);
-            }
-        }
+        # All cinema venues, including venues with stock but no sales or shows.
+        set_venues(got["venues"]);
     }
 
     # The first request asks for "today" without dates: the server answers with the
@@ -250,6 +240,23 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                         testid="kpi-counter"
                     />
                 </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <KpiTile
+                        label="Ticket net takings"
+                        value={money_label(takings["tickets_cents"], currency)}
+                        note="Booking fees included"
+                        testid="kpi-ticket-net"
+                    />
+                    <KpiTile
+                        label="Snack net takings"
+                        value={money_label(takings["snacks_cents"], currency)}
+                        note="With tickets and snacks-only sales"
+                        testid="kpi-snack-net"
+                    />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                    Refunds and adjustments are split in proportion to the order's ticket and snack totals.
+                </p>
                 <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
                     <TakingsChart
                         points={sales["chart"]["points"]}
@@ -258,6 +265,7 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                     />
                 </div>
             </section>
+            <SnackReport snacks={sales["snacks"]} currency={currency}/>
             <section aria-labelledby="shows-heading" className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
                     <h2 id="shows-heading" className="text-lg font-semibold">

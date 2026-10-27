@@ -9,7 +9,7 @@ decides what's on sale and what it costs, so a browser never sets a price.
   its stock allows one more (`stock_allows`). A combo is on sale when its own variant is
   and every component can be filled (`combo_on_sale`); an add-on option when it's on at
   the venue. A product whose required add-ons can't be met is left out, as is a
-  category with nothing on sale. Few left (LEFT_SHOWN or fewer, tracked and stopping at
+  category with nothing on sale. Few left (FEW_LEFT or fewer, tracked and stopping at
   zero) is shown as `left`.
 - price_cart(tenant, venue_id, lines): each line is {variant_id, quantity, addons (option
   ids, repeated for a repeatable group), choices (per combo component, `quantity` variant
@@ -26,6 +26,7 @@ import from core.snacks.models { SnackProduct, SnackVariant, SnackAddonGroup }
 import from core.snacks.catalog { offer, variant_label }
 import from core.snacks.extras { ComponentFields, combo_on_sale }
 import from core.snacks.inventory_api { level_of }
+import from core.snacks.stock { FEW_LEFT }
 import from core.snacks.store {
     categories_of,
     products_of,
@@ -34,8 +35,7 @@ import from core.snacks.store {
 }
 
 glob QUANTITY_MAX: int = 20,
-     LINES_MAX: int = 30,
-     LEFT_SHOWN: int = 5;
+     LINES_MAX: int = 30;
 
 obj Offer {
     # A variant on sale at the venue: its product, price there, and how many can still be
@@ -157,11 +157,14 @@ def _groups_at(
 }
 
 def _left_shown(o: Offer) -> int | None {
-    return o.left if o.left is not None and o.left <= LEFT_SHOWN else None;
+    return o.left if o.left is not None and o.left <= FEW_LEFT else None;
 }
 
 def _product_at(shelf: Shelf, p: SnackProduct, venue_id: str) -> dict[str, any] | None {  # jac:ignore[W1037]
     # How the menu shows a product at the venue, or None when nothing of it is on sale.
+    if p.purpose {
+        return None;
+    }
     mine = [
         o
         for o in shelf.offers.values()
@@ -412,6 +415,7 @@ def price_cart(
             {
                 "variant_id": vid,
                 "product_id": node_id(o.product),
+                "purpose": o.product.purpose,
                 "name": name,
                 "quantity": quantity,
                 "unit_cents": unit,

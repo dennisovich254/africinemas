@@ -70,6 +70,7 @@ import from core.catalog.screening_rules {
     parse_start
 }
 import from core.audit.log { audited }
+import from core.catalog.formats { normalize_format }
 
 glob READ: str = "showtimes.read",
      CREATE: str = "showtimes.create",
@@ -115,6 +116,7 @@ def _view(scope: TenantScope, s: Screening) -> dict[str, any] {  # jac:ignore[W1
         "layout_version": s.layout_version,
         "starts_at": s.starts_at,
         "ends_at": s.ends_at,
+        "format": s.format,
         "state": s.state
     };
 }
@@ -214,6 +216,7 @@ def _create_screening(
                 layout_version=layout.version,
                 starts_at=start.isoformat(),
                 ends_at=end.isoformat(),
+                format=movie.format,
                 state=ScreeningState.DRAFT.value,
                 created_at=stamp,
                 updated_at=stamp
@@ -228,6 +231,32 @@ def _create_screening(
     } except Exception as e {
         release(SCHEDULE_LOCKS, node_id(screen), lock);
         raise e;
+    }
+    return {"ok": True, "screening": _view(scope, screening)};
+}
+
+def _set_format(tenant: str, screening_id: str, format: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = on_shift(tenant);
+    screening = _screening(scope, screening_id, UPDATE);
+    if screening.state == ScreeningState.CANCELLED.value {
+        raise Refused("showtime_closed", "A cancelled showtime can't be changed.");
+    }
+    try {
+        cleaned = normalize_format(format);
+    } except ValueError as e {
+        raise Refused("invalid_format", str(e));
+    }
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        screening.format = cleaned;
+        screening.updated_at = now().isoformat();
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    if screening.state == ScreeningState.PUBLISHED.value {
+        project(scope.tenant, screening);
     }
     return {"ok": True, "screening": _view(scope, screening)};
 }
@@ -499,6 +528,21 @@ def:protect reschedule_screening(
             tenant, screening_id, starts_at
         ); },
         detail=starts_at  # jac:ignore[W1037]
+    );
+}
+
+def:protect set_screening_format(
+    tenant: str, screening_id: str, format: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "showtime.format_changed",
+        "showtime",
+        screening_id,
+        lambda -> any { return answer(
+            lambda -> any { return _set_format(tenant, screening_id, format); }
+        ); },
+        detail=format
     );
 }
 

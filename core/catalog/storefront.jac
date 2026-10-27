@@ -76,6 +76,7 @@ def _public_fields(tenant: Tenant, screening: Screening) -> dict[str, any] {  # 
             "age_rating": movie.age_rating,
             "genres": list(movie.genres),
             "language": movie.language,
+            "format": movie.format,
             "has_poster": movie.poster_key != "",
             "has_backdrop": movie.backdrop_key != "",
             "release_date": movie.release_date,
@@ -136,6 +137,7 @@ def project(tenant: Tenant, screening: Screening) {
                 screening_id=node_id(screening),
                 starts_at=screening.starts_at,
                 ends_at=screening.ends_at,
+                format=screening.format,
                 state=screening.state
             );
             storefront ++> shown;
@@ -143,6 +145,7 @@ def project(tenant: Tenant, screening: Screening) {
         }
         shown.starts_at = screening.starts_at;
         shown.ends_at = screening.ends_at;
+        shown.format = screening.format;
         shown.state = screening.state;
         shown.movie = fields["movie"];
         shown.venue = fields["venue"];
@@ -182,6 +185,7 @@ def public_view(shown: StorefrontScreening) -> dict[str, any] {  # jac:ignore[W1
         "screening_id": shown.screening_id,
         "starts_at": shown.starts_at,
         "ends_at": shown.ends_at,
+        "format": shown.format,
         "state": shown.state,
         "movie": shown.movie,
         "venue": shown.venue,
@@ -245,6 +249,7 @@ def showtime(shown: StorefrontScreening) -> dict[str, any] {  # jac:ignore[W1037
     # A screening as a line in a movie's list of showtimes.
     return {
         "screening_id": shown.screening_id,
+        "format": shown.format,
         "starts_at": shown.starts_at,
         "venue": shown.venue,
         "screen": shown.screen

@@ -107,6 +107,7 @@ def _movie_card(entries: list[StorefrontScreening]) -> dict[str, any] {  # jac:i
         "runtime_minutes": movie["runtime_minutes"],
         "genres": movie["genres"],
         "language": movie["language"],
+        "format": movie.get("format", "2D"),
         "has_poster": movie["has_poster"],
         "has_backdrop": movie.get("has_backdrop", False),
         "release_date": movie.get("release_date", ""),

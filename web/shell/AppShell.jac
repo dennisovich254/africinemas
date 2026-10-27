@@ -21,7 +21,6 @@ import from "@hugeicons/core-free-icons" {
     Calendar03Icon,
     Tag01Icon,
     Ticket02Icon,
-    PopcornIcon,
     QrCode01Icon,
     PackageDeliveredIcon,
     UserGroupIcon,
@@ -31,7 +30,10 @@ import from "@hugeicons/core-free-icons" {
     Settings01Icon,
     Projector01Icon,
     HelpCircleIcon,
-    CustomerSupportIcon
+    CustomerSupportIcon,
+    UserCircleIcon,
+    CheckListIcon,
+    LegalDocument01Icon
 }
 import from ...components.ui.button { Button }
 import from ...components.ui.sheet {
@@ -58,7 +60,6 @@ glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
          "screenings": Calendar03Icon,
          "prices": Tag01Icon,
          "box-office": Ticket02Icon,
-         "snacks": PopcornIcon,
          "scanner": QrCode01Icon,
          "snack-counter": PackageDeliveredIcon,
          "staff": UserGroupIcon,
@@ -68,10 +69,38 @@ glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
          "cinemas": Projector01Icon,
          "reviews": IdVerifiedIcon,
          "help": HelpCircleIcon,
-         "support": CustomerSupportIcon
+         "support": CustomerSupportIcon,
+         "profile": UserCircleIcon,
+         "registrations": CheckListIcon,
+         "fees": Tag01Icon,
+         "agreement": LegalDocument01Icon
      };
 
 def nav_icon(section: any) -> any {  # jac:ignore[W1037]
+    if section == "snacks" {
+        return
+            <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.75}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+                className="shrink-0"
+            >
+                <path
+                    d="M5 10C2 8 3 5 6 5C6 2 10 1 12 4C14 1 18 2 18 5C21 5 22 8 19 10"
+                />
+                <path d="M4 10H20L18 22H6L4 10Z"/>
+                <rect x="5.5" y="11.5" width="5" height="4" rx="1.3"/>
+                <rect x="13.5" y="11.5" width="5" height="4" rx="1.3"/>
+                <path d="M10.5 13H13.5M9 18L9.5 22M15 18L14.5 22"/>
+            </svg>;
+    }
     if not isinstance(section, str) or section not in NAV_ICONS {
         return None;
     }

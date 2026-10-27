@@ -58,6 +58,8 @@ import from core.booking.models { Order, SeatHold }
 import from core.booking.availability { SeatState }
 import from core.snacks.menu { price_cart }
 import from core.snacks.order_stock { reserve_snacks, release_snacks }
+import from core.snacks.glasses_api { glasses_offer }
+import from core.catalog.formats { glasses_for_order }
 import from core.booking.hold_api {
     MAX_SEATS,
     seconds_from_env,
@@ -147,11 +149,13 @@ def _view(order: Order) -> dict[str, any] {  # jac:ignore[W1037]
         "reference": order.reference,
         "status": order.status,
         "seats": [l["seat_label"] for l in order.lines],
+        "format": order.format,
         "currency": order.currency,
         "price_list_version": order.price_list_version,
         "lines": [dict(l) for l in order.lines],
         "snacks": [dict(l) for l in order.snack_lines],
         "snacks_cents": order.snacks_cents,
+        "glasses_seats": list(order.glasses_seats),
         "total_cents": order.total_cents,
         "created_at": order.created_at,
         "pay_by": order.pay_by
@@ -254,7 +258,8 @@ def _place_order(
     holder: str,
     idempotency_key: str,
     items: list[any],  # jac:ignore[W1037]
-    snacks: list[any] | None = None  # jac:ignore[W1037]
+    snacks: list[any] | None = None,  # jac:ignore[W1037]
+    glasses_seats: list[str] | None = None
 ) -> dict[str, any] {  # jac:ignore[W1037]
     (cinema, screening) = showtime_on_sale(slug, screening_id);
     # A preview takes no orders (P14.1): only a live cinema sells.
@@ -263,7 +268,18 @@ def _place_order(
     check_key(idempotency_key);
     wanted = request_lines(items);
     asked = snack_request(snacks);
-    asked_text = json.dumps(asked, sort_keys=True) if asked else "";
+    try {
+        glasses = glasses_for_order(
+            screening.format,
+            glasses_seats if isinstance(glasses_seats, list) else [],
+            [p[0] for p in wanted]
+        );
+    } except ValueError as e {
+        raise Refused("invalid_glasses", str(e));
+    }
+    asked_text = json.dumps(
+        {"snacks": asked, "glasses_seats": glasses}, sort_keys=True
+    );
     key_name = f"{node_id(cinema)}:{holder}:{idempotency_key}";
     existing = claim_holder(ORDER_KEYS, key_name);
     if existing is not None {
@@ -273,12 +289,40 @@ def _place_order(
         cinema, screening, holder, wanted
     );
     venue_id = screening.venue_id;
-    (snack_lines, snacks_cents, problems) = price_cart(cinema, venue_id, asked)
-        if asked
+    all_snacks = list(asked);
+    if glasses {
+        offered = glasses_offer(cinema, venue_id);
+        if offered is None {
+            raise Refused(
+                "glasses_unavailable",
+                "3D glasses aren't available at this venue right now."
+            );
+        }
+        all_snacks.append(
+            {
+                "variant_id": offered["variant_id"],
+                "quantity": len(glasses),
+                "addons": [],
+                "choices": []
+            }
+        );
+    }
+    (snack_lines, snacks_cents, problems) = price_cart(cinema, venue_id, all_snacks)
+        if all_snacks
         else ([], 0, []);
     if problems {
         raise Refused(
             "snacks_unavailable", problems[0]["message"], {"problems": problems}
+        );
+    }
+    special = [
+        line
+        for line in snack_lines
+        if line.get("purpose") == "3d_glasses"
+    ];
+    if (not glasses and special) or len(special) > 1 {
+        raise Refused(
+            "invalid_snacks", "Choose 3D glasses with the option beside each ticket."
         );
     }
     hold_id = node_id(hold);
@@ -309,6 +353,7 @@ def _place_order(
             idempotency_key=idempotency_key,
             reference=secrets.token_hex(4).upper(),
             request=wanted,
+            format=screening.format,
             currency=table.currency,
             price_list_version=price_list.version,
             lines=lines,
@@ -316,8 +361,9 @@ def _place_order(
             snack_lines=snack_lines,
             snacks_cents=snacks_cents,
             snack_request=asked_text,
-            snack_venue_id=venue_id if asked else "",
+            snack_venue_id=venue_id if all_snacks else "",
             snack_stock=held,
+            glasses_seats=glasses,
             created_at=stamp.isoformat(),
             pay_by=(
                 stamp + timedelta(seconds=seconds_from_env(PAY_ENV, PAY_SECONDS))
@@ -447,11 +493,12 @@ def:pub place_order(
     holder: str,
     idempotency_key: str,
     items: list[any],  # jac:ignore[W1037]
-    snacks: list[any] | None = None  # jac:ignore[W1037]
+    snacks: list[any] | None = None,  # jac:ignore[W1037]
+    glasses_seats: list[str] | None = None
 ) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(
         lambda -> any { return _place_order(  # jac:ignore[W1037]
-            slug, screening_id, holder, idempotency_key, items, snacks
+            slug, screening_id, holder, idempotency_key, items, snacks, glasses_seats
         ); }
     );
 }

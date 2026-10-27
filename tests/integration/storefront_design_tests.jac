@@ -34,6 +34,7 @@ glob MAIN: str = path.join(
      # What a day's showtime carries for the storefront to group it by movie.
      DAY_SHOWTIME_KEYS: list[str] = [
          "age_rating",
+         "format",
          "genres",
          "has_poster",
          "movie_key",
