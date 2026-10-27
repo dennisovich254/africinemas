@@ -20,14 +20,18 @@ import from .report_view {
 import from ..storefront.showtimes { day_label as show_day, time_label }
 
 def:pub KpiTile(
-    label: str, value: str, note: str = "", testid: str = ""
+    label: str, value: str, note: str = "", testid: str = "", large: bool = False
 ) -> JsxElement {
     return
         <div
             className="flex flex-col gap-1 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
         >
             <p className="text-sm text-muted-foreground">{label}</p>
-            <p data-testid={testid} className="text-2xl font-semibold tabular-nums">
+            <p
+                data-testid={testid}
+                className={("text-4xl" if large else "text-2xl")
+                    + " font-semibold tabular-nums"}
+            >
                 {value}
             </p>
             {note and <p className="text-xs text-muted-foreground">{note}</p>}

@@ -261,3 +261,43 @@ def:pub ShareDonut(
                 </div>}
         </figure>;
 }
+
+def:pub OccupancyMeter(sold: int, seats: int, showtimes: int) -> JsxElement {
+    # How full the period's showtimes were: one ratio, so a meter (a track with the
+    # same slot's fill), the percentage large and the counts in words beside it.
+    filled = min(max(sold, 0), max(seats, 0));
+    pct = (filled * 100 / seats) if seats > 0 else 0;
+    return
+        <figure
+            data-testid="occupancy-meter"
+            className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+        >
+            <figcaption className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="text-sm font-medium">How full the showtimes were</span>
+                <span className="text-2xl font-semibold tabular-nums">
+                    {f"{round(pct)}%" if seats > 0 else "No seats on sale"}
+                </span>
+            </figcaption>
+            <div
+                role="meter"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={round(pct)}
+                aria-label="Occupancy"
+                className="relative h-3 w-full overflow-hidden rounded-[4px]"
+            >
+                <span
+                    aria-hidden="true"
+                    className="absolute inset-0 bg-(--chart-1) opacity-20"
+                />
+                <span
+                    aria-hidden="true"
+                    className="absolute inset-y-0 left-0 rounded-[4px] bg-(--chart-1)"
+                    style={{"width": f"{pct}%"}}
+                />
+            </div>
+            <p className="text-sm text-muted-foreground">
+                {f"{filled} of {seats} seats sold across {showtimes} showtimes"}
+            </p>
+        </figure>;
+}

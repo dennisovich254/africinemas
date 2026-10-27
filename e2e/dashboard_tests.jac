@@ -127,6 +127,8 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
             assert "Rafiki" in _text(page, "movie-share")
                 and "100%" in _text(page, "movie-share");
             assert "Snacks" in _text(page, "takings-legend");
+            # The occupancy meter leads the showtimes: 18.2% shows as 18%.
+            assert "18%" in _text(page, "occupancy-meter") , project;
             assert page.locator('[data-testid="chart-bar"]').count() == 7;
             # The chart answers a tap or a hover with the day's figures.
             _press(page, project, '[data-testid="chart-bar"]');

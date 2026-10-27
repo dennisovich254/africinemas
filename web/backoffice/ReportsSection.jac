@@ -16,7 +16,7 @@ import from ...components.ui.spinner { Spinner }
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037] authenticated endpoint
 import from .report_view { PRESETS, preset_range, period_label, percent, money_label }
 import from .report_parts { KpiTile, TakingsChart, TopMovies, DrillDown }
-import from .report_charts { SplitBar, ShareDonut }
+import from .report_charts { SplitBar, ShareDonut, OccupancyMeter }
 
 import from .SnackReport { SnackReport }
 
@@ -213,48 +213,20 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                         Counted on the day the money came in, {span_text}.
                     </p>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div data-testid="money-headline" className="max-w-sm">
                     <KpiTile
                         label="Net takings"
                         value={money_label(takings["net_cents"], currency)}
                         note="After refunds and adjustments"
                         testid="kpi-net"
-                    />
-                    <KpiTile
-                        label="Gross"
-                        value={money_label(takings["gross_cents"], currency)}
-                        note={f"Refunds {money_label(
-                            takings['refunds_cents'], currency
-                        )}"}
-                        testid="kpi-gross"
-                    />
-                    <KpiTile
-                        label="M-Pesa"
-                        value={money_label(takings["mpesa_cents"], currency)}
-                        note={f"Cash {money_label(takings['cash_cents'], currency)}"}
-                        testid="kpi-mpesa"
-                    />
-                    <KpiTile
-                        label="At the box office"
-                        value={money_label(takings["counter_cents"], currency)}
-                        note={f"Online {money_label(
-                            takings['online_cents'], currency
-                        )}"}
-                        testid="kpi-counter"
+                        large={True}
                     />
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <KpiTile
-                        label="Ticket net takings"
-                        value={money_label(takings["tickets_cents"], currency)}
-                        note="Booking fees included"
-                        testid="kpi-ticket-net"
-                    />
-                    <KpiTile
-                        label="Snack net takings"
-                        value={money_label(takings["snacks_cents"], currency)}
-                        note="With tickets and snacks-only sales"
-                        testid="kpi-snack-net"
+                <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+                    <TakingsChart
+                        points={sales["chart"]["points"]}
+                        unit={sales["chart"]["unit"]}
+                        currency={currency}
                     />
                 </div>
                 <div
@@ -298,16 +270,54 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                             currency={currency}
                             testid="split-fees"
                         />}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                    Refunds and adjustments are split in proportion to the order's ticket and snack totals.
-                </p>
-                <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-                    <TakingsChart
-                        points={sales["chart"]["points"]}
-                        unit={sales["chart"]["unit"]}
-                        currency={currency}
-                    />
+                    <div className="flex flex-col gap-2">
+                        <h3 className="text-sm font-medium text-muted-foreground">
+                            The numbers
+                        </h3>
+                        <div
+                            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
+                        >
+                            <KpiTile
+                                label="Gross"
+                                value={money_label(takings["gross_cents"], currency)}
+                                note={f"Refunds {money_label(
+                                    takings['refunds_cents'], currency
+                                )}"}
+                                testid="kpi-gross"
+                            />
+                            <KpiTile
+                                label="M-Pesa"
+                                value={money_label(takings["mpesa_cents"], currency)}
+                                note={f"Cash {money_label(
+                                    takings['cash_cents'], currency
+                                )}"}
+                                testid="kpi-mpesa"
+                            />
+                            <KpiTile
+                                label="At the box office"
+                                value={money_label(takings["counter_cents"], currency)}
+                                note={f"Online {money_label(
+                                    takings['online_cents'], currency
+                                )}"}
+                                testid="kpi-counter"
+                            />
+                            <KpiTile
+                                label="Ticket net takings"
+                                value={money_label(takings["tickets_cents"], currency)}
+                                note="Booking fees included"
+                                testid="kpi-ticket-net"
+                            />
+                            <KpiTile
+                                label="Snack net takings"
+                                value={money_label(takings["snacks_cents"], currency)}
+                                note="With tickets and snacks-only sales"
+                                testid="kpi-snack-net"
+                            />
+                        </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        Refunds and adjustments are split in proportion to the order's ticket and snack totals.
+                    </p>
                 </div>
             </section>
             <SnackReport snacks={sales["snacks"]} currency={currency}/>
@@ -320,36 +330,11 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                         Counted on the day the showtime starts; tickets bought earlier count here too.
                     </p>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <KpiTile
-                        label="Tickets sold"
-                        value={f"{shown['tickets_sold']}"}
-                        note={f"{shown['tickets_scanned']} scanned at the door"}
-                        testid="kpi-tickets"
-                    />
-                    <KpiTile
-                        label="Occupancy"
-                        value={percent(full)}
-                        note={f"{shown['seats_on_sale']} seats on sale, {shown[
-                            'showtimes'
-                        ]} showtimes"}
-                        testid="kpi-occupancy"
-                    />
-                    <KpiTile
-                        label="Average ticket"
-                        value={money_label(shown["average_ticket_cents"], currency)}
-                        note="Booking fee included"
-                        testid="kpi-average"
-                    />
-                    <KpiTile
-                        label="Ticket revenue"
-                        value={money_label(shown["ticket_revenue_cents"], currency)}
-                        note={f"{money_label(
-                            shown['revenue_per_seat_cents'], currency
-                        )} per seat on sale"}
-                        testid="kpi-revenue"
-                    />
-                </div>
+                <OccupancyMeter
+                    sold={shown["tickets_sold"]}
+                    seats={shown["seats_on_sale"]}
+                    showtimes={shown["showtimes"]}
+                />
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <div
                         className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
@@ -370,6 +355,43 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                             venues={sales["venues"]}
                             currency={currency}
                             timezone={sales["timezone"]}
+                        />
+                    </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                        The numbers
+                    </h3>
+                    <div
+                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+                    >
+                        <KpiTile
+                            label="Tickets sold"
+                            value={f"{shown['tickets_sold']}"}
+                            note={f"{shown['tickets_scanned']} scanned at the door"}
+                            testid="kpi-tickets"
+                        />
+                        <KpiTile
+                            label="Occupancy"
+                            value={percent(full)}
+                            note={f"{shown['seats_on_sale']} seats on sale, {shown[
+                                'showtimes'
+                            ]} showtimes"}
+                            testid="kpi-occupancy"
+                        />
+                        <KpiTile
+                            label="Average ticket"
+                            value={money_label(shown["average_ticket_cents"], currency)}
+                            note="Booking fee included"
+                            testid="kpi-average"
+                        />
+                        <KpiTile
+                            label="Ticket revenue"
+                            value={money_label(shown["ticket_revenue_cents"], currency)}
+                            note={f"{money_label(
+                                shown['revenue_per_seat_cents'], currency
+                            )} per seat on sale"}
+                            testid="kpi-revenue"
                         />
                     </div>
                 </div>
