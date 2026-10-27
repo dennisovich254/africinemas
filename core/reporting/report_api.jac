@@ -30,6 +30,7 @@ import from core.catalog.pricing { CURRENCY }
 import from core.booking.models { Order, Ticket }
 import from core.booking.availability { SeatState }
 import from core.payments.ledger { LedgerEntry }
+import from core.payments.fees { fee_entries }
 import from core.reporting.aggregates {
     Show,
     SoldTicket,
@@ -53,6 +54,8 @@ obj Records {
     has shows: list[Show] = [],
         tickets: list[SoldTicket] = [],
         money: list[Money] = [],
+        # AfriCinemas' fees (P15.2), in the same shape as money.
+        fees: list[Money] = [],
         snacks: list[SnackSold] = [],
         venues: dict[str, str] = {};
 }
@@ -68,6 +71,18 @@ def _of_order(order: Order, into: Records, venue_id: str, products: dict[str, st
                 status=t.status,
                 price_cents=int(line.get("total_cents", 0)),
                 fee_cents=int(line.get("service_fee_cents", 0))
+            )
+        );
+    }
+    for f in fee_entries(order) {
+        into.fees.append(
+            Money(
+                screening_id=order.screening_id,
+                kind=f.kind,
+                amount_cents=f.amount_cents,
+                taken_at=f.created_at,
+                counter=f.channel == "counter",
+                venue_id=venue_id
             )
         );
     }
@@ -271,7 +286,8 @@ def _sales_report(
         found.money,
         venue_id,
         found.snacks,
-        found.venues
+        found.venues,
+        found.fees
     );
     # The same number of days just before, for the headline's trend (owner, 2026-10-27).
     days = (period.last - period.first).days + 1;

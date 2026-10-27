@@ -26,6 +26,7 @@ import from ..backoffice.form_parts { on_input }
 import from ..backoffice.report_view { money_label }
 import from ..site { storefront_address }
 import from ..support.HealthPanel { HealthPanel }
+import from .FeeTerms { FeeTerms }
 
 glob SEARCH_PAUSE_MS: int = 350,
      OFFLINE: str = "We couldn't reach the server. Check your connection and try again.",
@@ -281,8 +282,9 @@ def Figure(label: str, value: str, testid: str = "") -> JsxElement {
 }
 
 def:pub CinemaDetail(
-    slug: str, audit: bool = False, review: bool = False
+    slug: str, audit: bool = False, review: bool = False, fees: bool = False
 ) -> JsxElement {
+    # `fees`: the caller may set the cinema's own fee terms (platform.settings, P15.2).
     # `review`: the caller may make a cinema live (P14.1; 14.5 brings the full review).
     # `audit`: the caller reads the platform's audit log, so the page links to this
     # cinema's events there (P13.3).
@@ -436,6 +438,7 @@ def:pub CinemaDetail(
                 />
             </section>
             {cinema["health"] and <HealthPanel health={cinema["health"]}/>}
+            <FeeTerms slug={slug} may_change={fees}/>
             <section className="flex flex-col gap-2 rounded-lg border bg-card p-4">
                 <h3 className="font-semibold">Owners</h3>
                 {len(owners) == 0

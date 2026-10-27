@@ -14,6 +14,7 @@ Every problem is reported at once, as {field, code, message}.
 """
 
 import re;
+import from core.money { whole_shillings }
 
 glob GROUP_NAME_MAX: int = 40,
      GROUP_LABEL_MAX: int = 60,
@@ -130,12 +131,15 @@ def check_addon_group(
         seen.append(option_name.casefold());
         given_price = _as_int(row.get("price_cents"));
         price = given_price if given_price is not None else 0;
-        if given_price is None or price < 0 or price > PRICE_MAX_CENTS {
+        if given_price is None
+            or price < 0
+            or price > PRICE_MAX_CENTS
+            or not whole_shillings(price) {
             problems.append(
                 _problem(
                     f"options[{i}].price_cents",
                     "PRICE_INVALID",
-                    "Enter an extra price from KES 0 to KES 100,000."
+                    "Enter an extra price in whole shillings, from KES 0 to KES 100,000."
                 )
             );
             price = 0;

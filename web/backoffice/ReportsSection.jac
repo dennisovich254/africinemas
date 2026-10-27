@@ -21,6 +21,7 @@ import from "@hugeicons/core-free-icons" {
     ChartIncreaseIcon,
     Coins01Icon,
     Money03Icon,
+    PercentCircleIcon,
     PopcornIcon,
     QrCode01Icon,
     SmartPhone01Icon,
@@ -152,9 +153,9 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
     sales: dict[str, any] = got["report"];  # jac:ignore[W1037]
     currency: str = got["currency"];
     takings: dict[str, int] = sales["takings"];
+    # AfriCinemas' fees on the period's sales, and the cinema's share (P15.2).
+    fees: dict[str, int] = sales["fees"];
     shown: dict[str, any] = sales["attendance"];  # jac:ignore[W1037]
-    # AfriCinemas' fees and the cinema's share (P15.2), when the report has them.
-    fee_split: dict[str, int] | None = sales.get("fees") or None;
     # The same number of days just before, for the headline's trend.
     previous: dict[str, int] | None = sales.get("previous") or None;
     full: float = shown["occupancy_pct"];
@@ -310,23 +311,22 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                         currency={currency}
                         testid="split-channel"
                     />
-                    {fee_split is not None
-                        and <SplitBar
-                            title="Your share and AfriCinemas fees"
-                            left_label="Your share"
-                            left_cents={fee_split["cinema_share_cents"]}
-                            right_label="AfriCinemas fees"
-                            right_cents={fee_split["fees_cents"]}
-                            currency={currency}
-                            testid="split-fees"
-                        />}
+                    <SplitBar
+                        title="Your share and AfriCinemas fees"
+                        left_label="Your share"
+                        left_cents={fees["cinema_share_cents"]}
+                        right_label="AfriCinemas fees"
+                        right_cents={fees["fees_cents"]}
+                        currency={currency}
+                        testid="split-fees"
+                    />
                 </div>
                 <div className="flex flex-col gap-2">
                     <h3 className="text-sm font-medium text-muted-foreground">
                         The numbers
                     </h3>
                     <div
-                        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+                        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
                     >
                         <KpiTile
                             label="Gross"
@@ -373,6 +373,24 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                             testid="kpi-snack-net"
                             icon={PopcornIcon}
                             slot="2"
+                        />
+                        <KpiTile
+                            label="AfriCinemas fees"
+                            value={money_label(fees["fees_cents"], currency)}
+                            note={f"Credited on refunds {money_label(
+                                fees['credited_cents'], currency
+                            )}"}
+                            testid="kpi-fees"
+                            icon={PercentCircleIcon}
+                            slot="4"
+                        />
+                        <KpiTile
+                            label="Your share"
+                            value={money_label(fees["cinema_share_cents"], currency)}
+                            note="Net takings less AfriCinemas fees, invoiced monthly"
+                            testid="kpi-share"
+                            icon={Money03Icon}
+                            slot="3"
                         />
                     </div>
                 </div>

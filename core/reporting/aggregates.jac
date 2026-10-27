@@ -169,6 +169,31 @@ def _attendance(
     };
 }
 
+def _fees(owed: list[Money], net: int) -> dict[str, int] {
+    # AfriCinemas' fees on the period's sales (P15.2): charged, credited back on
+    # refunds, what they come to, and the cinema's share of its net takings.
+    charged = sum(
+        [
+            m.amount_cents
+            for m in owed
+            if m.kind == "fee"
+        ]
+    );
+    credited = -sum(
+        [
+            m.amount_cents
+            for m in owed
+            if m.kind == "fee_credit"
+        ]
+    );
+    return {
+        "charged_cents": charged,
+        "credited_cents": credited,
+        "fees_cents": charged - credited,
+        "cinema_share_cents": net - (charged - credited)
+    };
+}
+
 def _takings(entries: list[Money]) -> dict[str, int] {
     payments = [
         e
@@ -414,18 +439,19 @@ def _snacks(period: Period, sold: list[SnackSold], venue_id: str) -> dict[str, a
     };
 }
 
-def sales_report(
+def sales_report(  # jac:ignore[W3030] the period, its records (shows, tickets, money, snacks, fees), a venue and names
     period: Period,
     shows: list[Show],
     tickets: list[SoldTicket],
     money: list[Money],
     venue_id: str = "",
     snacks: list[SnackSold] | None = None,
-    venue_names: dict[str, str] | None = None
+    venue_names: dict[str, str] | None = None,
+    fees: list[Money] | None = None
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # The report for `period`, of one venue's showtimes and money when `venue_id` is
     # given. `shows` are every showtime the tickets and money belong to; `snacks` every
-    # snack line sold (P12.11).
+    # snack line sold (P12.11); `fees` the fee ledger's entries (P15.2).
     show_of = {s.screening_id: s for s in shows};
     names = {s.venue_id: s.venue for s in shows};
     names.update(venue_names or {});
@@ -454,6 +480,11 @@ def sales_report(
     taken = [
         m
         for m in money
+        if period.covers(m.taken_at) and (not venue_id or venue_of(m) == venue_id)
+    ];
+    owed = [
+        m
+        for m in (fees or [])
         if period.covers(m.taken_at) and (not venue_id or venue_of(m) == venue_id)
     ];
     net_by_venue: dict[str, int] = {};
@@ -497,6 +528,7 @@ def sales_report(
         "last": period.last.isoformat(),
         "timezone": period.timezone,
         "takings": _takings(taken),
+        "fees": _fees(owed, sum([m.amount_cents for m in taken])),
         "attendance": _attendance(counted, sold),
         "top_movies": _ranked(movie_rows, "title"),
         "top_showtimes": _ranked(show_rows, "movie"),

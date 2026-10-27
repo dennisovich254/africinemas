@@ -414,3 +414,57 @@ test "top snack products combine variants using sale prices and local payment da
     empty = sales_report(period, [], [], [])["snacks"];
     assert empty["units"] == 0 and empty["top_products"] == [];
 }
+
+test "fees: charged and credited in the period, and the cinema's share adds up" {
+    # The fee ledger (P15.2): s1's online M-Pesa order and s2's cash sale, a credit on
+    # an M-Pesa refund, and a fee on the 7th, outside the period.
+    owed = [
+        Money(
+            screening_id="s1",
+            kind="fee",
+            amount_cents=195,
+            taken_at="2026-10-04T21:30:00+00:00"
+        ),
+        Money(
+            screening_id="s2",
+            kind="fee",
+            amount_cents=30,
+            taken_at="2026-10-06T12:00:00+00:00",
+            counter=True
+        ),
+        Money(
+            screening_id="s1",
+            kind="fee_credit",
+            amount_cents=-65,
+            taken_at="2026-10-05T09:00:00+00:00"
+        ),
+        Money(
+            screening_id="s4",
+            kind="fee",
+            amount_cents=65,
+            taken_at="2026-10-06T21:00:00+00:00"
+        )
+    ];
+    made = sales_report(
+        period_of(NAIROBI, "2026-10-05", "2026-10-06"),
+        _shows(),
+        _tickets(),
+        _money(),
+        "",
+        None,
+        None,
+        owed
+    );
+    fees = made["fees"];
+    assert fees
+        == {
+            "charged_cents": 225,
+            "credited_cents": 65,
+            "fees_cents": 160,
+            "cinema_share_cents": 6530
+        } , fees;
+    assert fees["fees_cents"] + fees["cinema_share_cents"]
+        == made["takings"]["net_cents"];
+    # Without a fee ledger, there are no fees.
+    assert _report()["fees"]["fees_cents"] == 0;
+}

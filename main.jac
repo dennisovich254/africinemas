@@ -252,7 +252,10 @@ import from core.accounts.profile {
 import from core.legal.legal_api { legal_document }
 import from core.legal.fee_rule {
     fee_rules,  # jac:ignore[W2037]
-    set_fee_rule  # jac:ignore[W2037]
+    set_fee_rule,  # jac:ignore[W2037]
+    cinema_fee_terms,  # jac:ignore[W2037]
+    set_cinema_fee_terms,  # jac:ignore[W2037]
+    my_fee_rates  # jac:ignore[W2037]
 }
 import from core.legal.agreement_api {
     cinema_agreement_status,  # jac:ignore[W2037]
@@ -347,6 +350,8 @@ import from core.payments.payment_api { start_payment }
 import from core.payments.settlement { my_payment, mpesa_callback, settle_callbacks }  # jac:ignore[W2037]
 # Resolving stuck payments and releasing unpaid orders (P5.5).
 import from core.payments.resolver { resolve_payments, end_my_order }  # jac:ignore[W2037]
+# Back from paying to change the seats, tickets or snacks (owner, 2026-10-27).
+import from core.booking.change_order { change_order }
 # The hold expiry sweeper (P4.4) runs on a schedule; importing it registers the task.
 import from core.booking.sweeper { sweep_holds }  # jac:ignore[W2037]
 # The browser tests' super admin join link (P13.1b.a); does nothing unless they set it.
