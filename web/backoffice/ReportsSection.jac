@@ -15,6 +15,8 @@ import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037] authenticated endpoint
 import from .report_view { PRESETS, preset_range, period_label, percent, money_label }
+
+glob DEFAULT_PRESET: str = "last7";
 import from "@hugeicons/core-free-icons" {
     ChartIncreaseIcon,
     Coins01Icon,
@@ -56,7 +58,8 @@ def PresetButton(preset: str, label: str, chosen: str, on_pick: any) -> JsxEleme
 
 def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
     [today, set_today] = useState("");
-    [preset, set_preset] = useState("today");
+    # The last 7 days to begin with (owner, 2026-10-27), not just today.
+    [preset, set_preset] = useState(DEFAULT_PRESET);
     [first, set_first] = useState("");
     [last, set_last] = useState("");
     [venue, set_venue] = useState("");
@@ -83,13 +86,20 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
         }
         set_failed("");
         set_today(got["today"]);
+        # The first answer (no dates) only tells us the cinema's today: then ask for
+        # the default preset's days.
+        if not date_from and DEFAULT_PRESET != "today" {
+            span = preset_range(DEFAULT_PRESET, got["today"]);
+            load(span[0], span[1], venue_id);
+            return;
+        }
         set_answer(got);
         # All cinema venues, including venues with stock but no sales or shows.
         set_venues(got["venues"]);
     }
 
-    # The first request asks for "today" without dates: the server answers with the
-    # cinema's day, from which the other presets count.
+    # The first request asks without dates: the server answers with the cinema's day,
+    # from which the presets count, and the default preset is loaded from it.
     def start_loading {
         load("", "", venue);
     }

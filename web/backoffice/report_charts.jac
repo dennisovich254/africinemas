@@ -5,7 +5,8 @@
   its slot colour (--chart-1, --chart-2) with a 2px gap. Under it, each part's name,
   amount and share, in text colours, so nothing depends on the colour; the bar itself
   is a picture of those numbers, with no tiny tap targets.
-- ShareDonut: the top movies' share of ticket revenue, the top four in --chart-1..4
+- ShareDonut: the top movies' share of ticket revenue, the top four in --rank-1..4 (one
+  green-teal hue in steps, unlike the bars' colours)
   and the rest as "Other" in a neutral grey, an SVG ring with 2px gaps and the total in
   the middle. The legend beside it is the table: each slice's name, amount and share.
 
@@ -17,7 +18,13 @@ import from react { useState }
 import from .report_view { money_label }
 import from .MoviesSection { PosterThumb }
 
-glob SLOTS: list[str] = [
+glob RANKS: list[str] = [
+         "var(--rank-1)",
+         "var(--rank-2)",
+         "var(--rank-3)",
+         "var(--rank-4)"
+     ],
+     SLOTS: list[str] = [
          "var(--chart-1)",
          "var(--chart-2)",
          "var(--chart-3)",
@@ -130,7 +137,7 @@ def _slices(
             {
                 "name": str(r["title"]),
                 "cents": int(r["revenue_cents"]),
-                "colour": SLOTS[len(made)]
+                "colour": RANKS[len(made)]
             }
         );
     }

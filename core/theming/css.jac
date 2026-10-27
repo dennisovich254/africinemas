@@ -170,6 +170,11 @@ glob BACKOFFICE_THEME: Theme = Theme(
 # dark): adjacent pairs, the donut's last-to-first pair and the grey's neighbours all
 # clear CVD ΔE 8 and normal-vision ΔE 15. Light aqua and yellow sit below 3:1 on white,
 # so every chart part also has a visible text label with its amount (the relief rule).
+#
+# --rank-1..4: the movie donut's own colours (owner, 2026-10-27: unlike the bars'), one
+# green-teal hue in ordinal steps, the top movie strongest against the card (darkest in
+# light, lightest in dark); validated --ordinal on both cards. Neither mode's bars use
+# that hue, so a movie never looks like tickets or snacks.
 glob CHART_RULES: str = """[data-surface="backoffice"] {
   --chart-bar: #3F35C4;
   --chart-1: #3F35C4;
@@ -177,6 +182,10 @@ glob CHART_RULES: str = """[data-surface="backoffice"] {
   --chart-3: #1baf7a;
   --chart-4: #eda100;
   --chart-other: #6f6c66;
+  --rank-1: #0b5a42;
+  --rank-2: #11805b;
+  --rank-3: #22a374;
+  --rank-4: #5cc79b;
 }
 
 .dark [data-surface="backoffice"] {
@@ -186,6 +195,10 @@ glob CHART_RULES: str = """[data-surface="backoffice"] {
   --chart-3: #199e70;
   --chart-4: #9085e9;
   --chart-other: #6b6862;
+  --rank-1: #a6ebcd;
+  --rank-2: #5ccba0;
+  --rank-3: #22a374;
+  --rank-4: #177a57;
 }
 """;
 

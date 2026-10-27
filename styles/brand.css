@@ -215,6 +215,10 @@
   --chart-3: #1baf7a;
   --chart-4: #eda100;
   --chart-other: #6f6c66;
+  --rank-1: #0b5a42;
+  --rank-2: #11805b;
+  --rank-3: #22a374;
+  --rank-4: #5cc79b;
 }
 
 .dark [data-surface="backoffice"] {
@@ -224,4 +228,8 @@
   --chart-3: #199e70;
   --chart-4: #9085e9;
   --chart-other: #6b6862;
+  --rank-1: #a6ebcd;
+  --rank-2: #5ccba0;
+  --rank-3: #22a374;
+  --rank-4: #177a57;
 }
