@@ -26,7 +26,6 @@ cinema whose rates differ gets them in writing too.
 """
 
 import json;
-import math;
 import from datetime { date }
 import from zoneinfo { ZoneInfo }
 import from core.clock { now }
@@ -36,6 +35,7 @@ import from core.platform.staff_api { require_platform }
 import from core.audit.log { platform_audited }
 import from core.authz.context { scoped }
 import from core.tenancy.registry { lookup_slug }
+import from core.money { basis_points_of }
 
 glob SPACE: str = "fee-rule",
      PLATFORM_KEY: str = "versions",
@@ -169,27 +169,21 @@ def rule_for(tenant_id: str, day: str) -> dict[str, any] {  # jac:ignore[W1037]
 }
 
 def _basis_points(value: any, label: str) -> int {  # jac:ignore[W1037]
-    try {
-        number = float(value);
-    } except (TypeError, ValueError) {
-        raise Refused(
-            "invalid_rate", f"Enter the {label} as a percentage, like 7 or 2.5."
-        );
-    }
-    if not math.isfinite(number) {
-        raise Refused(
-            "invalid_rate", f"Enter the {label} as a percentage, like 7 or 2.5."
-        );
-    }
-    bp = round(number * 100);
-    if bp < 0 or bp > MAX_BP or abs(number * 100 - bp) > 1e-6 {
+    # A percentage from the console as basis points, read as text with Decimal
+    # (core/money.jac), never through float.
+    bp = basis_points_of(value);
+    if bp is None {
         raise Refused(
             "invalid_rate",
-            f"The {label} must be between 0% and {MAX_BP
-                // 100}%, with at most two decimals."
+            f"Enter the {label} as a percentage with at most two decimals, like 7 or 2.5."
         );
     }
-    return int(bp);
+    if bp < 0 or bp > MAX_BP {
+        raise Refused(
+            "invalid_rate", f"The {label} must be between 0% and {MAX_BP // 100}%."
+        );
+    }
+    return bp;
 }
 
 def _day(applies_from: str, found: list[dict[str, any]]) -> str {  # jac:ignore[W1037]

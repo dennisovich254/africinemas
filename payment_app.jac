@@ -581,7 +581,8 @@ def:pub t_refund(
     method: str,
     # Required: an omitted default arrives as text ("False" is true), JI-060.
     platform_failure: bool
-) -> dict[str, int] {
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # {"refused": why} for a refund the fee ledger won't take (more than is left).
     (cinema, screening) = _showtime(slug, screening_id);
     me = node_id(root);
     act_as(cinema.principal_root_id);
@@ -591,9 +592,13 @@ def:pub t_refund(
             for o in [screening-->[?:Order]]
             if o.reference == reference
         ];
-        done = record_refund(
-            cinema, found[0], amount_cents, method, platform_failure, "test", ""
-        );
+        try {
+            done = record_refund(
+                cinema, found[0], amount_cents, method, platform_failure, "test", ""
+            );
+        } except ValueError as e {
+            return {"refused": str(e)};
+        }
         commit_now();
         return done;
     } finally {

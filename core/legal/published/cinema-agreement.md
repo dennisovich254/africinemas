@@ -459,6 +459,7 @@ the English version prevails.
 | Set-up fee | None |
 | Monthly subscription | None |
 | M-Pesa charges | Safaricom's charges on your paybill or till are yours, under your contract with Safaricom |
+| How the Fee is worked out | In cents, exactly, then rounded once per Order to the nearest cent (half a cent rounds up). A credit on refunds is worked out on everything refunded so far, so partial refunds credit exactly what one full refund would |
 | VAT | Added to the Fee when AfriCinemas is registered for VAT |
 | Invoice | Monthly, on the 1st, for the previous month |
 | Due | 14 days after the invoice date |

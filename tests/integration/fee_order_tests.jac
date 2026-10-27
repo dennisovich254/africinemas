@@ -199,3 +199,34 @@ test "refunds credit the fee for M-Pesa or a Platform failure, never for cash" {
         app.close();
     }
 }
+
+test "partial refunds credit exactly the fee in all, and never more than was paid" {
+    (app, _, screening) = paying_cinema([]);
+    try {
+        paid(app, screening);
+        online = list(_fees(app, screening).values())[0];
+        total = online["total_cents"];
+        where = {
+            "slug": "nova",
+            "screening_id": screening,
+            "reference": online["reference"],
+            "method": "mpesa",
+            "platform_failure": False
+        };
+        # Three refunds that add up to the whole order: the credits add up to the
+        # whole fee, to the cent, however each one rounds.
+        third = total // 3;
+        credits = 0;
+        for amount in [third, third, total - 2 * third] {
+            done = browse(app, "t_refund", {** where, "amount_cents": amount});
+            assert "refused" not in done , done;
+            credits += done["fee_credited_cents"];
+        }
+        assert credits == online["fee_cents"] , (credits, online);
+        # Nothing is left to refund: one cent more is refused.
+        more = browse(app, "t_refund", {** where, "amount_cents": 1});
+        assert "refused" in more , more;
+    } finally {
+        app.close();
+    }
+}
