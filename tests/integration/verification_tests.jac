@@ -21,7 +21,8 @@ import from tests.support.verification_setup {
     upload_file,
     png_base64,
     pdf_base64,
-    sign_up_with_email
+    sign_up_with_email,
+    accept_agreement
 }
 
 test "the owner fills the details and uploads the documents, checked on the server" {
@@ -115,7 +116,7 @@ test "submitting needs everything and the essentials, then waits for the review"
         assert sorted([m["field"] for m in early["error"]["missing"]])
             == ["county_permit", "kra_certificate", "registration_certificate"];
         assert sorted([e["field"] for e in early["error"]["essentials"]])
-            == ["policies", "policies", "policies"];
+            == ["agreement", "policies", "policies", "policies"];
         for item in ["registration_certificate", "kra_certificate", "county_permit"] {
             assert upload_file(app, item, "application/pdf", pdf_base64())["ok"];
         }
@@ -132,6 +133,10 @@ test "submitting needs everything and the essentials, then waits for the review"
                 }
             )["ok"];
         }
+        # The cinema agreement too (P15.1).
+        assert code_of(app.call("kim", "submit_verification", {"tenant": "kims"}))
+            == "not_ready";
+        accept_agreement(app, "kim", "kims");
         done = app.call("kim", "submit_verification", {"tenant": "kims"});
         assert done["ok"] , done;
         assert done["status"] == "submitted"

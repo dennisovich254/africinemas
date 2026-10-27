@@ -7,8 +7,8 @@ from. Version 0.1 was published before the advocate's review (owner, 2026-10-26)
 every page says it's being reviewed.
 
 legal_document(name) answers anyone for the public ones. The cinema agreement is
-confidential (owner, 2026-10-27): it isn't a public page, and only a signed-in account
-gets it (cinema_agreement), for the owner to read and accept when creating a cinema
+confidential (owner, 2026-10-27): it isn't a public page; only the cinema's own team
+reads it (core/legal/agreement_api.jac, cinema_agreement_text), for the owner to accept
 (P15.1).
 """
 
@@ -59,9 +59,4 @@ def:pub legal_document(name: str) -> dict[str, any] {  # jac:ignore[W1037]
         return NOT_FOUND;
     }
     return _document(name);
-}
-
-def:protect cinema_agreement -> dict[str, any] {  # jac:ignore[W1037]
-    # The cinema agreement, for a signed-in account only (never a public page).
-    return _document("cinema-agreement");
 }

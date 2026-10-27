@@ -189,6 +189,34 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"email": "probe@example.com"}
          },
+         # The fee rule (P15.1): platform staff read it, super admins set it.
+         "fee_rules": {"scope": "platform", "audit": ""},
+         "set_fee_rule": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {
+                 "online_ticket_percent": 7,
+                 "online_snack_percent": 20,
+                 "counter_percent": 3,
+                 "applies_from": "2099-01-01"
+             }
+         },
+         # The cinema agreement (P15.1): any member reads its status; the owner accepts.
+         "cinema_agreement_status": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "cinema_agreement_text": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "accept_cinema_agreement": {
+             "scope": "tenant",
+             "audit": "cinema.agreement_accepted",
+             "probe": {"tenant": "{tenant}", "version": "0.1"}
+         },
          # The registrations checklist (P15.0b): super admins only.
          "registrations_checklist": {"scope": "platform", "audit": ""},
          "tick_registration": {
@@ -198,8 +226,6 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          },
          # AfriCinemas' legal pages (P15.0b): public.
          "legal_document": {"scope": "public", "audit": "", "probe": {"name": "terms"}},
-         # The cinema agreement: confidential, for a signed-in account.
-         "cinema_agreement": {"scope": "caller", "audit": ""},
          "check_slug": {"scope": "caller", "audit": "", "probe": {"slug": "free-name"}},
          "my_access": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
          # The cinema's public information (P14.3a): its staff who change settings.

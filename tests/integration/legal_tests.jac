@@ -39,7 +39,7 @@ test "the legal documents are public, versioned and free of the drafts' notes" {
         # The cinema agreement is confidential: not public, only for a signed-in account.
         assert code_of(browse(app, "legal_document", {"name": "cinema-agreement"}))
             == "not_found";
-        agreement = app.call("owner", "cinema_agreement", {});
+        agreement = app.call("owner", "cinema_agreement_text", {"tenant": "nova"});
         assert agreement["ok"] and agreement["version"] == "0.1" , agreement;
         fee = agreement["text"];
         for mark in DRAFT_MARKS {

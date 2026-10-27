@@ -64,6 +64,7 @@ import from .VerificationSection { VerificationSection }
 import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
 import from .ProfileSection { ProfileSection }
+import from .AgreementSection { AgreementSection, AgreementNotice }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
@@ -430,6 +431,8 @@ def:pub BackOffice -> JsxElement {
         content = <HelpSection slug={slug} shift_open={shift_open} item={item}/>;
     } elif section == "profile" {
         content = <ProfileSection slug={slug}/>;
+    } elif section == "agreement" {
+        content = <AgreementSection slug={slug} cinema={me["name"]}/>;
     } elif section == "settings" {
         content = <SettingsPage
             slug={slug}
@@ -456,6 +459,7 @@ def:pub BackOffice -> JsxElement {
                     and <p className="-mt-3 text-sm text-muted-foreground">
                         {web_address(slug)}
                     </p>}
+                {allowed and <AgreementNotice slug={slug} section={section}/>}
                 {not shift_open
                     and allowed
                     and <ShiftBanner

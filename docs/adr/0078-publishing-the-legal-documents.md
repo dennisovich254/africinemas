@@ -39,8 +39,8 @@ and legal@africinemas.co.ke.
 - **The links.**
   - The main site's footer links the three public documents. **The cinema agreement is
     confidential** (owner, 2026-10-27): it has no public page, `legal_document` doesn't
-    serve it, and `cinema_agreement` gives it to a signed-in account only, for the
-    owner to read and accept in the new-cinema wizard (P15.1).
+    serve it, and only the cinema's own team reads it (`cinema_agreement_text`,
+    ADR-0079), for the owner to accept in the back office (P15.1).
   - The sign-up page links the terms and the privacy policy. The cinema agreement isn't
     there: sign-up makes a personal account (invited staff too), and the owner accepts
     the agreement when creating a cinema (P15.1).

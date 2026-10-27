@@ -158,7 +158,20 @@ def go_live(slug: str) {
     assert approved["ok"] , approved;
 }
 
-def owner_with_cinema(name: str = "Nova Cinemas", live: bool = True) -> dict[str, str] {
+def accept_agreement(token: str, slug: str, email: str) {
+    # The owner accepts the current cinema agreement, as the new-cinema wizard does (P15.1).
+    current = call(token, "cinema_agreement_status", {"tenant": slug})["current"];
+    accepted = call(
+        token,
+        "accept_cinema_agreement",
+        {"tenant": slug, "version": current, "sign_in": email}
+    );
+    assert accepted["ok"] , accepted;
+}
+
+def owner_with_cinema(
+    name: str = "Nova Cinemas", live: bool = True, agreed: bool = True
+) -> dict[str, str] {
     # A signed-up owner with one cinema and an open shift.
     email = email_for(unique("owner"));
     token = register(email);
@@ -167,6 +180,9 @@ def owner_with_cinema(name: str = "Nova Cinemas", live: bool = True) -> dict[str
         token, "create_cinema", {"name": name, "slug": slug, "email": email}
     );
     assert created["created"] , created;
+    if agreed {
+        accept_agreement(token, slug, email);
+    }
     if live {
         go_live(slug);
     }

@@ -34,6 +34,8 @@ glob SUFFIX: str = ".africinemas.co.ke",
          ("audit", "Audit log", "audit.read"),
          # Verifying the owner and the business (P14.4): the owner alone.
          ("verification", "Verification", "tenant.verification"),
+         # Reading and accepting the cinema agreement (P15.1): the owner alone.
+         ("agreement", "Cinema agreement", "tenant.verification"),
          ("settings", "Settings", "tenant.settings.update"),
          # Asking AfriCinemas for technical help (P13.5a).
          ("help", "Help", "support.request"),
