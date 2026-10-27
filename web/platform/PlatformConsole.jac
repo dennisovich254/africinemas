@@ -556,6 +556,7 @@ def:pub PlatformConsole -> JsxElement {
                         slug={item}
                         audit={may(shown, "platform.audit")}
                         review={may(shown, "platform.review")}
+                        fees={may(shown, "platform.settings")}
                     />}{section == "reviews"
                     and allowed
                     and not item

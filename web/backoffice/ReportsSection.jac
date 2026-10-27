@@ -124,6 +124,8 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
     sales: dict[str, any] = got["report"];  # jac:ignore[W1037]
     currency: str = got["currency"];
     takings: dict[str, int] = sales["takings"];
+    # AfriCinemas' fees on the period's sales, and the cinema's share (P15.2).
+    fees: dict[str, int] = sales["fees"];
     shown: dict[str, any] = sales["attendance"];  # jac:ignore[W1037]
     full: float = shown["occupancy_pct"];
     places: list[dict[str, str]] = venues;
@@ -252,6 +254,22 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                         value={money_label(takings["snacks_cents"], currency)}
                         note="With tickets and snacks-only sales"
                         testid="kpi-snack-net"
+                    />
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <KpiTile
+                        label="AfriCinemas fees"
+                        value={money_label(fees["fees_cents"], currency)}
+                        note={f"Credited on refunds {money_label(
+                            fees['credited_cents'], currency
+                        )}"}
+                        testid="kpi-fees"
+                    />
+                    <KpiTile
+                        label="Your share"
+                        value={money_label(fees["cinema_share_cents"], currency)}
+                        note="Net takings less AfriCinemas fees, invoiced monthly"
+                        testid="kpi-share"
                     />
                 </div>
                 <p className="text-sm text-muted-foreground">

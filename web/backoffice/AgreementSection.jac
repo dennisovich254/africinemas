@@ -18,7 +18,9 @@ import from core.legal.agreement_api {
     cinema_agreement_text,  # jac:ignore[W2037]
     accept_cinema_agreement  # jac:ignore[W2037]
 }
+import from core.legal.fee_rule { my_fee_rates }  # jac:ignore[W2037] authenticated endpoint
 import from ..auth.session { signed_in_email }
+import from ..platform.FeesPage { percent_label }
 import from ..legal.LegalPage { LegalText }
 import from .nav { section_path }
 import from ..shell.AppLink { AppLink }
@@ -85,6 +87,23 @@ def:pub AgreementNotice(slug: str, section: str) -> JsxElement {
     return <span className="hidden"/>;
 }
 
+def _rates_text(found: dict[str, any] | None) -> str {  # jac:ignore[W1037]
+    # The rates in force for the cinema, in words ("" until they've loaded).
+    if found is None {
+        return "";
+    }
+    rule: dict[str, int] = found["rule"];
+    lead = "Your rates, agreed with you: "
+        if found["agreed"]
+        else "Your rates, the standard in schedule 1: ";
+    return lead
+        + f"{percent_label(
+            rule['online_ticket_bp']
+        )} on tickets, glasses and booking fees online, {percent_label(
+            rule['online_snack_bp']
+        )} on snacks online, {percent_label(rule['counter_bp'])} at the box office.";
+}
+
 def:pub AgreementSection(slug: str, cinema: str) -> JsxElement {
     [status, set_status] = useState(None);
     [doc, set_doc] = useState(None);
@@ -92,8 +111,23 @@ def:pub AgreementSection(slug: str, cinema: str) -> JsxElement {
     [ticked, set_ticked] = useState(False);
     [busy, set_busy] = useState(False);
     [note, set_note] = useState("");
+    # The rates in force for this cinema (P15.2), for staff who read the reports.
+    [rates, set_rates] = useState(None);
+
+    async def load_rates {
+        got: any = None;  # jac:ignore[W1037]
+        try {
+            got = await my_fee_rates(slug);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("my_fee_rates failed", e);
+        }
+        if got is not None and got["ok"] {
+            set_rates(got);
+        }
+    }
 
     async def load {
+        load_rates();
         seen: any = None;  # jac:ignore[W1037]
         text: any = None;  # jac:ignore[W1037]
         try {
@@ -155,6 +189,7 @@ def:pub AgreementSection(slug: str, cinema: str) -> JsxElement {
         return <Spinner aria-label="Loading the agreement"/>;
     }
     accepted: dict[str, any] | None = shown["accepted"];  # jac:ignore[W1037]
+    rates_text = _rates_text(rates);
     return
         <section data-testid="agreement" className="flex max-w-3xl flex-col gap-6">
             <div className="flex flex-col gap-2 rounded-lg border bg-card p-4">
@@ -167,6 +202,10 @@ def:pub AgreementSection(slug: str, cinema: str) -> JsxElement {
                         if accepted is not None
                         else "Not accepted yet."}
                 </p>
+                {rates_text
+                    and <p className="text-sm" data-testid="agreement-rates">
+                        {rates_text}
+                    </p>}
                 <p role="status" aria-live="polite" className="text-sm empty:hidden">
                     {note}
                 </p>

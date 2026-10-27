@@ -40,6 +40,7 @@ import from core.booking.ticket_delivery {
     order_of_cinema
 }
 import from core.payments.ledger { record_entry }
+import from core.payments.fees { charge_fee }
 import from core.snacks.order_stock { sell_snacks }
 
 glob PROVISIONAL_SECONDS: int = 60;
@@ -116,6 +117,8 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
         );
         recorded.method = takings.method;
         recorded.recorded_by = takings.recorded_by;
+        # AfriCinemas' fee, frozen on the order with the rule in force (P15.2).
+        charge_fee(cinema, order, takings.recorded_by);
         # Its snacks leave the shelf, their sale movements in this commit. confirm_order
         # runs once per order (the FINALIZE gate), so a repeated callback can't sell
         # them twice.
