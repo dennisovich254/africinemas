@@ -52,9 +52,9 @@ def:pub SplitBar(  # jac:ignore[W3030] a titled bar: two named amounts, the curr
     left = max(0, left_cents);
     right = max(0, right_cents);
     whole = left + right;
-    parts = [
-        ("left", left_label, left, SLOTS[0]),
-        ("right", right_label, right, SLOTS[1])
+    parts: list[dict[str, any]] = [  # jac:ignore[W1037]
+        {"key": "left", "label": left_label, "cents": left, "colour": SLOTS[0]},
+        {"key": "right", "label": right_label, "cents": right, "colour": SLOTS[1]}
     ];
     return
         <figure data-testid={testid} className="flex min-w-0 flex-col gap-2">
@@ -68,17 +68,17 @@ def:pub SplitBar(  # jac:ignore[W3030] a titled bar: two named amounts, the curr
                     {[
                         (
                             <span
-                                key={key}
+                                key={p["key"]}
                                 aria-hidden="true"
                                 className="h-full min-w-[4px] first:rounded-l-[4px] last:rounded-r-[4px]"
                                 style={{
-                                    "width": f"{cents * 100 / whole}%",
-                                    "background": colour
+                                    "width": f"{p['cents'] * 100 / whole}%",
+                                    "background": p["colour"]
                                 }}
                             />
-                                if cents > 0
-                                else <span key={key} className="hidden"/>
-                        ) for (key, label, cents, colour) in parts
+                                if p["cents"] > 0
+                                else <span key={p["key"]} className="hidden"/>
+                        ) for p in parts
                     ]}
                 </div>}
             {whole > 0
@@ -87,41 +87,62 @@ def:pub SplitBar(  # jac:ignore[W3030] a titled bar: two named amounts, the curr
                 >
                     {[
                         <li
-                            key={key}
-                            data-testid={f"{testid}-{key}"}
+                            key={p["key"]}
+                            data-testid={f"{testid}-{p['key']}"}
                             className="flex items-center gap-1.5"
                         >
                             <span
                                 aria-hidden="true"
                                 className="size-2.5 shrink-0 rounded-sm"
-                                style={{"background": colour}}
+                                style={{"background": p["colour"]}}
                             />
-                            <span>{label}</span>
+                            <span>{p["label"]}</span>
                             <span className="tabular-nums text-muted-foreground">
-                                {f"{money_label(cents, currency)} · {share_label(
-                                    cents, whole
-                                )}"}
+                                {money_label(p["cents"], currency)
+                                    + " · "
+                                    + share_label(p["cents"], whole)}
                             </span>
-                        </li> for (key, label, cents, colour) in parts
+                        </li> for p in parts
                     ]}
                 </ul>}
         </figure>;
 }
 
-def _slices(rows: list[dict[str, any]], whole: int) -> list[tuple[str, int, str]] {  # jac:ignore[W1037]
-    # (name, cents, colour): the top four movies, then the rest as "Other".
+def _slices(
+    rows: list[dict[str, any]],  # jac:ignore[W1037]
+    whole: int,
+    circumference: float
+) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # Each slice as {"i", "name", "cents", "colour", "length", "start"}: the top four
+    # movies, then the rest as "Other", with where each sits around the ring. Dicts,
+    # not tuples: a nested tuple in a client comprehension loses its names (JI-061).
     top = [
         r
         for r in rows
         if int(r["revenue_cents"]) > 0
     ][:4];
-    made: list[tuple[str, int, str]] = [];
-    for (i, r) in enumerate(top) {
-        made.append((str(r["title"]), int(r["revenue_cents"]), SLOTS[i]));
+    made: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for r in top {
+        made.append(
+            {
+                "name": str(r["title"]),
+                "cents": int(r["revenue_cents"]),
+                "colour": SLOTS[len(made)]
+            }
+        );
     }
-    rest = whole - sum([c for (n, c, k) in made]);
+    rest = whole - sum([m["cents"] for m in made]);
     if rest > 0 {
-        made.append(("Other", rest, OTHER));
+        made.append({"name": "Other", "cents": rest, "colour": OTHER});
+    }
+    run = 0.0;
+    n = 0;
+    for m in made {
+        m["i"] = n;
+        n += 1;
+        m["length"] = m["cents"] * circumference / whole;
+        m["start"] = run;
+        run += m["length"];
     }
     return made;
 }
@@ -135,40 +156,32 @@ def:pub ShareDonut(
     # ticket revenue in the period, so the rest is "Other".
     [active, set_active] = useState(-1);
     whole = max(0, whole_cents);
-    slices = _slices(rows, whole) if whole > 0 else [];
     circumference = 2 * 3.14159265 * RADIUS;
-    # Each slice's length and where it starts around the ring.
-    lengths = [c * circumference / whole for (label, c, tint) in slices]
-        if whole > 0
-        else [];
-    starts: list[float] = [];
-    run = 0.0;
-    for length in lengths {
-        starts.append(run);
-        run += length;
-    }
+    slices = _slices(rows, whole, circumference) if whole > 0 else [];
     gap = GAP if len(slices) > 1 else 0.0;
     arcs = [
         <circle
-            key={f"{i}"}
+            key={f"{m['i']}"}
             cx="50"
             cy="50"
             r={f"{RADIUS}"}
             fill="none"
-            stroke={colour}
-            strokeWidth={f"{STROKE + (2 if active == i else 0)}"}
-            strokeDasharray={f"{max(lengths[i] - gap, 0.1)} {circumference}"}
-            strokeDashoffset={f"{0 - starts[i]}"}
+            stroke={m["colour"]}
+            strokeWidth={f"{STROKE + (2 if active == m['i'] else 0)}"}
+            strokeDasharray={f"{max(m['length'] - gap, 0.1)} {circumference}"}
+            strokeDashoffset={f"{0 - m['start']}"}
             transform="rotate(-90 50 50)"
-            onMouseEnter={lambda { set_active(i); }}
+            onMouseEnter={lambda { set_active(m["i"]); }}
             onMouseLeave={lambda { set_active(-1); }}
-        /> for (i, (label, c, colour)) in enumerate(slices)
+        /> for m in slices
     ];
-    shown: tuple[str, int, str] | None = slices[active]
+    shown: dict[str, any] | None = slices[active]  # jac:ignore[W1037]
         if active >= 0 and active < len(slices)
         else None;
-    centre_top = shown[0] if shown is not None else "Ticket revenue";
-    centre_value = money_label(shown[1] if shown is not None else whole, currency);
+    centre_top = shown["name"] if shown is not None else "Ticket revenue";
+    centre_value = money_label(
+        shown["cents"] if shown is not None else whole, currency
+    );
     return
         <figure data-testid="movie-share" className="flex min-w-0 flex-col gap-3">
             <figcaption className="text-sm font-medium">
@@ -187,8 +200,8 @@ def:pub ShareDonut(
                             aria-label={"Ticket revenue by movie: "
                                 + "; ".join(
                                     [
-                                        f"{n} {share_label(c, whole)}"
-                                        for (n, c, k) in slices
+                                        f"{m['name']} {share_label(m['cents'], whole)}"
+                                        for m in slices
                                     ]
                                 )}
                             className="size-full"
@@ -212,37 +225,37 @@ def:pub ShareDonut(
                     <ul className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
                         {[
                             <li
-                                key={f"{i}"}
+                                key={f"{m['i']}"}
                                 className="flex min-w-0 items-center gap-2"
                             >
                                 <button
                                     type="button"
                                     data-testid="movie-share-row"
                                     className={"flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-2"
-                                        + (" font-medium" if active == i else "")}
-                                    onMouseEnter={lambda { set_active(i); }}
+                                        + (" font-medium" if active == m["i"] else "")}
+                                    onMouseEnter={lambda { set_active(m["i"]); }}
                                     onMouseLeave={lambda { set_active(-1); }}
-                                    onFocus={lambda { set_active(i); }}
+                                    onFocus={lambda { set_active(m["i"]); }}
                                     onBlur={lambda { set_active(-1); }}
-                                    onClick={lambda { set_active(i); }}
+                                    onClick={lambda { set_active(m["i"]); }}
                                 >
                                     <span
                                         aria-hidden="true"
                                         className="size-2.5 shrink-0 rounded-sm"
-                                        style={{"background": colour}}
+                                        style={{"background": m["colour"]}}
                                     />
                                     <span className="min-w-0 flex-1 truncate">
-                                        {name}
+                                        {m["name"]}
                                     </span>
                                     <span
                                         className="shrink-0 tabular-nums text-muted-foreground"
                                     >
-                                        {f"{money_label(cents, currency)} · {share_label(
-                                            cents, whole
-                                        )}"}
+                                        {money_label(m["cents"], currency)
+                                            + " · "
+                                            + share_label(m["cents"], whole)}
                                     </span>
                                 </button>
-                            </li> for (i, (name, cents, colour)) in enumerate(slices)
+                            </li> for m in slices
                         ]}
                     </ul>
                 </div>}
