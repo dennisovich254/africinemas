@@ -17,6 +17,16 @@ omitted `flag` and `n` arrive as the **strings** `"False"` and `"0.0"`, not as `
 and `0.0`. With every parameter sent, `{"a": "x", "flag": false, "n": 1.5, "s": "y"}`
 returns `False|1.5|'y'`, as expected.
 
+**Repro:** [`repro/JI-060/`](repro/JI-060/): a three-line app (`main.jac`) and a test
+that boots it on a real server (`jac run`) and calls it with and without the defaulted
+parameters:
+
+    jac test docs/jac-issues/repro/JI-060/ji060_repro_tests.jac -v
+
+On Jac 0.38.0, 2026-10-27, it fails as expected for the bug:
+`{'flag': "str:'False'", 'n': "str:'0.0'", 's': "str:''", 'branch': 'flag is true'}`.
+The same request with every parameter sent is correct.
+
 ## Why it matters
 
 `"False"` is a non-empty string, so it's **true**. Code such as
