@@ -127,6 +127,8 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
             assert "Rafiki" in _text(page, "movie-share")
                 and "100%" in _text(page, "movie-share");
             assert "Snacks" in _text(page, "takings-legend");
+            # The headline compares with the days just before: nothing then.
+            assert "previous" in _text(page, "trend") , project;
             # The occupancy meter leads the showtimes: 18.2% shows as 18%.
             assert "18%" in _text(page, "occupancy-meter") , project;
             assert page.locator('[data-testid="chart-bar"]').count() == 7;

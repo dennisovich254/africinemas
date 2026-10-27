@@ -15,8 +15,25 @@ import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037] authenticated endpoint
 import from .report_view { PRESETS, preset_range, period_label, percent, money_label }
-import from .report_parts { KpiTile, TakingsChart, TopMovies, DrillDown }
-import from .report_charts { SplitBar, ShareDonut, OccupancyMeter }
+import from "@hugeicons/core-free-icons" {
+    ChartIncreaseIcon,
+    Coins01Icon,
+    Money03Icon,
+    PopcornIcon,
+    QrCode01Icon,
+    SmartPhone01Icon,
+    Store01Icon,
+    Ticket02Icon,
+    UserGroupIcon
+}
+import from .report_parts { KpiTile, TakingsChart, DrillDown }
+import from .report_charts {
+    SplitBar,
+    ShareDonut,
+    OccupancyMeter,
+    TrendBadge,
+    TopMoviesList
+}
 
 import from .SnackReport { SnackReport }
 
@@ -128,6 +145,8 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
     shown: dict[str, any] = sales["attendance"];  # jac:ignore[W1037]
     # AfriCinemas' fees and the cinema's share (P15.2), when the report has them.
     fee_split: dict[str, int] | None = sales.get("fees") or None;
+    # The same number of days just before, for the headline's trend.
+    previous: dict[str, int] | None = sales.get("previous") or None;
     full: float = shown["occupancy_pct"];
     places: list[dict[str, str]] = venues;
     span_text = period_label(sales["first"], sales["last"]);
@@ -213,25 +232,46 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                         Counted on the day the money came in, {span_text}.
                     </p>
                 </div>
-                <div data-testid="money-headline" className="max-w-sm">
-                    <KpiTile
-                        label="Net takings"
-                        value={money_label(takings["net_cents"], currency)}
-                        note="After refunds and adjustments"
-                        testid="kpi-net"
-                        large={True}
-                    />
-                </div>
-                <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-                    <TakingsChart
-                        points={sales["chart"]["points"]}
-                        unit={sales["chart"]["unit"]}
-                        currency={currency}
-                    />
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <div
+                        data-testid="money-headline"
+                        className="flex min-w-0 flex-col gap-4 rounded-2xl bg-card p-5 ring-1 ring-foreground/10 lg:col-span-2"
+                    >
+                        <div className="flex flex-col gap-1">
+                            <p className="text-sm text-muted-foreground">Net takings</p>
+                            <p
+                                data-testid="kpi-net"
+                                className="text-4xl font-semibold tracking-tight tabular-nums"
+                            >
+                                {money_label(takings["net_cents"], currency)}
+                            </p>
+                            {previous is not None
+                                and <TrendBadge
+                                    now_cents={takings["net_cents"]}
+                                    before_cents={previous["net_cents"]}
+                                    days={previous["days"]}
+                                    currency={currency}
+                                />}
+                        </div>
+                        <TakingsChart
+                            points={sales["chart"]["points"]}
+                            unit={sales["chart"]["unit"]}
+                            currency={currency}
+                        />
+                    </div>
+                    <div
+                        className="flex min-w-0 flex-col gap-3 rounded-2xl bg-card p-5 ring-1 ring-foreground/10"
+                    >
+                        <ShareDonut
+                            rows={sales["top_movies"]}
+                            whole_cents={shown["ticket_revenue_cents"]}
+                            currency={currency}
+                        />
+                    </div>
                 </div>
                 <div
                     data-testid="money-splits"
-                    className="grid grid-cols-1 gap-5 rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-2"
+                    className="grid grid-cols-1 gap-5 rounded-2xl bg-card p-5 ring-1 ring-foreground/10 sm:grid-cols-2"
                 >
                     <SplitBar
                         title="Where the money came from"
@@ -284,6 +324,8 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                                     takings['refunds_cents'], currency
                                 )}"}
                                 testid="kpi-gross"
+                                icon={Money03Icon}
+                                slot="1"
                             />
                             <KpiTile
                                 label="M-Pesa"
@@ -292,6 +334,8 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                                     takings['cash_cents'], currency
                                 )}"}
                                 testid="kpi-mpesa"
+                                icon={SmartPhone01Icon}
+                                slot="2"
                             />
                             <KpiTile
                                 label="At the box office"
@@ -300,18 +344,24 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                                     takings['online_cents'], currency
                                 )}"}
                                 testid="kpi-counter"
+                                icon={Store01Icon}
+                                slot="3"
                             />
                             <KpiTile
                                 label="Ticket net takings"
                                 value={money_label(takings["tickets_cents"], currency)}
                                 note="Booking fees included"
                                 testid="kpi-ticket-net"
+                                icon={Ticket02Icon}
+                                slot="1"
                             />
                             <KpiTile
                                 label="Snack net takings"
                                 value={money_label(takings["snacks_cents"], currency)}
                                 note="With tickets and snacks-only sales"
                                 testid="kpi-snack-net"
+                                icon={PopcornIcon}
+                                slot="2"
                             />
                         </div>
                     </div>
@@ -337,15 +387,14 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                 />
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <div
-                        className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+                        className="flex flex-col gap-3 rounded-2xl bg-card p-5 ring-1 ring-foreground/10"
                     >
-                        <ShareDonut
+                        <h3 className="text-base font-semibold">Top movies</h3>
+                        <TopMoviesList
+                            slug={slug}
                             rows={sales["top_movies"]}
-                            whole_cents={shown["ticket_revenue_cents"]}
                             currency={currency}
                         />
-                        <h3 className="text-sm font-medium">Top movies</h3>
-                        <TopMovies rows={sales["top_movies"]} currency={currency}/>
                     </div>
                     <div className="flex flex-col gap-3">
                         <h3 className="text-sm font-medium">
@@ -370,6 +419,8 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                             value={f"{shown['tickets_sold']}"}
                             note={f"{shown['tickets_scanned']} scanned at the door"}
                             testid="kpi-tickets"
+                            icon={QrCode01Icon}
+                            slot="1"
                         />
                         <KpiTile
                             label="Occupancy"
@@ -378,12 +429,16 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                                 'showtimes'
                             ]} showtimes"}
                             testid="kpi-occupancy"
+                            icon={UserGroupIcon}
+                            slot="2"
                         />
                         <KpiTile
                             label="Average ticket"
                             value={money_label(shown["average_ticket_cents"], currency)}
                             note="Booking fee included"
                             testid="kpi-average"
+                            icon={Coins01Icon}
+                            slot="3"
                         />
                         <KpiTile
                             label="Ticket revenue"
@@ -392,6 +447,8 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                                 shown['revenue_per_seat_cents'], currency
                             )} per seat on sale"}
                             testid="kpi-revenue"
+                            icon={ChartIncreaseIcon}
+                            slot="4"
                         />
                     </div>
                 </div>

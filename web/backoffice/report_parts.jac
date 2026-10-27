@@ -9,6 +9,7 @@ depends on seeing the colours.
 """
 
 import from react { useState }
+import from "@hugeicons/react" { HugeiconsIcon }
 import from .report_view {
     day_label,
     point_label,
@@ -19,13 +20,31 @@ import from .report_view {
 }
 import from ..storefront.showtimes { day_label as show_day, time_label }
 
-def:pub KpiTile(
-    label: str, value: str, note: str = "", testid: str = "", large: bool = False
+def:pub KpiTile(  # jac:ignore[W3030] a figure: its words, value, note, test id, size and icon
+    label: str,
+    value: str,
+    note: str = "",
+    testid: str = "",
+    large: bool = False,
+    icon: any = None,  # jac:ignore[W1037]
+    slot: str = "1"
 ) -> JsxElement {
+    # `icon`: a Hugeicons icon shown in a soft circle of the chart slot `slot`'s colour.
     return
         <div
-            className="flex flex-col gap-1 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+            className="flex flex-col gap-1 rounded-2xl bg-card p-5 ring-1 ring-foreground/10"
         >
+            {icon is not None
+                and <span
+                    aria-hidden="true"
+                    className="mb-2 inline-flex size-10 items-center justify-center rounded-full"
+                    style={{
+                        "background": f"color-mix(in srgb, var(--chart-{slot}) 18%, transparent)",
+                        "color": f"var(--chart-{slot})"
+                    }}
+                >
+                    <HugeiconsIcon icon={icon} size={20} strokeWidth={2}/>
+                </span>}
             <p className="text-sm text-muted-foreground">{label}</p>
             <p
                 data-testid={testid}

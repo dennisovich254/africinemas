@@ -16,6 +16,7 @@ records from the cinema's graph:
 - paid snack snapshots for product/variant rankings, and current stock alerts.
 """
 
+import from datetime { timedelta }
 import from zoneinfo { ZoneInfo }
 import from core.clock { now }
 import from core.authz.context { NotFound, scoped }
@@ -35,6 +36,7 @@ import from core.reporting.aggregates {
     Money,
     SnackSold,
     snack_share,
+    Period,
     period_of,
     sales_report as counted
 }
@@ -271,6 +273,29 @@ def _sales_report(
         found.snacks,
         found.venues
     );
+    # The same number of days just before, for the headline's trend (owner, 2026-10-27).
+    days = (period.last - period.first).days + 1;
+    before = Period(
+        timezone=timezone,
+        first=period.first - timedelta(days=days),
+        last=period.first - timedelta(days=1)
+    );
+    earlier = counted(
+        before,
+        found.shows,
+        found.tickets,
+        found.money,
+        venue_id,
+        found.snacks,
+        found.venues
+    );
+    result["previous"] = {
+        "first": before.first.isoformat(),
+        "last": before.last.isoformat(),
+        "days": days,
+        "net_cents": earlier["takings"]["net_cents"],
+        "tickets_sold": earlier["attendance"]["tickets_sold"]
+    };
     result["snacks"]["low_stock"] = _low_stock(scope.tenant, venue_id);
     result["snacks"]["stock_as_of"] = now().isoformat();
     return {

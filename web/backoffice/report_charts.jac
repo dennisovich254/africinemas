@@ -15,6 +15,7 @@ middle. With nothing to show, both say so instead of drawing an empty mark.
 
 import from react { useState }
 import from .report_view { money_label }
+import from .MoviesSection { PosterThumb }
 
 glob SLOTS: list[str] = [
          "var(--chart-1)",
@@ -26,7 +27,9 @@ glob SLOTS: list[str] = [
      # The ring: radius 40 and stroke 14 in a 100-unit box.
      RADIUS: float = 40.0,
      STROKE: float = 14.0,
-     GAP: float = 0.6;
+     GAP: float = 0.6,
+     # The smallest slice, in percent, that gets a share label on the ring.
+     LABEL_MIN: int = 8;
 
 def share_label(part: int, whole: int) -> str {
     # part as a whole percentage of whole ("<1%" for a sliver); "0%" with no whole.
@@ -159,6 +162,37 @@ def:pub ShareDonut(
     circumference = 2 * 3.14159265 * RADIUS;
     slices = _slices(rows, whole, circumference) if whole > 0 else [];
     gap = GAP if len(slices) > 1 else 0.0;
+    # A share label on the ring, like a bubble, for each slice of at least LABEL_MIN.
+    for m in slices {
+        turn = (m["start"] + m["length"] / 2) / circumference * 6.2831853 - 1.5707963;
+        m["x"] = 50 + RADIUS * Math.cos(turn);  # jac:ignore[W2001]
+        m["y"] = 50 + RADIUS * Math.sin(turn);  # jac:ignore[W2001]
+        m["shown"] = m["cents"] * 100 >= whole * LABEL_MIN;
+    }
+    bubbles = [
+        <g key={f"b{m['i']}"} aria-hidden="true" className="pointer-events-none">
+            <circle
+                cx={f"{m['x']}"}
+                cy={f"{m['y']}"}
+                r="8.5"
+                fill="var(--card)"
+                stroke="var(--border)"
+                strokeWidth="0.6"
+            />
+            <text
+                x={f"{m['x']}"}
+                y={f"{m['y']}"}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize="5.2"
+                fill="currentColor"
+            >
+                {share_label(m["cents"], whole)}
+            </text>
+        </g>
+        for m in slices
+        if m["shown"]
+    ];
     arcs = [
         <circle
             key={f"{m['i']}"}
@@ -206,7 +240,7 @@ def:pub ShareDonut(
                                 )}
                             className="size-full"
                         >
-                            {arcs}
+                            {arcs}{bubbles}
                         </svg>
                         <div
                             aria-hidden="true"
@@ -300,4 +334,82 @@ def:pub OccupancyMeter(sold: int, seats: int, showtimes: int) -> JsxElement {
                 {f"{filled} of {seats} seats sold across {showtimes} showtimes"}
             </p>
         </figure>;
+}
+
+def:pub TrendBadge(
+    now_cents: int, before_cents: int, days: int, currency: str
+) -> JsxElement {
+    # This period against the same number of days just before: an arrow and the change
+    # in words (never colour alone), in the success or danger colour.
+    span = "day" if days == 1 else f"{days} days";
+    if before_cents <= 0 {
+        return
+            <span data-testid="trend" className="text-xs text-muted-foreground">
+                {f"Nothing in the previous {span} to compare with"}
+            </span>;
+    }
+    change = (now_cents - before_cents) * 100 / before_cents;
+    up = change >= 0;
+    return
+        <span data-testid="trend" className="flex flex-wrap items-center gap-2 text-xs">
+            <span
+                className={"rounded-full px-2 py-0.5 font-semibold "
+                    + (
+                        "bg-[var(--ac-success)]/15 text-[var(--ac-success)]"
+                            if up
+                            else "bg-[var(--ac-danger)]/15 text-[var(--ac-danger)]"
+                    )}
+            >
+                {("↑ " if up else "↓ ") + f"{abs(round(change))}%"}
+            </span>
+            <span className="text-muted-foreground">
+                {f"{'up' if up else 'down'} on the previous {span} ({money_label(
+                    before_cents, currency
+                )})"}
+            </span>
+        </span>;
+}
+
+def:pub TopMoviesList(
+    slug: str,
+    rows: list[dict[str, any]],  # jac:ignore[W1037]
+    currency: str
+) -> JsxElement {
+    # The top movies by ticket revenue, each with its poster, its tickets and revenue.
+    with_sales = [
+        r
+        for r in rows
+        if int(r["revenue_cents"]) > 0
+    ];
+    shown = with_sales[:5];
+    if len(shown) == 0 {
+        return
+            <p className="text-sm text-muted-foreground">
+                No tickets sold in this period.
+            </p>;
+    }
+    return
+        <ul data-testid="top-movies" className="flex flex-col divide-y">
+            {[
+                <li
+                    key={r["movie_id"]}
+                    className="flex items-center gap-3 py-3 first:pt-0"
+                >
+                    <PosterThumb
+                        slug={slug}
+                        movie={{"movie_id": r["movie_id"], "has_poster": True}}
+                        size="w-10"
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate font-medium">{r["title"]}</span>
+                        <span className="text-xs text-muted-foreground">
+                            {f"{r['tickets']} tickets"}
+                        </span>
+                    </div>
+                    <span className="shrink-0 font-semibold tabular-nums">
+                        {money_label(int(r["revenue_cents"]), currency)}
+                    </span>
+                </li> for r in shown
+            ]}
+        </ul>;
 }
