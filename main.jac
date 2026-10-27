@@ -252,7 +252,10 @@ import from core.accounts.profile {
 import from core.legal.legal_api { legal_document }
 import from core.legal.fee_rule {
     fee_rules,  # jac:ignore[W2037]
-    set_fee_rule  # jac:ignore[W2037]
+    set_fee_rule,  # jac:ignore[W2037]
+    cinema_fee_terms,  # jac:ignore[W2037]
+    set_cinema_fee_terms,  # jac:ignore[W2037]
+    my_fee_rates  # jac:ignore[W2037]
 }
 import from core.legal.agreement_api {
     cinema_agreement_status,  # jac:ignore[W2037]

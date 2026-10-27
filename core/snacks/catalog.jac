@@ -20,6 +20,7 @@ field naming the row ("variants[1].price_cents") and the message the variant.
 """
 
 import re;
+import from core.money { whole_shillings }
 
 glob CATEGORY_NAME_MAX: int = 40,
      NAME_MAX: int = 80,
@@ -286,12 +287,17 @@ def check_variants(
         raw_price = row.get("price_cents");
         price = _as_int(raw_price);
         if raw_price is not None
-            and (price is None or price < PRICE_MIN_CENTS or price > PRICE_MAX_CENTS) {
+            and (
+                price is None
+                or price < PRICE_MIN_CENTS
+                or price > PRICE_MAX_CENTS
+                or not whole_shillings(price)
+            ) {
             problems.append(
                 _problem(
                     f"{at}.price_cents",
                     "PRICE_INVALID",
-                    f"{label}: enter a price from KES 1 to KES 100,000."
+                    f"{label}: enter a price in whole shillings, from KES 1 to KES 100,000."
                 )
             );
             price = None;
@@ -414,13 +420,20 @@ def offer(
 }
 
 def check_venue_price(value: any) -> tuple[int | None, str] {  # jac:ignore[W1037]
-    # A venue's own price (P12.2): whole cents in range, or None (use the variant's).
+    # A venue's own price (P12.2): whole shillings in range (M-Pesa charges whole
+    # shillings, core/money.jac), or None (use the variant's).
     if value is None {
         return (None, "");
     }
     price = _as_int(value);
-    if price is None or price < PRICE_MIN_CENTS or price > PRICE_MAX_CENTS {
-        return (None, "Enter a price from KES 1 to KES 100,000, or leave it empty.");
+    if price is None
+        or price < PRICE_MIN_CENTS
+        or price > PRICE_MAX_CENTS
+        or not whole_shillings(price) {
+        return (
+            None,
+            "Enter a price in whole shillings, from KES 1 to KES 100,000, or leave it empty."
+        );
     }
     return (price, "");
 }

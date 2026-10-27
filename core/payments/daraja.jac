@@ -35,6 +35,7 @@ import urllib.request;
 import from datetime { datetime, timedelta }
 import from zoneinfo { ZoneInfo }
 import from core.clock { now }
+import from core.money { cents_of_shillings }
 import from core.payments.state { PaymentState }
 import from core.payments.provider {
     StkRequest,
@@ -169,9 +170,9 @@ def parse_callback(body: any) -> StkStatus | None {  # jac:ignore[W1037]
         result_code=result,
         result_text=str(callback.get("ResultDesc", "")),
         receipt=str(meta.get("MpesaReceiptNumber", "")) if paid else "",
-        amount_cents=round(float(amount) * 100)
-            if paid and isinstance(amount, (int, float))
-            else 0,
+        # Read as text with Decimal, never float (core/money.jac); an amount that
+        # isn't whole cents counts as nothing paid, so settlement flags the mismatch.
+        amount_cents=(cents_of_shillings(amount) or 0) if paid else 0,
         phone=str(meta.get("PhoneNumber", "")) if paid else ""
     );
 }

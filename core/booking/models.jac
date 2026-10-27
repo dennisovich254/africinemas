@@ -66,7 +66,11 @@ node Order {
         pickup_reference: str = "",
         pickup_qr: str = "",
         snacks_collected_at: str = "",
-        snacks_collected_by: str = "";
+        snacks_collected_by: str = "",
+        # AfriCinemas' fee (P15.2, core/payments/fees.jac), frozen when it was paid:
+        # its total and how it was made (whose rule, the version, each category).
+        fee_cents: int = 0,
+        fee_detail: dict[str, any] = {};  # jac:ignore[W1037]
 }
 
 node Ticket {

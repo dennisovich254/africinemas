@@ -238,7 +238,10 @@ import from core.accounts.profile {
 import from core.legal.legal_api { legal_document }
 import from core.legal.fee_rule {
     fee_rules,  # jac:ignore[W2037]
-    set_fee_rule  # jac:ignore[W2037]
+    set_fee_rule,  # jac:ignore[W2037]
+    cinema_fee_terms,  # jac:ignore[W2037]
+    set_cinema_fee_terms,  # jac:ignore[W2037]
+    my_fee_rates  # jac:ignore[W2037]
 }
 import from core.legal.agreement_api {
     cinema_agreement_status,  # jac:ignore[W2037]
@@ -546,6 +549,63 @@ def:pub pay_expire_order(slug: str, screening_id: str, reference: str) -> bool {
         restore(me);
     }
     return True;
+}
+
+# Test-only (P15.2): each order's frozen fee and its fee ledger, and a refund to the
+# customer recorded the way the coming refund screen will (core/payments/fees.jac).
+import from core.payments.fees { fee_entries, record_refund }
+
+def:pub t_order_fees(slug: str, screening_id: str) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    (cinema, screening) = _showtime(slug, screening_id);
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        return [
+            {
+                "reference": o.reference,
+                "status": o.status,
+                "total_cents": o.total_cents,
+                "fee_cents": o.fee_cents,
+                "fee_detail": o.fee_detail,
+                "entries": [[f.kind, f.amount_cents] for f in fee_entries(o)]
+            } for o in [screening-->[?:Order]]
+        ];
+    } finally {
+        restore(me);
+    }
+}
+
+def:pub t_refund(
+    slug: str,
+    screening_id: str,
+    reference: str,
+    amount_cents: int,
+    method: str,
+    # Required: an omitted default arrives as text ("False" is true), JI-060.
+    platform_failure: bool
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # {"refused": why} for a refund the fee ledger won't take (more than is left).
+    (cinema, screening) = _showtime(slug, screening_id);
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        found = [
+            o
+            for o in [screening-->[?:Order]]
+            if o.reference == reference
+        ];
+        try {
+            done = record_refund(
+                cinema, found[0], amount_cents, method, platform_failure, "test", ""
+            );
+        } except ValueError as e {
+            return {"refused": str(e)};
+        }
+        commit_now();
+        return done;
+    } finally {
+        restore(me);
+    }
 }
 
 def:pub pay_overview(slug: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]

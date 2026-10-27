@@ -201,6 +201,31 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "applies_from": "2099-01-01"
              }
          },
+         # A cinema's own fee terms (P15.2): platform staff read them, super admins set
+         # them; the cinema's reports staff read the rates in force for them.
+         "cinema_fee_terms": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"slug": "{tenant}"}
+         },
+         "set_cinema_fee_terms": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {
+                 "slug": "{tenant}",
+                 "standard": True,
+                 "online_ticket_percent": 0,
+                 "online_snack_percent": 0,
+                 "counter_percent": 0,
+                 "applies_from": "2099-01-01",
+                 "note": ""
+             }
+         },
+         "my_fee_rates": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
          # The cinema agreement (P15.1): any member reads its status; the owner accepts.
          "cinema_agreement_status": {
              "scope": "tenant",
