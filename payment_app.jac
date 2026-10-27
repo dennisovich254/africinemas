@@ -345,6 +345,8 @@ import from core.payments.settlement {
     tenant_by_id
 }
 import from core.payments.resolver { resolve, end_my_order }  # jac:ignore[W2037]
+# Back from paying to change the seats, tickets or snacks (owner, 2026-10-27).
+import from core.booking.change_order { change_order }
 import from core.payments.ledger { LedgerEntry }
 import from core.tenancy.open_cinema { open_cinema }
 import from core.tenancy.principal { node_id, act_as, restore, commit_now }

@@ -13,7 +13,9 @@
    cart priced by the server (price_snacks), with Skip as plain as Continue. Without
    snacks it goes straight to paying.
 4. Pay: places the order (place_order) with an idempotency key made for this order and
-   reused if the request is sent again, with the snack cart, then pays it with M-Pesa
+   reused if the request is sent again, with the snack cart, then pays it with M-Pesa.
+   "← Change seats or snacks" goes back (change_order): the unpaid order is cancelled,
+   the seats held again and the cart kept, unless an M-Pesa request is out. Then it pays
    (PayPanel, P5.6): a PIN
    prompt on the phone, the status live, and the tickets once paid (Tickets).
 
@@ -29,6 +31,7 @@ import from "@hugeicons/core-free-icons" { Clock01Icon }
 import from ...components.ui.button { Button }
 import from core.catalog.storefront_api { public_seat_availability }
 import from core.booking.hold_api { hold_seats, my_hold, release_hold, extend_hold }
+import from core.booking.change_order { change_order }
 import from core.booking.order_api {
     place_order,
     my_order,
@@ -348,6 +351,30 @@ def:pub Checkout(
     }
     useEffect(watch_pay, [pay_left]);
 
+    async def go_back {
+        # From paying back to the order (owner, 2026-10-27): the unpaid order is
+        # cancelled on the server and the seats are held again, so the visitor can change
+        # the snacks, the tickets or the seats. Refused while an M-Pesa request is out.
+        set_busy(True);
+        set_problem("");
+        back = await call(change_order, [slug, screening_id, holder]);
+        set_busy(False);
+        if back is None {
+            set_problem("We couldn't reach the cinema. Try again.");
+            return;
+        }
+        if not back["ok"] {
+            set_problem(back["error"]["message"]);
+            return;
+        }
+        set_order(None);
+        set_pay_state(None);
+        set_hold(back["hold"]);
+        set_key(order_key());
+        set_snack_step(has_snacks(menu));
+        set_news("Your order is open again. Change it, then continue.");
+    }
+
     def choose_again {
         # Back to the seat map, with nothing chosen.
         set_order(None);
@@ -627,6 +654,16 @@ def:pub Checkout(
         return
             <div data-testid="checkout" className="flex flex-col gap-4">
                 {status_line}
+                <Button
+                    variant="ghost"
+                    data-testid="change-order"
+                    disabled={busy}
+                    onClick={go_back}
+                    className="min-h-11 w-fit px-3"
+                >
+                    ← Change seats or snacks
+                </Button>
+                {problem_box}
                 <Ordered order={placed} tz={tz} at_counter={bool(counter_holder)}/>
                 {(
                     pay_panel(placed, on_paid, time_up)

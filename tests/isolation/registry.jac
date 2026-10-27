@@ -1332,6 +1332,16 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"slug": "imax-rift"}
          },
+         # Back from paying to change the order: the holder's own unpaid order.
+         "change_order": {
+             "scope": "storefront",
+             "audit": "",
+             "probe": {
+                 "slug": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "probe-holder-0123456789abcdef"
+             }
+         },
          "my_order": {
              "scope": "storefront",
              "audit": "",

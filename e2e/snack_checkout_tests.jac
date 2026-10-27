@@ -189,6 +189,38 @@ test "skipping the snacks orders the ticket alone" {
     }
 }
 
+test "from paying, the visitor goes back to change the snacks or the seats" {
+    (pw, browser) = shared_browser();
+    try {
+        for project in PROJECTS {
+            owner = with_snacks();
+            page = browser.new_context(
+                **context_options(pw, project, "light")
+            ).new_page();
+            _to_snacks(page, project, owner, "A3");
+            _press(page, project, '[data-testid="skip-snacks"]');
+            page.wait_for_selector('[data-testid="pay-panel"]');
+            # Back from paying: the snack step again, the seat still held.
+            _press(page, project, '[data-testid="change-order"]');
+            page.wait_for_selector('[data-testid="snack-step"]');
+            # And back to the tickets, with a way to change seats.
+            _press(page, project, '[data-testid="back-to-tickets"]');
+            page.wait_for_selector('[data-testid="change-seats"]');
+            _total(page, "KES 830");
+            # Onwards again, to pay for the ticket alone.
+            _press(page, project, '[data-testid="pay"]');
+            page.wait_for_selector('[data-testid="snack-step"]');
+            _press(page, project, '[data-testid="skip-snacks"]');
+            page.wait_for_selector('[data-testid="pay-panel"]');
+            assert "KES 830"
+                in page.inner_text('[data-testid="order-total"]') , project;
+            page.context.close();
+        }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
 test "under a cinema's AI-written design the snack step stays on screen and works" {
     (pw, browser) = shared_browser();
     try {
