@@ -140,10 +140,12 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
             assert SALE in _text(page, "chart-readout");
             assert _no_side_scroll(page) , f"{project}: the page scrolls sideways";
             if project == "mobile" {
-                # Tiles stack: the first two start at the same left edge.
-                first = page.locator('[data-testid="kpi-net"]').bounding_box();
-                second = page.locator('[data-testid="kpi-gross"]').bounding_box();
-                assert abs(first["x"] - second["x"]) < 2 and second["y"] > first["y"];
+                # The headline sits above "The numbers", whose tiles go two across.
+                headline = page.locator('[data-testid="kpi-net"]').bounding_box();
+                first = page.locator('[data-testid="kpi-gross"]').bounding_box();
+                second = page.locator('[data-testid="kpi-mpesa"]').bounding_box();
+                assert first["y"] > headline["y"];
+                assert abs(first["y"] - second["y"]) < 2 and second["x"] > first["x"];
             }
             page.context.close();
         }
