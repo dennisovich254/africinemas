@@ -210,8 +210,18 @@
 
 [data-surface="backoffice"] {
   --chart-bar: #3F35C4;
+  --chart-1: #3F35C4;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-other: #6f6c66;
 }
 
 .dark [data-surface="backoffice"] {
   --chart-bar: #B8892A;
+  --chart-1: #B8892A;
+  --chart-2: #3987e5;
+  --chart-3: #199e70;
+  --chart-4: #9085e9;
+  --chart-other: #6b6862;
 }

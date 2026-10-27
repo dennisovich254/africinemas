@@ -1,9 +1,11 @@
 """The dashboard's pieces (P7.3): KPI tiles, the takings chart, top movies, drill-down.
 
-Charts are plain HTML, not SVG, so labels stay legible at phone width. One series each,
-in `--chart-bar` (checked with the dataviz palette validator, core/theming/css.jac);
-values and labels wear text colours, never the bar's. Every chart has a hover/tap/focus
-readout and a table view, so nothing depends on seeing the bars.
+Charts are plain HTML (the donut's ring is SVG), so labels stay legible at phone width.
+Colours are the categorical slots `--chart-1..4` and `--chart-other`, in fixed order
+(checked with the dataviz palette validator, core/theming/css.jac); values and labels
+wear text colours, never a mark's. Every chart has a legend or direct labels with the
+amounts, a hover/tap/focus readout, and a table view or the numbers in text, so nothing
+depends on seeing the colours.
 """
 
 import from react { useState }
@@ -32,18 +34,20 @@ def:pub KpiTile(
         </div>;
 }
 
-def ChartBar(
+def ChartBar(  # jac:ignore[W3030] one column: its place, two heights, its words and its state
     index: int,
     height: float,
     readout: str,
     active: bool,
     side: str,
     on_show: any,  # jac:ignore[W1037]
-    on_hide: any  # jac:ignore[W1037]
+    on_hide: any,  # jac:ignore[W1037]
+    snacks_height: float = 0.0
 ) -> JsxElement {
-    # One bar: a hit target the full column tall (bigger than the mark), a 4px rounded
-    # top, and its readout above it while hovered, tapped or focused. `side` keeps the
-    # readout inside the chart at the ends ("left", "right", or "" centred).
+    # One bar: a hit target the full column tall (bigger than the mark), tickets below
+    # and snacks above (`snacks_height`, of the same scale) with a 2px gap, the top one
+    # with a 4px rounded top, and its readout above it while hovered, tapped or focused.
+    # `side` keeps the readout inside the chart at the ends ("left", "right", "").
     place = "left-1/2 -translate-x-1/2";
     if side == "left" {
         place = "left-0";
@@ -64,9 +68,22 @@ def ChartBar(
         >
             <span
                 aria-hidden="true"
-                className="w-full rounded-t-[4px] bg-(--chart-bar)"
-                style={{"height": f"{height}%"}}
-            />
+                className="flex w-full flex-col justify-end gap-[2px]"
+                style={{"height": f"{height + snacks_height}%"}}
+            >
+                {snacks_height > 0
+                    and <span
+                        className="w-full shrink-0 rounded-t-[4px] bg-(--chart-2)"
+                        style={{
+                            "height": f"{snacks_height * 100
+                                / (height + snacks_height)}%"
+                        }}
+                    />}{height > 0
+                    and <span
+                        className={"w-full min-h-0 flex-1 bg-(--chart-1)"
+                            + ("" if snacks_height > 0 else " rounded-t-[4px]")}
+                    />}
+            </span>
             {active
                 and <span
                     role="tooltip"
@@ -104,6 +121,7 @@ def:pub TakingsChart(
     labels = [];
     for (i, p) in enumerate(points) {
         cents = int(p["takings_net_cents"]);
+        snacks = max(0, min(int(p.get("snacks_net_cents", 0)), max(0, cents)));
         name = point_label(p["start"], unit);
         tickets = int(p[count_key]);
         side = "";
@@ -116,8 +134,11 @@ def:pub TakingsChart(
             <ChartBar
                 key={p["start"]}
                 index={i}
-                height={max(0, cents) * 100 / top}
-                readout={f"{name}: {money_label(cents, currency)} taken, {tickets} {count_words}"}
+                height={(max(0, cents) - snacks) * 100 / top}
+                snacks_height={snacks * 100 / top}
+                readout={f"{name}: {money_label(cents, currency)} taken ({money_label(
+                    max(0, cents) - snacks, currency
+                )} tickets, {money_label(snacks, currency)} snacks), {tickets} {count_words}"}
                 active={active == i}
                 side={side}
                 on_show={show}
@@ -132,8 +153,29 @@ def:pub TakingsChart(
     }
     return
         <figure className="flex flex-col gap-3" data-testid="takings-chart">
-            <figcaption className="text-sm font-medium">
-                {"Net takings by week" if unit == "week" else "Net takings by day"}
+            <figcaption className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-medium">
+                    {"Net takings by week" if unit == "week" else "Net takings by day"}
+                </span>
+                <span
+                    data-testid="takings-legend"
+                    className="flex items-center gap-4 text-xs text-muted-foreground"
+                >
+                    <span className="flex items-center gap-1.5">
+                        <span
+                            aria-hidden="true"
+                            className="size-2.5 rounded-sm bg-(--chart-1)"
+                        />
+                        Tickets
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                        <span
+                            aria-hidden="true"
+                            className="size-2.5 rounded-sm bg-(--chart-2)"
+                        />
+                        Snacks
+                    </span>
+                </span>
             </figcaption>
             <div className="flex gap-2">
                 <div
@@ -175,6 +217,7 @@ def:pub TakingsChart(
                                 {"Week" if unit == "week" else "Day"}
                             </th>
                             <th className="py-2 text-right font-medium">Net takings</th>
+                            <th className="py-2 text-right font-medium">Snacks</th>
                             <th className="py-2 text-right font-medium">
                                 {count_heading}
                             </th>
@@ -188,6 +231,11 @@ def:pub TakingsChart(
                                 </td>
                                 <td className="py-2 text-right tabular-nums">
                                     {money_label(int(p["takings_net_cents"]), currency)}
+                                </td>
+                                <td className="py-2 text-right tabular-nums">
+                                    {money_label(
+                                        int(p.get("snacks_net_cents", 0)), currency
+                                    )}
                                 </td>
                                 <td className="py-2 text-right tabular-nums">
                                     {p[count_key]}

@@ -16,6 +16,7 @@ import from ...components.ui.spinner { Spinner }
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037] authenticated endpoint
 import from .report_view { PRESETS, preset_range, period_label, percent, money_label }
 import from .report_parts { KpiTile, TakingsChart, TopMovies, DrillDown }
+import from .report_charts { SplitBar, ShareDonut }
 
 import from .SnackReport { SnackReport }
 
@@ -125,6 +126,8 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
     currency: str = got["currency"];
     takings: dict[str, int] = sales["takings"];
     shown: dict[str, any] = sales["attendance"];  # jac:ignore[W1037]
+    # AfriCinemas' fees and the cinema's share (P15.2), when the report has them.
+    fee_split: dict[str, int] | None = sales.get("fees") or None;
     full: float = shown["occupancy_pct"];
     places: list[dict[str, str]] = venues;
     span_text = period_label(sales["first"], sales["last"]);
@@ -254,6 +257,48 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                         testid="kpi-snack-net"
                     />
                 </div>
+                <div
+                    data-testid="money-splits"
+                    className="grid grid-cols-1 gap-5 rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-2"
+                >
+                    <SplitBar
+                        title="Where the money came from"
+                        left_label="Tickets"
+                        left_cents={takings["tickets_cents"]}
+                        right_label="Snacks"
+                        right_cents={takings["snacks_cents"]}
+                        currency={currency}
+                        testid="split-items"
+                    />
+                    <SplitBar
+                        title="How it was paid"
+                        left_label="M-Pesa"
+                        left_cents={takings["mpesa_cents"]}
+                        right_label="Cash"
+                        right_cents={takings["cash_cents"]}
+                        currency={currency}
+                        testid="split-method"
+                    />
+                    <SplitBar
+                        title="Where it was sold"
+                        left_label="Online"
+                        left_cents={takings["online_cents"]}
+                        right_label="Box office"
+                        right_cents={takings["counter_cents"]}
+                        currency={currency}
+                        testid="split-channel"
+                    />
+                    {fee_split is not None
+                        and <SplitBar
+                            title="Your share and AfriCinemas fees"
+                            left_label="Your share"
+                            left_cents={fee_split["cinema_share_cents"]}
+                            right_label="AfriCinemas fees"
+                            right_cents={fee_split["fees_cents"]}
+                            currency={currency}
+                            testid="split-fees"
+                        />}
+                </div>
                 <p className="text-sm text-muted-foreground">
                     Refunds and adjustments are split in proportion to the order's ticket and snack totals.
                 </p>
@@ -309,6 +354,11 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                     <div
                         className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
                     >
+                        <ShareDonut
+                            rows={sales["top_movies"]}
+                            whole_cents={shown["ticket_revenue_cents"]}
+                            currency={currency}
+                        />
                         <h3 className="text-sm font-medium">Top movies</h3>
                         <TopMovies rows={sales["top_movies"]} currency={currency}/>
                     </div>

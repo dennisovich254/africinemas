@@ -327,11 +327,14 @@ def _by_day(
     taken: list[Money]
 ) -> list[dict[str, any]] {  # jac:ignore[W1037]
     # Every day of the period, first to last: the net takings of the money taken that
-    # day, and the tickets sold for the showtimes starting that day.
+    # day (and the part of it that paid for snacks), and the tickets sold for the
+    # showtimes starting that day.
     net: dict[str, int] = {};
+    snacks: dict[str, int] = {};
     for m in taken {
         key = period.day_of(m.taken_at).isoformat();
         net[key] = net.get(key, 0) + m.amount_cents;
+        snacks[key] = snacks.get(key, 0) + m.snacks_cents;
     }
     tickets: dict[str, int] = {};
     for s in shows {
@@ -342,6 +345,7 @@ def _by_day(
         {
             "day": d.isoformat(),
             "takings_net_cents": net.get(d.isoformat(), 0),
+            "snacks_net_cents": snacks.get(d.isoformat(), 0),
             "tickets_sold": tickets.get(d.isoformat(), 0)
         } for d in period.days()
     ];
@@ -357,6 +361,7 @@ def _chart(days: list[dict[str, any]]) -> dict[str, any] {  # jac:ignore[W1037]
                 {
                     "start": d["day"],
                     "takings_net_cents": d["takings_net_cents"],
+                    "snacks_net_cents": d["snacks_net_cents"],
                     "tickets_sold": d["tickets_sold"]
                 } for d in days
             ]
@@ -369,6 +374,7 @@ def _chart(days: list[dict[str, any]]) -> dict[str, any] {  # jac:ignore[W1037]
             {
                 "start": week[0]["day"],
                 "takings_net_cents": sum([d["takings_net_cents"] for d in week]),
+                "snacks_net_cents": sum([d["snacks_net_cents"] for d in week]),
                 "tickets_sold": sum([d["tickets_sold"] for d in week])
             }
         );

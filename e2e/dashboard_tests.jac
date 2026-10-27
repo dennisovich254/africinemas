@@ -118,6 +118,15 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
             assert _text(page, "kpi-net") == SALE;
             assert _text(page, "kpi-occupancy") == "18.2%";
             assert "Rafiki" in _text(page, "top-movies");
+            # The money splits: one cash sale at the box office, tickets only.
+            assert "100%" in _text(page, "split-method-right") , project;
+            assert "Cash" in _text(page, "split-method-right");
+            assert "100%" in _text(page, "split-channel-right");
+            assert "100%" in _text(page, "split-items-left");
+            # The donut: all the ticket revenue is Rafiki's.
+            assert "Rafiki" in _text(page, "movie-share")
+                and "100%" in _text(page, "movie-share");
+            assert "Snacks" in _text(page, "takings-legend");
             assert page.locator('[data-testid="chart-bar"]').count() == 7;
             # The chart answers a tap or a hover with the day's figures.
             _press(page, project, '[data-testid="chart-bar"]');
