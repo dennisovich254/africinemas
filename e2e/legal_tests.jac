@@ -48,13 +48,18 @@ test "the legal pages are linked from the main site, sign-up and every storefron
             page.wait_for_selector(VERSION);
             assert "reviewed by our lawyers" in page.inner_text(VERSION) , project;
             assert "AfriCinemas terms of use" in page.inner_text(f"{TEXT} h1");
-            for name in ["cinema-agreement", "privacy"] {
-                page.goto(f"{BASE_URL}/legal/{name}");
-                page.wait_for_selector(f"{TEXT} table");
-                assert page.evaluate(WIDE_JS) <= 1 , f"{project}: {name} scrolls sideways";
+            page.goto(f"{BASE_URL}/legal/privacy");
+            page.wait_for_selector(f"{TEXT} table");
+            assert page.evaluate(WIDE_JS) <= 1 , f"{project}: privacy scrolls sideways";
+            # The cinema agreement is confidential: no public page.
+            assert page.locator(
+                '[data-testid="landing-legal"] a:has-text("Cinema agreement")'
+            ).count()
+                == 0;
+            for missing in ["nothing-here", "cinema-agreement"] {
+                page.goto(f"{BASE_URL}/legal/{missing}");
+                page.wait_for_selector('[data-testid="legal-missing"]');
             }
-            page.goto(BASE_URL + "/legal/nothing-here");
-            page.wait_for_selector('[data-testid="legal-missing"]');
             page.goto(BASE_URL + "/signup");
             page.wait_for_selector('[data-testid="signup-legal"]');
             assert page.get_attribute(

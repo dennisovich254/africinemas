@@ -198,6 +198,8 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          },
          # AfriCinemas' legal pages (P15.0b): public.
          "legal_document": {"scope": "public", "audit": "", "probe": {"name": "terms"}},
+         # The cinema agreement: confidential, for a signed-in account.
+         "cinema_agreement": {"scope": "caller", "audit": ""},
          "check_slug": {"scope": "caller", "audit": "", "probe": {"slug": "free-name"}},
          "my_access": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
          # The cinema's public information (P14.3a): its staff who change settings.
