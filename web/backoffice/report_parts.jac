@@ -29,27 +29,32 @@ def:pub KpiTile(  # jac:ignore[W3030] a figure: its words, value, note, test id,
     icon: any = None,  # jac:ignore[W1037]
     slot: str = "1"
 ) -> JsxElement {
-    # `icon`: a Hugeicons icon shown in a soft circle of the chart slot `slot`'s colour.
+    # `icon`: a Hugeicons icon in a soft circle of the chart slot `slot`'s colour, on
+    # the label's line; the value on its own line, never wrapping.
     return
         <div
-            className="flex flex-col gap-1 rounded-2xl bg-card p-5 ring-1 ring-foreground/10"
+            className="flex min-w-0 flex-col gap-2 rounded-2xl bg-card p-4 ring-1 ring-foreground/10"
         >
-            {icon is not None
-                and <span
-                    aria-hidden="true"
-                    className="mb-2 inline-flex size-10 items-center justify-center rounded-full"
-                    style={{
-                        "background": f"color-mix(in srgb, var(--chart-{slot}) 18%, transparent)",
-                        "color": f"var(--chart-{slot})"
-                    }}
-                >
-                    <HugeiconsIcon icon={icon} size={20} strokeWidth={2}/>
-                </span>}
-            <p className="text-sm text-muted-foreground">{label}</p>
+            <div className="flex min-w-0 items-center gap-2">
+                {icon is not None
+                    and <span
+                        aria-hidden="true"
+                        className="inline-flex size-8 shrink-0 items-center justify-center rounded-full"
+                        style={{
+                            "background": f"color-mix(in srgb, var(--chart-{slot}) 18%, transparent)",
+                            "color": f"var(--chart-{slot})"
+                        }}
+                    >
+                        <HugeiconsIcon icon={icon} size={16} strokeWidth={2}/>
+                    </span>}
+                <p className="min-w-0 truncate text-sm text-muted-foreground">
+                    {label}
+                </p>
+            </div>
             <p
                 data-testid={testid}
-                className={("text-4xl" if large else "text-2xl")
-                    + " font-semibold tabular-nums"}
+                className={("text-4xl" if large else "text-xl sm:text-2xl")
+                    + " whitespace-nowrap font-semibold tabular-nums"}
             >
                 {value}
             </p>

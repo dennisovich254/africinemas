@@ -310,65 +310,65 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                             currency={currency}
                             testid="split-fees"
                         />}
-                    <div className="flex flex-col gap-2">
-                        <h3 className="text-sm font-medium text-muted-foreground">
-                            The numbers
-                        </h3>
-                        <div
-                            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
-                        >
-                            <KpiTile
-                                label="Gross"
-                                value={money_label(takings["gross_cents"], currency)}
-                                note={f"Refunds {money_label(
-                                    takings['refunds_cents'], currency
-                                )}"}
-                                testid="kpi-gross"
-                                icon={Money03Icon}
-                                slot="1"
-                            />
-                            <KpiTile
-                                label="M-Pesa"
-                                value={money_label(takings["mpesa_cents"], currency)}
-                                note={f"Cash {money_label(
-                                    takings['cash_cents'], currency
-                                )}"}
-                                testid="kpi-mpesa"
-                                icon={SmartPhone01Icon}
-                                slot="2"
-                            />
-                            <KpiTile
-                                label="At the box office"
-                                value={money_label(takings["counter_cents"], currency)}
-                                note={f"Online {money_label(
-                                    takings['online_cents'], currency
-                                )}"}
-                                testid="kpi-counter"
-                                icon={Store01Icon}
-                                slot="3"
-                            />
-                            <KpiTile
-                                label="Ticket net takings"
-                                value={money_label(takings["tickets_cents"], currency)}
-                                note="Booking fees included"
-                                testid="kpi-ticket-net"
-                                icon={Ticket02Icon}
-                                slot="1"
-                            />
-                            <KpiTile
-                                label="Snack net takings"
-                                value={money_label(takings["snacks_cents"], currency)}
-                                note="With tickets and snacks-only sales"
-                                testid="kpi-snack-net"
-                                icon={PopcornIcon}
-                                slot="2"
-                            />
-                        </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                        Refunds and adjustments are split in proportion to the order's ticket and snack totals.
-                    </p>
                 </div>
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                        The numbers
+                    </h3>
+                    <div
+                        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+                    >
+                        <KpiTile
+                            label="Gross"
+                            value={money_label(takings["gross_cents"], currency)}
+                            note={f"Refunds {money_label(
+                                takings['refunds_cents'], currency
+                            )}"}
+                            testid="kpi-gross"
+                            icon={Money03Icon}
+                            slot="1"
+                        />
+                        <KpiTile
+                            label="M-Pesa"
+                            value={money_label(takings["mpesa_cents"], currency)}
+                            note={f"Cash {money_label(
+                                takings['cash_cents'], currency
+                            )}"}
+                            testid="kpi-mpesa"
+                            icon={SmartPhone01Icon}
+                            slot="2"
+                        />
+                        <KpiTile
+                            label="At the box office"
+                            value={money_label(takings["counter_cents"], currency)}
+                            note={f"Online {money_label(
+                                takings['online_cents'], currency
+                            )}"}
+                            testid="kpi-counter"
+                            icon={Store01Icon}
+                            slot="3"
+                        />
+                        <KpiTile
+                            label="Ticket net takings"
+                            value={money_label(takings["tickets_cents"], currency)}
+                            note="Booking fees included"
+                            testid="kpi-ticket-net"
+                            icon={Ticket02Icon}
+                            slot="1"
+                        />
+                        <KpiTile
+                            label="Snack net takings"
+                            value={money_label(takings["snacks_cents"], currency)}
+                            note="With tickets and snacks-only sales"
+                            testid="kpi-snack-net"
+                            icon={PopcornIcon}
+                            slot="2"
+                        />
+                    </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                    Refunds and adjustments are split in proportion to the order's ticket and snack totals.
+                </p>
             </section>
             <SnackReport snacks={sales["snacks"]} currency={currency}/>
             <section aria-labelledby="shows-heading" className="flex flex-col gap-4">
