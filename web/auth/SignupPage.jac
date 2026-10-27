@@ -16,8 +16,7 @@ glob PASSWORD_MIN: int = 8,
      # AfriCinemas' own documents (P15.0b), each a full-size tap target.
      LEGAL_LINKS: list[tuple[str, str]] = [
          ("/legal/terms", "Terms of use"),
-         ("/legal/privacy", "Privacy policy"),
-         ("/legal/cinema-agreement", "Cinema agreement")
+         ("/legal/privacy", "Privacy policy")
      ];
 
 def:pub SignupPage -> JsxElement {
@@ -91,7 +90,7 @@ def:pub SignupPage -> JsxElement {
                         className="flex flex-col gap-1 text-sm text-muted-foreground"
                     >
                         <p>
-                            By creating an account, you agree to AfriCinemas' terms of use and privacy policy. Your cinema accepts the cinema agreement before it sells.
+                            By creating an account, you agree to AfriCinemas' terms of use and privacy policy.
                         </p>
                         <ul className="flex flex-wrap gap-x-5">
                             {[

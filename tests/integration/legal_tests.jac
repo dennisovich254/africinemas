@@ -27,7 +27,7 @@ glob BOSS: str = "boss@example.com",
 test "the legal documents are public, versioned and free of the drafts' notes" {
     (app, _, _) = paying_cinema([]);
     try {
-        for name in ["terms", "privacy", "cookies", "cinema-agreement"] {
+        for name in ["terms", "privacy", "cookies"] {
             got = browse(app, "legal_document", {"name": name});
             assert got["ok"] and got["version"] == "0.1" , got;
             assert got["applies_from"] and "reviewed by our lawyers" in got["note"];
@@ -36,7 +36,15 @@ test "the legal documents are public, versioned and free of the drafts' notes" {
                 assert mark not in got["text"] , f"{name}: {mark}";
             }
         }
-        fee = browse(app, "legal_document", {"name": "cinema-agreement"})["text"];
+        # The cinema agreement is confidential: not public, only for a signed-in account.
+        assert code_of(browse(app, "legal_document", {"name": "cinema-agreement"}))
+            == "not_found";
+        agreement = app.call("owner", "cinema_agreement_text", {"tenant": "nova"});
+        assert agreement["ok"] and agreement["version"] == "0.1" , agreement;
+        fee = agreement["text"];
+        for mark in DRAFT_MARKS {
+            assert mark not in fee , mark;
+        }
         assert "**7%**" in fee and "**20%**" in fee and "**3%**" in fee;
         assert code_of(browse(app, "legal_document", {"name": "../secrets"}))
             == "not_found";

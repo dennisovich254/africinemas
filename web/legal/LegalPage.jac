@@ -1,8 +1,8 @@
 """`/legal/:document`: AfriCinemas' own legal documents (P15.0b, ADR-0078).
 
-The terms of use, the privacy policy, the cookie and storage notice and the cinema
-agreement, on the main site, linked from its footer, the sign-up page and every
-storefront's footer. Each page shows its version, the date it applies from and that it's
+The terms of use, the privacy policy and the cookie and storage notice, on the main
+site, linked from its footer, the sign-up page and every storefront's footer. The
+cinema agreement is confidential and isn't one of these pages. Each page shows its version, the date it applies from and that it's
 being reviewed, the text (legal_text.jac: drawn as React text, never as HTML), and
 links to the other documents. An unknown document isn't found.
 """
@@ -18,8 +18,7 @@ import from .legal_text { legal_blocks, spans }
 glob DOCUMENTS: list[tuple[str, str]] = [
          ("terms", "Terms of use"),
          ("privacy", "Privacy policy"),
-         ("cookies", "Cookies and storage"),
-         ("cinema-agreement", "Cinema agreement")
+         ("cookies", "Cookies and storage")
      ],
      LINK: str = "font-medium text-primary underline underline-offset-4";
 
