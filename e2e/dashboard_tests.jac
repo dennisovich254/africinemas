@@ -112,6 +112,9 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
             _wait_text(page, "kpi-net", SALE);
             assert _text(page, "kpi-counter") == SALE;
             assert _text(page, "kpi-tickets") == "0";
+            # AfriCinemas' fee on a box office sale: 3% (P15.2), and the cinema's share.
+            assert _text(page, "kpi-fees") == "KES 49.80";
+            assert _text(page, "kpi-share") == "KES 1,610.20";
             # Next 7 days: the showtime is in it, so are its tickets.
             _press(page, project, '[data-testid="preset-next7"]');
             _wait_text(page, "kpi-tickets", "2");

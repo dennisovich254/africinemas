@@ -17,7 +17,7 @@ import from core.legal.fee_rule {
     set_fee_rule  # jac:ignore[W2037] authenticated endpoint
 }
 
-def _percent(bp: int) -> str {
+def:pub percent_label(bp: int) -> str {
     whole = bp // 100;
     rest = bp % 100;
     if rest == 0 {
@@ -26,7 +26,7 @@ def _percent(bp: int) -> str {
     return f"{whole}.{rest // 10}{rest % 10 if rest % 10 else ''}%";
 }
 
-def Field(
+def:pub RateField(
     field_id: str,
     label: str,
     value: str,
@@ -132,13 +132,13 @@ def:pub FeesPage(may_change: bool = False) -> JsxElement {
                         Online: tickets, glasses, booking fee
                     </p>
                     <p className="text-2xl font-semibold">
-                        {_percent(now_rule["online_ticket_bp"])}
+                        {percent_label(now_rule["online_ticket_bp"])}
                     </p>
                 </div>
                 <div>
                     <p className="text-sm text-muted-foreground">Online: snacks</p>
                     <p className="text-2xl font-semibold">
-                        {_percent(now_rule["online_snack_bp"])}
+                        {percent_label(now_rule["online_snack_bp"])}
                     </p>
                 </div>
                 <div>
@@ -146,7 +146,7 @@ def:pub FeesPage(may_change: bool = False) -> JsxElement {
                         Box office: everything
                     </p>
                     <p className="text-2xl font-semibold">
-                        {_percent(now_rule["counter_bp"])}
+                        {percent_label(now_rule["counter_bp"])}
                     </p>
                 </div>
             </div>
@@ -159,9 +159,11 @@ def:pub FeesPage(may_change: bool = False) -> JsxElement {
                             data-testid="fee-version"
                             className="rounded-lg border bg-card p-3 text-sm"
                         >
-                            {f"Version {v['version']}, from {v['applies_from']}: {_percent(
+                            {f"Version {v['version']}, from {v['applies_from']}: {percent_label(
                                 v['online_ticket_bp']
-                            )} tickets, {_percent(v['online_snack_bp'])} snacks online; {_percent(
+                            )} tickets, {percent_label(
+                                v['online_snack_bp']
+                            )} snacks online; {percent_label(
                                 v['counter_bp']
                             )} at the box office"
                                 + (f". Set by {v['set_by']}." if v["set_by"] else ".")}
@@ -180,25 +182,25 @@ def:pub FeesPage(may_change: bool = False) -> JsxElement {
                         Rates in percent. A version applies from today or a later day, never to orders already paid.
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
-                        <Field
+                        <RateField
                             field_id="fee-ticket"
                             label="Online tickets, glasses, booking fee (%)"
                             value={ticket}
                             on_value={set_ticket}
                         />
-                        <Field
+                        <RateField
                             field_id="fee-snack"
                             label="Online snacks (%)"
                             value={snack}
                             on_value={set_snack}
                         />
-                        <Field
+                        <RateField
                             field_id="fee-counter"
                             label="Box office (%)"
                             value={counter}
                             on_value={set_counter}
                         />
-                        <Field
+                        <RateField
                             field_id="fee-from"
                             label="Applies from"
                             value={day}
