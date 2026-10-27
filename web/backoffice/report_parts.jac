@@ -53,8 +53,10 @@ def:pub KpiTile(  # jac:ignore[W3030] a figure: its words, value, note, test id,
             </div>
             <p
                 data-testid={testid}
-                className={("text-4xl" if large else "text-xl sm:text-2xl")
-                    + " whitespace-nowrap font-semibold tabular-nums"}
+                # Two cards across on a phone: an amount may wrap there rather than
+                # push the page sideways; from sm up it stays on one line.
+                className={("text-4xl" if large else "text-lg sm:text-2xl")
+                    + " font-semibold tabular-nums [overflow-wrap:anywhere] sm:whitespace-nowrap"}
             >
                 {value}
             </p>
@@ -116,7 +118,7 @@ def ChartBar(  # jac:ignore[W3030] one column: its place, two heights, its words
                 and <span
                     role="tooltip"
                     data-testid="chart-readout"
-                    className={f"pointer-events-none absolute bottom-full z-10 mb-2 whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 {place}"}
+                    className={f"pointer-events-none absolute bottom-full z-10 mb-2 w-max max-w-[14rem] rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 {place}"}
                 >
                     {readout}
                 </span>}
