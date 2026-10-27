@@ -68,8 +68,11 @@ test "a new cinema's owner reads and accepts the cinema agreement" {
                 in page.inner_text('[data-testid="agreement-accepted"]');
             assert page.locator('[data-testid="agreement-accept"]').count() == 0;
             page.goto(f"{BASE_URL}/app/{owner['slug']}");
+            # The phone shows the menu button; the desktop, the sidebar.
             page.wait_for_selector(
-                '[data-testid="shell-sidebar"], [data-testid="shell-menu-button"]'
+                '[data-testid="shell-menu-button"]'
+                    if project == "mobile"
+                    else '[data-testid="shell-sidebar"]'
             );
             page.wait_for_timeout(500);
             assert page.locator(NOTICE).count() == 0 , project;
