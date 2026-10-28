@@ -282,8 +282,21 @@ import from core.billing.billing_api {
     billing_pdf,  # jac:ignore[W2037]
     platform_billing,  # jac:ignore[W2037]
     platform_billing_pdf,  # jac:ignore[W2037]
+    pay_invoice,  # jac:ignore[W2037]
+    invoice_payment,  # jac:ignore[W2037]
+    dispute_invoice,  # jac:ignore[W2037]
+    billing_notice,  # jac:ignore[W2037]
+    platform_decide_dispute,  # jac:ignore[W2037]
+    platform_resolve_payment,  # jac:ignore[W2037]
+    platform_suspend_cinema,  # jac:ignore[W2037]
+    platform_reinstate_cinema,  # jac:ignore[W2037]
     platform_issue_statements,  # jac:ignore[W2037]
     issue_statements  # jac:ignore[W2037]
+}
+# Paying invoices (P15.5): M-Pesa's callback and the job that settles them.
+import from core.billing.collect {
+    mpesa_bill_callback,  # jac:ignore[W2037]
+    settle_bill_payments  # jac:ignore[W2037]
 }
 import from core.legal.registrations {
     registrations_checklist,  # jac:ignore[W2037]

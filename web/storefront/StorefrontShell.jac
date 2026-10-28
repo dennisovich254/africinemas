@@ -5,7 +5,8 @@ The theme's CSS comes from public_branding, which builds it on the server from c
 tokens only (core/theming/css.jac), so it can be added to the page as it is (as a <style>
 in <head>, removed when the visitor leaves). It overrides the platform's storefront
 defaults (styles/brand.css) for this cinema alone. An unknown or closed cinema gets
-"Cinema not found" instead of the page.
+"Cinema not found" instead of the page; one AfriCinemas has suspended (P15.5), "This
+cinema isn't available right now".
 
 Every page but a showtime's (whose seat bar is fixed to the bottom) has "Ask <cinema>",
 the cinema's own chat (P8.4, ChatPanel.jac).
@@ -199,6 +200,7 @@ def:pub StorefrontShell(
     [missing, set_missing] = useState(False);
     [venues, set_venues] = useState([]);
     [menu_open, set_menu_open] = useState(False);
+    [unavailable, set_unavailable] = useState(False);
 
     async def load_venues {
         places: any = None;  # jac:ignore[W1037]
@@ -228,6 +230,8 @@ def:pub StorefrontShell(
             return;
         }
         if not shown["ok"] {
+            # Suspended by AfriCinemas (P15.5): unavailable, not unknown.
+            set_unavailable(shown["error"]["code"] == "unavailable");
             set_missing(True);
             return;
         }
@@ -263,9 +267,18 @@ def:pub StorefrontShell(
         return
             <ThemeProvider surface="storefront">
                 <main className="mx-auto flex max-w-xl flex-col gap-3 px-4 py-16">
-                    <h1 className="font-display text-4xl">Cinema not found</h1>
+                    <h1
+                        className="font-display text-4xl"
+                        data-testid="storefront-missing"
+                    >
+                        {"This cinema isn't available right now"
+                            if unavailable
+                            else "Cinema not found"}
+                    </h1>
                     <p className="text-muted-foreground">
-                        There's no cinema at this address. Check the link and try again.
+                        {"It can't take bookings at the moment. Please try again later."
+                            if unavailable
+                            else "There's no cinema at this address. Check the link and try again."}
                     </p>
                 </main>
             </ThemeProvider>;

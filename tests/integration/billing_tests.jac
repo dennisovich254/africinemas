@@ -270,9 +270,10 @@ test "a month's orders give one statement and invoice that match them, issued on
             kes(f["due_cents"]),
             "Box office, M-Pesa",
             "Box office, cash",
-            f"M-Pesa Paybill 000000, account number {number}, by {due.day} {due.strftime(
-                '%b'
-            )} {due.year}.",
+            f"By {due.day} {due.strftime('%b')} {due.year}, from your Billing page: Pay now sends an M-Pesa prompt for {kes(
+                s['payable_cents']
+            )}",
+            f"to your phone, to Paybill 000000, account number {number}.",
             "No VAT: AfriCinemas isn't registered for VAT yet."
         ] {
             assert text.encode("cp1252") in raw , text;
@@ -384,7 +385,7 @@ test "VAT once registered, the paybill and business name, kept as they were issu
             "VAT at 16%",
             kes(f["vat_cents"]),
             kes(f["due_cents"]),
-            f"M-Pesa Paybill 123456, account number {made[0]}",
+            f"to Paybill 123456, account number {made[0]}",
             f"For: {DETAILS['registered_name']}",
             "Cinema: Nova Cinemas"
         ] {

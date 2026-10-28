@@ -66,7 +66,7 @@ Production never sets it.
 
 ## Consequences
 
-- Matching payments to invoices, reminders, overdue banners and suspension are P15.5.
+- Paying, reminders, overdue banners, disputes and suspension are P15.5 (ADR-0084): invoices are paid with Pay now, an M-Pesa prompt for the amount due in whole shillings.
 - Submitting invoices to eTIMS waits until AfriCinemas registers for it.
 - Credit notes are still to build. Until then, a correction is an adjustment that the
   next month's statement will show.

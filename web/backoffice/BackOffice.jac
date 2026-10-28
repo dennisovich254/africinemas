@@ -66,6 +66,7 @@ import from .SnackCounterSection { SnackCounterSection }
 import from .ProfileSection { ProfileSection }
 import from .AgreementSection { AgreementSection, AgreementNotice }
 import from .BillingSection { BillingSection }
+import from .BillingNotice { BillingNotice }
 import from .PaymentsSection { PaymentsSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
@@ -479,6 +480,7 @@ def:pub BackOffice -> JsxElement {
                         {web_address(slug)}
                     </p>}
                 {allowed and <AgreementNotice slug={slug} section={section}/>}
+                <BillingNotice slug={slug} section={section}/>
                 {not shift_open
                     and allowed
                     and <ShiftBanner

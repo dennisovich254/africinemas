@@ -32,7 +32,7 @@ import from core.clock { now }
 import from core.authz.context { TenantScope, scoped }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
-import from core.tenancy.open_cinema { open_cinema }
+import from core.tenancy.open_cinema { open_cinema, is_suspended, UNAVAILABLE }
 import from core.tenancy.responses { NOT_FOUND }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.storefront { set_branding, branding_of, upcoming }
@@ -716,6 +716,13 @@ def:pub public_branding(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The cinema's published theme, its storefront CSS and logo, for anyone (no login).
     cinema = open_cinema(slug);
     if cinema is None {
+        # Suspended (P15.5): the storefront says it isn't available, not unknown.
+        if is_suspended(slug) {
+            return {
+                "ok": False,
+                "error": {"code": "unavailable", "message": UNAVAILABLE}
+            };
+        }
         return NOT_FOUND;
     }
     shown = branding_of(cinema);

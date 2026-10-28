@@ -77,7 +77,74 @@ node Statement {
         paybill: str = "",
         vat_bp: int = 0,
         figures: dict[str, int] = {},
-        lines: list[dict[str, any]] = [];  # jac:ignore[W1037]
+        lines: list[dict[str, any]] = [],  # jac:ignore[W1037]
+        # Collecting it (P15.5, ADR-0084): set later, never the figures above.
+        paid_at: str = "",
+        paid_receipt: str = "",
+        paid_reference: str = "",
+        # "matched" when platform staff matched a payment to it by hand.
+        paid_how: str = "",
+        disputed_at: str = "",
+        dispute_text: str = "",
+        dispute_request_id: str = "",
+        dispute_by: str = "",
+        dispute_resolved_at: str = "",
+        # "stands" (it's owed as issued) or "waived" (nothing to pay).
+        dispute_outcome: str = "",
+        dispute_note: str = "";
+}
+
+def payable_of(s: Statement) -> int {
+    # What's paid by M-Pesa, which takes whole shillings: the amount due, rounded half up.
+    return payable_cents(int(s.figures.get("due_cents", 0)));
+}
+
+def payable_cents(due: int) -> int {
+    return div_half_up(max(due, 0), 100) * 100;
+}
+
+def disputed(s: Statement) -> bool {
+    # An open dispute: raised and not yet decided.
+    return bool(s.disputed_at) and not s.dispute_resolved_at;
+}
+
+def status_of(s: Statement, today: date) -> str {
+    # "paid", "nothing_due", "waived", "overdue" (after its due day) or "due".
+    if s.paid_at {
+        return "paid";
+    }
+    if s.dispute_outcome == "waived" {
+        return "waived";
+    }
+    if payable_of(s) <= 0 {
+        return "nothing_due";
+    }
+    return "overdue" if today > date.fromisoformat(s.due_on) else "due";
+}
+
+def days_overdue(s: Statement, today: date) -> int {
+    if status_of(s, today) != "overdue" {
+        return 0;
+    }
+    return (today - date.fromisoformat(s.due_on)).days;
+}
+
+def update_statement(cinema: Tenant, s: Statement, changes: dict[str, str]) {
+    # Sets collecting fields (never the figures), as the cinema's principal.
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        for (field, value) in changes.items() {
+            setattr(s, field, value);
+        }
+        flush_now();
+    } finally {
+        restore(me);
+    }
+}
+
+def local_today(cinema: Tenant) -> date {
+    return now().astimezone(ZoneInfo(cinema_timezone(cinema))).date();
 }
 
 def paybill -> str {
@@ -166,6 +233,9 @@ def figures_of(
     figures["vat_cents"] = div_half_up(owed * vat_bp, BP_PER_WHOLE) if owed > 0 else 0;
     figures["due_cents"] = max(owed, 0) + figures["vat_cents"];
     figures["carried_forward_cents"] = min(owed, 0);
+    # M-Pesa takes whole shillings (P15.5): what's paid, and the rounding in it.
+    figures["payable_cents"] = payable_cents(figures["due_cents"]);
+    figures["rounding_cents"] = figures["payable_cents"] - figures["due_cents"];
     by_order: dict[str, dict[str, any]] = {};  # jac:ignore[W1037]
     def line_of(m: Money) -> dict[str, any] {  # jac:ignore[W1037]
         if m.order_ref not in by_order {
@@ -362,7 +432,12 @@ def issue_due(
     return made;
 }
 
-def view_of(s: Statement, with_lines: bool = True) -> dict[str, any] {  # jac:ignore[W1037]
+glob GRACE_DAYS: int = 5;
+
+def view_of(s: Statement, today: date, with_lines: bool = True) -> dict[str, any] {  # jac:ignore[W1037]
+    # `today` is the cinema's day, for whether it's overdue.
+    status = status_of(s, today);
+    late = days_overdue(s, today);
     shown: dict[str, any] = {  # jac:ignore[W1037]
         "number": s.number,
         "month": s.month,
@@ -376,7 +451,29 @@ def view_of(s: Statement, with_lines: bool = True) -> dict[str, any] {  # jac:ig
         "paybill": s.paybill,
         "paybill_is_placeholder": s.paybill == PAYBILL_PLACEHOLDER,
         "vat_bp": s.vat_bp,
-        "figures": dict(s.figures)
+        "figures": dict(s.figures),
+        "payable_cents": payable_of(s),
+        "status": status,
+        "days_overdue": late,
+        # A super admin may suspend the cinema once it's this late, never while disputed.
+        "suspendable": late > GRACE_DAYS and not disputed(s),
+        "paid_at": s.paid_at,
+        "paid_receipt": s.paid_receipt,
+        "paid_how": s.paid_how,
+        "dispute": (
+            {
+                "at": s.disputed_at,
+                "text": s.dispute_text,
+                "by": s.dispute_by,
+                "request_id": s.dispute_request_id,
+                "resolved_at": s.dispute_resolved_at,
+                "outcome": s.dispute_outcome,
+                "note": s.dispute_note,
+                "open": disputed(s)
+            }
+                if s.disputed_at
+                else None
+        )
     };
     if with_lines {
         shown["lines"] = [dict(l) for l in s.lines];

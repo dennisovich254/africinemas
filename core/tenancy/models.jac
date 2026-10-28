@@ -48,6 +48,10 @@ node Tenant {
         verified_at: str = "",
         # When it began closing (P14.5b): its business documents are deleted a year on.
         closed_at: str = "",
+        # Suspended by AfriCinemas for an unpaid invoice (P15.5): when, why, by whom.
+        suspended_at: str = "",
+        suspended_reason: str = "",
+        suspended_by: str = "",
         # Minutes before a showtime's start that its tickets can be scanned.
         doors_open_minutes: int = DOORS_OPEN_DEFAULT;
 

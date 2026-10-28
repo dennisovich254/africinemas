@@ -25,7 +25,10 @@ glob PUBLIC_STATES: list[str] = ["active"],
      PREVIEW_STATES: list[str] = ["configuring", "ready_for_go_live"],
      PREVIEW_PURPOSE: str = "storefront-preview",
      PREVIEW_HEADER: str = "x-africinemas-preview",
-     PREVIEW_TTL_S: int = 8 * 3600;
+     PREVIEW_TTL_S: int = 8 * 3600,
+     # Suspended by AfriCinemas (P15.5): its storefront says so, and takes nothing.
+     SUSPENDED: str = "suspended",
+     UNAVAILABLE: str = "This cinema isn't available right now.";
 
 def preview_pass(cinema: Tenant) -> str {
     # A pass to preview `cinema`'s storefront before it goes live.
@@ -52,6 +55,9 @@ def is_preview(cinema: Tenant) -> bool {
 
 def require_live(cinema: Tenant) {
     # Taking money needs a live cinema: never in a preview, online or at the counter.
+    if cinema.state == SUSPENDED {
+        raise Refused("suspended", UNAVAILABLE);
+    }
     if is_preview(cinema) {
         raise Refused(
             "not_live",
@@ -92,6 +98,13 @@ def open_cinema(selector: str) -> Tenant | None {
         return cinema;
     }
     return None;
+}
+
+def is_suspended(selector: str) -> bool {
+    # Whether the cinema at this slug is suspended (its storefront says it's unavailable).
+    tenant_id = lookup_slug(selector) if selector else None;
+    found = tenant_by_id(str(tenant_id)) if tenant_id else None;
+    return found is not None and found.state == SUSPENDED;
 }
 
 def tenant_by_id(tenant_id: str) -> Tenant | None {
