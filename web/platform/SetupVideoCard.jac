@@ -79,7 +79,10 @@ def:pub SetupVideoCard(may_change: bool = False) -> JsxElement {
                     {shown["url"] or "No video yet."}
                 </p>}
             {may_change
-                and <form className="flex flex-col gap-3" onSubmit={save}>
+                and shown is not None
+                and
+                # Only once loaded: the saved link must not overwrite one being typed.
+                <form className="flex flex-col gap-3" onSubmit={save}>
                     <RateField
                         field_id="setup-video-url"
                         label="Video link (leave empty for none)"

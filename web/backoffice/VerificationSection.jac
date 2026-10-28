@@ -160,10 +160,20 @@ def Status(view: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 </AlertDescription>
             </Alert>;
     }
-    if status == "approved" or view["state"] == "active" {
+    if status == "approved" {
         return
             <Alert data-testid="verification-status">
                 <AlertDescription>Your cinema is verified and public.</AlertDescription>
+            </Alert>;
+    }
+    # Public without a review (a super admin made it live): not verified, so no badge
+    # and no M-Pesa of its own until these details are approved.
+    if view["state"] == "active" {
+        return
+            <Alert data-testid="verification-status">
+                <AlertDescription>
+                    Your cinema is public, but AfriCinemas hasn't verified it yet. Send these details for review to get the Verified badge and to connect your own M-Pesa.
+                </AlertDescription>
             </Alert>;
     }
     return <span className="hidden" data-testid="verification-status"/>;
@@ -465,8 +475,7 @@ def:pub VerificationSection(slug: str) -> JsxElement {
                 Before your cinema goes public, AfriCinemas checks who runs it. Fill this in once; it takes about ten minutes with your ID and your business's certificates to hand.
             </p>
             <Status view={shown}/>
-            {(shown["status"] == "approved" or shown["state"] == "active")
-                and <ShareLink slug={slug}/>}
+            {shown["status"] == "approved" and <ShareLink slug={slug}/>}
             <Notice/>
             <form
                 className="flex flex-col gap-6"
