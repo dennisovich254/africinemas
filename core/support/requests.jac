@@ -69,6 +69,8 @@ glob ASK: str = "support.request",
          "payments": "Payments and M-Pesa",
          # Booked from Settings -> Payments (P15.3): a call to help connect M-Pesa.
          "setup_call": "A call to set up M-Pesa",
+         # Raised on an invoice in Billing (P15.5): what's wrong with it.
+         "invoice_dispute": "An invoice I disagree with",
          "emails": "Emails",
          "storefront": "Storefront",
          "verification": "Verification",
@@ -290,6 +292,16 @@ def _ask(
     clean = _text(text, bool(image_base64));
     cinema: Tenant = scope.tenant;
     image = _screenshot(cinema, image_type, image_base64);
+    return {"ok": True, "request": _filed(cinema, category, clean, image)};
+}
+
+def file_request(cinema: Tenant, category: str, text: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # A request opened for the caller by another page (an invoice's dispute, P15.5),
+    # which has checked who may; its view.
+    return _filed(cinema, category, _text(text, False), "");
+}
+
+def _filed(cinema: Tenant, category: str, clean: str, image: str) -> dict[str, any] {  # jac:ignore[W1037]
     at = now().isoformat();
     author = _sign_in_of(cinema);
     me = node_id(root);
@@ -311,7 +323,7 @@ def _ask(
     } finally {
         restore(me);
     }
-    return {"ok": True, "request": _view(request, cinema, CINEMA)};
+    return _view(request, cinema, CINEMA);
 }
 
 def _mine(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]

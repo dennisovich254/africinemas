@@ -4,6 +4,10 @@
 - A credit brought forward comes off the fees before VAT; more credit than fees owes
   nothing and carries the rest forward.
 - The month before is the right one across a year's end.
+- An invoice is due, overdue from the day after, paid, waived or has nothing to pay; it's
+  paid in whole shillings; suspendable only more than 5 days overdue and not disputed.
+- Reminders go 2 days before, on the day, 3 and 7 days after (the latest reached),
+  never while disputed or once paid.
 - The PDF is one: its objects' offsets in the cross-reference table are where they are,
   and a long statement goes onto more pages.
 """
@@ -11,7 +15,18 @@
 import re;
 import from datetime { date }
 import from core.reporting.aggregates { Money }
-import from core.billing.statements { figures_of, month_before, VAT_BP }
+import from core.billing.statements {
+    Statement,
+    figures_of,
+    month_before,
+    payable_of,
+    payable_cents,
+    status_of,
+    days_overdue,
+    view_of,
+    VAT_BP
+}
+import from core.billing.collect { reminder_due }
 import from core.billing.pdf { PdfLine, pdf_bytes }
 import from core.billing.billing_api { kes }
 
@@ -73,4 +88,71 @@ test "the PDF's cross-reference table points at its objects, over several pages"
     }
     assert b"/Count 3" in raw;
     assert kes(123456) == "KES 1,234.56" and kes(-5) == "-KES 0.05";
+}
+
+def _owed(due_cents: int, due_on: str = "2026-11-07") -> Statement {
+    return Statement(
+        tenant_id="t",
+        month="2026-10",
+        number="AC000001",
+        first="2026-10-01",
+        last="2026-10-31",
+        timezone="Africa/Nairobi",
+        issued_at="2026-11-02T06:00:00+00:00",
+        issued_on="2026-11-02",
+        due_on=due_on,
+        currency="KES",
+        figures={"due_cents": due_cents}
+    );
+}
+
+test "an invoice is due, overdue from the day after, paid, waived or has nothing due" {
+    s = _owed(4980);
+    assert payable_of(s) == 5000
+        and payable_cents(4949) == 4900
+        and payable_cents(-5) == 0;
+    assert status_of(s, date(2026, 11, 7)) == "due";
+    assert status_of(s, date(2026, 11, 8)) == "overdue";
+    assert days_overdue(s, date(2026, 11, 12)) == 5;
+    assert days_overdue(s, date(2026, 11, 7)) == 0;
+    assert status_of(_owed(0), date(2026, 12, 1)) == "nothing_due";
+    # 49 cents rounds to nothing for M-Pesa: nothing to pay.
+    assert status_of(_owed(49), date(2026, 12, 1)) == "nothing_due";
+    s.dispute_outcome = "waived";
+    assert status_of(s, date(2026, 12, 1)) == "waived";
+    s.paid_at = "2026-11-03T10:00:00+00:00";
+    assert status_of(s, date(2026, 12, 1)) == "paid";
+}
+
+test "suspendable only more than 5 days overdue, and never while disputed" {
+    s = _owed(4980);
+    assert not view_of(s, date(2026, 11, 12), False)["suspendable"];
+    assert view_of(s, date(2026, 11, 13), False)["suspendable"];
+    s.disputed_at = "2026-11-10T10:00:00+00:00";
+    assert not view_of(s, date(2026, 11, 20), False)["suspendable"];
+    s.dispute_resolved_at = "2026-11-21T10:00:00+00:00";
+    s.dispute_outcome = "stands";
+    assert view_of(s, date(2026, 11, 21), False)["suspendable"];
+}
+
+test "reminders: 2 days before, on the day, 3 and 7 days after; the latest reached" {
+    s = _owed(4980);
+    assert [reminder_due(s, date(2026, 11, d)) for d in [4, 5, 6, 7, 8, 10, 13, 14, 30]]
+        == [
+            "",
+            "before",
+            "before",
+            "due_today",
+            "due_today",
+            "late_3",
+            "late_3",
+            "late_7",
+            "late_7"
+        ];
+    s.disputed_at = "2026-11-08T10:00:00+00:00";
+    assert reminder_due(s, date(2026, 11, 10)) == "";
+    s.dispute_resolved_at = "2026-11-09T10:00:00+00:00";
+    assert reminder_due(s, date(2026, 11, 10)) == "late_3";
+    s.paid_at = "2026-11-10T10:00:00+00:00";
+    assert reminder_due(s, date(2026, 11, 20)) == "";
 }

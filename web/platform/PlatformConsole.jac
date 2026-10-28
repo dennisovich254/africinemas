@@ -573,8 +573,10 @@ def:pub PlatformConsole -> JsxElement {
                     and allowed
                     and <RegistrationsPage/>}{section == "billing"
                     and allowed
-                    and <BillingPage may_issue={may(shown, "platform.settings")}/>}{section
-                    == "fees"
+                    and <BillingPage
+                        may_issue={may(shown, "platform.settings")}
+                        may_suspend={may(shown, "platform.suspend")}
+                    />}{section == "fees"
                     and allowed
                     and <div className="flex max-w-3xl flex-col gap-6">
                         <FeesPage may_change={may(shown, "platform.settings")}/>

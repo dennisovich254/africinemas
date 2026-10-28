@@ -3,7 +3,9 @@
 Staff who read the cinema's financial reports see each month's statement, newest first:
 the invoice's number, when it's due and how to pay it, the amount due, and, opened,
 the takings by channel, refunds, AfriCinemas' fees and VAT. Each one downloads as a PDF
-with its orders. The console's Billing page shows the same Statement for every cinema.
+with its orders. Each says whether it's due, overdue or paid; one still owed is paid in
+full with Pay now, or queried as a dispute (InvoiceActions, P15.5). The console's
+Billing page shows the same Statement for every cinema.
 """
 
 import from react { useState, useEffect }
@@ -14,6 +16,7 @@ import from core.billing.billing_api {
     billing_pdf  # jac:ignore[W2037] authenticated endpoint
 }
 import from .report_view { money_label }
+import from .InvoiceActions { InvoiceActions }
 
 glob MONTHS: list[str] = [
          "January",
@@ -42,6 +45,9 @@ glob MONTHS: list[str] = [
          ("brought_forward_cents", "Credit brought forward", False),
          ("vat_cents", "VAT", False),
          ("due_cents", "Amount due", True),
+         # M-Pesa takes whole shillings (P15.5).
+         ("rounding_cents", "Rounded to whole shillings for M-Pesa", False),
+         ("payable_cents", "To pay", True),
          ("carried_forward_cents", "Credit carried to next month", False)
      ];
 
@@ -52,6 +58,25 @@ def:pub month_label(month: str) -> str {
 def:pub day_label(iso: str) -> str {
     parts = iso.split("-");
     return f"{int(parts[2])} {MONTHS[int(parts[1]) - 1][:3]} {parts[0]}";
+}
+
+def:pub status_text(shown: dict[str, any]) -> str {  # jac:ignore[W1037]
+    # The invoice's state in words (never a colour alone).
+    status: str = shown["status"];
+    if status == "paid" {
+        return "Paid";
+    }
+    if status == "nothing_due" {
+        return "Nothing to pay";
+    }
+    if status == "waived" {
+        return "Waived";
+    }
+    if status == "overdue" {
+        days: int = int(shown["days_overdue"]);
+        return f"Overdue by {days} day" + ("" if days == 1 else "s");
+    }
+    return "Due";
 }
 
 def:pub save_pdf(name: str, pdf: str) {
@@ -74,7 +99,8 @@ def:pub save_pdf(name: str, pdf: str) {
 def:pub Statement(
     shown: dict[str, any],  # jac:ignore[W1037]
     load_pdf: any,  # jac:ignore[W1037]
-    cinema: str = ""
+    cinema: str = "",
+    actions: any = None  # jac:ignore[W1037]
 ) -> JsxElement {
     # One statement: the invoice up top, the figures when opened, and its PDF.
     [busy, set_busy] = useState(False);
@@ -104,6 +130,9 @@ def:pub Statement(
         if key in ["brought_forward_cents", "carried_forward_cents", "vat_cents"] {
             return int(f[key]) != 0;
         }
+        if key in ["rounding_cents", "payable_cents"] {
+            return int(f.get("rounding_cents", 0)) != 0;
+        }
         return True;
     }
 
@@ -125,6 +154,17 @@ def:pub Statement(
                     </p>
                 </div>
                 <p className="text-right">
+                    <span
+                        className={"block text-xs font-medium"
+                            + (
+                                " text-destructive"
+                                    if shown["status"] == "overdue"
+                                    else " text-muted-foreground"
+                            )}
+                        data-testid="statement-status"
+                    >
+                        {status_text(shown)}
+                    </span>
                     <span className="block text-xs text-muted-foreground">
                         Amount due
                     </span>
@@ -136,12 +176,23 @@ def:pub Statement(
                     </span>
                 </p>
             </div>
-            {int(f["due_cents"]) > 0
+            {shown["status"] in ["due", "overdue"]
                 and <p className="text-sm" data-testid="statement-pay">
-                    {f"Pay by M-Pesa: Paybill {shown['paybill']}, account number {shown[
+                    {f"Pay {money_label(
+                        int(shown['payable_cents']), currency
+                    )} by M-Pesa to Paybill {shown['paybill']}, account number {shown[
                         'number'
                     ]}."}{shown["paybill_is_placeholder"]
-                        and " AfriCinemas' paybill isn't live yet: don't pay this until we tell you the real number."}
+                        and " AfriCinemas' paybill isn't live yet, so payments here are tests."}
+                </p>}
+            {shown["status"] == "paid"
+                and <p className="text-sm" data-testid="statement-paid">
+                    {f"Paid on {day_label(shown['paid_at'][:10])}"
+                        + (
+                            f", M-Pesa {shown['paid_receipt']}."
+                                if shown["paid_receipt"]
+                                else "."
+                        )}
                 </p>}
             <details className="text-sm">
                 <summary className="min-h-11 cursor-pointer py-2 font-medium">
@@ -179,6 +230,7 @@ def:pub Statement(
                         No VAT: AfriCinemas isn't registered for VAT yet.
                     </p>}
             </details>
+            {actions}
             <div className="flex flex-wrap items-center gap-3">
                 <Button
                     variant="outline"
@@ -250,8 +302,16 @@ def:pub BillingSection(slug: str) -> JsxElement {
             {len(statements) > 0
                 and <ul className="flex flex-col gap-4">
                     {[
-                        <Statement key={s["number"]} shown={s} load_pdf={pdf_of}/>
-                        for s in statements
+                        <Statement
+                            key={s["number"]}
+                            shown={s}
+                            load_pdf={pdf_of}
+                            actions={<InvoiceActions
+                                slug={slug}
+                                shown={s}
+                                on_changed={load}
+                            />}
+                        /> for s in statements
                     ]}
                 </ul>}
         </div>;

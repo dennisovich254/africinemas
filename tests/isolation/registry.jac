@@ -312,6 +312,61 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"number": "AC999999"}
          },
          "platform_issue_statements": {"scope": "platform", "audit": ""},
+         # Collecting what's owed (P15.5).
+         "pay_invoice": {
+             "scope": "tenant",
+             "audit": "billing.payment_started",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "number": "AC999999",
+                 "phone": "0712345678"
+             }
+         },
+         "invoice_payment": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "reference": "BILLPROBE"}
+         },
+         "dispute_invoice": {
+             "scope": "tenant",
+             "audit": "billing.disputed",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "number": "AC999999",
+                 "text": "Probe probe"
+             }
+         },
+         "billing_notice": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "platform_decide_dispute": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"number": "AC999999", "outcome": "stands", "note": "probe"}
+         },
+         "platform_resolve_payment": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {
+                 "slug": "{tenant}",
+                 "reference": "BILLPROBE",
+                 "action": "refund",
+                 "number": "",
+                 "note": "probe"
+             }
+         },
+         "platform_suspend_cinema": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"slug": "{tenant}", "reason": "probe reason"}
+         },
+         "platform_reinstate_cinema": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"slug": "{tenant}"}
+         },
          # AfriCinemas' legal pages (P15.0b): public.
          "legal_document": {"scope": "public", "audit": "", "probe": {"name": "terms"}},
          "check_slug": {"scope": "caller", "audit": "", "probe": {"slug": "free-name"}},
@@ -1541,6 +1596,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              }
          },
          "route:/hooks/mpesa/{token}": {
+             "scope": "webhook",
+             "audit": "",
+             "probe": {"Body": {"stkCallback": {"ResultCode": 0}}}
+         },
+         "route:/hooks/mpesa-bill/{token}": {
              "scope": "webhook",
              "audit": "",
              "probe": {"Body": {"stkCallback": {"ResultCode": 0}}}

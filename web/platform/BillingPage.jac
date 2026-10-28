@@ -2,7 +2,9 @@
 invoices, newest first, for platform staff (platform.read), each with its PDF.
 
 A super admin (platform.settings) can issue what's due now, in case the monthly job
-missed it; a month already issued is never issued again.
+missed it; a month already issued is never issued again. Above the statements,
+BillingDesk lists what needs acting on (P15.5): payments to match, disputes, and
+cinemas past the grace period, to suspend or reinstate.
 """
 
 import from react { useState, useEffect }
@@ -14,8 +16,9 @@ import from core.billing.billing_api {
     platform_issue_statements  # jac:ignore[W2037] authenticated endpoint
 }
 import from ..backoffice.BillingSection { Statement }
+import from .BillingDesk { BillingDesk }
 
-def:pub BillingPage(may_issue: bool = False) -> JsxElement {
+def:pub BillingPage(may_issue: bool = False, may_suspend: bool = False) -> JsxElement {
     [shown, set_shown] = useState(None);
     [busy, set_busy] = useState(False);
     [note, set_note] = useState("");
@@ -94,6 +97,12 @@ def:pub BillingPage(may_issue: bool = False) -> JsxElement {
                         {note}
                     </p>
                 </div>}
+            <BillingDesk
+                found={found}
+                may_act={may_issue}
+                may_suspend={may_suspend}
+                on_changed={load}
+            />
             {len(statements) == 0
                 and <p className="rounded-lg border bg-card p-4 text-sm">
                     No statements yet.

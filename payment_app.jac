@@ -307,9 +307,24 @@ import from core.billing.billing_api {
     billing_pdf,  # jac:ignore[W2037]
     platform_billing,  # jac:ignore[W2037]
     platform_billing_pdf,  # jac:ignore[W2037]
+    pay_invoice,  # jac:ignore[W2037]
+    invoice_payment,  # jac:ignore[W2037]
+    dispute_invoice,  # jac:ignore[W2037]
+    billing_notice,  # jac:ignore[W2037]
+    platform_decide_dispute,  # jac:ignore[W2037]
+    platform_resolve_payment,  # jac:ignore[W2037]
+    platform_suspend_cinema,  # jac:ignore[W2037]
+    platform_reinstate_cinema,  # jac:ignore[W2037]
     platform_issue_statements  # jac:ignore[W2037]
 }
+# Paying invoices (P15.5): M-Pesa's callback and the job that settles them.
+import from core.billing.collect {
+    mpesa_bill_callback,  # jac:ignore[W2037]
+    settle_bill_payments  # jac:ignore[W2037]
+}
 import from core.billing.statements { issue_due }
+import from core.billing.collect { settle_due, remind_due }
+import from core.tenancy.membership { records_of }
 import from core.platform.cinemas_api { all_cinemas }
 import from core.platform.staff_api {
     platform_whoami,  # jac:ignore[W2037]
@@ -418,9 +433,44 @@ def:pub t_clock_ahead(hours: int) -> bool {
     return True;
 }
 
+def:pub t_clock_at(at: str) -> bool {
+    # Stops the clock at the ISO time `at` (AFRICINEMAS_CLOCK_CONTROL=1 only, P15.5).
+    freeze(datetime.fromisoformat(at));
+    return True;
+}
+
 def:pub t_clock_reset -> bool {
     reset();
     return True;
+}
+
+def:pub t_owner_email(slug: str, email: str) -> bool {
+    # Gives the cinema's owners `email`, where billing emails go (P15.5).
+    cinema = tenant_by_id(str(lookup_slug(slug)));
+    assert cinema is not None;
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        for m in records_of(cinema) {
+            if "owner" in m.roles {
+                m.email = email;
+            }
+        }
+        commit_now();
+    } finally {
+        restore(me);
+    }
+    return True;
+}
+
+def:pub t_settle_bills -> int {
+    # Settles the invoice payments waiting for M-Pesa now (P15.5).
+    return settle_due();
+}
+
+def:pub t_remind_bills -> int {
+    # Runs the reminders as of now (P15.5): how many invoices were reminded.
+    return remind_due(all_cinemas());
 }
 
 def:pub t_issue_statements(at: str) -> list[str] {

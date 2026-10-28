@@ -173,7 +173,10 @@ test "a month of sales gives the expected invoice, in the console and the back o
                     "AfriCinemas' fees": "KES 49.80",
                     "Fees credited on refunds": "KES 0",
                     "Fees this month": "KES 49.80",
-                    "Amount due": "KES 49.80"
+                    "Amount due": "KES 49.80",
+                    # M-Pesa takes whole shillings (P15.5).
+                    "Rounded to whole shillings for M-Pesa": "KES 0.20",
+                    "To pay": "KES 50"
                 } , page.evaluate(ROWS_JS);
             # One sale of two seats is one booking.
             assert "The figures (1 booking)" in card , card;
