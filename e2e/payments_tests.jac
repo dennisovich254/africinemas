@@ -124,6 +124,11 @@ test "an owner connects M-Pesa, tests it, and cancels a change that waits" {
             said = booked[0]["messages"][0]["text"] if booked else "";
             assert "Preferred time: Midday (12 to 3)" in said
                 and "Phone: 0712345678" in said , asked;
+            # The link opens the request in Help (straight onto it: JI-037 crashed here).
+            page.click('[data-testid="setup-call-booked"] a');
+            page.wait_for_function(
+                "document.body.innerText.includes('Preferred time: Midday (12 to 3)')"
+            );
             # Answered, so the shared support inbox is as the other tests expect.
             request_id = booked[0]["request_id"];
             call(admin, "platform_support_seen", {"request_id": request_id});
