@@ -6,10 +6,6 @@ the reviewer ticks the checklist and approves. A visitor then finds the storefro
 "Verified cinema" in its footer. Phone and desktop, no sideways scrolling.
 """
 
-import io;
-import base64;
-import from PIL { Image }
-import from pypdf { PdfWriter }
 import from e2e.support.web {
     shared_browser,
     close_contexts,
@@ -23,70 +19,9 @@ import from e2e.support.web {
 }
 import from e2e.support.api { platform_admin, PASSWORD, call }
 import from e2e.support.catalog { cinema_selling_tickets }
+import from e2e.support.verification { submitted }
 
-glob WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth",
-     DETAILS: dict[str, str] = {
-         "legal_name": "Kimani Wanjiru",
-         "id_number": "12345678",
-         "phone": "0712 345 678",
-         "registered_name": "Nova Cinemas Ltd",
-         "business_type": "limited_company",
-         "registration_number": "PVT-ABC123",
-         "kra_pin": "P051234567Q",
-         "permit_expiry": "2099-12-31",
-         "premises_address": "Westgate Mall, Nairobi"
-     };
-
-def _png -> str {
-    out = io.BytesIO();
-    Image.new("RGB", (900, 600), (40, 90, 160)).save(out, format="PNG");
-    return base64.b64encode(out.getvalue()).decode();
-}
-
-def _pdf -> str {
-    writer = PdfWriter();
-    writer.add_blank_page(width=200, height=200);
-    out = io.BytesIO();
-    writer.write(out);
-    return base64.b64encode(out.getvalue()).decode();
-}
-
-def _submitted(owner: dict[str, str]) {
-    tenant = owner["slug"];
-    token = owner["token"];
-    assert call(token, "save_verification", {"tenant": tenant, "details": DETAILS})[
-        "ok"
-    ];
-    for (item, kind, data) in [
-        ("id_front", "image/png", _png()),
-        ("id_back", "image/png", _png()),
-        ("registration_certificate", "application/pdf", _pdf()),
-        ("kra_certificate", "application/pdf", _pdf()),
-        ("county_permit", "application/pdf", _pdf())
-    ] {
-        sent = call(
-            token,
-            "upload_verification_file",
-            {"tenant": tenant, "item": item, "content_type": kind, "data_base64": data}
-        );
-        assert sent["ok"] , sent;
-    }
-    for kind in ["terms", "privacy", "refunds"] {
-        assert call(
-            token,
-            "save_policy",
-            {
-                "tenant": tenant,
-                "kind": kind,
-                "text": "Ours.",
-                "published": True,
-                "reviewed": True
-            }
-        )["ok"];
-    }
-    done = call(token, "submit_verification", {"tenant": tenant});
-    assert done["ok"] , done;
-}
+glob WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth";
 
 def _type(page: any, selector: str, value: str) {  # jac:ignore[W1037]
     # Playwright's fill(); the checker mistakes it for JS Array.fill (W6002).
@@ -99,7 +34,7 @@ test "changes are asked, then the cinema is approved and public with its badge" 
     try {
         for project in PROJECTS {
             owner = cinema_selling_tickets(live=False);
-            _submitted(owner);
+            submitted(owner);
             us = browser.new_context(
                 **context_options(pw, project, "light")
             ).new_page();

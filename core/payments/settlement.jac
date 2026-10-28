@@ -53,7 +53,7 @@ import from core.booking.hold_api { showtime_on_sale, check_holder }
 import from core.payments.models { PaymentIntent, RefundTask }
 import from core.payments.state { PaymentState, transition, is_final }
 import from core.payments.provider { StkStatus, PaymentProvider }
-import from core.payments.choice { payment_provider, ProviderNotConfigured }
+
 import from core.payments.daraja { parse_callback }
 import from core.payments.ledger { record_entry }
 import from core.payments.payment_api {
@@ -62,7 +62,8 @@ import from core.payments.payment_api {
     payment_view,
     stored_intent,
     latest_intent,
-    ensure_pushed
+    ensure_pushed,
+    provider_of
 }
 
 glob INBOX: str = "mpesa-inbox",
@@ -349,12 +350,12 @@ def process_inbox -> int {
             continue;
         }
         (cinema, intent) = found;
-        try {
-            provider = payment_provider();
-        } except ProviderNotConfigured {
-            return settled;
+        # Checked with the cinema's M-Pesa account it was made with (P15.3).
+        provider = provider_of(cinema, intent);
+        if provider is None {
+            continue;
         }
-        state = settle(cinema, intent, provider);
+        state = settle(cinema, intent, provider as PaymentProvider);
         if is_final(PaymentState(state)) {
             # Settled for good: the receipt leaves the inbox (a later duplicate is filed
             # again and changes nothing).
@@ -424,12 +425,7 @@ def _my_payment(slug: str, screening_id: str, holder: str) -> dict[str, any] {  
     if order is None or intent is None {
         raise Refused("no_payment", "You haven't started paying for this order.");
     }
-    provider: PaymentProvider | None = None;
-    try {
-        provider = payment_provider();
-    } except ProviderNotConfigured {
-        provider = None;
-    }
+    provider = provider_of(cinema, intent);
     if provider is not None {
         if intent.state == PaymentState.CREATED.value and not intent.push_uncertain {
             ensure_pushed(cinema, intent, provider);

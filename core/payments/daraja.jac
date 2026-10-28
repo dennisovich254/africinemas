@@ -57,17 +57,20 @@ class DarajaUnavailable(ConnectionError) {}
 
 obj DarajaConfig {
     # One merchant's Daraja credentials. transaction_type is CustomerPayBillOnline for
-    # a Paybill and CustomerBuyGoodsOnline for a Till.
+    # a Paybill and CustomerBuyGoodsOnline for a Till. For a Till, shortcode is the
+    # store number (head office) and party_b the till number the money goes to; for a
+    # Paybill party_b is "" and the money goes to the shortcode.
     has consumer_key: str,
         consumer_secret: str,
         shortcode: str,
         passkey: str,
         base_url: str = SANDBOX_URL,
-        transaction_type: str = "CustomerPayBillOnline";
+        transaction_type: str = "CustomerPayBillOnline",
+        party_b: str = "";
 
     def __repr__ -> str {
         # Never the key, secret or passkey (they would reach any log that prints it).
-        return f"DarajaConfig(base_url={self.base_url!r}, shortcode={self.shortcode!r}, transaction_type={self.transaction_type!r})";
+        return f"DarajaConfig(base_url={self.base_url!r}, shortcode={self.shortcode!r}, party_b={self.party_b!r}, transaction_type={self.transaction_type!r})";
     }
 
     def __str__ -> str {
@@ -311,7 +314,7 @@ obj DarajaProvider(PaymentProvider) {
         body["TransactionType"] = self.config.transaction_type;
         body["Amount"] = request.amount_cents // 100;
         body["PartyA"] = request.phone;
-        body["PartyB"] = self.config.shortcode;
+        body["PartyB"] = self.config.party_b or self.config.shortcode;
         body["PhoneNumber"] = request.phone;
         body["CallBackURL"] = request.callback_url;
         body["AccountReference"] = request.account[:12];

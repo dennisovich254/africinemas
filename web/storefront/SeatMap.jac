@@ -144,7 +144,7 @@ def:pub SeatMap(
     cols: int = seat_map["cols"];
     [zoom, set_zoom] = useState(0);
     [cursor, set_cursor] = useState("");
-    first: str = seats[0]["label"] if seats else "";
+    first: str = seats[0]["label"] if len(seats or []) > 0 else "";
     at: str = cursor or first;
 
     def move(label: str, e: any) {  # jac:ignore[W1037]

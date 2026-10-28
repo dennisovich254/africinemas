@@ -156,7 +156,8 @@ def:pub HelpSection(slug: str, shift_open: bool = True, item: str = "") -> JsxEl
         for r in (requests or [])
         if r["request_id"] == item
     ];
-    unread_here: int = opened[0]["unread"] if item and opened else 0;
+    # len(): an empty list is true in client code (JI-037).
+    unread_here: int = opened[0]["unread"] if item and len(opened) > 0 else 0;
     async def read_it {
         if not unread_here {
             return;

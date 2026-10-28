@@ -327,7 +327,7 @@ def:pub SnackProductEditor(
                 for c in kinds
                 if c["category_id"] == values["category_id"]
             ];
-            suggested = SUGGESTED.get(names[0] if names else "", []);
+            suggested = SUGGESTED.get(names[0] if len(names) > 0 else "", []);
             changed["options"] = [{"name": "Size", "values": ", ".join(suggested)}];
             changed["rows"] = generate_rows([suggested], []) if suggested else [];
         }
@@ -525,7 +525,9 @@ def:pub SnackProductEditor(
         if not answer["ok"] {
             problems: list[dict[str, str]] = answer["error"].get("problems", []) or [];
             set_category_error(
-                problems[0]["message"] if problems else answer["error"]["message"]
+                problems[0]["message"]
+                    if len(problems) > 0
+                    else answer["error"]["message"]
             );
             return;
         }

@@ -43,6 +43,7 @@ import from .CinemasPages { CinemasList, CinemaDetail }
 import from .PlatformAuditPage { PlatformAuditPage }
 import from .RegistrationsPage { RegistrationsPage }
 import from .FeesPage { FeesPage }
+import from .SetupVideoCard { SetupVideoCard }
 import from .OverviewFigures { OverviewFigures }
 import from .SupportPages { SupportInbox, SupportRequestPage }
 import from ..support.live { use_open_requests }
@@ -569,8 +570,10 @@ def:pub PlatformConsole -> JsxElement {
                     and allowed
                     and <RegistrationsPage/>}{section == "fees"
                     and allowed
-                    and <FeesPage may_change={may(shown, "platform.settings")}/>}{section
-                    == "support"
+                    and <div className="flex max-w-3xl flex-col gap-6">
+                        <FeesPage may_change={may(shown, "platform.settings")}/>
+                        <SetupVideoCard may_change={may(shown, "platform.settings")}/>
+                    </div>}{section == "support"
                     and allowed
                     and not item
                     and <SupportInbox/>}{section == "support"

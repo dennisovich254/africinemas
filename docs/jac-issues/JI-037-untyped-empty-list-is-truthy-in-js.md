@@ -19,3 +19,10 @@ Give state values a typed local right after `useState` (`picked: list[str] = cho
 
 ## Suggested fix
 Compile truthiness of a value of unknown type through the same runtime helper, so client code follows Python's rules whatever the checker knows.
+
+## Seen again (2026-10-28)
+
+A **typed** local list is truthy when empty too, inside `and`: in
+`opened[0]["unread"] if item and opened else 0` (web/backoffice/HelpSection.jac, with
+`opened: list[dict[str, any]]`), the empty list passed the test and the page crashed
+reading `opened[0]`. So typing the local isn't enough on its own: use `len(x) > 0`.

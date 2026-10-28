@@ -266,7 +266,9 @@ def:pub Checkout(
         set_snack_step(False);
         set_hold(held);
         set_chosen(held["seats"]);
-        set_items(_items(held["seats"], codes[0]["code"] if codes else ""));
+        set_items(
+            _items(held["seats"], codes[0]["code"] if len(codes or []) > 0 else "")
+        );
         set_key(order_key());
         set_warned(False);
     }

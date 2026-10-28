@@ -46,7 +46,8 @@ import from core.payments.payment_api {
     OPEN_PAYMENTS,
     ORDER_PAYMENT,
     stored_intent,
-    ensure_pushed
+    ensure_pushed,
+    provider_of
 }
 import from core.payments.settlement { settle, tenant_by_id, order_of }
 
@@ -215,8 +216,13 @@ def resolve -> dict[str, int] {
             }
             continue;
         }
+        # Each payment with its own cinema's M-Pesa account (P15.3).
+        chosen = provider_of(cinema as Tenant, intent as PaymentIntent);
+        if chosen is None {
+            continue;
+        }
         state = resolve_payment(
-            cinema as Tenant, intent as PaymentIntent, provider as PaymentProvider
+            cinema as Tenant, intent as PaymentIntent, chosen as PaymentProvider
         );
         if is_final(PaymentState(state)) {
             release(OPEN_PAYMENTS, ref, tenant_id);
@@ -244,7 +250,10 @@ def resolve -> dict[str, int] {
         if provider is not None {
             for p in _intents_of(cinema as Tenant, order as Order) {
                 if not is_final(PaymentState(p.state)) and p.checkout_request_id {
-                    settle(cinema as Tenant, p, provider as PaymentProvider);
+                    chosen = provider_of(cinema as Tenant, p);
+                    if chosen is not None {
+                        settle(cinema as Tenant, p, chosen as PaymentProvider);
+                    }
                 }
             }
         }
@@ -288,7 +297,10 @@ def _end_my_order(slug: str, screening_id: str, holder: str) -> dict[str, any] {
     if provider is not None {
         for p in _intents_of(cinema, order as Order) {
             if not is_final(PaymentState(p.state)) and p.checkout_request_id {
-                settle(cinema, p, provider as PaymentProvider);
+                chosen = provider_of(cinema, p);
+                if chosen is not None {
+                    settle(cinema, p, chosen as PaymentProvider);
+                }
             }
         }
     }

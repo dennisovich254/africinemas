@@ -28,9 +28,14 @@ import from core.booking.ticket_codes { PICKUPS, reserve_reference, pickup_paylo
 import from core.booking.snack_additions { addition_allowed, additions }
 import from core.booking.snack_sale { place_sale, cash_sale, _view }
 import from core.snacks.menu { menu_of, price_cart }
-import from core.payments.payment_api { pay_order, latest_intent, payment_view }
+import from core.payments.payment_api {
+    pay_order,
+    latest_intent,
+    payment_view,
+    provider_of
+}
 import from core.payments.settlement { settle }
-import from core.payments.choice { payment_provider, ProviderNotConfigured }
+import from core.payments.provider { PaymentProvider }
 import from core.audit.log { audited }
 
 glob ADDING: str = "booking-snack-addition";
@@ -174,11 +179,11 @@ def _run(  # jac:ignore[W3030] shared checkout RPC fields
     if action == "status" {
         intent = latest_intent(cinema, order);
         if intent is not None {
-            try {
-                settle(cinema, intent, payment_provider());
-            } except ProviderNotConfigured {
-                # Payment status remains readable when the provider is unavailable.
-                intent = latest_intent(cinema, order);
+            # Checked with the cinema's M-Pesa account it was made with (P15.3); the
+            # status stays readable when this server can't reach it.
+            provider = provider_of(cinema, intent);
+            if provider is not None {
+                settle(cinema, intent, provider as PaymentProvider);
             }
         }
         return {
