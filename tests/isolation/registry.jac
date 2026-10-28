@@ -312,6 +312,32 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "probe": {"number": "AC999999"}
          },
          "platform_issue_statements": {"scope": "platform", "audit": ""},
+         # Reconciliation and AfriCinemas' takings (P15.6).
+         "reconciliation": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "resolve_exception": {
+             "scope": "tenant",
+             "audit": "reconcile.resolved",
+             "probe": {"tenant": "{tenant}", "exception_id": "x", "note": "probe"}
+         },
+         "upload_mpesa_statement": {
+             "scope": "tenant",
+             "audit": "reconcile.statement_uploaded",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "csv_text": "Receipt No.,Completion Time,Paid In"
+             }
+         },
+         "count_cash": {
+             "scope": "tenant",
+             "audit": "cash.counted",
+             "probe": {"tenant": "{tenant}", "counted_cents": 0}
+         },
+         "platform_reconciliation": {"scope": "platform", "audit": ""},
+         "platform_takings": {"scope": "platform", "audit": ""},
          # Collecting what's owed (P15.5).
          "pay_invoice": {
              "scope": "tenant",

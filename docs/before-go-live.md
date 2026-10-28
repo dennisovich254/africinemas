@@ -80,6 +80,16 @@ system, not real money.
 - [ ] **Refunding an unmatched payment** is done outside the app (M-Pesa reversal or a
   transfer). Agree who does it and how it's recorded.
 
+## Reconciliation (P15.6)
+
+- [ ] **The daily M-Pesa check against live Daraja**: the STK status query still answers
+  for prompts a day or more old. If it doesn't, those payments are left unchecked.
+- [ ] **A real M-Pesa portal statement** (CSV) uploads and matches: check its column
+  names (Receipt No., Completion Time, Paid In, Transaction Status, A/C No.), its time
+  format, and how it shows the KES 1 test payments.
+- [ ] **Cash counts in practice**: the box office counts at the end of each shift, and a
+  manager looks at the Reconciliation page. Agree who resolves a short count.
+
 ## The monthly billing job, in real time (P15.4)
 
 - [ ] **Statements go out on the 1st by themselves**, from the hourly job, without
@@ -239,8 +249,6 @@ them, such as monitoring and backups, are what make testing Part 1 safe.
 - [ ] **The fee on each order's page** (P15.2 follow-up, P17.1).
 - [ ] **Credit notes** (P15.4 follow-up): a correction to an issued invoice.
 - [ ] **eTIMS**: invoices submitted to KRA, once AfriCinemas registers.
-- [ ] **Reconciliation** (P15.6): our ledger checked daily against M-Pesa's own records,
-  with an exceptions list.
 - [ ] **Every transaction in the back office** (P17.1) and **finding a booking** (P6.6),
   so the box office can answer "I paid".
 

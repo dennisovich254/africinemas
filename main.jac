@@ -293,6 +293,16 @@ import from core.billing.billing_api {
     platform_issue_statements,  # jac:ignore[W2037]
     issue_statements  # jac:ignore[W2037]
 }
+# Reconciliation and AfriCinemas' takings (P15.6).
+import from core.payments.reconcile_api {
+    reconciliation,  # jac:ignore[W2037]
+    resolve_exception,  # jac:ignore[W2037]
+    upload_mpesa_statement,  # jac:ignore[W2037]
+    count_cash,  # jac:ignore[W2037]
+    platform_reconciliation,  # jac:ignore[W2037]
+    platform_takings,  # jac:ignore[W2037]
+    reconcile_payments  # jac:ignore[W2037]
+}
 # Paying invoices (P15.5): M-Pesa's callback and the job that settles them.
 import from core.billing.collect {
     mpesa_bill_callback,  # jac:ignore[W2037]

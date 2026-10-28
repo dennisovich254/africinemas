@@ -44,6 +44,8 @@ import from .PlatformAuditPage { PlatformAuditPage }
 import from .RegistrationsPage { RegistrationsPage }
 import from .FeesPage { FeesPage }
 import from .BillingPage { BillingPage }
+import from .ReconciliationPage { ReconciliationPage }
+import from .TakingsCard { TakingsCard }
 import from .SetupVideoCard { SetupVideoCard }
 import from .OverviewFigures { OverviewFigures }
 import from .SupportPages { SupportInbox, SupportRequestPage }
@@ -412,6 +414,7 @@ def Overview(me: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
                 <p className="text-sm text-muted-foreground">{ROLE_HELP[me["role"]]}</p>
             </section>
             {may(me, "platform.read") and <OverviewFigures/>}
+            {may(me, "platform.read") and <TakingsCard/>}
         </div>;
 }
 
@@ -523,6 +526,14 @@ def:pub PlatformConsole -> JsxElement {
         nav.append({"label": "Fees", "to": "/fees", "key": "fees"});
         # Every cinema's statements and invoices (P15.4).
         nav.append({"label": "Billing", "to": "/billing", "key": "billing"});
+        # What doesn't add up at each cinema (P15.6).
+        nav.append(
+            {
+                "label": "Reconciliation",
+                "to": "/reconciliation",
+                "key": "reconciliation"
+            }
+        );
     }
     # What we register outside the app before going live (P15.0b): super admins.
     if may(shown, "platform.settings") {
@@ -571,7 +582,9 @@ def:pub PlatformConsole -> JsxElement {
                     and allowed
                     and <PlatformAuditPage/>}{section == "registrations"
                     and allowed
-                    and <RegistrationsPage/>}{section == "billing"
+                    and <RegistrationsPage/>}{section == "reconciliation"
+                    and allowed
+                    and <ReconciliationPage/>}{section == "billing"
                     and allowed
                     and <BillingPage
                         may_issue={may(shown, "platform.settings")}

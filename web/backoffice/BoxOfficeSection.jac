@@ -16,6 +16,7 @@ or all codes can be printed. New sale starts over with a new holder id.
 """
 
 import from react { useState, useEffect }
+import from .CashUp { CashUp }
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
@@ -414,7 +415,9 @@ def SaleKind(kind: str, on_kind: any) -> JsxElement {  # jac:ignore[W1037]
                 for (k, label) in [
                     ("tickets", "Tickets"),
                     ("snacks", "Snacks only"),
-                    ("extra", "Existing booking")
+                    ("extra", "Existing booking"),
+                    # Counting the cash taken (P15.6).
+                    ("cash", "Count cash")
                 ]
             ]}
         </div>;
@@ -456,6 +459,13 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
         new_sale();
     }
 
+    if kind == "cash" {
+        return
+            <div className="flex flex-col gap-6">
+                <SaleKind kind={kind} on_kind={set_kind}/>
+                <CashUp slug={slug}/>
+            </div>;
+    }
     if kind == "extra" {
         return
             <div className="flex flex-col gap-6">
