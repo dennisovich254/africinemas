@@ -301,6 +301,16 @@ import from core.platform.cinemas_api {
 }
 # Which of the three sites an address is (P13.1b.c).
 import from core.site { site_for_host }
+# Monthly statements and invoices (P15.4).
+import from core.billing.billing_api {
+    billing,  # jac:ignore[W2037]
+    billing_pdf,  # jac:ignore[W2037]
+    platform_billing,  # jac:ignore[W2037]
+    platform_billing_pdf,  # jac:ignore[W2037]
+    platform_issue_statements  # jac:ignore[W2037]
+}
+import from core.billing.statements { issue_due }
+import from core.platform.cinemas_api { all_cinemas }
 import from core.platform.staff_api {
     platform_whoami,  # jac:ignore[W2037]
     platform_join,
@@ -411,6 +421,11 @@ def:pub t_clock_ahead(hours: int) -> bool {
 def:pub t_clock_reset -> bool {
     reset();
     return True;
+}
+
+def:pub t_issue_statements(at: str) -> list[str] {
+    # The billing job as of the ISO time `at` (P15.4): the invoice numbers it made.
+    return issue_due(all_cinemas(), datetime.fromisoformat(at));
 }
 
 def:pub pay_stored(slug: str, screening_id: str) -> list[list[str]] {

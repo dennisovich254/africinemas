@@ -34,7 +34,11 @@ def _grouped(n: int) -> str {
 }
 
 def:pub money(cents: int, currency: str) -> str {
-    # "KES 1,560" (whole units when there are no cents), "KES 12.50" otherwise.
+    # "KES 1,560" (whole units when there are no cents), "KES 12.50" otherwise, and
+    # "-KES 12.50" below zero (a refund, a fee credit).
+    if cents < 0 {
+        return "-" + money(0 - cents, currency);
+    }
     whole = int(cents / 100);
     rest = cents - whole * 100;
     if rest == 0 {
