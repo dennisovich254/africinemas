@@ -145,7 +145,9 @@ def:pub Statement(
                 </p>}
             <details className="text-sm">
                 <summary className="min-h-11 cursor-pointer py-2 font-medium">
-                    {f"The figures ({f['bookings']} bookings)"}
+                    {f"The figures ({f['bookings']} booking"
+                        + ("" if int(f["bookings"]) == 1 else "s")
+                        + ")"}
                 </summary>
                 <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
                     {[

@@ -175,7 +175,8 @@ test "a month of sales gives the expected invoice, in the console and the back o
                     "Fees this month": "KES 49.80",
                     "Amount due": "KES 49.80"
                 } , page.evaluate(ROWS_JS);
-            assert "2 bookings" in card;
+            # One sale of two seats is one booking.
+            assert "The figures (1 booking)" in card , card;
             assert "No VAT" in page.inner_text('[data-testid="statement"]');
             with page.expect_download() as saved {
                 page.click('[data-testid="statement"] button:has-text("Download PDF")');
