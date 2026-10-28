@@ -21,12 +21,14 @@ Nova's invoice for this month is issued on the 2nd of next month, due on the 7th
 
 import os;
 import uuid;
+import base64;
 import from datetime { datetime, date, timedelta }
 import from zoneinfo { ZoneInfo }
 import from tests.support.served { Served }
 import from tests.support.storefront_setup { browse, add_screening }
 import from tests.support.payment_setup { paying_cinema, paid, hire, fresh_phone }
 import from tests.support.platform_setup { ADMINS_ENV, super_admin, join_platform }
+import from core.billing.billing_text { kes }
 
 glob NAIROBI: ZoneInfo = ZoneInfo("Africa/Nairobi"),
      FAILS: str = "254700000001";
@@ -101,6 +103,45 @@ def _mails(app: Served) -> list[str] {
     return subjects;
 }
 
+def _inbox(app: Served) -> list[dict[str, str]] {
+    # The emails sent since last asked: to, subject and text.
+    app.call("owner", "t_send_mpesa_mail");
+    sent = [
+        {"to": m["to"], "subject": m["subject"], "text": m["text"]}
+        for m in app.call("owner", "tm_outbox")
+    ];
+    app.call("owner", "tm_clear_outbox");
+    return sent;
+}
+
+def _platform_member(app: Served, label: str, role: str) {
+    invited = app.call(
+        "boss",
+        "invite_platform_member",
+        {"email": f"{label}@example.com", "role": role}
+    );
+    assert invited["ok"] , invited;
+    join_platform(app, label, invited["token"]);
+}
+
+def _counter_order(app: Served, screening: str, seat: str) -> str {
+    # A box office order for `seat`, not paid yet: its holder.
+    holder = f"counter-{uuid.uuid4().hex}";
+    where = {"slug": "nova", "screening_id": screening, "holder": holder};
+    assert browse(app, "hold_seats", {** where, "labels": [seat]})["ok"];
+    assert browse(
+        app,
+        "place_order",
+        {
+            ** where,
+            "idempotency_key": f"order-{uuid.uuid4().hex}",
+            "items": [{"seat_label": seat, "ticket_type": "ADULT"}],
+            "snacks": []
+        }
+    )["ok"];
+    return holder;
+}
+
 def _setup(staff: list[str]) -> tuple[Served, any, str, str] {  # jac:ignore[W1037]
     # Nova with this month's sales (online and cash) invoiced on the 2nd of next month.
     os.environ["AFRICINEMAS_CLOCK_CONTROL"] = "1";
@@ -125,9 +166,10 @@ def _done(app: Served) {
 }
 
 test "an invoice is paid in full by M-Pesa, once, by its finance readers only" {
-    (app, nova, screening, number) = _setup(["rival", "finance"]);
+    (app, nova, screening, number) = _setup(["rival", "finance", "auditor"]);
     try {
         hire(app, "finance", "finance_manager", "");
+        hire(app, "auditor", "auditor", "");
         app.call("rival", "create_cinema", {"name": "Rift", "slug": "rift"});
         issued = _second_of(1).date();
         _on(app, issued);
@@ -164,9 +206,36 @@ test "an invoice is paid in full by M-Pesa, once, by its finance readers only" {
         assert s["status"] == "paid" and s["paid_receipt"] and s["paid_how"] == "mpesa";
         assert s["figures"] == _invoice(app, "finance")["figures"];
         assert _code(_pay(app, number, fresh_phone())) == "nothing_to_pay";
-        # Not overdue once paid, however late.
+        # An auditor may pay too: refused only because it's paid.
+        assert _code(_pay(app, number, fresh_phone(), "auditor")) == "nothing_to_pay";
+        # The owners are told; the console reads Paid.
+        told = [
+            m
+            for m in _inbox(app)
+            if f"invoice {number} is paid" in m["subject"]
+        ];
+        assert told and told[0]["to"] == "nova-owner@example.com" , told;
+        assert done["payment"]["receipt"] in told[0]["text"];
+        listed = [
+            r
+            for r in app.call("boss", "platform_billing", {})["statements"]
+            if r["number"] == number
+        ];
+        assert listed[0]["status"] == "paid" , listed;
+        # The PDF: Pay now for the whole-shilling amount, and the rounding when there is some.
+        raw = base64.b64decode(
+            app.call("owner", "billing_pdf", {"tenant": "nova", "number": number})[
+                "pdf"
+            ]
+        );
+        assert b"Pay now sends an M-Pesa prompt" in raw;
+        assert kes(s["payable_cents"]).encode() in raw;
+        rounded = s["figures"]["rounding_cents"] != 0;
+        assert (b"Rounded to whole shillings for M-Pesa" in raw) == rounded;
+        # Not overdue once paid, however late, and no reminders.
         _on(app, issued + timedelta(days=30));
         assert _invoice(app)["status"] == "paid";
+        assert app.call("owner", "t_remind_bills") == 0;
         assert app.call("owner", "billing_notice", {"tenant": "nova"})["overdue"] == [];
         logged = [
             e["action"]
@@ -181,10 +250,13 @@ test "an invoice is paid in full by M-Pesa, once, by its finance readers only" {
 }
 
 test "reminders go before, on and after the due day, each once, never once paid or disputed" {
-    (app, nova, screening, number) = _setup([]);
+    (app, nova, screening, number) = _setup(["finance"]);
     try {
+        hire(app, "finance", "finance_manager", "");
         due_on = date.fromisoformat(_invoice(app)["due_on"]);
         _mails(app);
+        # Before it's due: no banner.
+        assert app.call("owner", "billing_notice", {"tenant": "nova"})["overdue"] == [];
         _on(app, due_on - timedelta(days=3));
         assert app.call("owner", "t_remind_bills") == 0;
         _on(app, due_on - timedelta(days=2));
@@ -202,6 +274,7 @@ test "reminders go before, on and after the due day, each once, never once paid 
         assert notice["may_pay"]
             and [n["number"] for n in notice["overdue"]] == [number];
         assert notice["overdue"][0]["days"] == 1 and not notice["suspended"];
+        assert app.call("finance", "billing_notice", {"tenant": "nova"})["may_pay"];
         agent = app.call("agent", "billing_notice", {"tenant": "nova"});
         assert agent["ok"] and not agent["may_pay"];
         assert app.call("owner", "t_remind_bills") == 0;
@@ -224,15 +297,18 @@ test "reminders go before, on and after the due day, each once, never once paid 
             }
         )["ok"];
         assert _invoice(app)["dispute"]["open"];
+        _on(app, due_on + timedelta(days=20));
+        assert app.call("owner", "t_remind_bills") == 0;
     } finally {
         _done(app);
     }
 }
 
 test "a dispute opens a Help request, pauses suspension, and a super admin decides it" {
-    (app, nova, screening, number) = _setup(["finance"]);
+    (app, nova, screening, number) = _setup(["finance", "rev"]);
     try {
         hire(app, "finance", "finance_manager", "");
+        _platform_member(app, "rev", "reviewer");
         due_on = date.fromisoformat(_invoice(app)["due_on"]);
         _on(app, due_on + timedelta(days=6));
         assert _invoice(app)["suspendable"];
@@ -258,6 +334,17 @@ test "a dispute opens a Help request, pauses suspension, and a super admin decid
         ];
         assert mine and mine[0]["category"] == "invoice_dispute" , asked;
         assert number in mine[0]["messages"][0]["text"];
+        # In AfriCinemas' support inbox too, and in the cinema's audit log.
+        inbox = app.call("boss", "platform_support_requests", {"status": ""});
+        assert s["dispute"]["request_id"]
+            in [r["request_id"] for r in inbox["requests"]];
+        logged = [
+            e["action"]
+            for e in app.call("owner", "audit_log", {"tenant": "nova", "limit": 50})[
+                "events"
+            ]
+        ];
+        assert "billing.disputed" in logged , logged;
         # Not suspended while disputed.
         assert _code(
             app.call(
@@ -275,6 +362,8 @@ test "a dispute opens a Help request, pauses suspension, and a super admin decid
             "note": "The refund came after the month."
         };
         assert not app.call("owner", "platform_decide_dispute", decide)["ok"];
+        assert not app.call("rev", "platform_decide_dispute", decide)["ok"];
+        _inbox(app);
         assert _code(
             app.call("boss", "platform_decide_dispute", {** decide, "outcome": "maybe"})
         )
@@ -286,6 +375,12 @@ test "a dispute opens a Help request, pauses suspension, and a super admin decid
         assert app.call("boss", "platform_decide_dispute", decide)["ok"];
         assert _code(app.call("boss", "platform_decide_dispute", decide))
             == "not_disputed";
+        told = [
+            m
+            for m in _inbox(app)
+            if f"your query about invoice {number}" in m["subject"]
+        ];
+        assert told and decide["note"] in told[0]["text"] , told;
         s = _invoice(app);
         assert not s["dispute"]["open"] and s["dispute"]["outcome"] == "stands";
         assert s["dispute"]["note"] == decide["note"] and s["status"] == "overdue";
@@ -396,15 +491,12 @@ test "a payment for an invoice already settled is matched by hand or refunded" {
 }
 
 test "a cinema more than 5 days overdue may be suspended by a person, and reinstated" {
-    (app, nova, screening, number) = _setup(["rev"]);
+    (app, nova, screening, number) = _setup(["rev", "helper"]);
     try {
+        later = add_screening(app, "owner", nova, "Rafiki", 24 * 50);
         due_on = date.fromisoformat(_invoice(app)["due_on"]);
-        invited = app.call(
-            "boss",
-            "invite_platform_member",
-            {"email": "rev@example.com", "role": "reviewer"}
-        );
-        join_platform(app, "rev", invited["token"]);
+        _platform_member(app, "rev", "reviewer");
+        _platform_member(app, "helper", "support");
         reason = {"slug": "nova", "reason": "Invoice unpaid after reminders."};
         # Overdue, but within the grace period.
         _on(app, due_on + timedelta(days=5));
@@ -416,9 +508,12 @@ test "a cinema more than 5 days overdue may be suspended by a person, and reinst
             == "not_overdue";
         _on(app, due_on + timedelta(days=6));
         assert _invoice(app)["suspendable"];
+        # A box office order waiting to be paid when it's suspended.
+        waiting = _counter_order(app, later, "A4");
         _mails(app);
-        # Never the cinema itself; a reason is needed.
+        # Never the cinema itself, nor support staff; a reason is needed.
         assert not app.call("owner", "platform_suspend_cinema", reason)["ok"];
+        assert not app.call("helper", "platform_suspend_cinema", reason)["ok"];
         assert _code(
             app.call("rev", "platform_suspend_cinema", {** reason, "reason": "no"})
         )
@@ -426,7 +521,14 @@ test "a cinema more than 5 days overdue may be suspended by a person, and reinst
         assert app.call("rev", "platform_suspend_cinema", reason)["ok"];
         assert _code(app.call("boss", "platform_suspend_cinema", reason))
             == "not_active";
-        assert any(["is suspended" in m for m in _mails(app)]);
+        told = [
+            m
+            for m in _inbox(app)
+            if "is suspended" in m["subject"]
+        ];
+        assert told
+            and reason["reason"] in told[0]["text"]
+            and number in told[0]["text"] , told;
         # The storefront says it's unavailable, and nothing is sold.
         shown = browse(app, "public_branding", {"slug": "nova"});
         assert _code(shown) == "unavailable" , shown;
@@ -443,6 +545,19 @@ test "a cinema more than 5 days overdue may be suspended by a person, and reinst
             }
         );
         assert not held["ok"] , held;
+        # An unknown address is still unknown, not unavailable.
+        assert _code(browse(app, "public_branding", {"slug": "no-such-cinema"}))
+            == "not_found";
+        # The box office can't take the waiting order's money.
+        sell = {
+            "tenant": "nova",
+            "screening_id": later,
+            "holder": waiting,
+            "email": ""
+        };
+        refused = app.call("agent", "sell_for_cash", sell);
+        assert _code(refused) == "suspended" , refused;
+        assert "isn't available right now" in refused["error"]["message"];
         # The back office says why, to everyone; it can still pay.
         for who in ["owner", "agent"] {
             notice = app.call(who, "billing_notice", {"tenant": "nova"});
@@ -459,6 +574,9 @@ test "a cinema more than 5 days overdue may be suspended by a person, and reinst
         started = _pay(app, number, fresh_phone());
         assert started["ok"] , started;
         assert _settled(app, started["payment"]["reference"])["status"] == "paid";
+        # Paid, but still suspended until a person reinstates it.
+        assert app.call("owner", "billing_notice", {"tenant": "nova"})["suspended"];
+        assert _code(browse(app, "public_branding", {"slug": "nova"})) == "unavailable";
         # Reinstated: back on sale.
         assert not app.call("owner", "platform_reinstate_cinema", {"slug": "nova"})[
             "ok"
@@ -467,6 +585,8 @@ test "a cinema more than 5 days overdue may be suspended by a person, and reinst
         assert _code(app.call("boss", "platform_reinstate_cinema", {"slug": "nova"}))
             == "not_suspended";
         assert browse(app, "public_branding", {"slug": "nova"})["ok"];
+        # Selling works again.
+        assert app.call("agent", "sell_for_cash", sell)["ok"];
         assert not app.call("owner", "billing_notice", {"tenant": "nova"})["suspended"];
         assert any(["is back on AfriCinemas" in m for m in _mails(app)]);
         for action in ["platform.cinema_suspended", "platform.cinema_reinstated"] {
@@ -475,6 +595,109 @@ test "a cinema more than 5 days overdue may be suspended by a person, and reinst
             )["events"];
             assert [e["result"] for e in events].count("ok") == 1 , (action, events);
         }
+    } finally {
+        _done(app);
+    }
+}
+
+test "every way a payment can fail leaves the invoice owed, and a prompt left unanswered expires" {
+    (app, nova, screening, number) = _setup([]);
+    try {
+        _on(app, _second_of(1).date());
+        # Cancelled on the phone (0700 000 002).
+        got = _pay(app, number, "0700000002");
+        assert _settled(app, got["payment"]["reference"])["payment"]["state"]
+            == "cancelled";
+        # Refused by M-Pesa before any prompt (0700 000 004): failed at once.
+        got = _pay(app, number, "0700000004");
+        assert got["ok"] and got["payment"]["state"] == "failed" , got;
+        assert got["payment"]["result_text"];
+        # The phone can't be reached (0700 000 003): M-Pesa answers that it failed.
+        got = _pay(app, number, "0700000003");
+        done = _settled(app, got["payment"]["reference"])["payment"];
+        assert done["state"] == "failed"
+            and "cannot be reached" in done["result_text"] , done;
+        assert _invoice(app)["status"] == "due";
+        # Nobody answers the prompt: it waits, blocks a second one, then expires.
+        quiet = fresh_phone();
+        assert app.call(
+            "owner", "pay_script", {"phone": quiet, "outcome": "late_success"}
+        );
+        got = _pay(app, number, quiet);
+        reference = got["payment"]["reference"];
+        assert _settled(app, reference)["payment"]["state"] == "stk_requested";
+        assert _code(_pay(app, number, fresh_phone())) == "payment_in_progress";
+        start = datetime(
+            _second_of(1).year, _second_of(1).month, 2, 10, 14, tzinfo=NAIROBI
+        );
+        assert app.call("owner", "t_clock_at", {"at": start.isoformat()});
+        assert _settled(app, reference)["payment"]["state"] == "stk_requested";
+        assert app.call(
+            "owner", "t_clock_at", {"at": (start + timedelta(minutes=2)).isoformat()}
+        );
+        assert _settled(app, reference)["payment"]["state"] == "expired";
+        assert _invoice(app)["status"] == "due";
+        # None of that told anyone it was paid; a new prompt can go now.
+        assert not [
+            m
+            for m in _inbox(app)
+            if "is paid" in m["subject"]
+        ];
+        assert _pay(app, number, fresh_phone())["ok"];
+    } finally {
+        _done(app);
+    }
+}
+
+test "a dispute decided as waived leaves nothing to pay, and no reminders or suspension" {
+    (app, nova, screening, number) = _setup([]);
+    try {
+        due_on = date.fromisoformat(_invoice(app)["due_on"]);
+        _on(app, due_on - timedelta(days=1));
+        assert app.call(
+            "owner",
+            "dispute_invoice",
+            {
+                "tenant": "nova",
+                "number": number,
+                "text": "This month's sales were all refunded."
+            }
+        )["ok"];
+        # Disputed, it can still be paid.
+        assert _invoice(app)["status"] == "due";
+        _inbox(app);
+        assert app.call(
+            "boss",
+            "platform_decide_dispute",
+            {"number": number, "outcome": "waived", "note": "Agreed: we waive it."}
+        )["ok"];
+        told = [
+            m
+            for m in _inbox(app)
+            if f"your query about invoice {number}" in m["subject"]
+        ];
+        assert told and "nothing to pay" in told[0]["text"] , told;
+        s = _invoice(app);
+        assert s["status"] == "waived" and s["dispute"]["outcome"] == "waived";
+        assert _code(_pay(app, number, fresh_phone())) == "nothing_to_pay";
+        # Long past due: not overdue, no reminders, nothing to suspend.
+        _on(app, due_on + timedelta(days=20));
+        s = _invoice(app);
+        assert s["status"] == "waived"
+            and not s["suspendable"]
+            and s["days_overdue"] == 0;
+        assert app.call("owner", "t_remind_bills") == 0;
+        assert app.call("owner", "billing_notice", {"tenant": "nova"})["overdue"] == [];
+        assert _code(
+            app.call(
+                "boss",
+                "platform_suspend_cinema",
+                {"slug": "nova", "reason": "Unpaid invoice"}
+            )
+        )
+            == "not_overdue";
+        # Its figures are as issued.
+        assert s["figures"]["due_cents"] > 0;
     } finally {
         _done(app);
     }
