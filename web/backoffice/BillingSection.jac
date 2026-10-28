@@ -72,8 +72,10 @@ def:pub save_pdf(name: str, pdf: str) {
 }
 
 def:pub Statement(
-    shown: dict[str, any], load_pdf: any, cinema: str = ""
-) -> JsxElement {  # jac:ignore[W1037]
+    shown: dict[str, any],  # jac:ignore[W1037]
+    load_pdf: any,  # jac:ignore[W1037]
+    cinema: str = ""
+) -> JsxElement {
     # One statement: the invoice up top, the figures when opened, and its PDF.
     [busy, set_busy] = useState(False);
     [problem, set_problem] = useState("");

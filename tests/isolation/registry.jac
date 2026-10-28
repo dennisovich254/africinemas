@@ -297,6 +297,21 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"key": "domain", "done": True, "reference": "probe"}
          },
+         # Monthly statements and invoices (P15.4): the cinema's finance readers; platform
+         # staff read every cinema's, and super admins issue them.
+         "billing": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
+         "billing_pdf": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "number": "AC999999"}
+         },
+         "platform_billing": {"scope": "platform", "audit": ""},
+         "platform_billing_pdf": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"number": "AC999999"}
+         },
+         "platform_issue_statements": {"scope": "platform", "audit": ""},
          # AfriCinemas' legal pages (P15.0b): public.
          "legal_document": {"scope": "public", "audit": "", "probe": {"name": "terms"}},
          "check_slug": {"scope": "caller", "audit": "", "probe": {"slug": "free-name"}},
