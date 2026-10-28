@@ -55,6 +55,16 @@ connection, and the change can be cancelled until it's in use. An owner whose
 account was taken over has a day to notice. The account in use is simply the latest
 tested version whose time has come, so no job is needed to make the switch.
 
+**Help with the keys** (owner, 2026-10-28):
+- **A setup video:** AfriCinemas records the Daraja steps once, and a super admin
+  pastes the link on the console's Fees page (`core/payments/setup_help.jac`). A
+  YouTube link plays above the written steps from youtube-nocookie.com; any other
+  https link opens in a new tab; with no link there's no video box.
+- **A setup call:** "Book a setup call" asks for a day, a time of day and a number,
+  and files a Help request (category `setup_call`) in the support inbox
+  (P13.5a). Nothing new to run. The page says the owner pastes the keys themselves:
+  AfriCinemas never asks for keys or passwords.
+
 **No AfriCinemas paybill fallback in production.** Version 0, the platform's own
 `DARAJA_*` app, is only for the sandbox and tests. Against live Daraja, or with
 `AFRICINEMAS_OWN_MPESA=required`, a cinema that hasn't connected can't take M-Pesa

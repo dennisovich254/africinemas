@@ -5,7 +5,8 @@ verified business's name filled in. They connect their Paybill with its Daraja k
 their password, send the KES 1 test payment, and say they've paid it: payments go to
 their Paybill, and the keys appear nowhere on the page. They then change to a Till: its
 test goes through, but the change waits its 24 hours while the Paybill stays in use,
-and they cancel it. Phone and desktop, no sideways scrolling. The 24 hours passing,
+and they cancel it. The super admin's setup video plays above the written steps, and
+the owner books a setup call, which opens as a Help request. Phone and desktop, no sideways scrolling. The 24 hours passing,
 and customers' payments reaching each account, are in
 tests/integration/mpesa_account_tests.jac (they need a test-only clock).
 """
@@ -17,7 +18,7 @@ import from e2e.support.web {
     PROJECTS,
     context_options
 }
-import from e2e.support.api { PASSWORD }
+import from e2e.support.api { PASSWORD, platform_admin, platform_session, call }
 import from e2e.support.catalog { cinema_selling_tickets }
 import from e2e.support.verification { verified }
 
@@ -51,6 +52,11 @@ def _tested(page: any) {  # jac:ignore[W1037]
 }
 
 test "an owner connects M-Pesa, tests it, and cancels a change that waits" {
+    # AfriCinemas' setup video, set by the super admin, plays above the steps.
+    (_, admin) = platform_session(platform_admin());
+    assert call(admin, "set_mpesa_guide_video", {"url": "https://youtu.be/dQw4w9WgXcQ"})[
+        "ok"
+    ];
     (pw, browser) = shared_browser();
     try {
         for project in PROJECTS {
@@ -71,6 +77,8 @@ test "an owner connects M-Pesa, tests it, and cancels a change that waits" {
             assert page.input_value("#mpesa-name") == "Nova Cinemas Ltd";
             page.click('[data-testid="mpesa-guide"] summary');
             page.wait_for_selector('[data-testid="mpesa-guide"] li >> visible=true');
+            assert "youtube-nocookie.com/embed/dQw4w9WgXcQ"
+                in page.get_attribute('[data-testid="mpesa-video"]', "src");
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
             _type(page, "#mpesa-shortcode", "600100");
             _keys_and_password(page);
@@ -97,6 +105,18 @@ test "an owner connects M-Pesa, tests it, and cancels a change that waits" {
             page.click('button:has-text("Cancel this change")');
             page.wait_for_selector('[data-testid="mpesa-pending"]', state="detached");
             assert "Paybill 600100" in page.inner_text('[data-testid="mpesa-active"]');
+            # Booking a setup call files a Help request.
+            page.click('button:has-text("Book a setup call")');
+            _type(page, "#setup-call-day", "2099-01-15");
+            page.select_option("#setup-call-time", "midday");
+            _type(page, "#setup-call-phone", "0712345678");
+            page.click('[data-testid="setup-call-form"] button[type="submit"]');
+            page.wait_for_selector('[data-testid="setup-call-booked"]');
+            assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
+            page.click('[data-testid="setup-call-booked"] a');
+            page.wait_for_function(
+                "document.body.innerText.includes('Preferred time: Midday (12 to 3)')"
+            );
             page.context.close();
         }
     } finally {

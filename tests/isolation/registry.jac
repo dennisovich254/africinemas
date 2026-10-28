@@ -282,6 +282,14 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "mpesa.cancelled",
              "probe": {"tenant": "{tenant}", "sign_in": "probe@example.com"}
          },
+         # AfriCinemas' M-Pesa setup video (P15.3): platform staff read it; super
+         # admins set it.
+         "mpesa_guide_video": {"scope": "platform", "audit": ""},
+         "set_mpesa_guide_video": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"url": "https://youtu.be/probe12345"}
+         },
          # The registrations checklist (P15.0b): super admins only.
          "registrations_checklist": {"scope": "platform", "audit": ""},
          "tick_registration": {

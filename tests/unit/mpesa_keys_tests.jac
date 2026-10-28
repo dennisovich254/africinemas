@@ -5,6 +5,7 @@
 - A Till pushes to its till number, signed with its store number; a Paybill to itself.
 - The registered name matches however "Limited" and capitals are written.
 - Against live Daraja every cinema must use its own M-Pesa.
+- The setup video plays from youtube-nocookie.com for a YouTube link, else is a link.
 """
 
 import os;
@@ -21,6 +22,7 @@ import from core.payments.mpesa_api { same_name }
 import from core.payments.choice { own_account_required }
 import from core.payments.provider { StkRequest }
 import from core.payments.daraja { DarajaProvider }
+import from core.payments.setup_help { embed_of }
 
 glob ENV: str = "AFRICINEMAS_MPESA_KEY",
      SECRET: str = "unit-test-sealing-secret-0123456789abcdef";
@@ -213,5 +215,24 @@ test "against live Daraja every cinema must use its own M-Pesa" {
                 os.environ[name] = value;
             }
         }
+    }
+}
+
+test "a YouTube link plays from youtube-nocookie; anything else is only a link" {
+    player = "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ";
+    for link in [
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "https://youtu.be/dQw4w9WgXcQ",
+        "https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=30",
+        "https://www.youtube.com/embed/dQw4w9WgXcQ"
+    ] {
+        assert embed_of(link) == player , link;
+    }
+    for other in [
+        "https://vimeo.com/123456",
+        "https://www.youtube.com/watch?v=bad\"id",
+        "https://evil.example/youtube.com/watch?v=dQw4w9WgXcQ"
+    ] {
+        assert embed_of(other) == "" , other;
     }
 }

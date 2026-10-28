@@ -262,6 +262,11 @@ import from core.legal.agreement_api {
     cinema_agreement_text,  # jac:ignore[W2037]
     accept_cinema_agreement  # jac:ignore[W2037]
 }
+# AfriCinemas' M-Pesa setup video, set in the console (P15.3).
+import from core.payments.setup_help {
+    mpesa_guide_video,  # jac:ignore[W2037]
+    set_mpesa_guide_video  # jac:ignore[W2037]
+}
 # Each cinema's own M-Pesa (P15.3): Settings -> Payments, and the change emails' job.
 import from core.payments.mpesa_api {
     mpesa_settings,  # jac:ignore[W2037]

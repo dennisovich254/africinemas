@@ -43,6 +43,7 @@ import from core.payments.state { PaymentState }
 import from core.payments.payment_api { callback_url }
 import from core.payments.choice { account_provider, ProviderNotConfigured }
 import from core.payments.secret_box { sealing_ready }
+import from core.payments.setup_help { guide_video }
 import from core.payments.mpesa_account {
     CHANGE_WAIT_S,
     MpesaAccount,
@@ -110,7 +111,9 @@ def _settings(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "verified_name": record_of(cinema)["details"].get("registered_name", "")
             if _may(scope, OWNER)
             else "",
-        "wait_hours": CHANGE_WAIT_S // 3600
+        "wait_hours": CHANGE_WAIT_S // 3600,
+        # AfriCinemas' setup video, if one is set (core/payments/setup_help.jac).
+        "guide_video": guide_video()
     };
 }
 

@@ -67,6 +67,8 @@ glob ASK: str = "support.request",
      },
      CATEGORIES: dict[str, str] = {
          "payments": "Payments and M-Pesa",
+         # Booked from Settings -> Payments (P15.3): a call to help connect M-Pesa.
+         "setup_call": "A call to set up M-Pesa",
          "emails": "Emails",
          "storefront": "Storefront",
          "verification": "Verification",

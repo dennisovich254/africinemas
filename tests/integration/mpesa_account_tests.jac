@@ -10,6 +10,8 @@ AfriCinemas (P14.5), registered as "Kim's Cinema Ltd".
   the account in use; it can be cancelled before then.
 - Where each cinema must use its own M-Pesa, a cinema that hasn't connected can't take
   M-Pesa payments.
+- A super admin sets the setup video every Payments page plays; the owner books a
+  setup call, which support sees in the console as a Help request.
 """
 
 import os;
@@ -276,6 +278,49 @@ test "where cinemas must use their own M-Pesa, one not connected can't take it" 
         assert code_of(_pay(app, screening, ANNA)) == "mpesa_not_connected";
         _connected(app, PAYBILL);
         assert _pay(app, screening, ANNA)["ok"];
+    } finally {
+        _done(app);
+    }
+}
+
+test "a super admin sets the setup video, and the owner books a setup call" {
+    (app, _) = _app();
+    try {
+        assert app.call("kim", "mpesa_settings", {"tenant": "kims"})["guide_video"][
+            "url"
+        ]
+            == "";
+        assert code_of(
+            app.call("kim", "set_mpesa_guide_video", {"url": "https://youtu.be/x"})
+        )
+            == "not_platform";
+        assert code_of(
+            app.call(
+                "boss", "set_mpesa_guide_video", {"url": "http://youtu.be/abcdef1"}
+            )
+        )
+            == "invalid_url";
+        link = "https://youtu.be/dQw4w9WgXcQ";
+        assert app.call("boss", "set_mpesa_guide_video", {"url": link})["ok"];
+        video = app.call("kim", "mpesa_settings", {"tenant": "kims"})["guide_video"];
+        assert video["url"] == link
+            and video["embed"] == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ";
+        # Booking a call files a Help request that support sees in the console.
+        booked = app.call(
+            "kim",
+            "ask_for_help",
+            {
+                "tenant": "kims",
+                "category": "setup_call",
+                "text": "Please call me to help set up M-Pesa.\nPhone: 0712345678",
+                "image_type": "",
+                "image_base64": ""
+            }
+        );
+        assert booked["ok"] , booked;
+        inbox = app.call("boss", "platform_support_requests", {"status": ""});
+        assert [r["category_label"] for r in inbox["requests"]]
+            == ["A call to set up M-Pesa"] , inbox;
     } finally {
         _done(app);
     }

@@ -3,7 +3,9 @@
 Customers' M-Pesa payments go straight to the cinema's own Paybill or Till. The page
 shows the account in use and any change waiting; the owner connects one (with a guide
 to getting Daraja keys from Safaricom), sends a KES 1 test payment from their phone,
-and can cancel a change before it's used. Keys are typed once and never shown again:
+and can cancel a change before it's used. AfriCinemas' setup video plays above the
+written steps when a super admin has set one (core/payments/setup_help.jac), and the
+owner can book a setup call, filed as a Help request. Keys are typed once and never shown again:
 only the consumer key's last four characters. Other settings staff see the status.
 """
 
@@ -19,13 +21,22 @@ import from core.payments.mpesa_api {
     mpesa_test_status,  # jac:ignore[W2037] authenticated endpoint
     cancel_mpesa_change  # jac:ignore[W2037] authenticated endpoint
 }
+import from core.support.requests {
+    ask_for_help  # jac:ignore[W2037] authenticated endpoint
+}
 import from ..auth.session { signed_in_email }
 import from ..support.SupportThread { when }
 import from .form_parts { TextField, submit_with }
 import from .nav { section_path }
 import from ..shell.AppLink { AppLink }
 
-glob GUIDE: list[dict[str, str]] = [
+glob SLOT_ORDER: list[str] = ["morning", "midday", "afternoon"],
+     SLOTS: dict[str, str] = {
+         "morning": "Morning (9 to 12)",
+         "midday": "Midday (12 to 3)",
+         "afternoon": "Afternoon (3 to 6)"
+     },
+     GUIDE: list[dict[str, str]] = [
          {
              "title": "Sign in to Safaricom's developer portal",
              "text": "Go to developer.safaricom.co.ke and sign in, or make an account, with the email of the person who manages the cinema's M-Pesa."
@@ -83,21 +94,206 @@ def SecretField(
         </div>;
 }
 
-def Guide -> JsxElement {
+def GuideVideo(video: dict[str, str]) -> JsxElement {
+    # AfriCinemas' own recording: played here for YouTube, otherwise a link.
+    if video["embed"] {
+        return
+            <div className="aspect-video w-full overflow-hidden rounded-md border">
+                <iframe
+                    data-testid="mpesa-video"
+                    src={video["embed"]}
+                    title="How to get your Daraja keys"
+                    className="h-full w-full"
+                    loading="lazy"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="encrypted-media; picture-in-picture; fullscreen"
+                    allowFullScreen={True}
+                />
+            </div>;
+    }
+    return
+        <a
+            data-testid="mpesa-video-link"
+            href={video["url"]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center font-medium underline"
+        >
+            Watch the setup video
+        </a>;
+}
+
+def Guide(video: dict[str, str]) -> JsxElement {
     return
         <details data-testid="mpesa-guide" className="rounded-lg border bg-card p-4">
             <summary className="min-h-11 cursor-pointer content-center font-medium">
                 How to get your Daraja keys from Safaricom
             </summary>
-            <ol className="mt-3 flex list-decimal flex-col gap-3 pl-5 text-sm">
-                {[
-                    <li key={step["title"]}>
-                        <p className="font-medium">{step["title"]}</p>
-                        <p className="text-muted-foreground">{step["text"]}</p>
-                    </li> for step in GUIDE
-                ]}
-            </ol>
+            <div className="mt-3 flex flex-col gap-4">
+                {video["url"] and <GuideVideo video={video}/>}
+                <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
+                    {[
+                        <li key={step["title"]}>
+                            <p className="font-medium">{step["title"]}</p>
+                            <p className="text-muted-foreground">{step["text"]}</p>
+                        </li> for step in GUIDE
+                    ]}
+                </ol>
+            </div>
         </details>;
+}
+
+def:pub call_request_text(day: str, slot: str, phone: str, note: str) -> str {
+    # What the Help request says: when to call, and on which number.
+    lines = [
+        "Please call me to help set up M-Pesa (the Daraja keys).",
+        f"Preferred day: {day}",
+        f"Preferred time: {SLOTS[slot]}",
+        f"Phone: {phone}"
+    ];
+    if note.strip() {
+        lines.append(f"Note: {note.strip()}");
+    }
+    return "\n".join(lines);
+}
+
+def SetupCall(slug: str) -> JsxElement {
+    [open_form, set_open_form] = useState(False);
+    [day, set_day] = useState("");
+    [slot, set_slot] = useState("morning");
+    [phone, set_phone] = useState("");
+    [note, set_note] = useState("");
+    [busy, set_busy] = useState(False);
+    [problem, set_problem] = useState("");
+    [booked, set_booked] = useState("");
+
+    async def book {
+        if not day or not phone.strip() {
+            set_problem("Choose a day and enter the number to call.");
+            return;
+        }
+        set_busy(True);
+        got: any = None;  # jac:ignore[W1037]
+        try {
+            got = await ask_for_help(  # jac:ignore[W2037]
+                slug, "setup_call", call_request_text(day, slot, phone, note), "", ""
+            );
+        } except Exception as e {
+            console.warn("ask_for_help failed", e);
+        }
+        set_busy(False);
+        if got is None or not got["ok"] {
+            set_problem(
+                got["error"]["message"]
+                    if got is not None
+                    else "We couldn't book the call. Try again."
+            );
+            return;
+        }
+        set_problem("");
+        set_booked(got["request"]["request_id"]);
+    }
+
+    return
+        <div
+            data-testid="setup-call"
+            className="flex flex-col gap-3 rounded-lg border bg-card p-4"
+        >
+            <h2 className="text-lg font-semibold">Need a hand?</h2>
+            {booked
+                and <p
+                    data-testid="setup-call-booked"
+                    role="status"
+                    className="text-sm"
+                >
+                    Booked. AfriCinemas will call to confirm the time; their reply is in{" "}
+                    <AppLink
+                        to={section_path(slug, "help") + f"/{booked}"}
+                        className="font-medium underline"
+                    >
+                        Help
+                    </AppLink>
+                    .
+                </p>}
+            {not booked
+                and <p className="text-sm text-muted-foreground">
+                    Book a call and someone from AfriCinemas will take you through the steps on your screen. You paste the keys yourself: AfriCinemas never asks for your keys or your password.
+                </p>}
+            {not booked
+                and not open_form
+                and <div>
+                    <Button
+                        variant="outline"
+                        className="min-h-11"
+                        onClick={lambda { set_open_form(True); }}
+                    >
+                        Book a setup call
+                    </Button>
+                </div>}
+            {not booked
+                and open_form
+                and <form
+                    data-testid="setup-call-form"
+                    className="flex flex-col gap-3"
+                    onSubmit={submit_with(book)}
+                >
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                            <Label htmlFor="setup-call-day">Day</Label>
+                            <Input
+                                id="setup-call-day"
+                                type="date"
+                                value={day}
+                                className="min-h-11"
+                                onChange={lambda (e: any) { set_day(e.target.value); }}  # jac:ignore[W1037]
+                            />
+                        </div>
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                            <Label htmlFor="setup-call-time">Time</Label>
+                            <select
+                                id="setup-call-time"
+                                value={slot}
+                                className="min-h-11 rounded-md border bg-background px-3 text-sm"
+                                onChange={lambda (e: any) { set_slot(e.target.value); }}  # jac:ignore[W1037]
+                            >
+                                {[
+                                    <option key={key} value={key}>{SLOTS[key]}</option>
+                                    for key in SLOT_ORDER
+                                ]}
+                            </select>
+                        </div>
+                        <TextField
+                            field_id="setup-call-phone"
+                            label="Number to call"
+                            value={phone}
+                            on_value={set_phone}
+                            input_mode="tel"
+                        />
+                        <TextField
+                            field_id="setup-call-note"
+                            label="Anything we should know (optional)"
+                            value={note}
+                            on_value={set_note}
+                        />
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                        <Button type="submit" disabled={busy} className="min-h-11">
+                            {busy and <Spinner aria-hidden="true"/>}Book the call
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="min-h-11"
+                            onClick={lambda { set_open_form(False); }}
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </form>}
+            <p role="alert" className="text-sm text-destructive empty:hidden">
+                {problem}
+            </p>
+        </div>;
 }
 
 def:pub PaymentsSection(slug: str) -> JsxElement {
@@ -360,7 +556,7 @@ def:pub PaymentsSection(slug: str) -> JsxElement {
                         {"Change M-Pesa" if active is not None else "Connect M-Pesa"}
                     </Button>
                 </div>}
-            {form_open and <Guide/>}
+            {form_open and <Guide video={shown["guide_video"]}/>}
             {form_open
                 and <form
                     data-testid="mpesa-form"
@@ -472,6 +668,7 @@ def:pub PaymentsSection(slug: str) -> JsxElement {
                             </Button>}
                     </div>
                 </form>}
+            {may_change and not blocked and <SetupCall slug={slug}/>}
             <p
                 role="alert"
                 data-testid="mpesa-problem"
