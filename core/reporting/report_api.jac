@@ -82,7 +82,8 @@ def _of_order(order: Order, into: Records, venue_id: str, products: dict[str, st
                 amount_cents=f.amount_cents,
                 taken_at=f.created_at,
                 counter=f.channel == "counter",
-                venue_id=venue_id
+                venue_id=venue_id,
+                order_ref=order.reference
             )
         );
     }
@@ -99,7 +100,8 @@ def _of_order(order: Order, into: Records, venue_id: str, products: dict[str, st
                 venue_id=venue_id,
                 snacks_cents=snack_share(
                     e.amount_cents, order.snacks_cents, order.total_cents
-                )
+                ),
+                order_ref=order.reference
             )
         );
     }

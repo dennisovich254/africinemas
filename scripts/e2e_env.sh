@@ -12,6 +12,9 @@ export AFRICINEMAS_RESOLVE_SECONDS="${AFRICINEMAS_RESOLVE_SECONDS:-2}"
 export AFRICINEMAS_TICKET_KEY="${AFRICINEMAS_TICKET_KEY:-e2e-only-ticket-key-0123456789abcdef}"
 # Each cinema's own M-Pesa keys are sealed with this (plan P15.3); a fixed one for tests.
 export AFRICINEMAS_MPESA_KEY="${AFRICINEMAS_MPESA_KEY:-e2e-only-mpesa-sealing-key-0123456789abcdef}"
+# Monthly statements (plan P15.4): the console's "Issue what's due now" also bills the
+# month so far, so the browser tests have a statement without waiting for the 1st.
+export AFRICINEMAS_BILLING_EARLY="${AFRICINEMAS_BILLING_EARLY:-1}"
 # Ticket emails (plan P6.3): never sent for real; the server keeps them in an outbox
 # beside the screenshots, and the mail job runs every 2 seconds.
 unset AFRICINEMAS_SMTP_HOST

@@ -65,6 +65,7 @@ import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
 import from .ProfileSection { ProfileSection }
 import from .AgreementSection { AgreementSection, AgreementNotice }
+import from .BillingSection { BillingSection }
 import from .PaymentsSection { PaymentsSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
@@ -447,6 +448,8 @@ def:pub BackOffice -> JsxElement {
         content = <HelpSection slug={slug} shift_open={shift_open} item={item}/>;
     } elif section == "profile" {
         content = <ProfileSection slug={slug}/>;
+    } elif section == "billing" {
+        content = <BillingSection slug={slug}/>;
     } elif section == "agreement" {
         content = <AgreementSection slug={slug} cinema={me["name"]}/>;
     } elif section == "settings" {

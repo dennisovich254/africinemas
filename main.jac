@@ -276,6 +276,15 @@ import from core.payments.mpesa_api {
     cancel_mpesa_change,  # jac:ignore[W2037]
     send_mpesa_mail  # jac:ignore[W2037]
 }
+# Monthly statements and invoices (P15.4): the Billing pages and the job.
+import from core.billing.billing_api {
+    billing,  # jac:ignore[W2037]
+    billing_pdf,  # jac:ignore[W2037]
+    platform_billing,  # jac:ignore[W2037]
+    platform_billing_pdf,  # jac:ignore[W2037]
+    platform_issue_statements,  # jac:ignore[W2037]
+    issue_statements  # jac:ignore[W2037]
+}
 import from core.legal.registrations {
     registrations_checklist,  # jac:ignore[W2037]
     tick_registration  # jac:ignore[W2037]

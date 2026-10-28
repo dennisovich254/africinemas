@@ -89,7 +89,9 @@ obj Money {
         method: str = "",
         counter: bool = False,
         venue_id: str = "",
-        snacks_cents: int = 0;
+        snacks_cents: int = 0,
+        # Its order's reference, for the monthly statement's lines (P15.4).
+        order_ref: str = "";
 }
 
 obj SnackSold {

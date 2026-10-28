@@ -43,6 +43,7 @@ import from .CinemasPages { CinemasList, CinemaDetail }
 import from .PlatformAuditPage { PlatformAuditPage }
 import from .RegistrationsPage { RegistrationsPage }
 import from .FeesPage { FeesPage }
+import from .BillingPage { BillingPage }
 import from .SetupVideoCard { SetupVideoCard }
 import from .OverviewFigures { OverviewFigures }
 import from .SupportPages { SupportInbox, SupportRequestPage }
@@ -520,6 +521,8 @@ def:pub PlatformConsole -> JsxElement {
     # The fee rule (P15.1): platform staff read it; super admins add versions.
     if may(shown, "platform.read") {
         nav.append({"label": "Fees", "to": "/fees", "key": "fees"});
+        # Every cinema's statements and invoices (P15.4).
+        nav.append({"label": "Billing", "to": "/billing", "key": "billing"});
     }
     # What we register outside the app before going live (P15.0b): super admins.
     if may(shown, "platform.settings") {
@@ -568,7 +571,10 @@ def:pub PlatformConsole -> JsxElement {
                     and allowed
                     and <PlatformAuditPage/>}{section == "registrations"
                     and allowed
-                    and <RegistrationsPage/>}{section == "fees"
+                    and <RegistrationsPage/>}{section == "billing"
+                    and allowed
+                    and <BillingPage may_issue={may(shown, "platform.settings")}/>}{section
+                    == "fees"
                     and allowed
                     and <div className="flex max-w-3xl flex-col gap-6">
                         <FeesPage may_change={may(shown, "platform.settings")}/>
