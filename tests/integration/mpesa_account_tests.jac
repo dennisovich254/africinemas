@@ -3,7 +3,8 @@
 In-process app (payment_app.jac, the simulated M-Pesa). Kim's Cinema is verified by
 AfriCinemas (P14.5), registered as "Kim's Cinema Ltd".
 - Only a verified cinema connects, with the verified business's name, valid keys and
-  the owner's password again; no answer ever carries a key.
+  the owner's password again; no answer ever carries a key. Other settings staff see
+  the status only. Connecting and test payments are in the cinema's audit log.
 - A KES 1 test payment must go through before the account is used; then customers'
   payments go to the cinema's own paybill (the simulator records where each went).
 - A change is emailed to the owners and waits 24 hours, while payments keep going to
@@ -64,7 +65,7 @@ def _app -> tuple[Served, str] {  # jac:ignore[W1037]
         "/tmp", f"africinemas-outbox-{uuid.uuid4().hex}"
     );
     os.environ.pop("AFRICINEMAS_SMTP_HOST", None);
-    app = served(APP, ["owner", "rival"]);
+    app = served(APP, ["owner", "rival", "manager"]);
     sign_up_with_email(app, "kim", KIM);
     confirm_kim(app);
     kims: Cinema = open_cinema_for(
@@ -83,6 +84,14 @@ def _app -> tuple[Served, str] {  # jac:ignore[W1037]
     screening = add_screening(app, "kim", kims, "Rafiki", 0);
     app.call("rival", "create_cinema", {"name": "Rift", "slug": "rift"});
     app.call("rival", "start_shift", {"tenant": "rift"});
+    # Kim's tenant admin changes settings, but isn't the owner.
+    invited = app.call(
+        "kim",
+        "invite_staff",
+        {"tenant": "kims", "role": "tenant_admin", "venue_id": ""}
+    );
+    assert app.call("manager", "accept_invite", {"token": invited["token"]})["ok"];
+    assert app.call("manager", "start_shift", {"tenant": "kims"})["ok"];
     return (app, screening);
 }
 
@@ -192,6 +201,19 @@ test "only a verified cinema connects, as the verified business, with the passwo
         nothing = app.call("kim", "mpesa_settings", {"tenant": "kims"});
         assert nothing["active"] is None and nothing["pending"] is None;
         assert nothing["may_change"] and nothing["blocked"] == "";
+        assert nothing["verified_name"] == "Kim's Cinema Ltd";
+        # The tenant admin (manager) sees the status, not the verified name, and changes nothing.
+        theirs = app.call("manager", "mpesa_settings", {"tenant": "kims"});
+        assert theirs["ok"] and not theirs["may_change"] , theirs;
+        assert theirs["verified_name"] == "";
+        for (name, body) in [
+            ("connect_mpesa", PAYBILL),
+            ("test_mpesa", {"tenant": "kims", "phone": "0712345678"}),
+            ("mpesa_test_status", {"tenant": "kims"}),
+            ("cancel_mpesa_change", {"tenant": "kims", "sign_in": KIM})
+        ] {
+            assert code_of(app.call("manager", name, body)) == "forbidden" , name;
+        }
     } finally {
         _done(app);
     }
@@ -219,6 +241,15 @@ test "the test payment comes first, then payments go to the cinema's own paybill
         assert passed["active"]["pays_to"] == "600100" and passed["active"]["in_use"];
         assert _no_keys(passed);
         assert _paid_to(app, screening, "A2") == "600100";
+        # The cinema's audit log has the connection and both test payments.
+        logged = app.call(
+            "kim",
+            "audit_log",
+            {"tenant": "kims", "limit": 100, "before": "", "action": "", "search": ""}
+        )["events"];
+        actions = [e["action"] for e in logged];
+        assert actions.count("mpesa.connected") == 1
+            and actions.count("mpesa.test_sent") == 2 , actions;
         assert app.call("owner", "t_send_mpesa_mail") == 1;
         mails = [
             m
