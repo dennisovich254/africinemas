@@ -51,7 +51,13 @@ import from core.payments.models { PaymentIntent }
 import from core.payments.state { PaymentState, transition, is_final }
 import from core.payments.phone { msisdn, InvalidPhone }
 import from core.payments.provider { StkRequest, PaymentProvider }
-import from core.payments.choice { payment_provider, ProviderNotConfigured }
+import from core.payments.choice {
+    NotConnected,
+    ProviderNotConfigured,
+    provider_for,
+    shortcode_for,
+    version_for_new
+}
 import from core.payments.daraja { masked }
 import from core.catalog.policies { shown_at_checkout }
 import from core.notify.offer_consent { sends_offers, record_consent }
@@ -119,7 +125,7 @@ def stored_intent(cinema: Tenant, ref: str) -> PaymentIntent | None {
     return found as PaymentIntent if isinstance(found, PaymentIntent) else None;
 }
 
-def _callback_url(token: str) -> str {
+def callback_url(token: str) -> str {
     # Where Safaricom POSTs the result (the endpoint comes with plan 5.4).
     base = os.environ.get(CALLBACK_ENV, "").strip().rstrip("/") or NO_CALLBACK;
     return f"{base}/hooks/mpesa/{token}";
@@ -187,7 +193,8 @@ def ensure_pushed(cinema: Tenant, intent: PaymentIntent, provider: PaymentProvid
                 amount_cents=intent.amount_cents,
                 account=intent.reference,
                 description="Cinema tickets",
-                callback_url=_callback_url(intent.callback_token)
+                callback_url=callback_url(intent.callback_token),
+                shortcode=shortcode_for(cinema, intent.mpesa_version)
             )
         );
         result = {
@@ -202,9 +209,23 @@ def ensure_pushed(cinema: Tenant, intent: PaymentIntent, provider: PaymentProvid
     _record(cinema, intent, result);
 }
 
-def _provider -> PaymentProvider {
+def provider_of(cinema: Tenant, intent: PaymentIntent) -> PaymentProvider | None {
+    # The provider an intent is sent and checked with (its cinema's account, P15.3), or
+    # None when this server can't reach it.
     try {
-        return payment_provider();
+        return provider_for(cinema, intent.mpesa_version);
+    } except ProviderNotConfigured {
+        return None;
+    }
+}
+
+def _provider(cinema: Tenant, version: int) -> PaymentProvider {
+    try {
+        return provider_for(cinema, version);
+    } except NotConnected {
+        raise Refused(
+            "mpesa_not_connected", "This cinema can't take M-Pesa payments yet."
+        );
     } except ProviderNotConfigured {
         raise Refused(
             "payments_unavailable", "Paying online isn't available right now."
@@ -220,9 +241,7 @@ def _number(phone: str) -> str {
     }
 }
 
-def _replay(
-    cinema: Tenant, ref: str, number: str, provider: PaymentProvider
-) -> dict[str, any] {  # jac:ignore[W1037]
+def _replay(cinema: Tenant, ref: str, number: str) -> dict[str, any] {  # jac:ignore[W1037]
     # The answer for a key that already names an intent.
     intent = stored_intent(cinema, ref);
     if intent is None {
@@ -236,7 +255,7 @@ def _replay(
             "key_reused", "This page sent a different payment. Reload it and try again."
         );
     }
-    ensure_pushed(cinema, intent, provider);
+    ensure_pushed(cinema, intent, _provider(cinema, intent.mpesa_version));
     return {"ok": True, "payment": payment_view(intent)};
 }
 
@@ -297,11 +316,19 @@ def pay_order(  # jac:ignore[W3030] the cinema, the order's lookup and the payme
         raise Refused("invalid_email", email_problem(email));
     }
     address = clean_email(email) if email.strip() else "";
-    provider = _provider();
+    # The cinema's own M-Pesa account in use now (P15.3): this payment's, for good.
+    try {
+        version = version_for_new(cinema);
+    } except NotConnected {
+        raise Refused(
+            "mpesa_not_connected", "This cinema can't take M-Pesa payments yet."
+        );
+    }
+    provider = _provider(cinema, version);
     key_name = f"{node_id(cinema)}:{holder}:{idempotency_key}";
     existing = claim_holder(PAY_KEYS, key_name);
     if existing is not None {
-        return _replay(cinema, existing, number, provider);
+        return _replay(cinema, existing, number);
     }
     found: Order | None = find_order();
     if found is None {
@@ -330,7 +357,7 @@ def pay_order(  # jac:ignore[W3030] the cinema, the order's lookup and the payme
     ref = fresh_node_id();
     won = claim(PAY_KEYS, key_name, ref, PROVISIONAL_SECONDS);
     if won != ref {
-        return _replay(cinema, won, number, provider);
+        return _replay(cinema, won, number);
     }
     if claim(ORDER_PAYMENT, order_id, ref, PROVISIONAL_SECONDS) != ref {
         release(PAY_KEYS, key_name, ref);
@@ -360,6 +387,7 @@ def pay_order(  # jac:ignore[W3030] the cinema, the order's lookup and the payme
             currency=order.currency,
             callback_token=token,
             sold_by=sold_by,
+            mpesa_version=version,
             created_at=stamp,
             updated_at=stamp
         );

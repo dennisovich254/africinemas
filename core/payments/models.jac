@@ -12,6 +12,8 @@ node PaymentIntent {
     # push_uncertain: the push got no answer, so whether the prompt reached the phone is
     # unknown; it is never sent again (ADR-0016). sold_by is the member of staff who
     # started it at the box office (P6.5), "" online; its ledger entry records them.
+    # mpesa_version: the cinema's M-Pesa account it was made with (P15.3), and is always
+    # checked with; 0 for the platform's test app.
     has tenant_id: str,
         order_id: str,
         screening_id: str,
@@ -31,6 +33,7 @@ node PaymentIntent {
         paid_amount_cents: int = 0,
         attention_reason: str = "",
         sold_by: str = "",
+        mpesa_version: int = 0,
         created_at: str = "",
         updated_at: str = "";
 }

@@ -248,6 +248,16 @@ import from core.legal.agreement_api {
     cinema_agreement_text,  # jac:ignore[W2037]
     accept_cinema_agreement  # jac:ignore[W2037]
 }
+# Each cinema's own M-Pesa (P15.3): Settings -> Payments, and the change emails' job.
+import from core.payments.mpesa_api {
+    mpesa_settings,  # jac:ignore[W2037]
+    connect_mpesa,  # jac:ignore[W2037]
+    test_mpesa,  # jac:ignore[W2037]
+    mpesa_test_status,  # jac:ignore[W2037]
+    cancel_mpesa_change,  # jac:ignore[W2037]
+    send_mpesa_mail,  # jac:ignore[W2037]
+    send_mail_due
+}
 import from core.legal.registrations {
     registrations_checklist,  # jac:ignore[W2037]
     tick_registration  # jac:ignore[W2037]
@@ -360,7 +370,7 @@ import from core.payments.simulator { SimulatedProvider }
 import from core.claims { claim, holder }
 import from core.booking.ticket_codes { REFS, reserve_reference }
 import from datetime { datetime, timedelta }
-import from core.clock { freeze, reset }
+import from core.clock { freeze, reset, advance }
 
 def _simulator -> SimulatedProvider {
     made = payment_provider();
@@ -374,6 +384,27 @@ def:pub pay_push_count(reference: str) -> int {
 
 def:pub pay_script(phone: str, outcome: str) -> bool {
     _simulator().outcomes[phone] = outcome;
+    return True;
+}
+
+def:pub pay_paid_to(reference: str) -> str {
+    # The paybill or till a push went to (P15.3): "" for the platform's test one.
+    return _simulator().paid_to(reference);
+}
+
+def:pub t_send_mpesa_mail -> int {
+    # Sends the queued M-Pesa connection emails now (P15.3).
+    return send_mail_due();
+}
+
+def:pub t_clock_ahead(hours: int) -> bool {
+    # Moves the clock on (AFRICINEMAS_CLOCK_CONTROL=1 only): a change's 24 hours (P15.3).
+    advance(hours * 3600);
+    return True;
+}
+
+def:pub t_clock_reset -> bool {
+    reset();
     return True;
 }
 

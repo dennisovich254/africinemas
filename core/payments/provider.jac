@@ -15,13 +15,16 @@ import from core.payments.state { PaymentState }
 obj StkRequest {
     # reference is ours (the payment's), sent to M-Pesa and echoed back. callback_url
     # is where Safaricom POSTs the result (plan 5.4: it carries a per-payment token);
-    # the simulator ignores it.
+    # the simulator ignores it. shortcode is the cinema's own paybill or till the money
+    # goes to (P15.3), "" for the platform's test one: Daraja takes it from its config,
+    # and the simulator records it, so tests see whose account was used.
     has reference: str,
         phone: str,
         amount_cents: int,
         account: str,
         description: str,
-        callback_url: str = "";
+        callback_url: str = "",
+        shortcode: str = "";
 }
 
 obj StkPushResult {

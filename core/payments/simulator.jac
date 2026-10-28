@@ -17,7 +17,8 @@ Test numbers: 0700 000 001 fails, 0700 000 002 is cancelled, 0700 000 003 times 
 
 callback() is what Safaricom would POST to our callback URL (None while nothing has
 been sent); query() is the status query. push_count() lets tests prove how many STK
-prompts a reference caused. State lives in the process: one per test or demo server.
+prompts a reference caused, and paid_to() which paybill or till each one went to (P15.3:
+each cinema's own; "" the platform's test one). State lives in the process: one per test or demo server.
 """
 
 import from core.payments.state { PaymentState }
@@ -54,7 +55,8 @@ obj SimulatedProvider(PaymentProvider) {
     has outcomes: dict[str, str] = {},
         default_outcome: str = "success",
         pushes: dict[str, SimulatedPush] = {},
-        sent: dict[str, int] = {};
+        sent: dict[str, int] = {},
+        sent_to: dict[str, str] = {};
 
     def stk_push(request: StkRequest) -> StkPushResult {
         problem = valid_push(request);
@@ -74,6 +76,7 @@ obj SimulatedProvider(PaymentProvider) {
             );
         }
         self.sent[request.reference] = self.sent.get(request.reference, 0) + 1;
+        self.sent_to[request.reference] = request.shortcode;
         checkout = f"ws_CO_SIM_{len(self.pushes) + 1:06d}";
         self.pushes[checkout] = SimulatedPush(request=request, outcome=outcome);
         return StkPushResult(
@@ -90,6 +93,10 @@ obj SimulatedProvider(PaymentProvider) {
 
     def push_count(reference: str) -> int {
         return self.sent.get(reference, 0);
+    }
+
+    def paid_to(reference: str) -> str {
+        return self.sent_to.get(reference, "");
     }
 
     def _answer(checkout_request_id: str, outcome: str) -> StkStatus {

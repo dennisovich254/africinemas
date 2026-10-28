@@ -10,6 +10,8 @@ export AFRICINEMAS_STUCK_SECONDS="${AFRICINEMAS_STUCK_SECONDS:-0}"
 export AFRICINEMAS_RESOLVE_SECONDS="${AFRICINEMAS_RESOLVE_SECONDS:-2}"
 # Tickets are signed (plan P6.1); a fixed key for test runs only.
 export AFRICINEMAS_TICKET_KEY="${AFRICINEMAS_TICKET_KEY:-e2e-only-ticket-key-0123456789abcdef}"
+# Each cinema's own M-Pesa keys are sealed with this (plan P15.3); a fixed one for tests.
+export AFRICINEMAS_MPESA_KEY="${AFRICINEMAS_MPESA_KEY:-e2e-only-mpesa-sealing-key-0123456789abcdef}"
 # Ticket emails (plan P6.3): never sent for real; the server keeps them in an outbox
 # beside the screenshots, and the mail job runs every 2 seconds.
 unset AFRICINEMAS_SMTP_HOST

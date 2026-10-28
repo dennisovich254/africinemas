@@ -242,6 +242,46 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "cinema.agreement_accepted",
              "probe": {"tenant": "{tenant}", "version": "0.1"}
          },
+         # Each cinema's own M-Pesa (P15.3): settings staff read it; the owner connects,
+         # tests and cancels. Never a key in any answer.
+         "mpesa_settings": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "connect_mpesa": {
+             "scope": "tenant",
+             "audit": "mpesa.connected",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "kind": "paybill",
+                 "shortcode": "174379",
+                 "till_number": "",
+                 "registered_name": "Probe Ltd",
+                 "keys": {
+                     "consumer_key": "probeprobe",
+                     "consumer_secret": "probeprobe",
+                     "passkey": "probeprobe"
+                 },
+                 "password": "probe",
+                 "sign_in": "probe@example.com"
+             }
+         },
+         "test_mpesa": {
+             "scope": "tenant",
+             "audit": "mpesa.test_sent",
+             "probe": {"tenant": "{tenant}", "phone": "0712345678"}
+         },
+         "mpesa_test_status": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "cancel_mpesa_change": {
+             "scope": "tenant",
+             "audit": "mpesa.cancelled",
+             "probe": {"tenant": "{tenant}", "sign_in": "probe@example.com"}
+         },
          # The registrations checklist (P15.0b): super admins only.
          "registrations_checklist": {"scope": "platform", "audit": ""},
          "tick_registration": {

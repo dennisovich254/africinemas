@@ -65,6 +65,7 @@ import from ..support.live { use_waiting_for_cinema }
 import from .SnackCounterSection { SnackCounterSection }
 import from .ProfileSection { ProfileSection }
 import from .AgreementSection { AgreementSection, AgreementNotice }
+import from .PaymentsSection { PaymentsSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
 
@@ -168,14 +169,16 @@ def SettingsPage(
     # (/app/:slug/settings/home-page, P4.1b), the website information
     # (/app/:slug/settings/website, P14.3a), the policies
     # (/app/:slug/settings/policies, P14.3b), the public documents
-    # (/app/:slug/settings/documents, P14.3d) and the AI chat connector
-    # (/app/:slug/settings/ai-chat, P8.3), as tabs.
+    # (/app/:slug/settings/documents, P14.3d), the AI chat connector
+    # (/app/:slug/settings/ai-chat, P8.3) and the cinema's own M-Pesa
+    # (/app/:slug/settings/payments, P15.3), as tabs.
     tabs = [
         ("", "Branding"),
         ("home-page", "Home page"),
         ("website", "Website information"),
         ("policies", "Policies"),
         ("documents", "Documents"),
+        ("payments", "Payments"),
         ("ai-chat", "AI chat")
     ];
     return
@@ -219,7 +222,20 @@ def SettingsPage(
                     <h2 className="text-xl font-semibold">Documents</h2>
                     <DocumentsSection slug={slug}/>
                 </div>}
-            {tab not in ["home-page", "ai-chat", "website", "policies", "documents"]
+            {tab == "payments"
+                and <div className="flex flex-col gap-6">
+                    <h2 className="text-xl font-semibold">Payments</h2>
+                    <PaymentsSection slug={slug}/>
+                </div>}
+            {tab
+                not in [
+                    "home-page",
+                    "ai-chat",
+                    "website",
+                    "policies",
+                    "documents",
+                    "payments"
+                ]
                 and branding}
         </div>;
 }

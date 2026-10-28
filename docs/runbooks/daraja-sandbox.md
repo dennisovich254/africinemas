@@ -23,7 +23,10 @@ DARAJA_PASSKEY=<passkey>
 DARAJA_TEST_PHONE=07XX XXX XXX        # your phone, for the quick check
 DARAJA_CALLBACK_BASE=https://example.invalid   # replaced in step 3
 AFRICINEMAS_TICKET_KEY=<output of: openssl rand -hex 32>   # signs ticket QR codes
+AFRICINEMAS_MPESA_KEY=<output of: openssl rand -hex 32>    # seals cinemas' own keys (P15.3)
 ```
+
+These `DARAJA_*` settings are the platform's own sandbox app, used by cinemas that haven't connected their own M-Pesa (P15.3). Against live Daraja there's no such fallback: each cinema connects its own Paybill or Till under **Settings → Payments**, and its keys are sealed with `AFRICINEMAS_MPESA_KEY` (ADR-0082). To try a cinema's own account in the sandbox, connect it there with the sandbox app's keys and short code `174379`.
 
 ## 2. Quick check: login, a push, a status query
 
