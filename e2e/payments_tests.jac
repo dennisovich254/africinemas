@@ -113,9 +113,24 @@ test "an owner connects M-Pesa, tests it, and cancels a change that waits" {
             page.click('[data-testid="setup-call-form"] button[type="submit"]');
             page.wait_for_selector('[data-testid="setup-call-booked"]');
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
-            page.click('[data-testid="setup-call-booked"] a');
-            page.wait_for_function(
-                "document.body.innerText.includes('Preferred time: Midday (12 to 3)')"
+            link = page.get_attribute('[data-testid="setup-call-booked"] a', "href");
+            assert f"/app/{owner['slug']}/help/" in link , link;
+            asked = call(owner["token"], "support_requests", {"tenant": owner["slug"]});
+            booked = [
+                r
+                for r in asked["requests"]
+                if r["category"] == "setup_call"
+            ];
+            said = booked[0]["messages"][0]["text"] if booked else "";
+            assert "Preferred time: Midday (12 to 3)" in said
+                and "Phone: 0712345678" in said , asked;
+            # Answered, so the shared support inbox is as the other tests expect.
+            request_id = booked[0]["request_id"];
+            call(admin, "platform_support_seen", {"request_id": request_id});
+            call(
+                admin,
+                "platform_support_status",
+                {"request_id": request_id, "status": "closed"}
             );
             page.context.close();
         }
