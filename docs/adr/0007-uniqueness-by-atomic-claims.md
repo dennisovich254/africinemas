@@ -6,7 +6,7 @@
 - **Evidence:**
   - `tests/integration/tenant_slug_concurrency_tests.jac`: 8 concurrent claims on a real server, now passing
   - `tests/integration/claims_tests.jac`
-  - [JI-024](../jac-issues/JI-024-find-or-create-does-not-converge.md) and its repro in `docs/jac-issues/repro/JI-024/`
+  - [JI-024](../jac-issues/JI-024-find-or-create-does-not-converge.md) and its repro, formerly in `docs/jac-issues/repro/JI-024/` (removed 2026-10-28; `git checkout 19954af -- docs/jac-issues/repro/JI-024` restores it)
 
 ## Context
 
