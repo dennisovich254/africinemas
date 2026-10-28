@@ -110,6 +110,19 @@ def PayInvoice(slug: str, shown: dict[str, any], on_changed: any) -> JsxElement 
     }
 
     waiting: bool = state == "stk_requested";
+    if shown["status"] not in OWED {
+        # Paid just now on this page: the form goes, its answer stays. Kept mounted
+        # (InvoiceActions) so the answer survives the page reloading the invoice.
+        return
+            <p
+                role="status"
+                aria-live="polite"
+                className="text-sm empty:hidden"
+                data-testid="pay-status"
+            >
+                {_said(state, why) if state == "paid" else ""}
+            </p>;
+    }
     return
         <form
             className="flex flex-col gap-3 rounded-md border p-3"
@@ -268,7 +281,7 @@ def:pub InvoiceActions(
 ) -> JsxElement {
     return
         <div className="flex flex-col gap-3">
-            {shown["status"] in OWED
+            {shown["status"] in ["due", "overdue", "paid"]
                 and <PayInvoice slug={slug} shown={shown} on_changed={on_changed}/>}
             <Dispute slug={slug} shown={shown} on_changed={on_changed}/>
         </div>;
