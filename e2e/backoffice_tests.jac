@@ -36,11 +36,14 @@ glob SIDEBAR: str = '[data-testid="shell-sidebar"]',
      AUTH_ERROR: str = '[data-testid="auth-error"]',
      OVERFLOW_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth",
      # Visible controls smaller than 44 x 44 px (as in shell_tests).
+     # A checkbox or radio inside its <label> is tapped through the label, so the
+     # label is its target.
      SMALL_TARGETS_JS: str = """() => [...document.querySelectorAll(
     'a[href], button, [role=button], input, select, textarea')]
   .filter(e => { const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1
       && getComputedStyle(e).visibility !== 'hidden'; })
-  .map(e => { const r = e.getBoundingClientRect();
+  .map(e => { const box = (e.type === 'checkbox' || e.type === 'radio') && e.closest('label');
+      const r = (box || e).getBoundingClientRect();
       return {name: (e.getAttribute('aria-label') || e.id || e.textContent).trim().slice(0, 40),
               w: Math.round(r.width), h: Math.round(r.height)}; })
   .filter(t => t.w < 44 || t.h < 44)""",
