@@ -54,9 +54,15 @@ test "a super admin's sign-in is in the platform's audit log" {
             page.screenshot(
                 path=artifact(f"platform-audit-{project}.png"), full_page=True
             );
-            # A cinema's own events, from its page: its approval (P14.1).
+            # A cinema's own events, on its page's Logs tab: its approval (P14.1).
             page.goto(f"{PLATFORM_URL}/cinemas/{owner['slug']}");
-            page.click('a:has-text("The team\'s actions on it")');
+            page.click('[data-testid="cinema-tab-logs"]');
+            page.wait_for_selector(
+                '[data-testid="platform-audit-log"]:has-text("Approved a cinema")'
+            );
+            # Fixed to this cinema there; the audit log's own filter can be cleared.
+            assert page.locator('[data-testid="platform-audit-cinema"]').count() == 0;
+            page.goto(f"{PLATFORM_URL}/audit?cinema={owner['slug']}");
             page.wait_for_selector('[data-testid="platform-audit-cinema"]');
             page.wait_for_selector(
                 '[data-testid="platform-audit-log"]:has-text("Approved a cinema")'
