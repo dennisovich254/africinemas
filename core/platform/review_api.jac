@@ -36,6 +36,7 @@ import from core.audit.log { platform_audited }
 import from core.platform.staff_api { require_platform }
 import from core.platform.cinemas_api { all_cinemas, owners_of }
 import from core.notify.mailer { OutgoingMail, send, from_address }
+import from core.tenancy.verification_notice { notify_owners }
 import from core.site { main_address }
 
 glob REVIEW: str = "platform.review",
@@ -182,6 +183,13 @@ def:protect platform_review(slug: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _review(slug); });  # jac:ignore[W1037]
 }
 
+def _viewed(cinema: Tenant, item: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The file, and the owners told it was opened (P15.0, DPIA R4).
+    shown = file_answer(cinema, item);
+    notify_owners(cinema, "viewed");
+    return shown;
+}
+
 def:protect platform_review_file(slug: str, item: str) -> dict[str, any] {  # jac:ignore[W1037]
     try {
         me = require_platform(REVIEW);
@@ -195,7 +203,7 @@ def:protect platform_review_file(slug: str, item: str) -> dict[str, any] {  # ja
         "platform.verification_file_viewed",
         "cinema",
         node_id(cinema),
-        lambda -> any { return file_answer(cinema, item); }  # jac:ignore[W1037]
+        lambda -> any { return _viewed(cinema, item); }  # jac:ignore[W1037]
     );
 }
 

@@ -59,6 +59,9 @@ system, not real money.
   payments in flight still settle with the old account.
 - [ ] **The setup video** (a real AfriCinemas recording, its link set in the console)
   plays on phones and desktops, and booking a setup call reaches whoever answers Help.
+- [ ] **`AFRICINEMAS_FILES_KEY` is set and backed up** with the deployment secrets
+  (ADR-0089). Without it owners can't upload verification documents; losing it means
+  the documents already uploaded can't be opened.
 - [ ] **`AFRICINEMAS_MPESA_KEY` is backed up** with the deployment secrets, and a
   restore on a new server still opens the cinemas' sealed keys. Losing it means every
   cinema connects again.

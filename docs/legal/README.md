@@ -58,8 +58,9 @@ Found while drafting. Each is small, and listed so it isn't lost:
   endpoint)
 - ~~**The verification page's guidance** to cover anything not asked for, such as
   family details, on uploaded documents (DPIA R6).~~ (done 2026-10-29)
-- **Verification files encrypted at rest** with a separate key, and the owner emailed
-  when their verification is viewed or changed (DPIA R1, R4; P17.5).
+- ~~**Verification files encrypted at rest** with a separate key, and the owner emailed
+  when their verification is viewed or changed (DPIA R1, R4; P17.5).~~ (done 2026-10-29,
+  ADR-0089)
 - ~~**Customers' "Download my data" and "Delete my account"**, so cinemas can answer
   requests within the regulations' deadlines.~~ (done 2026-10-29, ADR-0088)
 - ~~**A requests register and a breach register** in the console (s.43(8)).~~ (done

@@ -36,6 +36,10 @@ def paying_cinema(staff: list[str]) -> tuple[Served, Cinema, str] {  # jac:ignor
     os.environ[PAYMENTS] = "simulator";
     # Tickets are signed (P6.1); without a key payments are refused.
     os.environ.setdefault(TICKET_KEY, "test" * 10);
+    # Verification files are sealed with it (P15.0).
+    os.environ.setdefault(
+        "AFRICINEMAS_FILES_KEY", "files-test-sealing-key-0123456789abcdef"
+    );
     app = served(APP, ["owner"] + staff);
     nova = open_cinema_for(app, "owner", "nova", "Nova Cinemas");
     add_movie(app, "owner", nova, "Rafiki");

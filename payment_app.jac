@@ -299,6 +299,9 @@ import from core.catalog.documents {
 # A customer's consent to a cinema's offers (P14.3c).
 import from core.notify.offer_consent { consent_of }
 import from core.accounts.customer_data { delete_due }
+import from core.tenancy.verification_notice { send_notices_due }
+import from core.tenancy.verification { record_of as verification_record }
+import from core.catalog.poster { read_media as read_stored_media }
 import from core.notify.offer_consent {
     my_offers,  # jac:ignore[W2037]
     set_my_offers  # jac:ignore[W2037]
@@ -499,6 +502,25 @@ def:pub t_owner_email(slug: str, email: str) -> bool {
 def:pub t_reconcile -> int {
     # The daily M-Pesa check, now (P15.6): how many new exceptions.
     return check_all(all_cinemas(), clock_now());
+}
+
+def:pub t_stored_verification_file(slug: str, item: str) -> str {
+    # The first bytes of a verification file as stored, in hex: sealed, they're "ACF1"
+    # (P15.0), never the image's or the PDF's own.
+    cinema = open_cinema(slug)
+        or [
+            c
+            for c in all_cinemas()
+            if c.slug == slug
+        ][0];
+    found = verification_record(cinema)["files"].get(item, {});
+    data = read_stored_media(found.get("key", "")) or b"";
+    return data[:12].hex();
+}
+
+def:pub t_send_verification_notices -> int {
+    # Sends the queued "viewed or changed" emails to owners, now (P15.0).
+    return send_notices_due();
 }
 
 def:pub t_delete_due -> int {

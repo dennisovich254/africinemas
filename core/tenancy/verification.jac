@@ -35,6 +35,14 @@ import from core.tenancy.state { TenantState, transition }
 import from core.tenancy.groups { attach_to_tenant }
 import from core.tenancy.principal { node_id, act_as, restore, flush_now }
 import from core.catalog.answers { Refused, answer }
+import from core.tenancy.file_box {
+    seal_file,
+    open_file,
+    files_key_ready,
+    CannotOpenFile,
+    FilesKeyMissing
+}
+import from core.tenancy.verification_notice { notify_owners }
 import from core.catalog.poster {
     media_store,
     read_media,
@@ -369,7 +377,13 @@ def _save(tenant: str, details: any) -> dict[str, any] {  # jac:ignore[W1037]
         );
     }
     _write(scope.tenant, scope.ctx.tenant_id, {"details": clean});
+    notify_owners(scope.tenant, "changed");
     return _view(scope.tenant);
+}
+
+def file_context(tenant_id: str, item: str, key: str) -> str {
+    # What a sealed verification file is bound to.
+    return f"verification:{tenant_id}:{item}:{key}";
 }
 
 def checked_file(content_type: str, data_base64: str) -> tuple[bytes, str] {
@@ -399,11 +413,25 @@ def _upload(
     }
     _editable(scope.tenant);
     (clean, kind) = checked_file(content_type, data_base64);
+    if not files_key_ready() {
+        raise Refused(
+            "uploads_unavailable",
+            "Uploading documents isn't available right now. Try again later."
+        );
+    }
     key = verification_key(scope.ctx.tenant_id, "pdf" if kind == "pdf" else "webp");
-    media_store().upload(io.BytesIO(clean), key);
+    # Sealed at rest, bound to this cinema, document and key (P15.0, DPIA R1).
+    media_store().upload(
+        io.BytesIO(seal_file(clean, file_context(scope.ctx.tenant_id, item, key))), key
+    );
     files = record_of(scope.tenant)["files"];
     old = files.get(item, {}).get("key", "");
-    files[item] = {"key": key, "type": kind, "uploaded_at": now().isoformat()};
+    files[item] = {
+        "key": key,
+        "type": kind,
+        "uploaded_at": now().isoformat(),
+        "sealed": "v1"
+    };
     try {
         _write(scope.tenant, scope.ctx.tenant_id, {"files": files});
     } except Exception as e {
@@ -413,6 +441,7 @@ def _upload(
     if old {
         on_commit(lambda { media_store().delete(old); });
     }
+    notify_owners(scope.tenant, "changed");
     return _view(scope.tenant);
 }
 
@@ -450,6 +479,16 @@ def file_answer(cinema: Tenant, item: str) -> dict[str, any] {  # jac:ignore[W10
     data = read_media(found.get("key", ""));
     if not data {
         raise Refused("no_file", "That document hasn't been uploaded.");
+    }
+    # Files stored before P15.0 aren't sealed.
+    if found.get("sealed") {
+        try {
+            data = open_file(data, file_context(node_id(cinema), item, found["key"]));
+        } except (CannotOpenFile, FilesKeyMissing) {
+            raise Refused(
+                "no_file", "That document can't be opened right now. Try again later."
+            );
+        }
     }
     return {
         "ok": True,
@@ -496,6 +535,7 @@ def _submit(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         scope.ctx.tenant_id,
         {"status": "submitted", "submitted_at": now().isoformat()}
     );
+    notify_owners(cinema, "changed");
     return _view(cinema);
 }
 
