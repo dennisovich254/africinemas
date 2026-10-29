@@ -84,5 +84,8 @@ Much of this can be self-service (P15.0b and later):
 - staff see and change their name and password on **Your profile** (P12.15); customers
   on **My account**;
 - customers withdraw their consent to a cinema's offers on **My account** (P14.3c);
-- [to build: "Download my data" and "Delete my account" for customers, for the cinema
-  to answer requests quickly]
+- customers download their data (a JSON file: access and portability) and delete their
+  account on **My account** (ADR-0088). A deletion happens seven days after it's
+  asked, and can be cancelled until then. Their orders stay as the cinema's sales
+  records (tax law), without the email once the showtime has passed; the M-Pesa phone
+  stays with its receipt; the offers record stays, withdrawn, as proof (s.40(3)).

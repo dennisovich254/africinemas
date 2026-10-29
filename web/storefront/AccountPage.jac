@@ -18,6 +18,7 @@ import from core.oauth.connections {
 import from .StorefrontShell { StorefrontShell, Loading }
 import from ..auth.ProfileForms { NameForm, PasswordForm }
 import from .venue_choice { use_title }
+import from .YourData { YourData }
 import from ..shell.AppLink { AppLink }
 import from ..site { with_site_slug, local_path, main_origin }
 import from core.notify.offer_consent {
@@ -240,7 +241,7 @@ def:pub AccountPage -> JsxElement {
         listed: any = None;  # jac:ignore[W1037]
         try {
             seen = await my_storefront_account(slug);
-            if seen["customer"] {
+            if seen["customer"] and seen["deleting"] is None {
                 listed = await my_connected_apps(slug);  # jac:ignore[W2037]
             }
         } except Exception as e {
@@ -305,6 +306,37 @@ def:pub AccountPage -> JsxElement {
             </StorefrontShell>;
     }
     shown: list[dict[str, str]] = apps or [];
+    win: any = window;  # jac:ignore[W1037,W2001]
+    tz: str = win.Intl.DateTimeFormat().resolvedOptions().timeZone;
+    data_part = <YourData
+        slug={slug}
+        deleting={seen["deleting"]}
+        tz={tz}
+        on_changed={load}
+    />;
+    # Being deleted: locked, so only Your data (P15.0).
+    if seen["deleting"] is not None {
+        return
+            <StorefrontShell slug={slug}>
+                <section
+                    data-testid="account"
+                    className="flex max-w-2xl flex-col gap-8"
+                >
+                    <h1 className="font-display text-4xl leading-none">Your account</h1>
+                    {data_part}
+                    <div>
+                        <Button
+                            variant="outline"
+                            data-testid="account-sign-out"
+                            className="min-h-11"
+                            onClick={sign_out}
+                        >
+                            Sign out
+                        </Button>
+                    </div>
+                </section>
+            </StorefrontShell>;
+    }
     return
         <StorefrontShell slug={slug}>
             <section data-testid="account" className="flex max-w-2xl flex-col gap-8">
@@ -362,6 +394,7 @@ def:pub AccountPage -> JsxElement {
                             ]}
                         </ul>}
                 </div>
+                {data_part}
             </section>
         </StorefrontShell>;
 }
