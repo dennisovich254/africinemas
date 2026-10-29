@@ -42,6 +42,7 @@ import from .platform_session { platform_sign_out }
 import from .CinemasPages { CinemasList, CinemaDetail }
 import from .PlatformAuditPage { PlatformAuditPage }
 import from .RegistrationsPage { RegistrationsPage }
+import from .DataProtectionPage { DataProtectionPage }
 import from .FeesPage { FeesPage }
 import from .BillingPage { BillingPage }
 import from .ReconciliationPage { ReconciliationPage }
@@ -540,6 +541,14 @@ def:pub PlatformConsole -> JsxElement {
         nav.append(
             {"label": "Registrations", "to": "/registrations", "key": "registrations"}
         );
+        # The data protection registers: requests and breaches (P15.0).
+        nav.append(
+            {
+                "label": "Data protection",
+                "to": "/data-protection",
+                "key": "data-protection"
+            }
+        );
     }
     # Only Cinemas, Reviews and Support have pages under them (/cinemas/<slug>,
     # /reviews/<slug>, /support/<id>).
@@ -582,7 +591,9 @@ def:pub PlatformConsole -> JsxElement {
                     and allowed
                     and <PlatformAuditPage/>}{section == "registrations"
                     and allowed
-                    and <RegistrationsPage/>}{section == "reconciliation"
+                    and <RegistrationsPage/>}{section == "data-protection"
+                    and allowed
+                    and <DataProtectionPage/>}{section == "reconciliation"
                     and allowed
                     and <ReconciliationPage/>}{section == "billing"
                     and allowed

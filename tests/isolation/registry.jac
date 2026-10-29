@@ -297,6 +297,35 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"key": "domain", "done": True, "reference": "probe"}
          },
+         # The data protection registers (P15.0): super admins.
+         "dp_registers": {"scope": "platform", "audit": ""},
+         "log_data_request": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {
+                 "fields": {"kind": "access", "person": "Probe", "asked": "probe"}
+             }
+         },
+         "data_request_step": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"request_id": "R-999", "step": "note", "note": "probe"}
+         },
+         "log_breach": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"fields": {"role": "controller", "what": "probe"}}
+         },
+         "assess_breach": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"breach_id": "B-999", "fields": {"notifiable": "unsure"}}
+         },
+         "breach_step": {
+             "scope": "platform",
+             "audit": "",
+             "probe": {"breach_id": "B-999", "step": "note", "note": "probe"}
+         },
          # Monthly statements and invoices (P15.4): the cinema's finance readers; platform
          # staff read every cinema's, and super admins issue them.
          "billing": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},

@@ -33,6 +33,7 @@ import from "@hugeicons/core-free-icons" {
     CustomerSupportIcon,
     UserCircleIcon,
     CheckListIcon,
+    ShieldUserIcon,
     LegalDocument01Icon,
     Invoice01Icon,
     BalanceScaleIcon
@@ -74,6 +75,7 @@ glob NAV_ICONS: dict[str, any] = {  # jac:ignore[W1037]
          "support": CustomerSupportIcon,
          "profile": UserCircleIcon,
          "registrations": CheckListIcon,
+         "data-protection": ShieldUserIcon,
          "fees": Tag01Icon,
          "agreement": LegalDocument01Icon,
          "billing": Invoice01Icon,
