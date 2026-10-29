@@ -2,9 +2,11 @@
 
 The owner uploads their logo and presses Design my storefront (ADR-0047): the AI designs
 the theme, draws the brand from the logo and picks the storefront's design, all saved to
-the draft for the owner to preview and publish. Owners who want to can still adjust
-colours, fonts and corners themselves (closed by default), watching a live preview of
-their storefront in light and dark. "Save draft" keeps the changes
+the draft for the owner to preview and publish. The page is in tabs (owner, 2026-10-29):
+Design (the logo, Design my storefront and the AI's page) first; Colours and fonts, for
+owners who want to adjust colours, fonts and corners themselves; and Versions. A live
+preview of their storefront in light and dark, and Save draft and Publish, are beside
+every tab. "Save draft" keeps the changes
 private; "Publish" puts them on the storefront (saving first). The server repairs any
 colour that would be hard to read and the page lists what it changed. Each publish is a
 version; restoring an earlier one asks first, then publishes it again.
@@ -17,6 +19,7 @@ import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
+import from ..shell.Tabs { Tabs }
 import from core.theming.branding_api {
     get_branding,  # jac:ignore[W2037] authenticated endpoint
     save_theme,  # jac:ignore[W2037]
@@ -196,6 +199,7 @@ def PresetCard(
 }
 
 def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
+    [tab, set_tab] = useState("design");
     [data, set_data] = useState(None);
     [failed, set_failed] = useState("");
     [theme, set_theme] = useState(None);
@@ -936,17 +940,14 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
         </div>
     </section>;
 
-    adjust_section = <details
-        className="group flex flex-col gap-8 rounded-lg border p-4"
-        data-testid="adjust-yourself"
-    >
-        <summary className="flex min-h-11 cursor-pointer items-center font-semibold">
-            Adjust colours and fonts yourself
-        </summary>
-        <div className="mt-4 flex flex-col gap-8">
-            {presets}{colours}{type_and_shape}
-        </div>
-    </details>;
+    adjust_section = <div className="flex flex-col gap-8" data-testid="adjust-yourself">
+        <p className="text-sm text-muted-foreground">
+            Design my storefront does this for you. Adjust colours, fonts and corners yourself if you'd rather.
+        </p>
+        {presets}
+        {colours}
+        {type_and_shape}
+    </div>;
 
     history = <section
         aria-labelledby="history-heading"
@@ -1091,8 +1092,28 @@ def:pub BrandingSection(slug: str, cinema: str = "") -> JsxElement {
                     </div>
                 </div>
                 <div className="flex min-w-0 flex-col gap-8 lg:order-1">
-                    {logo_section}{design_section}{has_page
-                        and page_preview}{actions}{adjust_section}{history}
+                    <Tabs
+                        label="Branding"
+                        tabs={[
+                            {"key": "design", "label": "Design", "count": ""},
+                            {"key": "style", "label": "Colours and fonts", "count": ""},
+                            {
+                                "key": "versions",
+                                "label": "Versions",
+                                "count": str(len(versions)) if len(versions) > 0 else ""
+                            }
+                        ]}
+                        current={tab}
+                        on_pick={set_tab}
+                        testid="branding-tab"
+                    />
+                    {tab == "design"
+                        and <div className="flex flex-col gap-8">
+                            {logo_section}{design_section}{has_page and page_preview}
+                        </div>}
+                    {tab == "style" and adjust_section}
+                    {tab == "versions" and history}
+                    {actions}
                 </div>
             </div>
         </div>;
