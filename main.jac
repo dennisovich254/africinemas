@@ -340,6 +340,12 @@ import from core.notify.offer_consent {
     my_offers,  # jac:ignore[W2037]
     set_my_offers  # jac:ignore[W2037]
 }
+# A customer's own data: download it, or delete the account (P15.0).
+import from core.accounts.customer_data {
+    my_data,  # jac:ignore[W2037]
+    request_account_deletion,  # jac:ignore[W2037]
+    cancel_account_deletion  # jac:ignore[W2037]
+}
 # The platform overview (P13.4).
 import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037]
 # The platform's cinemas directory (P13.2).

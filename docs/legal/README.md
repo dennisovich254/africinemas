@@ -60,8 +60,8 @@ Found while drafting. Each is small, and listed so it isn't lost:
   family details, on uploaded documents (DPIA R6).~~ (done 2026-10-29)
 - **Verification files encrypted at rest** with a separate key, and the owner emailed
   when their verification is viewed or changed (DPIA R1, R4; P17.5).
-- **Customers' "Download my data" and "Delete my account"**, so cinemas can answer
-  requests within the regulations' deadlines.
+- ~~**Customers' "Download my data" and "Delete my account"**, so cinemas can answer
+  requests within the regulations' deadlines.~~ (done 2026-10-29, ADR-0088)
 - **A requests register and a breach register** in the console (s.43(8)).
 - **Where data is stored** (P17.3): verification files in Kenya or a reg 42 country.
 

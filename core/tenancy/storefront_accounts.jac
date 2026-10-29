@@ -32,6 +32,16 @@ import from core.tenancy.models { NAME_MAX }
 import from core.platform.accounts { account_email }
 
 glob ACCOUNTS: str = "customer-account",
+     # An account its customer asked to delete (P15.0): {"slug", "asked_at", "due"},
+     # until it's deleted or they cancel (core/accounts/customer_data.jac).
+     DELETING: str = "customer-deleting",
+     # What a deletion keeps, and why (owner, 2026-10-29), for the page to say.
+     KEPT: list[str] = [
+         "Your orders stay, as the cinema's sales records, which the law asks it to keep: the seats, the amounts and how you paid. We take your email off the ones whose showtime has passed.",
+         "The phone number an M-Pesa payment came from stays with its receipt, as the record of that payment.",
+         "Tickets for showtimes still to come keep working.",
+         "If you asked for offers, the record that you stopped them stays, as proof."
+     ],
      EMAIL_SHAPE: str = r"^[^@\s:]{1,64}@[^@\s:]{1,190}\.[^@\s:]{2,63}$",
      PASSWORD_MIN: int = 8,
      PASSWORD_MAX: int = 128;
@@ -75,13 +85,27 @@ def _caller -> str {
     return "" if me == node_id(root.shared) else me;
 }
 
-def require_customer_of(slug: str) {
-    # Refuses anyone but a customer account of the cinema `slug` names.
+def deletion_of(root_id: str) -> dict[str, str] | None {
+    # The account's deletion, asked for and not yet done, or None.
+    kept = holder(DELETING, same_id(root_id)) if root_id else None;
+    return json.loads(kept) if kept else None;
+}
+
+def require_customer_of(slug: str, while_deleting: bool = False) {
+    # Refuses anyone but a customer account of the cinema `slug` names. An account
+    # being deleted is locked (owner, 2026-10-29): only what `while_deleting` allows
+    # (downloading their data, cancelling) still works.
     me = _caller();
     cinema = open_cinema(slug);
     if not me or cinema is None or cinema_of_account(me) != cinema.slug {
         raise Refused(
             "not_your_cinema", "Sign in with your account at this cinema to do that."
+        );
+    }
+    if not while_deleting and deletion_of(me) is not None {
+        raise Refused(
+            "being_deleted",
+            "Your account is being deleted. Keep it from Your account to use it again."
         );
     }
 }
@@ -208,6 +232,10 @@ def:pub my_storefront_account(slug: str) -> dict[str, any] {  # jac:ignore[W1037
         "customer": mine,
         "email": found["email"] if mine else "",
         "name": str((found or {}).get("name", "")) if mine else "",
-        "account_cinema": found["slug"] if found is not None else ""
+        "account_cinema": found["slug"] if found is not None else "",
+        # When it's being deleted (P15.0): {"asked_at", "due"}, else None.
+        "deleting": {** deletion_of(me), "kept": KEPT}
+            if mine and deletion_of(me) is not None
+            else None
     };
 }

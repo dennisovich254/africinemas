@@ -1714,6 +1714,18 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"slug": "imax-rift", "subscribed": False, "source": ""}
          },
+         # A customer's own data, and deleting the account (P15.0).
+         "my_data": {"scope": "customer", "audit": "", "probe": {"slug": "imax-rift"}},
+         "request_account_deletion": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "imax-rift", "password": "not-the-password"}
+         },
+         "cancel_account_deletion": {
+             "scope": "customer",
+             "audit": "",
+             "probe": {"slug": "imax-rift"}
+         },
          # Connected apps (P8.6d): the caller's own connections at a cinema.
          "my_connected_apps": {
              "scope": "customer",
