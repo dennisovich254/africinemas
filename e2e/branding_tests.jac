@@ -78,8 +78,14 @@ def _sign_in(page: any, email: str) {  # jac:ignore[W1037]
 def _open_branding(page: any, owner: dict[str, str]) {  # jac:ignore[W1037]
     page.goto(f"{BASE_URL}/app/{owner['slug']}/settings");
     page.wait_for_selector(BRANDING);
-    # The owner's own colours and fonts are closed by default (ADR-0047).
-    page.click('[data-testid="adjust-yourself"] summary');
+    # The owner's own colours and fonts are on their own tab, not the first
+    # (ADR-0047; tabs, owner 2026-10-29).
+    _tab(page, "style");
+}
+
+def _tab(page: any, key: str) {  # jac:ignore[W1037]
+    page.click(f'[data-testid="branding-tab-{key}"]');
+    page.wait_for_selector(f'[data-testid="branding-tab-{key}"][aria-pressed="true"]');
 }
 
 def _storefront(page: any, slug: str) {  # jac:ignore[W1037]
@@ -218,6 +224,13 @@ test "restoring an earlier version asks first, then republishes it" {
             page = _page(browser, pw, project);
             _sign_in(page, owner["email"]);
             _open_branding(page, owner);
+            # Versions on their own tab, counted; Design and Colours aren't shown there.
+            assert page.inner_text('[data-testid="branding-tab-versions"]').endswith(
+                "2"
+            );
+            _tab(page, "versions");
+            assert page.locator('[data-testid="adjust-yourself"]').count() == 0;
+            assert page.locator('[data-testid="brand-kit"]').count() == 0;
             items = page.locator(f"{HISTORY} li").all_inner_texts();
             assert "Version 2" in items[0] and "Projector Black" in items[0] , items;
             page.click('button:has-text("Restore version 1")');
@@ -246,6 +259,8 @@ test "a logo uploaded here shows on the storefront and in the back-office" {
         page = _page(browser, pw, "desktop");
         _sign_in(page, owner["email"]);
         _open_branding(page, owner);
+        # The logo is on the Design tab.
+        _tab(page, "design");
         page.set_input_files(
             "#logo-file",
             files=[{"name": "logo.png", "mimeType": "image/png", "buffer": _logo_png()}]
