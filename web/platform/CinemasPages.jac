@@ -32,6 +32,7 @@ import from ..site { storefront_address }
 import from ..support.HealthPanel { HealthPanel }
 import from .FeeTerms { FeeTerms }
 import from .PlatformAuditPage { PlatformAuditPage }
+import from ..shell.Tabs { Tabs }
 
 glob SEARCH_PAUSE_MS: int = 350,
      OFFLINE: str = "We couldn't reach the server. Check your connection and try again.",
@@ -428,29 +429,13 @@ def:pub CinemaDetail(
                         It sent its details: review them
                     </AppLink>}
             </section>
-            <div
-                role="group"
-                aria-label="About this cinema"
-                className="flex gap-2 overflow-x-auto border-b"
-            >
-                {[
-                    <button
-                        key={k}
-                        type="button"
-                        aria-pressed={"true" if tab == k else "false"}
-                        data-testid={f"cinema-tab-{k}"}
-                        onClick={lambda { set_tab(k); }}
-                        className={"-mb-px inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 text-sm font-medium "
-                            + (
-                                "border-primary text-foreground"
-                                    if tab == k
-                                    else "border-transparent text-muted-foreground hover:text-foreground"
-                            )}
-                    >
-                        {label}
-                    </button> for (k, label) in tabs
-                ]}
-            </div>
+            <Tabs
+                label="About this cinema"
+                tabs={[{"key": k, "label": label, "count": ""} for (k, label) in tabs]}
+                current={tab}
+                on_pick={set_tab}
+                testid="cinema-tab"
+            />
             {tab == "overview"
                 and <div className="flex flex-col gap-6" data-testid="cinema-overview">
                     <section className="grid gap-3 sm:grid-cols-3" aria-label="So far">

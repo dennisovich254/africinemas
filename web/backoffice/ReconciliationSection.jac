@@ -22,6 +22,7 @@ import from core.payments.reconcile_api {
 import from ..storefront.showtimes { day_time_label }
 import from ..support.live { use_every, LIST_MS }
 import from .report_view { money_label }
+import from ..shell.Tabs { Tabs }
 
 glob CARD: str = "flex flex-col gap-2 rounded-lg border bg-card p-4",
      # Tells the sidebar's count to look again (after one is resolved).
@@ -286,34 +287,16 @@ def:pub ReconciliationSection(slug: str) -> JsxElement {
                     if int(found["open"]) > 0
                     else "Nothing to look at"}
             </h2>
-            <div
-                role="group"
-                aria-label="Which to show"
-                className="flex flex-wrap gap-2 border-b"
-            >
-                {[
-                    <button
-                        key={k}
-                        type="button"
-                        aria-pressed={"true" if tab == k else "false"}
-                        data-testid={f"recon-tab-{k}"}
-                        onClick={lambda { set_tab(k); }}
-                        className={"-mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-3 text-sm font-medium "
-                            + (
-                                "border-primary text-foreground"
-                                    if tab == k
-                                    else "border-transparent text-muted-foreground hover:text-foreground"
-                            )}
-                    >
-                        {label}
-                        <span
-                            className="rounded-full bg-muted px-2 text-xs tabular-nums"
-                        >
-                            {str(len(lists[k]))}
-                        </span>
-                    </button> for (k, label) in TABS
+            <Tabs
+                label="Which to show"
+                tabs={[
+                    {"key": k, "label": label, "count": str(len(lists[k]))}
+                    for (k, label) in TABS
                 ]}
-            </div>
+                current={tab}
+                on_pick={set_tab}
+                testid="recon-tab"
+            />
             <Exceptions
                 slug={slug}
                 rows={shown_tab}
