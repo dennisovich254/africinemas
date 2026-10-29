@@ -119,6 +119,14 @@ test "a month of sales gives the expected invoice, in the console and the back o
             us.wait_for_selector('[data-testid="platform-overview"]');
             us.goto(PLATFORM_URL + "/billing");
             us.wait_for_selector('[data-testid="platform-billing"]');
+            # Statements first; what needs acting on on its own tabs (owner, 2026-10-29).
+            tabs = us.locator('[data-testid^="billing-tab-"]').all_inner_texts();
+            assert [t.split("\n")[0].strip() for t in tabs]
+                == ["Statements", "Payments to match", "Disputes", "Overdue"] , tabs;
+            assert us.get_attribute(
+                '[data-testid="billing-tab-statements"]', "aria-pressed"
+            )
+                == "true";
             assert "Paybill 000000 (a placeholder"
                 in us.inner_text('[data-testid="platform-billing"]');
             us.click('button:has-text("Issue what\'s due now")');
