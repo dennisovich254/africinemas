@@ -485,14 +485,15 @@ def:pub t_sim_change(phone: str, outcome: str, amount_cents: int) -> int {
     changed = 0;
     sim = _simulator();
     if outcome == "forget" {
-        # M-Pesa no longer knows them (a prompt too old to ask about).
+        # M-Pesa no longer knows them (a prompt too old to ask about). Kept under
+        # another name: the simulator numbers new prompts by how many it holds.
         gone = [
             k
             for (k, push) in sim.pushes.items()
             if push.request.phone == phone
         ];
         for k in gone {
-            sim.pushes.pop(k);
+            sim.pushes[f"forgotten-{k}"] = sim.pushes.pop(k);
         }
         return len(gone);
     }

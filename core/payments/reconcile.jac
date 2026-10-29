@@ -372,7 +372,7 @@ def check_all(cinemas: list[Tenant], at: datetime) -> int {
     return made;
 }
 
-def _column(header: list[str], names: list[str]) -> int {
+def column_of(header: list[str], names: list[str]) -> int {
     tidy = [h.strip().lower().replace(".", "").replace("/", "") for h in header];
     for name in names {
         if name in tidy {
@@ -382,7 +382,7 @@ def _column(header: list[str], names: list[str]) -> int {
     return -1;
 }
 
-def _when(text: str) -> datetime | None {
+def time_of(text: str) -> datetime | None {
     # M-Pesa portal times: "2026-10-28 14:03:22" (local Nairobi), or ISO.
     for fmt in [
         "%Y-%m-%d %H:%M:%S",
@@ -405,8 +405,8 @@ def match_statement(cinema: Tenant, text: str, timezone: str) -> dict[str, int] 
     rows = list(csv.reader(io.StringIO(text)));
     header_at = -1;
     for (n, row) in enumerate(rows[:30]) {
-        if _column(row, ["receipt no", "receipt"]) >= 0
-            and _column(row, ["paid in"]) >= 0 {
+        if column_of(row, ["receipt no", "receipt"]) >= 0
+            and column_of(row, ["paid in"]) >= 0 {
             header_at = n;
             break;
         }
@@ -418,11 +418,11 @@ def match_statement(cinema: Tenant, text: str, timezone: str) -> dict[str, int] 
         );
     }
     header = rows[header_at];
-    receipt_col = _column(header, ["receipt no", "receipt"]);
-    time_col = _column(header, ["completion time", "completed", "transaction time"]);
-    paid_col = _column(header, ["paid in"]);
-    status_col = _column(header, ["transaction status", "status"]);
-    account_col = _column(header, ["ac no", "account no", "account"]);
+    receipt_col = column_of(header, ["receipt no", "receipt"]);
+    time_col = column_of(header, ["completion time", "completed", "transaction time"]);
+    paid_col = column_of(header, ["paid in"]);
+    status_col = column_of(header, ["transaction status", "status"]);
+    account_col = column_of(header, ["ac no", "account no", "account"]);
     if time_col < 0 {
         raise Refused(
             "not_a_statement", "The statement needs its Completion Time column."
@@ -441,7 +441,7 @@ def match_statement(cinema: Tenant, text: str, timezone: str) -> dict[str, int] 
             continue;
         }
         receipt = row[receipt_col].strip();
-        when = _when(row[time_col]);
+        when = time_of(row[time_col]);
         paid = cents_of_shillings(row[paid_col].replace(",", "").strip() or "0");
         if not receipt or when is None or paid is None or paid <= 0 {
             continue;

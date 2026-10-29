@@ -32,7 +32,8 @@ import from tests.support.payment_setup {
     hire,
     fresh_phone
 }
-import from tests.support.platform_setup { ADMINS_ENV, super_admin }
+import from tests.support.platform_setup { ADMINS_ENV, super_admin, join_platform }
+import from tests.support.storefront_setup { add_screening }
 
 glob NAIROBI: ZoneInfo = ZoneInfo("Africa/Nairobi");
 
@@ -86,6 +87,25 @@ def _cash_sale(app: Served, screening: str, seat: str) {
     assert sold["ok"] , sold;
 }
 
+def _platform_member(app: Served, label: str, role: str) {
+    invited = app.call(
+        "boss",
+        "invite_platform_member",
+        {"email": f"{label}@example.com", "role": role}
+    );
+    assert invited["ok"] , invited;
+    join_platform(app, label, invited["token"]);
+}
+
+def _actions(app: Served) -> list[str] {
+    return [
+        e["action"]
+        for e in app.call("owner", "audit_log", {"tenant": "nova", "limit": 100})[
+            "events"
+        ]
+    ];
+}
+
 def _exceptions(app: Served, who: str = "owner") -> list[dict[str, any]] {  # jac:ignore[W1037]
     got = app.call(who, "reconciliation", {"tenant": "nova"});
     assert got["ok"] , got;
@@ -107,12 +127,15 @@ def _receipts(app: Served, screening: str) -> dict[str, str] {
 }
 
 test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
-    (app, nova, screening) = paying_cinema(["agent", "rival", "finance", "usher"]);
+    (app, nova, screening) = paying_cinema(
+        ["agent", "rival", "finance", "usher", "auditor", "rev", "helper"]
+    );
     try {
         super_admin(app, "boss", "boss@example.com");
         hire(app, "agent", "box_office_agent", nova.venue);
         hire(app, "finance", "finance_manager", "");
         hire(app, "usher", "usher", nova.venue);
+        hire(app, "auditor", "auditor", "");
         open_cinema_for(app, "rival", "rift", "Rift");
         # Anna pays online, and the box office sells three seats by M-Pesa.
         anna = fresh_phone();
@@ -198,6 +221,7 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         assert len(_exceptions(app)) == 4;
         # The finance manager sees them; the box office, ushers and other cinemas don't.
         assert len(_exceptions(app, "finance")) == 4;
+        assert len(_exceptions(app, "auditor")) == 4;
         for who in ["agent", "usher", "rival"] {
             assert not app.call(who, "reconciliation", {"tenant": "nova"})["ok"] , who;
         }
@@ -238,6 +262,20 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         assert len(mine) == 3
             and target not in [e["exception_id"] for e in mine] , listed;
         assert not app.call("owner", "platform_reconciliation", {})["ok"];
+        # Reviewers and support staff see it too.
+        _platform_member(app, "rev", "reviewer");
+        _platform_member(app, "helper", "support");
+        for who in ["rev", "helper"] {
+            seen = app.call(who, "platform_reconciliation", {});
+            assert len(
+                [
+                    e
+                    for e in seen["exceptions"]
+                    if e["slug"] == "nova"
+                ]
+            )
+                == 3 , (who, seen);
+        }
     } finally {
         os.environ.pop(ADMINS_ENV, None);
         app.close();
@@ -492,7 +530,17 @@ test "a cash-up compares the count with the cash that member sold since their la
             "agent", "count_cash", {"tenant": "nova", "counted_cents": 5000}
         );
         assert over["cash_up"]["expected_cents"] == 0;
+        assert over["cash_up"]["difference_cents"] == 5000;
         assert _kinds(_exceptions(app)) == ["cash_over", "cash_short"];
+        # Nothing sold, nothing counted: it matches, and adds nothing.
+        even = app.call("agent", "count_cash", {"tenant": "nova", "counted_cents": 0});
+        assert even["cash_up"]["difference_cents"] == 0
+            and even["cash_up"]["expected_cents"] == 0;
+        assert len(_exceptions(app)) == 2;
+        # The owner sells too, so counts their own cash (the agent's isn't theirs).
+        mine = app.call("owner", "count_cash", {"tenant": "nova", "counted_cents": 0});
+        assert mine["ok"] and mine["cash_up"]["expected_cents"] == 0 , mine;
+        assert _actions(app).count("cash.counted") == 5;
         # Not an amount; not the usher (no sales).
         assert _code(
             app.call("agent", "count_cash", {"tenant": "nova", "counted_cents": -1})
@@ -502,7 +550,7 @@ test "a cash-up compares the count with the cash that member sold since their la
             "usher", "count_cash", {"tenant": "nova", "counted_cents": 0}
         )["ok"];
         ups = app.call("owner", "reconciliation", {"tenant": "nova"})["cash_ups"];
-        assert len(ups) == 3 and ups[1]["difference_cents"] == -10000 , ups;
+        assert len(ups) == 5 and ups[3]["difference_cents"] == -10000 , ups;
         assert ups[0]["member"];
     } finally {
         app.close();
@@ -521,10 +569,11 @@ def _second_of(months_ahead: int) -> datetime {
 
 test "AfriCinemas' takings: fees earned, invoiced, paid and overdue, per month and cinema" {
     os.environ["AFRICINEMAS_CLOCK_CONTROL"] = "1";
-    (app, nova, screening) = paying_cinema(["agent"]);
+    (app, nova, screening) = paying_cinema(["agent", "rev", "helper"]);
     try {
         super_admin(app, "boss", "boss@example.com");
         hire(app, "agent", "box_office_agent", nova.venue);
+        later = add_screening(app, "owner", nova, "Rafiki", 24 * 50);
         started = pay(app, screening, fresh_phone());
         settle(app, screening, started["payment"]["reference"]);
         _cash_sale(app, screening, "A3");
@@ -595,6 +644,46 @@ test "AfriCinemas' takings: fees earned, invoiced, paid and overdue, per month a
         assert paid["paid_cents"] == statement["payable_cents"]
             and paid["overdue_cents"] == 0;
         assert not app.call("owner", "platform_takings", {})["ok"];
+        # Next month's invoice, disputed and waived: waived, not overdue.
+        _cash_sale(app, later, "A4");
+        second = app.call(
+            "owner", "t_issue_statements", {"at": _second_of(2).isoformat()}
+        );
+        assert len(second) == 1 , second;
+        assert app.call(
+            "owner",
+            "dispute_invoice",
+            {
+                "tenant": "nova",
+                "number": second[0],
+                "text": "That sale was a mistake, refunded."
+            }
+        )["ok"];
+        assert app.call(
+            "boss",
+            "platform_decide_dispute",
+            {"number": second[0], "outcome": "waived", "note": "Waived."}
+        )["ok"];
+        waived = [
+            s
+            for s in app.call("owner", "billing", {"tenant": "nova"})["statements"]
+            if s["number"] == second[0]
+        ][0];
+        later_month = waived["month"];
+        _platform_member(app, "rev", "reviewer");
+        _platform_member(app, "helper", "support");
+        for who in ["boss", "rev", "helper"] {
+            seen = app.call(who, "platform_takings", {});
+            assert seen["ok"] , (who, seen);
+            row = [
+                m
+                for m in seen["months"]
+                if m["month"] == later_month
+            ][0];
+            assert row["waived_cents"] == waived["payable_cents"]
+                and row["overdue_cents"] == 0 , row;
+            assert row["invoiced_cents"] == waived["payable_cents"];
+        }
     } finally {
         app.call("owner", "t_clock_reset");
         os.environ.pop(ADMINS_ENV, None);
