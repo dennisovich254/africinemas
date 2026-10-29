@@ -149,9 +149,10 @@ test "an owner designs their storefront from the logo with one button, then publ
         kit = '[data-testid="brand-kit"]';
         design = f'{kit} button:has-text("Design my storefront")';
         assert page.locator(design).count() == 0 , "needs a logo first";
-        assert not page.locator('[data-testid="adjust-yourself"]').evaluate(
-            "e => e.open"
-        ) , "the owner's own editing is closed";
+        # Design first; the owner's own editing is on its own tab (owner, 2026-10-29).
+        assert page.get_attribute('[data-testid="branding-tab-design"]', "aria-pressed")
+            == "true";
+        assert page.locator('[data-testid="adjust-yourself"]').count() == 0 , "the owner's own editing is on its own tab";
         logo = base64.b64decode(logo_base64());
         page.set_input_files(
             "#logo-file",
