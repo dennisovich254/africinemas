@@ -6,14 +6,11 @@ In-process app (payment_app.jac), the simulated M-Pesa told to change its mind.
   exception, nor does one M-Pesa no longer knows (it's asked again later); one M-Pesa now says wasn't paid, one for another amount, one it says was
   paid though nothing was sold, and a receipt on two payments each make one. Running
   again adds nothing.
-- An M-Pesa statement is matched by receipt for the time it covers: money no order
-  took, an amount that differs and a payment of ours that isn't on it make exceptions;
-  test payments (account TEST) are skipped; uploading again adds nothing; a file that
-  isn't a statement is refused.
 - A cash-up compares the count with the cash that member sold since their last one;
   a difference is an exception.
 - Only the cinema's finance readers see and resolve its exceptions (with a note, once),
-  and upload statements; the box office counts its cash. Platform staff see every
+  and the sidebar's count is theirs (0 for the rest of its staff); the box office
+  counts its cash. Times come with the cinema's time zone. Platform staff see every
   cinema's open exceptions.
 - AfriCinemas' takings: fees earned, invoiced, paid and overdue per month and cinema;
   what's invoiced is the sum of the invoices.
@@ -225,6 +222,19 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         for who in ["agent", "usher", "rival"] {
             assert not app.call(who, "reconciliation", {"tenant": "nova"})["ok"] , who;
         }
+        assert app.call("owner", "reconciliation", {"tenant": "nova"})["timezone"]
+            == "Africa/Nairobi";
+        # The sidebar's count: what's open, for those who read them; 0 for the rest of
+        # the staff; another cinema's owner is refused.
+        for who in ["owner", "finance", "auditor"] {
+            got = app.call(who, "reconciliation_open", {"tenant": "nova"});
+            assert got == {"ok": True, "open": 4} , (who, got);
+        }
+        for who in ["agent", "usher"] {
+            assert app.call(who, "reconciliation_open", {"tenant": "nova"})["open"]
+                == 0;
+        }
+        assert not app.call("rival", "reconciliation_open", {"tenant": "nova"})["ok"];
         assert app.call("rival", "reconciliation", {"tenant": "rift"})["exceptions"]
             == [];
         # Resolved with a note, once.
@@ -245,6 +255,8 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         assert _code(app.call("owner", "resolve_exception", {** body, "note": "Again"}))
             == "already_resolved";
         assert app.call("owner", "reconciliation", {"tenant": "nova"})["open"] == 3;
+        assert app.call("owner", "reconciliation_open", {"tenant": "nova"})["open"]
+            == 3;
         logged = [
             e["action"]
             for e in app.call("owner", "audit_log", {"tenant": "nova", "limit": 50})[
@@ -261,6 +273,7 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         ];
         assert len(mine) == 3
             and target not in [e["exception_id"] for e in mine] , listed;
+        assert all([e["timezone"] == "Africa/Nairobi" for e in mine]);
         assert not app.call("owner", "platform_reconciliation", {})["ok"];
         # Reviewers and support staff see it too.
         _platform_member(app, "rev", "reviewer");
@@ -278,214 +291,6 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         }
     } finally {
         os.environ.pop(ADMINS_ENV, None);
-        app.close();
-    }
-}
-
-def _statement(rows: list[list[str]]) -> str {
-    # The M-Pesa portal's CSV: a few lines about the account, then the table.
-    lines = [
-        "Organisation Name,Nova Cinemas Ltd",
-        "Short Code,600100",
-        "",
-        "Receipt No.,Completion Time,Initiation Time,Details,Transaction Status,Paid In,Withdrawn,Balance,A/C No."
-    ];
-    for r in rows {
-        lines.append(",".join(r));
-    }
-    return "\n".join(lines) + "\n";
-}
-
-test "an uploaded M-Pesa statement is matched by receipt, for the time it covers" {
-    (app, nova, screening) = paying_cinema(["agent", "rival"]);
-    try {
-        hire(app, "agent", "box_office_agent", nova.venue);
-        open_cinema_for(app, "rival", "rift", "Rift");
-        started = pay(app, screening, fresh_phone());
-        settle(app, screening, started["payment"]["reference"]);
-        _mpesa_sale(app, screening, "A3", fresh_phone());
-        _mpesa_sale(app, screening, "A4", fresh_phone());
-        fees = {
-            o["reference"]: o["total_cents"]
-            for o in browse(
-                app, "t_order_fees", {"slug": "nova", "screening_id": screening}
-            )
-            if o["status"] == "confirmed"
-        };
-        receipts = _receipts(app, screening);
-        (first, second, third) = sorted(receipts.keys());
-        local = datetime.now(NAIROBI).replace(tzinfo=None);
-        at = lambda (minutes: int) -> str { return (
-            local + timedelta(minutes=minutes)
-        ).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ); };
-        shillings = lambda (cents: int) -> str { return f"{cents // 100:,}.{cents
-            % 100:02d}"; };
-        csv_text = _statement(
-            [
-                # Ours, the same amount.
-                [
-                    receipts[first],
-                    at(-90),
-                    at(-90),
-                    "Pay Bill",
-                    "Completed",
-                    '"' + shillings(fees[first]) + '"',
-                    "",
-                    "",
-                    first
-                ],
-                # Ours, another amount.
-                [
-                    receipts[second],
-                    at(-80),
-                    at(-80),
-                    "Pay Bill",
-                    "Completed",
-                    "1.00",
-                    "",
-                    "",
-                    second
-                ],
-                # Not ours: paid at the paybill by hand.
-                [
-                    "QHX0000001",
-                    at(-70),
-                    at(-70),
-                    "Pay Bill",
-                    "Completed",
-                    "500.00",
-                    "",
-                    "",
-                    "SEAT A9"
-                ],
-                # The KES 1 test payment: skipped.
-                [
-                    "QHX0000002",
-                    at(-60),
-                    at(-60),
-                    "Pay Bill",
-                    "Completed",
-                    "1.00",
-                    "",
-                    "",
-                    "TEST"
-                ],
-                # Not completed: skipped.
-                [
-                    "QHX0000003",
-                    at(-50),
-                    at(-50),
-                    "Pay Bill",
-                    "Failed",
-                    "200.00",
-                    "",
-                    "",
-                    "X"
-                ],
-                # A withdrawal: no money in.
-                [
-                    "QHX0000004",
-                    at(-40),
-                    at(-40),
-                    "Withdraw",
-                    "Completed",
-                    "",
-                    "100.00",
-                    "",
-                    ""
-                ],
-                [
-                    "QHX0000005",
-                    at(60),
-                    at(60),
-                    "Pay Bill",
-                    "Completed",
-                    "10.00",
-                    "",
-                    "",
-                    "LATE"
-                ]
-            ]
-        );
-        # Ours not on it (the third) within the time it covers.
-        assert not app.call(
-            "agent", "upload_mpesa_statement", {"tenant": "nova", "csv_text": csv_text}
-        )["ok"];
-        assert not app.call(
-            "rival", "upload_mpesa_statement", {"tenant": "nova", "csv_text": csv_text}
-        )["ok"];
-        got = app.call(
-            "owner", "upload_mpesa_statement", {"tenant": "nova", "csv_text": csv_text}
-        );
-        assert got["ok"] , got;
-        assert got["rows"] == 4
-            and got["matched"] == 1
-            and got["exceptions"] == 4 , got;
-        found = _exceptions(app);
-        assert _kinds(found)
-            == [
-                "amount_differs",
-                "not_in_app",
-                "not_in_app",
-                "not_in_statement"
-            ] , found;
-        missing = [
-            e
-            for e in found
-            if e["kind"] == "not_in_statement"
-        ][0];
-        assert missing["reference"] == third and missing["source"] == "statement";
-        stranger = [
-            e
-            for e in found
-            if e["receipt"] == "QHX0000001"
-        ][0];
-        assert stranger["found_cents"] == 50000;
-        differs = [
-            e
-            for e in found
-            if e["kind"] == "amount_differs"
-        ][0];
-        assert differs["expected_cents"] == fees[second]
-            and differs["found_cents"] == 100;
-        # Again: nothing new.
-        again = app.call(
-            "owner", "upload_mpesa_statement", {"tenant": "nova", "csv_text": csv_text}
-        );
-        assert again["exceptions"] == 0 and len(_exceptions(app)) == 4;
-        # Not a statement, or nothing in it.
-        assert _code(
-            app.call(
-                "owner",
-                "upload_mpesa_statement",
-                {"tenant": "nova", "csv_text": "a,b\n1,2\n"}
-            )
-        )
-            == "not_a_statement";
-        assert _code(
-            app.call(
-                "owner",
-                "upload_mpesa_statement",
-                {"tenant": "nova", "csv_text": _statement([])}
-            )
-        )
-            == "empty_statement";
-        assert _code(
-            app.call(
-                "owner", "upload_mpesa_statement", {"tenant": "nova", "csv_text": " "}
-            )
-        )
-            == "empty_statement";
-        logged = [
-            e["action"]
-            for e in app.call("owner", "audit_log", {"tenant": "nova", "limit": 50})[
-                "events"
-            ]
-        ];
-        assert "reconcile.statement_uploaded" in logged;
-    } finally {
         app.close();
     }
 }

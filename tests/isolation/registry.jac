@@ -323,13 +323,10 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "reconcile.resolved",
              "probe": {"tenant": "{tenant}", "exception_id": "x", "note": "probe"}
          },
-         "upload_mpesa_statement": {
+         "reconciliation_open": {
              "scope": "tenant",
-             "audit": "reconcile.statement_uploaded",
-             "probe": {
-                 "tenant": "{tenant}",
-                 "csv_text": "Receipt No.,Completion Time,Paid In"
-             }
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
          },
          "count_cash": {
              "scope": "tenant",

@@ -1,7 +1,8 @@
 """Reconciliation (P15.6, ADR-0085): our records checked against M-Pesa's and the cash.
 
-Owner's decisions (2026-10-28): no extra Daraja credentials. Three checks, each turning
-what doesn't add up into an **exception** for the cinema and the console:
+Owner's decisions: no extra Daraja credentials (2026-10-28), and no M-Pesa statement
+uploads (2026-10-29). Two checks, each turning what doesn't add up into an
+**exception** for the cinema and the console:
 
 1. **Every day, M-Pesa is asked again** about each payment of the last LOOKBACK_DAYS, with
    the account it was made with (provider_of), once per payment it answers about (one
@@ -10,13 +11,7 @@ what doesn't add up into an **exception** for the cinema and the console:
    - `no_order`: M-Pesa says it was paid, but nothing was sold for it;
    - `amount_differs`: M-Pesa's amount isn't ours.
    And every receipt is on one payment only (`receipt_twice`).
-2. **An M-Pesa statement the cinema uploads** (the CSV from Safaricom's M-Pesa portal)
-   is matched line by line, by receipt, for the time it covers:
-   - `not_in_app`: money reached the paybill that no order of ours took (paid at the
-     paybill by hand, for example). The KES 1 test payments (account TEST) are skipped;
-   - `not_in_statement`: an M-Pesa payment of ours the statement doesn't have;
-   - `amount_differs`.
-3. **A cash-up** at the box office: the cash counted against the cash sales (less cash
+2. **A cash-up** at the box office: the cash counted against the cash sales (less cash
    refunds) recorded by that member of staff since their last cash-up. Any
    difference is `cash_short` or `cash_over`.
 
@@ -26,10 +21,7 @@ stays listed, resolved.
 """
 
 import os;
-import csv;
-import io;
 import from datetime { datetime, timedelta }
-import from zoneinfo { ZoneInfo }
 import from core.clock { now }
 import from core.claims { claim, release }
 import from core.catalog.answers { Refused }
@@ -48,29 +40,26 @@ import from core.payments.models { PaymentIntent }
 import from core.payments.ledger { LedgerEntry }
 import from core.payments.state { PaymentState }
 import from core.payments.payment_api { provider_of }
-import from core.money { cents_of_shillings }
 
 glob LOOKBACK_DAYS: int = 3,
      CHECKED: str = "recon-checked",
      KEPT: str = "recon-exception",
      REFUNDS: list[str] = ["refund", "refund_due", "reversal"],
-     STATEMENT_MAX_ROWS: int = 20000,
      NOTE_MAX: int = 500,
      RECON_SECONDS: int = int(os.environ.get("AFRICINEMAS_RECON_SECONDS", "21600")),
      LABELS: dict[str, str] = {
          "not_paid": "Sold, but M-Pesa says it wasn't paid",
          "no_order": "Paid on M-Pesa, but nothing was sold",
-         "amount_differs": "M-Pesa's amount isn't ours",
+         "amount_differs": "M-Pesa's amount differs from the sale",
          "receipt_twice": "One M-Pesa receipt on two payments",
-         "not_in_app": "On the M-Pesa statement, but no order took it",
-         "not_in_statement": "Our M-Pesa payment isn't on the statement",
          "cash_short": "Cash short at a cash-up",
          "cash_over": "Cash over at a cash-up"
      };
 
 node ReconException {
-    # One thing that doesn't add up. source: "mpesa" (the daily check), "statement" or
-    # "cash_up". expected_cents is ours, found_cents the other side's.
+    # One thing that doesn't add up. source: "mpesa" (the daily check) or "cash_up".
+    # expected_cents is what AfriCinemas recorded, found_cents what M-Pesa or the count
+    # found.
     has tenant_id: str,
         kind: str,
         source: str,
@@ -370,165 +359,6 @@ def check_all(cinemas: list[Tenant], at: datetime) -> int {
         }
     }
     return made;
-}
-
-def column_of(header: list[str], names: list[str]) -> int {
-    tidy = [h.strip().lower().replace(".", "").replace("/", "") for h in header];
-    for name in names {
-        if name in tidy {
-            return tidy.index(name);
-        }
-    }
-    return -1;
-}
-
-def time_of(text: str) -> datetime | None {
-    # M-Pesa portal times: "2026-10-28 14:03:22" (local Nairobi), or ISO.
-    for fmt in [
-        "%Y-%m-%d %H:%M:%S",
-        "%d-%m-%Y %H:%M:%S",
-        "%d/%m/%Y %H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S"
-    ] {
-        try {
-            return datetime.strptime(text.strip()[:19], fmt);
-        } except ValueError {
-            continue;
-        }
-    }
-    return None;
-}
-
-def match_statement(cinema: Tenant, text: str, timezone: str) -> dict[str, int] {
-    # Matches an M-Pesa statement (CSV) against our M-Pesa payments for the time it
-    # covers: {"rows", "matched", "exceptions"}.
-    rows = list(csv.reader(io.StringIO(text)));
-    header_at = -1;
-    for (n, row) in enumerate(rows[:30]) {
-        if column_of(row, ["receipt no", "receipt"]) >= 0
-            and column_of(row, ["paid in"]) >= 0 {
-            header_at = n;
-            break;
-        }
-    }
-    if header_at < 0 {
-        raise Refused(
-            "not_a_statement",
-            "That isn't an M-Pesa statement: it needs Receipt No., Completion Time and Paid In columns."
-        );
-    }
-    header = rows[header_at];
-    receipt_col = column_of(header, ["receipt no", "receipt"]);
-    time_col = column_of(header, ["completion time", "completed", "transaction time"]);
-    paid_col = column_of(header, ["paid in"]);
-    status_col = column_of(header, ["transaction status", "status"]);
-    account_col = column_of(header, ["ac no", "account no", "account"]);
-    if time_col < 0 {
-        raise Refused(
-            "not_a_statement", "The statement needs its Completion Time column."
-        );
-    }
-    body = rows[header_at + 1:];
-    if len(body) > STATEMENT_MAX_ROWS {
-        raise Refused(
-            "too_long", f"Upload at most {STATEMENT_MAX_ROWS} lines at a time."
-        );
-    }
-    zone = ZoneInfo(timezone);
-    theirs: dict[str, tuple[int, datetime]] = {};
-    for row in body {
-        if len(row) <= max(receipt_col, time_col, paid_col) {
-            continue;
-        }
-        receipt = row[receipt_col].strip();
-        when = time_of(row[time_col]);
-        paid = cents_of_shillings(row[paid_col].replace(",", "").strip() or "0");
-        if not receipt or when is None or paid is None or paid <= 0 {
-            continue;
-        }
-        if status_col >= 0
-            and row[status_col].strip().lower() not in ["completed", ""] {
-            continue;
-        }
-        if account_col >= 0 and row[account_col].strip().upper() == "TEST" {
-            continue;
-        }
-        theirs[receipt] = (paid, when.replace(tzinfo=zone));
-    }
-    if len(theirs) == 0 {
-        raise Refused("empty_statement", "The statement has no payments in.");
-    }
-    first = min([w for (_, w) in theirs.values()]);
-    last = max([w for (_, w) in theirs.values()]);
-    ours: dict[str, tuple[int, str]] = {};
-    for (order, _, entries) in _records(cinema) {
-        for e in entries {
-            if e.kind == "payment"
-                and e.method == "mpesa"
-                and e.receipt
-                and e.amount_cents > 0 {
-                ours[e.receipt] = (e.amount_cents, order.reference);
-                if not (first <= datetime.fromisoformat(e.created_at) <= last) {
-                    ours[e.receipt] = (e.amount_cents, "outside:" + order.reference);
-                }
-            }
-        }
-    }
-    made = 0;
-    matched = 0;
-    for (receipt, (paid, when)) in theirs.items() {
-        if receipt not in ours {
-            made += int(
-                keep(
-                    cinema,
-                    "not_in_app",
-                    "statement",
-                    receipt,
-                    "",
-                    receipt,
-                    0,
-                    paid,
-                    when.isoformat()
-                )
-            );
-            continue;
-        }
-        (amount, reference) = ours[receipt];
-        reference = reference.replace("outside:", "");
-        if amount != paid {
-            made += int(
-                keep(
-                    cinema,
-                    "amount_differs",
-                    "statement",
-                    receipt,
-                    reference,
-                    receipt,
-                    amount,
-                    paid
-                )
-            );
-        } else {
-            matched += 1;
-        }
-    }
-    for (receipt, (amount, reference)) in ours.items() {
-        if receipt not in theirs and not reference.startswith("outside:") {
-            made += int(
-                keep(
-                    cinema,
-                    "not_in_statement",
-                    "statement",
-                    receipt,
-                    reference,
-                    receipt,
-                    amount,
-                    0
-                )
-            );
-        }
-    }
-    return {"rows": len(theirs), "matched": matched, "exceptions": made};
 }
 
 def cash_ups_of(cinema: Tenant) -> list[CashUp] {

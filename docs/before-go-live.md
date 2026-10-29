@@ -84,9 +84,9 @@ system, not real money.
 
 - [ ] **The daily M-Pesa check against live Daraja**: the STK status query still answers
   for prompts a day or more old. If it doesn't, those payments are left unchecked.
-- [ ] **A real M-Pesa portal statement** (CSV) uploads and matches: check its column
-  names (Receipt No., Completion Time, Paid In, Transaction Status, A/C No.), its time
-  format, and how it shows the KES 1 test payments.
+- [ ] **Money paid to a paybill outside AfriCinemas** isn't checked by the app
+  (statement uploads were removed, 2026-10-29). Tell cinemas to compare their own M-Pesa
+  statement with the Reports page.
 - [ ] **Cash counts in practice**: the box office counts at the end of each shift, and a
   manager looks at the Reconciliation page. Agree who resolves a short count.
 

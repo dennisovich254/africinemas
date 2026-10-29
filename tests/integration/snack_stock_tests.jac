@@ -115,6 +115,8 @@ test "adjustments have reasons, leave movements, and never go below zero" {
             {"venue_id": nova.venue, "variant_id": coke["variant_id"], "limit": 10}
         );
         assert history["ok"] , history;
+        # Times are shown at the cinema's time, so the answer says which (P15.6a).
+        assert history["timezone"] == "Africa/Nairobi";
         moves = history["movements"];
         assert [m["reason"] for m in moves] == ["count", "damaged", "received"];
         assert [m["change"] for m in moves] == [-7, -3, 50];
