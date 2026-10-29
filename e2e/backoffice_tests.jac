@@ -182,6 +182,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                     "Verification",
                     "Cinema agreement",
                     "Billing",
+                    "Reconciliation",
                     "Settings",
                     "Help",
                     "Your profile"

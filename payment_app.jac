@@ -317,6 +317,16 @@ import from core.billing.billing_api {
     platform_reinstate_cinema,  # jac:ignore[W2037]
     platform_issue_statements  # jac:ignore[W2037]
 }
+# Reconciliation and AfriCinemas' takings (P15.6).
+import from core.payments.reconcile_api {
+    reconciliation,  # jac:ignore[W2037]
+    resolve_exception,  # jac:ignore[W2037]
+    upload_mpesa_statement,  # jac:ignore[W2037]
+    count_cash,  # jac:ignore[W2037]
+    platform_reconciliation,  # jac:ignore[W2037]
+    platform_takings,  # jac:ignore[W2037]
+    reconcile_payments  # jac:ignore[W2037]
+}
 # Paying invoices (P15.5): M-Pesa's callback and the job that settles them.
 import from core.billing.collect {
     mpesa_bill_callback,  # jac:ignore[W2037]
@@ -325,6 +335,7 @@ import from core.billing.collect {
 import from core.billing.statements { issue_due }
 import from core.billing.collect { settle_due, remind_due }
 import from core.tenancy.membership { records_of }
+import from core.payments.reconcile { check_all }
 import from core.platform.cinemas_api { all_cinemas }
 import from core.platform.staff_api {
     platform_whoami,  # jac:ignore[W2037]
@@ -454,6 +465,81 @@ def:pub t_owner_email(slug: str, email: str) -> bool {
         for m in records_of(cinema) {
             if "owner" in m.roles {
                 m.email = email;
+            }
+        }
+        commit_now();
+    } finally {
+        restore(me);
+    }
+    return True;
+}
+
+def:pub t_reconcile -> int {
+    # The daily M-Pesa check, now (P15.6): how many new exceptions.
+    return check_all(all_cinemas(), clock_now());
+}
+
+def:pub t_sim_change(phone: str, outcome: str, amount_cents: int) -> int {
+    # M-Pesa changes its mind about `phone`'s pushes (P15.6): their outcome, and the
+    # amount it says was paid when not 0. How many pushes.
+    changed = 0;
+    sim = _simulator();
+    if outcome == "forget" {
+        # M-Pesa no longer knows them (a prompt too old to ask about). Kept under
+        # another name: the simulator numbers new prompts by how many it holds.
+        gone = [
+            k
+            for (k, push) in sim.pushes.items()
+            if push.request.phone == phone
+        ];
+        for k in gone {
+            sim.pushes[f"forgotten-{k}"] = sim.pushes.pop(k);
+        }
+        return len(gone);
+    }
+    for push in sim.pushes.values() {
+        if push.request.phone == phone {
+            push.outcome = outcome;
+            if amount_cents {
+                push.request.amount_cents = amount_cents;
+            }
+            changed += 1;
+        }
+    }
+    return changed;
+}
+
+def:pub t_receipts(slug: str, screening_id: str) -> list[list[str]] {
+    # [order reference, receipt] of each M-Pesa payment of the showtime (P15.6).
+    (cinema, screening) = _showtime(slug, screening_id);
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        return [
+            [o.reference, e.receipt] for o in [screening-->[?:Order]]
+            for e in [o-->[?:LedgerEntry]]
+            if e.kind == "payment" and e.method == "mpesa"
+        ];
+    } finally {
+        restore(me);
+    }
+}
+
+def:pub t_set_receipt(
+    slug: str, screening_id: str, reference: str, receipt: str
+) -> bool {
+    # Gives an order's M-Pesa payment entry another receipt (P15.6: a receipt twice).
+    (cinema, screening) = _showtime(slug, screening_id);
+    me = node_id(root);
+    act_as(cinema.principal_root_id);
+    try {
+        for o in [screening-->[?:Order]] {
+            if o.reference == reference {
+                for e in [o-->[?:LedgerEntry]] {
+                    if e.kind == "payment" {
+                        e.receipt = receipt;
+                    }
+                }
             }
         }
         commit_now();

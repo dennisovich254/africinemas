@@ -67,6 +67,7 @@ import from .ProfileSection { ProfileSection }
 import from .AgreementSection { AgreementSection, AgreementNotice }
 import from .BillingSection { BillingSection }
 import from .BillingNotice { BillingNotice }
+import from .ReconciliationSection { ReconciliationSection }
 import from .PaymentsSection { PaymentsSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
@@ -449,6 +450,8 @@ def:pub BackOffice -> JsxElement {
         content = <HelpSection slug={slug} shift_open={shift_open} item={item}/>;
     } elif section == "profile" {
         content = <ProfileSection slug={slug}/>;
+    } elif section == "reconciliation" {
+        content = <ReconciliationSection slug={slug}/>;
     } elif section == "billing" {
         content = <BillingSection slug={slug}/>;
     } elif section == "agreement" {

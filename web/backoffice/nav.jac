@@ -38,6 +38,8 @@ glob SUFFIX: str = ".africinemas.co.ke",
          ("agreement", "Cinema agreement", "tenant.verification"),
          # AfriCinemas' monthly statements and invoices (P15.4): who reads the reports.
          ("billing", "Billing", "financial_reports.read"),
+         # What doesn't add up: M-Pesa, statements and cash counts (P15.6).
+         ("reconciliation", "Reconciliation", "financial_reports.read"),
          ("settings", "Settings", "tenant.settings.update"),
          # Asking AfriCinemas for technical help (P13.5a).
          ("help", "Help", "support.request"),
