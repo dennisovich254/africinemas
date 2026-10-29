@@ -52,6 +52,11 @@ def _saved(owner: dict[str, str]) {
     assert answer["ok"] , answer;
 }
 
+def _tab(page: any, key: str) {  # jac:ignore[W1037]
+    page.click(f'[data-testid="site-info-tab-{key}"]');
+    page.wait_for_selector(f'[data-testid="site-info-tab-{key}"][aria-pressed="true"]');
+}
+
 test "the owner fills Website information, and a problem shows beside its field" {
     owner = cinema_selling_tickets();
     (pw, browser) = shared_browser();
@@ -64,15 +69,33 @@ test "the owner fills Website information, and a problem shows beside its field"
             page.goto(f"{BASE_URL}/app/{owner['slug']}/settings/website");
             page.wait_for_selector(FORM);
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
+            # A tab for each part (owner, 2026-10-29), Your business first.
+            tabs = page.locator('[data-testid^="site-info-tab-"]').all_inner_texts();
+            assert [t.split("\n")[0].strip() for t in tabs]
+                == [
+                    "Your business",
+                    "Contact",
+                    "Social media",
+                    "Getting here",
+                    "Booking notes"
+                ] , tabs;
+            assert page.locator("#info-phone").count() == 0;
             _type(page, "#info-business_name", "Nova Cinemas Ltd");
+            _tab(page, "contact");
             _type(page, "#info-phone", "12");
             _type(page, "#info-whatsapp", "0798 765 432");
+            _tab(page, "social");
             _type(page, "#info-social-instagram", "@nova_cinemas");
+            _tab(page, "notes");
             page.click('[data-testid="add-ticket-note"]');
             _type(page, "#info-note-0-name", "Child");
             _type(page, "#info-note-0-note", "Under 12.");
+            # One Save for every tab; refused, it opens the tab with the problem.
             page.click(f'{FORM} button[type="submit"]');
             page.wait_for_selector('#info-phone[aria-invalid="true"]');
+            assert page.inner_text('[data-testid="site-info-tab-contact"]').endswith(
+                "1"
+            );
             _type(page, "#info-phone", "0712 345 678");
             page.click(f'{FORM} button[type="submit"]');
             page.wait_for_function(
@@ -80,9 +103,13 @@ test "the owner fills Website information, and a problem shows beside its field"
             );
             # Saved as the storefront shows it: a full number, the handle alone.
             assert page.input_value("#info-phone") == "+254712345678";
+            _tab(page, "social");
             assert page.input_value("#info-social-instagram") == "nova_cinemas";
             page.reload();
             page.wait_for_selector(FORM);
+            _tab(page, "business");
+            assert page.input_value("#info-business_name") == "Nova Cinemas Ltd";
+            _tab(page, "notes");
             assert page.input_value("#info-note-0-name") == "Child";
             page.context.close();
         }
