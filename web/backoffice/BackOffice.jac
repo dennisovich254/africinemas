@@ -30,7 +30,14 @@ import from ...components.ui.spinner { Spinner }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..shell.AppShell { AppShell }
 import from core.tenancy.tenant_api { my_access, start_shift }  # jac:ignore[W2037] authenticated endpoint
-import from .nav { web_address, nav_for, section_label, section_path, role_label }
+import from .nav {
+    web_address,
+    nav_for,
+    section_label,
+    section_path,
+    role_label,
+    unlocks_for
+}
 import from .PlainLayout { PlainLayout, AccountActions }
 import from .ScreensSection { ScreensSection }
 import from .SeatDesigner { SeatDesigner }
@@ -80,7 +87,7 @@ glob SECTION_PREVIEW: dict[str, str] = {
          "settings": "Your cinema's name, branding and payment details live here."
      };
 
-def ShiftBanner(busy: bool, failed: bool, on_start: any) -> JsxElement {  # jac:ignore[W1037]
+def ShiftBanner(busy: bool, failed: str, on_start: any) -> JsxElement {  # jac:ignore[W1037]
     # One row above every section while the member is off shift (ADR-0006); wraps on a
     # phone, the button last.
     return
@@ -96,10 +103,9 @@ def ShiftBanner(busy: bool, failed: bool, on_start: any) -> JsxElement {  # jac:
                 className="shrink-0 text-muted-foreground"
                 aria-hidden="true"
             />
-            <p className="min-w-0 flex-1 text-sm">
-                {"We couldn't start your shift. Try again."
-                    if failed
-                    else "You're off shift. Start it to sell, scan tickets and make changes; it ends when you sign out."}
+            <p className="min-w-0 flex-1 text-sm" data-testid="shift-banner-text">
+                {failed
+                    or "You're off shift. Start it to sell, scan tickets and make changes; it ends when you sign out."}
             </p>
             <Button className="min-h-11 px-5" disabled={busy} onClick={on_start}>
                 {busy and <Spinner aria-hidden="true"/>}{"Starting…"
@@ -257,7 +263,7 @@ def:pub BackOffice -> JsxElement {
     [failed, set_failed] = useState(False);
     [shift_open, set_shift_open] = useState(False);
     [starting, set_starting] = useState(False);
-    [start_failed, set_start_failed] = useState(False);
+    [start_failed, set_start_failed] = useState("");
     [logo, set_logo] = useState("");
 
     async def load {
@@ -290,7 +296,7 @@ def:pub BackOffice -> JsxElement {
     async def begin_shift {
         answer: any = None;  # jac:ignore[W1037]
         set_starting(True);
-        set_start_failed(False);
+        set_start_failed("");
         try {
             answer = await start_shift(slug);  # jac:ignore[W2037]
         } except Exception as e {
@@ -300,7 +306,12 @@ def:pub BackOffice -> JsxElement {
         if answer and answer["ok"] {
             set_shift_open(True);
         } else {
-            set_start_failed(True);
+            # Not confirmed their email yet, for one (owner, 2026-10-29): say why.
+            set_start_failed(
+                answer["error"]["message"]
+                    if answer
+                    else "We couldn't start your shift. Try again."
+            );
         }
     }
 
@@ -499,7 +510,7 @@ def:pub BackOffice -> JsxElement {
                         section={section}
                         page={f"{section}/{item}"}
                     />}
-                {"tenant.verification" in permissions and <EmailCheckBanner/>}
+                <EmailCheckBanner unlocks={unlocks_for(permissions)}/>
                 {content}
             </AppShell>
         </ThemeProvider>;

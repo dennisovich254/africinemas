@@ -47,6 +47,19 @@ glob SUFFIX: str = ".africinemas.co.ke",
          ("profile", "Your profile", "")
      ];
 
+glob WORK: list[tuple[str, str]] = [
+         # (permission, the work it's for), as a member reads it.
+         ("tenant.verification", "take your cinema live"),
+         ("bookings.create", "sell at the box office"),
+         ("tickets.scan", "scan tickets"),
+         ("concessions.collect", "hand over snacks"),
+         ("showtimes.create", "set up screenings"),
+         ("movies.create", "add movies"),
+         ("employees.invite", "manage staff"),
+         ("tenant.settings.update", "change the cinema's settings"),
+         ("financial_reports.read", "read the reports")
+     ];
+
 def:pub web_address(slug: str) -> str {
     # Where the cinema's storefront lives.
     return slug + SUFFIX;
@@ -62,6 +75,24 @@ def:pub nav_for(slug: str, permissions: list[str]) -> list[dict[str, str]] {
         for (key, label, needs) in SECTIONS
         if not needs or needs in permissions
     ];
+}
+
+def:pub unlocks_for(permissions: list[str]) -> str {
+    # What confirming their email unlocks for this member, in words (owner,
+    # 2026-10-29): their role's work, which all needs a shift.
+    said: list[str] = [];
+    for (needs, words) in WORK {
+        if needs in permissions {
+            said.append(words);
+        }
+    }
+    if len(said) == 0 {
+        return "Until you do, you can't start a shift.";
+    }
+    listed = said[0]
+        if len(said) == 1
+        else ", ".join(said[:len(said) - 1]) + " or " + said[len(said) - 1];
+    return f"Until you do, you can't start a shift, so you can't {listed}.";
 }
 
 def:pub section_label(key: str) -> str {

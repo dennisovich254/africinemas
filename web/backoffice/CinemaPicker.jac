@@ -126,8 +126,8 @@ def:pub CinemaPicker -> JsxElement {
     }
     useEffect(start_loading, []);
     slugs = [c["slug"] for c in cinemas] if cinemas else [];
-    # Confirming the email is for creating a cinema and taking it live: for someone with
-    # no cinema yet, or an owner, not for the rest of the staff.
+    # What confirming the email is for: creating a cinema and taking it live, for
+    # someone with no cinema yet or an owner; starting their shifts, for other staff.
     listed: list[dict[str, any]] = cinemas or [];  # jac:ignore[W1037]
     owned: list[str] = [
         c["slug"]
@@ -180,6 +180,11 @@ def:pub CinemaPicker -> JsxElement {
     }
     return
         <PlainLayout title="Your cinemas" account={<AccountActions slugs={slugs}/>}>
-            {may_own and <EmailCheckBanner/>}{body}
+            {cinemas is not None
+                and <EmailCheckBanner
+                    unlocks={"You'll need it to create a cinema and to go live."
+                        if may_own
+                        else "Until you do, you can't start a shift at your cinema."}
+                />}{body}
         </PlainLayout>;
 }

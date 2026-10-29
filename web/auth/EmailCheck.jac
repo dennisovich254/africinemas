@@ -1,9 +1,9 @@
 """Confirming a staff account's email (P14.2): the banner and the page the link opens.
 
-EmailCheckBanner, on Your cinemas and in the back office, for those who create cinemas
-and take them live (owners, and anyone with no cinema yet; not the rest of the staff,
-who don't need it): while the email this browser signed in with isn't confirmed, it
-says so, and "Send again" emails a fresh link (at
+EmailCheckBanner, on Your cinemas and in the back office, for everyone: while the email
+this browser signed in with isn't confirmed, it says so and what it unlocks (`unlocks`:
+creating a cinema and going live, or the member's own work, which the server won't let
+them start a shift for until then; owner, 2026-10-29), and "Send again" emails a fresh link (at
 most five an hour). Nothing shows for a confirmed email, or an account without one.
 
 VerifyEmailPage, `/verify-email#<token>` on the main site: the emailed link. It
@@ -24,7 +24,9 @@ import from core.accounts.email_verification {
 import from .AuthLayout { AuthLayout }
 import from .session { signed_in_email }
 
-def:pub EmailCheckBanner -> JsxElement {
+def:pub EmailCheckBanner(
+    unlocks: str = "You'll need it to create a cinema and to go live."
+) -> JsxElement {
     [status, set_status] = useState(None);
     [note, set_note] = useState("");
     [busy, set_busy] = useState(False);
@@ -73,9 +75,7 @@ def:pub EmailCheckBanner -> JsxElement {
         >
             <p>
                 <span className="font-medium">Confirm your email.</span>
-                {f" We sent a link to {shown[
-                    'email'
-                ]}. You'll need it to create a cinema and to go live."}
+                {f" We sent a link to {shown['email']}. {unlocks}"}
                 {note
                     and <span
                         className="block text-muted-foreground"
