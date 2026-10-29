@@ -62,7 +62,8 @@ Found while drafting. Each is small, and listed so it isn't lost:
   when their verification is viewed or changed (DPIA R1, R4; P17.5).
 - ~~**Customers' "Download my data" and "Delete my account"**, so cinemas can answer
   requests within the regulations' deadlines.~~ (done 2026-10-29, ADR-0088)
-- **A requests register and a breach register** in the console (s.43(8)).
+- ~~**A requests register and a breach register** in the console (s.43(8)).~~ (done
+  2026-10-29: console → Data protection, for super admins)
 - **Where data is stored** (P17.3): verification files in Kenya or a reg 42 country.
 
 ## Already decided by the owner

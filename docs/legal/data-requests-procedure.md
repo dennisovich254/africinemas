@@ -21,8 +21,9 @@ law or use a form. A request made orally is written down and confirmed back to t
 
 On the day it arrives:
 
-1. log it in the requests register: date and time received, who, what they ask, the
-   deadline (section 3), the controller;
+1. log it in the requests register (the console's **Data protection → Requests**):
+   date and time received, who, what they ask, the deadline (section 3, worked out
+   from its kind), the controller;
 2. acknowledge it;
 3. check the person's identity (section 4).
 

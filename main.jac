@@ -317,6 +317,15 @@ import from core.legal.registrations {
     registrations_checklist,  # jac:ignore[W2037]
     tick_registration  # jac:ignore[W2037]
 }
+# The data protection registers: requests and breaches (P15.0).
+import from core.legal.dp_registers {
+    dp_registers,  # jac:ignore[W2037]
+    log_data_request,  # jac:ignore[W2037]
+    data_request_step,  # jac:ignore[W2037]
+    log_breach,  # jac:ignore[W2037]
+    assess_breach,  # jac:ignore[W2037]
+    breach_step  # jac:ignore[W2037]
+}
 # Deleting personal files once they're no longer needed (P14.5b).
 import from core.tenancy.retention { delete_due_files }  # jac:ignore[W2037]
 # Verifying the owner and the business before going public (P14.4).

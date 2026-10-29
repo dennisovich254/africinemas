@@ -56,7 +56,7 @@ notify the Commissioner and record it.
 | When | Who | What |
 |---|---|---|
 | **At once** | Whoever notices | Report it to the on-call person (P16.8) and in [#incidents]. Don't delete evidence |
-| **Within 1 hour** | On-call | Open an incident record; note the time we became aware; name an **incident lead** and the **data protection contact** |
+| **Within 1 hour** | On-call | Open an incident record (the console's **Data protection → Breaches**, which starts the 48- and 72-hour clocks from the time we became aware); name an **incident lead** and the **data protection contact** |
 | **Within 4 hours** | Incident lead | **Contain**: revoke access, rotate keys and passwords, take a public file offline, suspend an account or a cinema if needed. Keep logs |
 | **Within 24 hours** | Data protection contact | **Assess**: what data, how many people, which cinemas, whether reg 37 makes it notifiable, our role (section 2) |
 | **Within 48 hours** | Data protection contact | **Tell each affected cinema** (processor duty) with what's known (section 5), by email to the owner and in the back office. Offer a draft of their notice to the Commissioner and to customers |
