@@ -72,12 +72,41 @@ test "a super admin finds a cinema by its owner and opens its page" {
             page.wait_for_selector('[data-testid="platform-cinema-page"]');
             shown = page.inner_text('[data-testid="platform-cinema-page"]');
             assert "Kisumu Lights" in shown and owner["email"] in shown , shown;
+            # Overview first; the rest on its own tabs (owner, 2026-10-29), and Logs
+            # for a super admin.
+            tabs = page.locator('[data-testid^="cinema-tab-"]').all_inner_texts();
+            assert [t.strip() for t in tabs]
+                == ["Overview", "Health", "Fees", "History", "Logs"] , tabs;
+            assert page.get_attribute(
+                '[data-testid="cinema-tab-overview"]', "aria-pressed"
+            )
+                == "true";
             assert "Mega Plaza" in page.inner_text('[data-testid="cinema-venues"]');
             assert "Hall A" in page.inner_text('[data-testid="cinema-venues"]');
             assert page.inner_text('[data-testid="cinema-tickets"]') == "0";
+            for hidden in [
+                "cinema-history",
+                "health-panel",
+                "fee-terms",
+                "platform-audit"
+            ] {
+                assert page.locator(f'[data-testid="{hidden}"]').count() == 0 , hidden;
+            }
+            page.click('[data-testid="cinema-tab-history"]');
             assert "Signed up" in page.inner_text('[data-testid="cinema-history"]');
+            assert page.locator('[data-testid="cinema-venues"]').count() == 0;
             # A new cinema's technical health: nothing to look at (P13.5c).
+            page.click('[data-testid="cinema-tab-health"]');
             assert "All clear" in page.inner_text('[data-testid="health-panel"]');
+            page.click('[data-testid="cinema-tab-fees"]');
+            page.wait_for_selector('[data-testid="fee-terms"]');
+            # Logs: the platform's events about this cinema only, not to be cleared.
+            page.click('[data-testid="cinema-tab-logs"]');
+            page.wait_for_selector('[data-testid="platform-audit"]');
+            assert page.locator('[data-testid="platform-audit-cinema"]').count() == 0;
+            assert page.evaluate(WIDE_JS) <= 1 , f"{project}: logs scroll sideways";
+            page.click('[data-testid="cinema-tab-overview"]');
+            page.wait_for_selector('[data-testid="cinema-venues"]');
             # Its storefront on its own address, never through a tunnel.
             assert page.get_attribute('a:has-text("Open its storefront")', "href")
                 == store_url(owner["slug"]) + "/";

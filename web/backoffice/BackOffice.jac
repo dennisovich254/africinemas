@@ -499,7 +499,7 @@ def:pub BackOffice -> JsxElement {
                         section={section}
                         page={f"{section}/{item}"}
                     />}
-                <EmailCheckBanner/>
+                {"tenant.verification" in permissions and <EmailCheckBanner/>}
                 {content}
             </AppShell>
         </ThemeProvider>;

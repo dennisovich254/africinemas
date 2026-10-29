@@ -1,7 +1,9 @@
 """Confirming a staff account's email (P14.2): the banner and the page the link opens.
 
-EmailCheckBanner, on Your cinemas and in the back office: while the email this browser
-signed in with isn't confirmed, it says so, and "Send again" emails a fresh link (at
+EmailCheckBanner, on Your cinemas and in the back office, for those who create cinemas
+and take them live (owners, and anyone with no cinema yet; not the rest of the staff,
+who don't need it): while the email this browser signed in with isn't confirmed, it
+says so, and "Send again" emails a fresh link (at
 most five an hour). Nothing shows for a confirmed email, or an account without one.
 
 VerifyEmailPage, `/verify-email#<token>` on the main site: the emailed link. It

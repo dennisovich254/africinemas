@@ -355,8 +355,16 @@ test "an usher sees only the overview, the scanner and their profile" {
         for project in PROJECTS {
             page = _page(browser, pw, project);
             _sign_in(page, usher["email"]);
+            # Their email isn't confirmed, but that's for creating a cinema and going
+            # live: staff aren't asked (owner, 2026-10-29), on Your cinemas or in the
+            # back office.
+            page.wait_for_selector('[data-testid="cinema-list"]');
+            page.wait_for_load_state("networkidle");
+            assert page.locator('[data-testid="email-check"]').count() == 0;
             page.click(f'[data-testid="cinema-list"] a[href="/app/{owner["slug"]}"]');
             page.wait_for_selector(TITLE);
+            page.wait_for_load_state("networkidle");
+            assert page.locator('[data-testid="email-check"]').count() == 0;
             assert _nav_labels(page, project)
                 == ["Overview", "Scanner", "Your profile"] , project;
             page.goto(f"{BASE_URL}/app/{owner['slug']}/staff");

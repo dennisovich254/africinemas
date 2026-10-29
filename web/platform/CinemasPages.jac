@@ -2,9 +2,13 @@
 
 `/cinemas`: every cinema on the platform, newest first, 20 a page, with a search (a
 name, a slug or an owner's email; it runs once typing pauses) and a state filter. Each
-row opens `/cinemas/<slug>`: the cinema's details, owners, venues and screens, staff
-count, tickets sold and takings so far, and its state history. Counts only, never a
-customer's details. The server checks every request (core/platform/cinemas_api.jac).
+row opens `/cinemas/<slug>`: the cinema's name, state and storefront, then tabs:
+- Overview: tickets sold, takings and staff count, owners, venues and screens;
+- Health: its technical health (P13.5c);
+- Fees: its fee terms (P15.2);
+- History: its state history;
+- Logs: the platform's audit events about it, for those who read the audit log.
+Counts only, never a customer's details. The server checks every request (core/platform/cinemas_api.jac).
 """
 
 import from react { useState, useEffect }
@@ -27,6 +31,7 @@ import from ..backoffice.report_view { money_label }
 import from ..site { storefront_address }
 import from ..support.HealthPanel { HealthPanel }
 import from .FeeTerms { FeeTerms }
+import from .PlatformAuditPage { PlatformAuditPage }
 
 glob SEARCH_PAUSE_MS: int = 350,
      OFFLINE: str = "We couldn't reach the server. Check your connection and try again.",
@@ -291,6 +296,9 @@ def:pub CinemaDetail(
     [found, set_found] = useState(None);
     [problem, set_problem] = useState("");
     [approving, set_approving] = useState(False);
+    # The page's tabs (owner's request, 2026-10-29): Overview, Health, Fees, History,
+    # and Logs for those who read the audit log.
+    [tab, set_tab] = useState("overview");
 
     async def approve {
         set_approving(True);
@@ -357,6 +365,13 @@ def:pub CinemaDetail(
     owners: list[str] = cinema["owners"] or [];
     venues: list[dict[str, any]] = cinema["venues"] or [];  # jac:ignore[W1037]
     history: list[dict[str, str]] = cinema["history"] or [];
+    tabs: list[tuple[str, str]] = [
+        ("overview", "Overview"),
+        ("health", "Health"),
+        ("fees", "Fees"),
+        ("history", "History")
+    ]
+        + ([("logs", "Logs")] if audit else []);
     return
         <div
             className="flex max-w-3xl flex-col gap-6"
@@ -412,83 +427,121 @@ def:pub CinemaDetail(
                     >
                         It sent its details: review them
                     </AppLink>}
-                {audit
-                    and <AppLink
-                        to={f"/audit?cinema={cinema['slug']}"}
-                        className="inline-flex min-h-11 w-fit items-center text-sm font-medium underline underline-offset-4"
+            </section>
+            <div
+                role="group"
+                aria-label="About this cinema"
+                className="flex gap-2 overflow-x-auto border-b"
+            >
+                {[
+                    <button
+                        key={k}
+                        type="button"
+                        aria-pressed={"true" if tab == k else "false"}
+                        data-testid={f"cinema-tab-{k}"}
+                        onClick={lambda { set_tab(k); }}
+                        className={"-mb-px inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 text-sm font-medium "
+                            + (
+                                "border-primary text-foreground"
+                                    if tab == k
+                                    else "border-transparent text-muted-foreground hover:text-foreground"
+                            )}
                     >
-                        The team's actions on it
-                    </AppLink>}
-            </section>
-            <section className="grid gap-3 sm:grid-cols-3" aria-label="So far">
-                <Figure
-                    label="Tickets sold"
-                    value={str(cinema["tickets_sold"])}
-                    testid="cinema-tickets"
-                />
-                <Figure
-                    label="Takings"
-                    value={money_label(cinema["takings_net_cents"], cinema["currency"])}
-                    testid="cinema-takings"
-                />
-                <Figure
-                    label="Staff"
-                    value={str(cinema["staff"])}
-                    testid="cinema-staff"
-                />
-            </section>
-            {cinema["health"] and <HealthPanel health={cinema["health"]}/>}
-            <FeeTerms slug={slug} may_change={fees}/>
-            <section className="flex flex-col gap-2 rounded-lg border bg-card p-4">
-                <h3 className="font-semibold">Owners</h3>
-                {len(owners) == 0
-                    and <p className="text-sm text-muted-foreground">
-                        No owner's email recorded.
-                    </p>}
-                <ul className="flex flex-col gap-1">
-                    {[
-                        <li key={o} className="break-all text-sm">{o}</li>
-                        for o in owners
-                    ]}
-                </ul>
-            </section>
-            <section className="flex flex-col gap-2 rounded-lg border bg-card p-4">
-                <h3 className="font-semibold">Venues and screens</h3>
-                {len(venues) == 0
-                    and <p className="text-sm text-muted-foreground">No venues yet.</p>}
-                <ul className="flex flex-col gap-2" data-testid="cinema-venues">
-                    {[
-                        <li key={v["name"]} className="text-sm">
-                            <span className="font-medium">{v["name"]}</span>
-                            {v["city"] and f", {v['city']}"}
-                            <span className="block text-muted-foreground">
-                                {", ".join(v["screens"])
-                                    if v["screens"]
-                                    else "No screens yet"}
-                            </span>
-                        </li> for v in venues
-                    ]}
-                </ul>
-            </section>
-            <section className="flex flex-col gap-2 rounded-lg border bg-card p-4">
-                <h3 className="font-semibold">History</h3>
-                <ol className="flex flex-col gap-2" data-testid="cinema-history">
-                    {[
-                        <li key={f"{h['at']}-{h['what']}"} className="text-sm">
-                            <span className="font-medium">
-                                {HISTORY_LABELS.get(h["what"], h["what"])}
-                            </span>
-                            <span className="text-muted-foreground">
-                                {f" · {day_label(h['at'])}"}{h["by"]
-                                    and f" · by {h['by']}"}
-                            </span>
-                            {h["why"]
-                                and <span className="block text-muted-foreground">
-                                    {h["why"]}
-                                </span>}
-                        </li> for h in history
-                    ]}
-                </ol>
-            </section>
+                        {label}
+                    </button> for (k, label) in tabs
+                ]}
+            </div>
+            {tab == "overview"
+                and <div className="flex flex-col gap-6" data-testid="cinema-overview">
+                    <section className="grid gap-3 sm:grid-cols-3" aria-label="So far">
+                        <Figure
+                            label="Tickets sold"
+                            value={str(cinema["tickets_sold"])}
+                            testid="cinema-tickets"
+                        />
+                        <Figure
+                            label="Takings"
+                            value={money_label(
+                                cinema["takings_net_cents"], cinema["currency"]
+                            )}
+                            testid="cinema-takings"
+                        />
+                        <Figure
+                            label="Staff"
+                            value={str(cinema["staff"])}
+                            testid="cinema-staff"
+                        />
+                    </section>
+                    <section
+                        className="flex flex-col gap-2 rounded-lg border bg-card p-4"
+                    >
+                        <h3 className="font-semibold">Owners</h3>
+                        {len(owners) == 0
+                            and <p className="text-sm text-muted-foreground">
+                                No owner's email recorded.
+                            </p>}
+                        <ul className="flex flex-col gap-1">
+                            {[
+                                <li key={o} className="break-all text-sm">{o}</li>
+                                for o in owners
+                            ]}
+                        </ul>
+                    </section>
+                    <section
+                        className="flex flex-col gap-2 rounded-lg border bg-card p-4"
+                    >
+                        <h3 className="font-semibold">Venues and screens</h3>
+                        {len(venues) == 0
+                            and <p className="text-sm text-muted-foreground">
+                                No venues yet.
+                            </p>}
+                        <ul className="flex flex-col gap-2" data-testid="cinema-venues">
+                            {[
+                                <li key={v["name"]} className="text-sm">
+                                    <span className="font-medium">{v["name"]}</span>
+                                    {v["city"] and f", {v['city']}"}
+                                    <span className="block text-muted-foreground">
+                                        {", ".join(v["screens"])
+                                            if v["screens"]
+                                            else "No screens yet"}
+                                    </span>
+                                </li> for v in venues
+                            ]}
+                        </ul>
+                    </section>
+                </div>}
+            {tab == "health"
+                and cinema["health"]
+                and <HealthPanel health={cinema["health"]}/>}
+            {tab == "health"
+                and not cinema["health"]
+                and <p className="text-sm text-muted-foreground">
+                    No health signals for this cinema.
+                </p>}
+            {tab == "fees" and <FeeTerms slug={slug} may_change={fees}/>}
+            {tab == "history"
+                and <section
+                    className="flex flex-col gap-2 rounded-lg border bg-card p-4"
+                >
+                    <h3 className="font-semibold">History</h3>
+                    <ol className="flex flex-col gap-2" data-testid="cinema-history">
+                        {[
+                            <li key={f"{h['at']}-{h['what']}"} className="text-sm">
+                                <span className="font-medium">
+                                    {HISTORY_LABELS.get(h["what"], h["what"])}
+                                </span>
+                                <span className="text-muted-foreground">
+                                    {f" · {day_label(h['at'])}"}{h["by"]
+                                        and f" · by {h['by']}"}
+                                </span>
+                                {h["why"]
+                                    and <span className="block text-muted-foreground">
+                                        {h["why"]}
+                                    </span>}
+                            </li> for h in history
+                        ]}
+                    </ol>
+                </section>}
+            {tab == "logs" and audit and <PlatformAuditPage only_cinema={slug}/>}
         </div>;
 }
