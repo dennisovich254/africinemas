@@ -30,7 +30,8 @@ test "a cash count shows how far it's off, and every exception has words" {
         "amount_differs",
         "receipt_twice",
         "cash_short",
-        "cash_over"
+        "cash_over",
+        "cash_not_counted"
     ] {
         assert LABELS[kind] , kind;
     }
@@ -42,7 +43,8 @@ test "a cash count shows how far it's off, and every exception has words" {
                 "amount_differs",
                 "receipt_twice",
                 "cash_short",
-                "cash_over"
+                "cash_over",
+                "cash_not_counted"
             ]
         );
 }

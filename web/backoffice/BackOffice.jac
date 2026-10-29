@@ -67,6 +67,7 @@ import from .ProfileSection { ProfileSection }
 import from .AgreementSection { AgreementSection, AgreementNotice }
 import from .BillingSection { BillingSection }
 import from .BillingNotice { BillingNotice }
+import from .BoxOfficeRules { BoxOfficeRules }
 import from .ReconciliationSection { ReconciliationSection, use_open_exceptions }
 import from .PaymentsSection { PaymentsSection }
 import from .MovieEditor { MovieEditor }
@@ -174,7 +175,8 @@ def SettingsPage(
     # (/app/:slug/settings/policies, P14.3b), the public documents
     # (/app/:slug/settings/documents, P14.3d), the AI chat connector
     # (/app/:slug/settings/ai-chat, P8.3) and the cinema's own M-Pesa
-    # (/app/:slug/settings/payments, P15.3), as tabs.
+    # (/app/:slug/settings/payments, P15.3) and the box office's rules
+    # (/app/:slug/settings/box-office, P15.6b), as tabs.
     tabs = [
         ("", "Branding"),
         ("home-page", "Home page"),
@@ -182,6 +184,7 @@ def SettingsPage(
         ("policies", "Policies"),
         ("documents", "Documents"),
         ("payments", "Payments"),
+        ("box-office", "Box office"),
         ("ai-chat", "AI chat")
     ];
     return
@@ -230,6 +233,11 @@ def SettingsPage(
                     <h2 className="text-xl font-semibold">Payments</h2>
                     <PaymentsSection slug={slug}/>
                 </div>}
+            {tab == "box-office"
+                and <div className="flex flex-col gap-6">
+                    <h2 className="text-xl font-semibold">Box office</h2>
+                    <BoxOfficeRules slug={slug}/>
+                </div>}
             {tab
                 not in [
                     "home-page",
@@ -237,7 +245,8 @@ def SettingsPage(
                     "website",
                     "policies",
                     "documents",
-                    "payments"
+                    "payments",
+                    "box-office"
                 ]
                 and branding}
         </div>;
@@ -409,7 +418,11 @@ def:pub BackOffice -> JsxElement {
     } elif section == "screenings" {
         content = <ScreeningsSection slug={slug}/>;
     } elif section == "box-office" {
-        content = <BoxOfficeSection slug={slug} shift_open={shift_open}/>;
+        content = <BoxOfficeSection
+            slug={slug}
+            shift_open={shift_open}
+            start_with={item}
+        />;
     } elif section == "scanner" {
         content = <ScannerSection
             slug={slug}

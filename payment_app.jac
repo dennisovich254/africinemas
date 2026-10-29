@@ -21,7 +21,9 @@ import from core.tenancy.tenant_api {
     start_shift,
     end_shift,
     my_access,
-    storefront_preview
+    storefront_preview,
+    box_office_rules,
+    set_box_office_rules
 }  # jac:ignore[W2037]
 import from core.tenancy.staff_api {
     invite_staff,  # jac:ignore[W2037]
@@ -323,6 +325,9 @@ import from core.payments.reconcile_api {
     resolve_exception,  # jac:ignore[W2037]
     reconciliation_open,  # jac:ignore[W2037]
     count_cash,  # jac:ignore[W2037]
+    recount_cash,  # jac:ignore[W2037]
+    count_left_cash,  # jac:ignore[W2037]
+    cash_status,  # jac:ignore[W2037]
     platform_reconciliation,  # jac:ignore[W2037]
     platform_takings,  # jac:ignore[W2037]
     reconcile_payments  # jac:ignore[W2037]
@@ -336,6 +341,7 @@ import from core.billing.statements { issue_due }
 import from core.billing.collect { settle_due, remind_due }
 import from core.tenancy.membership { records_of }
 import from core.payments.reconcile { check_all }
+import from core.payments.reconcile_api { check_all_counted }
 import from core.platform.cinemas_api { all_cinemas }
 import from core.platform.staff_api {
     platform_whoami,  # jac:ignore[W2037]
@@ -477,6 +483,11 @@ def:pub t_owner_email(slug: str, email: str) -> bool {
 def:pub t_reconcile -> int {
     # The daily M-Pesa check, now (P15.6): how many new exceptions.
     return check_all(all_cinemas(), clock_now());
+}
+
+def:pub t_cash_check -> int {
+    # The check for cash left uncounted at a shift's end, now (P15.6b).
+    return check_all_counted();
 }
 
 def:pub t_sim_change(phone: str, outcome: str, amount_cents: int) -> int {
