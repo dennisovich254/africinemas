@@ -224,6 +224,7 @@ test "an owner queries an invoice, and the super admin answers it in the console
             # A reviewer sees it in the console, with nothing to press.
             rev = _console(browser, pw, project, _reviewer(token, project));
             rev.goto(PLATFORM_URL + "/billing");
+            rev.click('[data-testid="billing-tab-disputes"]');
             seen = rev.locator('[data-testid="disputed"]').filter(has_text=number);
             seen.wait_for();
             assert seen.locator("button").count() == 0;
@@ -231,6 +232,10 @@ test "an owner queries an invoice, and the super admin answers it in the console
             # The super admin answers it, and must say why.
             us = _console(browser, pw, project, admin);
             us.goto(PLATFORM_URL + "/billing");
+            # Disputes on their own tab, counted (owner, 2026-10-29).
+            # (Other cinemas' disputes count too: the server is shared.)
+            us.locator('[data-testid="billing-tab-disputes"] span').wait_for();
+            us.click('[data-testid="billing-tab-disputes"]');
             item = us.locator('[data-testid="disputed"]').filter(has_text=number);
             item.wait_for();
             assert "The cash sale was refunded the same day." in item.inner_text();
@@ -274,6 +279,10 @@ test "a super admin waives a disputed invoice, and the owner has nothing to pay"
             )["ok"];
             us = _console(browser, pw, project, admin);
             us.goto(PLATFORM_URL + "/billing");
+            # Disputes on their own tab, counted (owner, 2026-10-29).
+            # (Other cinemas' disputes count too: the server is shared.)
+            us.locator('[data-testid="billing-tab-disputes"] span').wait_for();
+            us.click('[data-testid="billing-tab-disputes"]');
             item = us.locator('[data-testid="disputed"]').filter(has_text=number);
             item.wait_for();
             _type(us, f"#decide-{number}", "Agreed: we waive it.");
