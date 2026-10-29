@@ -89,6 +89,12 @@ def _wait_text(page: any, testid: str, value: str) {  # jac:ignore[W1037]
     );
 }
 
+def _tab(page: any, project: str, key: str) {  # jac:ignore[W1037]
+    # Reports' tabs (owner, 2026-10-29): Money taken, Snacks, Showtimes.
+    _press(page, project, f'[data-testid="report-tab-{key}"]');
+    page.wait_for_selector(f'[data-testid="report-tab-{key}"][aria-pressed="true"]');
+}
+
 def _no_side_scroll(page: any) -> bool {  # jac:ignore[W1037]
     return page.evaluate(
         "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
@@ -109,18 +115,29 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
             _wait_text(page, "today-net", SALE);
             page.goto(f"{BASE_URL}/app/{owner['slug']}/reports");
             # Today: the money came in today; the showtime is in two days.
+            # Money taken first; Snacks and Showtimes on their own tabs.
+            tabs = page.locator('[data-testid^="report-tab-"]').all_inner_texts();
+            assert [t.strip() for t in tabs]
+                == ["Money taken", "Snacks", "Showtimes"] , tabs;
+            assert page.locator('[data-testid="kpi-tickets"]').count() == 0;
             _wait_text(page, "kpi-net", SALE);
             assert _text(page, "kpi-counter") == SALE;
-            assert _text(page, "kpi-tickets") == "0";
             # AfriCinemas' fee on a box office sale: 3% (P15.2), and the cinema's share.
             assert _text(page, "kpi-fees") == "KES 49.80";
             assert _text(page, "kpi-share") == "KES 1,610.20";
-            # Next 7 days: the showtime is in it, so are its tickets.
+            _tab(page, project, "shows");
+            assert page.locator('[data-testid="kpi-net"]').count() == 0;
+            assert _text(page, "kpi-tickets") == "0";
+            # Next 7 days (the filters apply to every tab): the showtime is in it, so
+            # are its tickets.
             _press(page, project, '[data-testid="preset-next7"]');
             _wait_text(page, "kpi-tickets", "2");
-            assert _text(page, "kpi-net") == SALE;
             assert _text(page, "kpi-occupancy") == "18.2%";
             assert "Rafiki" in _text(page, "top-movies");
+            # The occupancy meter leads the showtimes: 18.2% shows as 18%.
+            assert "18%" in _text(page, "occupancy-meter") , project;
+            _tab(page, project, "money");
+            _wait_text(page, "kpi-net", SALE);
             # The money splits: one cash sale at the box office, tickets only.
             assert "100%" in _text(page, "split-method-right") , project;
             assert "Cash" in _text(page, "split-method-right");
@@ -132,8 +149,6 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
             assert "Snacks" in _text(page, "takings-legend");
             # The headline compares with the days just before: nothing then.
             assert "previous" in _text(page, "trend") , project;
-            # The occupancy meter leads the showtimes: 18.2% shows as 18%.
-            assert "18%" in _text(page, "occupancy-meter") , project;
             assert page.locator('[data-testid="chart-bar"]').count() == 7;
             # The chart answers a tap or a hover with the day's figures.
             _press(page, project, '[data-testid="chart-bar"]');
@@ -250,7 +265,9 @@ test "review screenshots of Reports and the audit log" {
                 page.goto(f"{BASE_URL}/app/{owner['slug']}/reports");
                 _wait_text(page, "kpi-net", SALE);
                 _press(page, project, '[data-testid="preset-next7"]');
+                _tab(page, project, "shows");
                 _wait_text(page, "kpi-tickets", "2");
+                _tab(page, project, "money");
                 _press(page, project, '[data-testid="chart-bar"]');
                 page.evaluate("document.fonts.ready");
                 page.screenshot(
@@ -319,6 +336,7 @@ test "snack reports show paid totals, rankings and current stock on phone and de
                 _wait_text(page, "kpi-net", "KES 600");
                 assert _text(page, "kpi-snack-net") == "KES 600";
                 assert _text(page, "kpi-ticket-net") == "KES 0";
+                _tab(page, project, "snacks");
                 assert "2 units sold" in _text(page, "snack-sales-summary");
                 assert "KES 600" in _text(page, "top-snack-products");
                 assert "Large" in _text(page, "top-snack-variants");
@@ -345,15 +363,19 @@ test "snack reports show paid totals, rankings and current stock on phone and de
                     page.set_viewport_size({"width": 412, "height": 915});
                 }
                 page.select_option("#report-venue", kiosk);
+                _tab(page, project, "money");
                 _wait_text(page, "kpi-net", "KES 200");
                 assert _text(page, "kpi-snack-net") == "KES 200";
+                _tab(page, project, "snacks");
                 assert "Large" not in _text(page, "top-snack-variants");
                 assert "Snack kiosk" in _text(page, "snack-low-stock");
                 _press(page, project, '[data-testid="preset-custom"]');
                 _type(page, "#report-from", "2020-01-01");
                 _type(page, "#report-to", "2020-01-01");
                 _press(page, project, '[data-testid="custom-show"]');
+                _tab(page, project, "money");
                 _wait_text(page, "kpi-net", "KES 0");
+                _tab(page, project, "snacks");
                 assert "No snacks sold" in _text(page, "top-snack-products");
                 assert "Out of stock" in _text(page, "snack-low-stock");
                 assert _no_side_scroll(page);
