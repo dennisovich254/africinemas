@@ -67,7 +67,7 @@ import from .ProfileSection { ProfileSection }
 import from .AgreementSection { AgreementSection, AgreementNotice }
 import from .BillingSection { BillingSection }
 import from .BillingNotice { BillingNotice }
-import from .ReconciliationSection { ReconciliationSection }
+import from .ReconciliationSection { ReconciliationSection, use_open_exceptions }
 import from .PaymentsSection { PaymentsSection }
 import from .MovieEditor { MovieEditor }
 import from core.theming.branding_api { public_branding }
@@ -318,6 +318,8 @@ def:pub BackOffice -> JsxElement {
     held: list[str] = seen["permissions"] or [];
     may_ask: bool = shift_open and "support.request" in held;
     answered = use_waiting_for_cinema(slug, may_ask);
+    # Reconciliation's count: what's open, for those who resolve it (P15.6).
+    unresolved = use_open_exceptions(slug, "financial_reports.read" in held);
 
     if missing or failed {
         return
@@ -356,12 +358,12 @@ def:pub BackOffice -> JsxElement {
     me: dict[str, any] = access;  # jac:ignore[W1037]
     permissions: list[str] = me["permissions"];
     nav = nav_for(slug, permissions);
-    if answered {
-        nav = [
-            {** item, "count": str(answered)} if item["key"] == "help" else item
-            for item in nav
-        ];
-    }
+    counts: dict[str, int] = {"help": answered, "reconciliation": unresolved};
+    nav = [
+        {** item, "count": str(counts[item["key"]])}
+            if counts.get(item["key"], 0)
+            else item for item in nav
+    ];
     allowed = section in [item["key"] for item in nav];
     title = section_label(section) or "Overview";
     if auditorium_id {

@@ -1,46 +1,10 @@
-"""P15.6: reading an M-Pesa statement, and a cash count (ADR-0085).
+"""P15.6: a cash count, and the words for each exception (ADR-0085).
 
-- Columns are found by name, whatever their case, dots or slashes, and in any order;
-  a missing one is -1.
-- Completion times are read in the forms Safaricom's portal and spreadsheets write.
 - A count shows its difference: short below zero, over above.
+- Every kind of exception has words; the statement's kinds are gone (2026-10-29).
 """
 
-import from datetime { datetime }
-import from core.payments.reconcile { column_of, time_of, CashUp, cash_up_view, LABELS }
-
-test "a statement's columns are found by name, in any order" {
-    header = [
-        "Receipt No.",
-        "Completion Time",
-        "Details",
-        "Paid In",
-        "A/C No.",
-        "Transaction Status"
-    ];
-    assert column_of(header, ["receipt no", "receipt"]) == 0;
-    assert column_of(header, ["completion time"]) == 1;
-    assert column_of(header, ["paid in"]) == 3;
-    assert column_of(header, ["ac no", "account no"]) == 4;
-    assert column_of(header, ["transaction status", "status"]) == 5;
-    assert column_of(["  RECEIPT  ", "paid in"], ["receipt"]) == 0;
-    assert column_of(header, ["withdrawn"]) == -1;
-}
-
-test "completion times are read in the portal's and spreadsheets' forms" {
-    want = datetime(2026, 10, 29, 14, 3, 22);
-    for text in [
-        "2026-10-29 14:03:22",
-        "29-10-2026 14:03:22",
-        "29/10/2026 14:03:22",
-        "2026-10-29T14:03:22",
-        " 2026-10-29 14:03:22.000 "
-    ] {
-        assert time_of(text) == want , text;
-    }
-    assert time_of("yesterday") is None;
-    assert time_of("") is None;
-}
+import from core.payments.reconcile { CashUp, cash_up_view, LABELS }
 
 test "a cash count shows how far it's off, and every exception has words" {
     def count(counted: int, expected: int) -> dict[str, any] {  # jac:ignore[W1037]
@@ -65,11 +29,20 @@ test "a cash count shows how far it's off, and every exception has words" {
         "no_order",
         "amount_differs",
         "receipt_twice",
-        "not_in_app",
-        "not_in_statement",
         "cash_short",
         "cash_over"
     ] {
         assert LABELS[kind] , kind;
     }
+    assert sorted(LABELS.keys())
+        == sorted(
+            [
+                "not_paid",
+                "no_order",
+                "amount_differs",
+                "receipt_twice",
+                "cash_short",
+                "cash_over"
+            ]
+        );
 }

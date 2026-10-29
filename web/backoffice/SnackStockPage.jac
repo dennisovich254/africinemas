@@ -26,6 +26,7 @@ import from core.snacks.inventory_api {
 }
 import from core.catalog.venue_api { list_venues }  # jac:ignore[W2037] authenticated endpoint
 import from ..shell.AppLink { AppLink }
+import from ..storefront.showtimes { day_time_label }
 import from .form_parts { TextField, FieldError, submit_with, on_input }
 import from .snack_view { SnackSubnav, snack_path, whole_number, with_field }
 
@@ -79,6 +80,7 @@ def:pub SnackStockPage(slug: str, permissions: list[str]) -> JsxElement {
     [venue, set_venue] = useState("");
     [levels, set_levels] = useState(None);
     [history, set_history] = useState([]);
+    [timezone, set_timezone] = useState("Africa/Nairobi");
     [low_only, set_low_only] = useState(False);
     [failed, set_failed] = useState("");
     [busy, set_busy] = useState(False);
@@ -141,6 +143,9 @@ def:pub SnackStockPage(slug: str, permissions: list[str]) -> JsxElement {
         }
         set_levels(got["levels"]);
         set_history(moves["movements"] if moves["ok"] else []);
+        if moves["ok"] {
+            set_timezone(moves["timezone"]);
+        }
     }
 
     def start_loading {
@@ -583,7 +588,7 @@ def:pub SnackStockPage(slug: str, permissions: list[str]) -> JsxElement {
                                     dateTime={m["at"]}
                                     className="text-muted-foreground"
                                 >
-                                    {m["at"][:16].replace("T", " ")}
+                                    {day_time_label(m["at"], timezone)}
                                 </time>
                             </li> for (i, m) in enumerate(moves)
                         ]}

@@ -3,19 +3,20 @@
 A cinema's box office agent sells A1 and A2 for cash (KES 1,660). On Count cash, what
 they sold isn't shown first; "abc" is refused; KES 1,600 is KES 60 short; counting
 again at once matches (nothing since); after one more sale (KES 830), KES 1,000 is
-KES 170 over. The agent has no Reconciliation page. The owner's lists both, open; a
-note is needed to resolve the short one, which then goes below the open one; the three
-counts are listed. An M-Pesa statement with a payment no order took is listed; the
-same file again adds nothing; a file that isn't a statement is refused. In the
-console, the overview's takings tables (by month and by cinema) include the cinema,
-and Reconciliation lists the statement's payment and the open cash over, not the
-resolved short one.
+KES 170 over. The agent has no Reconciliation page, and no count on its sidebar. The
+owner's sidebar counts 2; both are on the Cash tab, in words ("Cash sales recorded",
+"Cash counted", "short"/"over", no "ours" or "theirs"), at the cinema's time; M-Pesa has
+nothing. A note is needed to resolve the short one, which then moves to Resolved with
+its note, and the sidebar counts 1; the three counts are listed. There's no statement
+upload. In the console, the overview's takings tables (by month and by cinema) include
+the cinema, and Reconciliation lists the open cash over, not the resolved short one.
 The daily M-Pesa check needs M-Pesa to change its mind:
 tests/integration/reconcile_tests.jac.
 """
 
 import uuid;
-import from datetime { datetime, timedelta, timezone }
+import from datetime { datetime, timezone }
+import from zoneinfo { ZoneInfo }
 import from e2e.support.web {
     shared_browser,
     close_contexts,
@@ -82,32 +83,14 @@ def _count(desk: any, amount: str) -> str {  # jac:ignore[W1037]
     return desk.inner_text('[data-testid="cash-up-result"]');
 }
 
-def _upload(page: any, text: str) {  # jac:ignore[W1037]
-    page.set_input_files(
-        "#statement-file",
-        files=[
-            {"name": "statement.csv", "mimeType": "text/csv", "buffer": text.encode()}
-        ]
-    );
+def _tab(page: any, key: str) -> any {  # jac:ignore[W1037]
+    # Opens a tab: what's listed in it.
+    page.click(f'[data-testid="recon-tab-{key}"]');
+    page.wait_for_selector(f'[data-testid="recon-tab-{key}"][aria-pressed="true"]');
+    return page.locator('[data-testid="exception"]');
 }
 
-def _statement -> str {
-    # The M-Pesa portal's CSV with one payment no order took.
-    at = (datetime.now(timezone.utc) + timedelta(hours=3)).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    );
-    return "\n".join(
-        [
-            "Organisation Name,Test Cinema Ltd",
-            "",
-            "Receipt No.,Completion Time,Initiation Time,Details,Transaction Status,Paid In,Withdrawn,Balance,A/C No.",
-            f"QZZ{uuid.uuid4().hex[:7].upper()},{at},{at},Pay Bill,Completed,500.00,,,SEAT A9"
-        ]
-    )
-        + "\n";
-}
-
-test "cash counts and an M-Pesa statement are listed, resolved, and seen in the console" {
+test "cash counts are listed in tabs, counted on the sidebar, resolved, and seen in the console" {
     admin = platform_admin();
     (pw, browser) = shared_browser();
     try {
@@ -145,23 +128,41 @@ test "cash counts and an M-Pesa statement are listed, resolved, and seen in the 
                 f'a[href="/app/{owner["slug"]}/reconciliation"]'
             ).count()
                 == 0;
+            assert desk.locator('[data-testid="nav-count-reconciliation"]').count()
+                == 0;
             desk.goto(f"{BASE_URL}/app/{owner['slug']}/reconciliation");
             desk.wait_for_selector('[data-testid="no-access"]');
             desk.context.close();
-            # The owner sees both, open, and resolves the short one.
+            # The owner's sidebar counts both; they're on the Cash tab, in words.
             page = _sign_in(browser, pw, project, owner["email"]);
             page.goto(f"{BASE_URL}/app/{owner['slug']}/reconciliation");
-            page.wait_for_selector('[data-testid="exception"]');
+            page.wait_for_selector('[data-testid="open-exceptions"]');
             assert page.inner_text('[data-testid="open-exceptions"]') == "2 to look at";
-            short = page.locator('[data-testid="exception"]').filter(
-                has_text="Cash short at a cash-up"
-            );
-            over = page.locator('[data-testid="exception"]').filter(
-                has_text="Cash over at a cash-up"
-            );
-            assert "ours KES 1,660, theirs KES 1,600" in short.inner_text();
-            assert agent["email"] in short.inner_text();
-            assert "ours KES 830, theirs KES 1,000" in over.inner_text();
+            counted = page.locator('[data-testid="nav-count-reconciliation"]').first;
+            counted.wait_for(state="attached");
+            assert counted.text_content().startswith("2") , counted.text_content();
+            assert page.locator('[data-testid="statement-upload"]').count() == 0;
+            assert page.locator('#statement-file').count() == 0;
+            # M-Pesa is first, with nothing in it.
+            assert _tab(page, "mpesa").count() == 0;
+            assert "Nothing to look at here."
+                in page.inner_text('[data-testid="nothing-here"]');
+            assert "2" in page.inner_text('[data-testid="recon-tab-cash"]');
+            rows = _tab(page, "cash");
+            assert rows.count() == 2;
+            short = rows.filter(has_text="Cash short at a cash-up");
+            over = rows.filter(has_text="Cash over at a cash-up");
+            said = short.inner_text();
+            assert "Cash sales recorded: KES 1,660" in said
+                and "Cash counted: KES 1,600" in said
+                and "KES 60 short" in said , said;
+            assert "ours" not in said and "theirs" not in said , said;
+            assert agent["email"] in said;
+            assert "Cash sales recorded: KES 830" in over.inner_text()
+                and "KES 170 over" in over.inner_text();
+            # At the cinema's time (Nairobi), whatever the browser is set to.
+            local = datetime.now(timezone.utc).astimezone(ZoneInfo("Africa/Nairobi"));
+            assert local.strftime("%H:") in said , said;
             # A note is needed.
             short.locator('button:has-text("Mark resolved")').click();
             short.locator(
@@ -172,45 +173,24 @@ test "cash counts and an M-Pesa statement are listed, resolved, and seen in the 
             page.wait_for_selector(
                 '[data-testid="open-exceptions"]:has-text("1 to look at")'
             );
-            # Open first, resolved after, with its note.
-            rows = page.locator('[data-testid="exception"]');
-            assert "Cash over at a cash-up" in rows.nth(0).inner_text();
-            last = rows.nth(1).inner_text();
-            assert "Resolved" in last
-                and "Counted again: KES 60 was in the float." in last , last;
-            # The three counts are listed.
+            page.wait_for_function(
+                "document.querySelector('[data-testid=nav-count-reconciliation]')?.textContent.startsWith('1')"
+            );
+            # The over one is still on Cash; the short one is on Resolved, with its note.
+            assert _tab(page, "cash").count() == 1;
+            assert "Cash over at a cash-up"
+                in page.locator('[data-testid="exception"]').nth(0).inner_text();
+            # The three counts are listed under Cash.
             counts = page.inner_text('[data-testid="cash-ups"]');
             assert "counted KES 1,600, recorded KES 1,660" in counts , counts;
             assert "counted KES 1,000, recorded KES 830" in counts;
             assert "counted KES 0, recorded KES 0" in counts;
-            # A statement with a payment no order took; then again; then not a statement.
-            statement = _statement();
-            receipt = statement.strip().split("\n")[-1].split(",")[0];
-            _upload(page, statement);
-            page.wait_for_selector(
-                '[data-testid="statement-result"]:has-text("1 new exception")'
-            );
-            assert "1 payments in, 0 matched"
-                in page.inner_text('[data-testid="statement-result"]');
-            stranger = page.locator('[data-testid="exception"]').filter(
-                has_text=receipt
-            );
-            stranger.wait_for();
-            assert "On the M-Pesa statement, but no order took it"
-                in stranger.inner_text();
-            assert "theirs KES 500" in stranger.inner_text();
-            _upload(page, statement);
-            page.wait_for_selector(
-                '[data-testid="statement-result"]:has-text("0 new exceptions")'
-            );
-            assert page.locator('[data-testid="exception"]').filter(
-                has_text=receipt
-            ).count()
-                == 1;
-            _upload(page, "name,price\npopcorn,200\n");
-            page.wait_for_selector(
-                '[data-testid="statement-upload"] [role="alert"]:has-text("isn\'t an M-Pesa statement")'
-            );
+            done = _tab(page, "resolved");
+            assert done.count() == 1;
+            last = done.nth(0).inner_text();
+            assert "Resolved" in last
+                and "Counted again: KES 60 was in the float." in last , last;
+            assert page.locator('[data-testid="cash-ups"]').count() == 0;
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
             page.context.close();
             # The console: AfriCinemas' takings, and the open exceptions only.
@@ -247,9 +227,6 @@ test "cash counts and an M-Pesa statement are listed, resolved, and seen in the 
             us.goto(PLATFORM_URL + "/reconciliation");
             us.wait_for_selector('[data-testid="platform-reconciliation"]');
             listed = us.locator('[data-testid="platform-exception"]');
-            assert listed.filter(has_text=receipt).count() == 1;
-            assert "On the M-Pesa statement, but no order took it"
-                in listed.filter(has_text=receipt).inner_text();
             # Its open cash over is there; the resolved short one isn't.
             mine = listed.filter(has_text=agent["email"]);
             assert mine.count() == 1 and "Cash over" in mine.inner_text();

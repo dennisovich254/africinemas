@@ -1,12 +1,13 @@
 """`/reconciliation` in the platform console (P15.6, ADR-0085): every cinema's open
-exceptions (from the daily M-Pesa check, uploaded statements and cash counts), for
-platform staff (platform.read). Each cinema resolves its own on its Reconciliation page.
+exceptions (from the daily M-Pesa check and cash counts), for platform staff
+(platform.read), each at the cinema's own time. Each cinema resolves its own on its Reconciliation page.
 """
 
 import from react { useState, useEffect }
 import from ...components.ui.spinner { Spinner }
 import from core.payments.reconcile_api { platform_reconciliation }  # jac:ignore[W2037] authenticated endpoint
 import from ..backoffice.ReconciliationSection { ExceptionText }
+import from ..storefront.showtimes { day_time_label }
 
 def:pub ReconciliationPage -> JsxElement {
     [shown, set_shown] = useState(None);
@@ -39,7 +40,7 @@ def:pub ReconciliationPage -> JsxElement {
             data-testid="platform-reconciliation"
         >
             <p className="text-sm text-muted-foreground">
-                What doesn't add up at each cinema: M-Pesa asked again every day, the statements cinemas upload, and the box office's cash counts. Cinemas resolve their own.
+                What doesn't add up at each cinema: M-Pesa asked again every day, and the box office's cash counts. Cinemas resolve their own.
             </p>
             {len(rows) == 0
                 and <p className="rounded-lg border bg-card p-4 text-sm">
@@ -55,6 +56,9 @@ def:pub ReconciliationPage -> JsxElement {
                         >
                             <p className="font-medium">
                                 {f"{r['cinema_name']}: {r['label']}"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {day_time_label(r["found_at"], r["timezone"])}
                             </p>
                             <p className="text-sm break-words">{ExceptionText(r)}</p>
                         </li> for r in rows

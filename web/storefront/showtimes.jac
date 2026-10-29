@@ -22,6 +22,11 @@ def:pub day_label(starts_at: str, tz: str) -> str {
     );
 }
 
+def:pub day_time_label(at: str, tz: str) -> str {
+    # "Wed 28 Oct, 08:43": when something happened, at the cinema.
+    return f"{day_label(at, tz)}, {time_label(at, tz)}" if at else "";
+}
+
 def:pub long_day_label(starts_at: str, tz: str) -> str {
     # "Friday 3 October".
     return _date(starts_at).toLocaleDateString(

@@ -1,9 +1,11 @@
 """Reconciliation's endpoints and job (P15.6, ADR-0085): core/payments/reconcile.jac.
 
-- reconciliation(tenant): the cinema's exceptions and recent cash-ups, for staff who
-  read its financial reports (financial_reports.read).
-- resolve_exception(tenant, exception_id, note) and upload_mpesa_statement(tenant,
-  csv_text): the same staff; in the cinema's audit log.
+- reconciliation(tenant): the cinema's exceptions, recent cash-ups and time zone, for
+  staff who read its financial reports (financial_reports.read).
+- reconciliation_open(tenant): how many are open, for the sidebar's badge; the same
+  staff (anyone else is told 0, so the sidebar needn't know who may read them).
+- resolve_exception(tenant, exception_id, note): the same staff; in the cinema's audit
+  log.
 - count_cash(tenant, counted_cents): a box office cash-up (bookings.create, on shift),
   its result shown only once counted.
 - platform_reconciliation(): every cinema's open exceptions; platform_takings():
@@ -26,7 +28,6 @@ import from core.payments.reconcile {
     exceptions_of,
     exception_view,
     resolve,
-    match_statement,
     cash_up,
     cash_ups_of,
     cash_up_view,
@@ -36,7 +37,6 @@ import from core.payments.reconcile {
 
 glob READ: str = "financial_reports.read",
      SELL: str = "bookings.create",
-     STATEMENT_MAX: int = 3 * 1024 * 1024,
      CASH_UPS_SHOWN: int = 30;
 
 def _scope(tenant: str) -> any {  # jac:ignore[W1037]
@@ -74,27 +74,30 @@ def _reconciliation(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
             ]
         ),
         "exceptions": found,
+        "timezone": cinema_timezone(cinema),
         "cash_ups": [cash_up_view(c) for c in cash_ups_of(cinema)[:CASH_UPS_SHOWN]]
     };
+}
+
+def _open_count(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = resolve_context(tenant);
+    try {
+        require(scope.ctx, READ, Resource(tenant_id=scope.ctx.tenant_id));
+    } except Forbidden {
+        return {"ok": True, "open": 0};
+    }
+    found = [
+        e
+        for e in exceptions_of(scope.tenant)
+        if e.status == "open"
+    ];
+    return {"ok": True, "open": len(found)};
 }
 
 def _resolve(tenant: str, exception_id: str, note: str) -> dict[str, any] {  # jac:ignore[W1037]
     cinema = _scope(tenant).tenant;
     done = resolve(cinema, str(exception_id), note, _me_at(cinema));
     return {"ok": True, "exception": exception_view(done)};
-}
-
-def _upload(tenant: str, csv_text: str) -> dict[str, any] {  # jac:ignore[W1037]
-    cinema = _scope(tenant).tenant;
-    if not isinstance(csv_text, str) or not csv_text.strip() {
-        raise Refused("empty_statement", "Choose the statement's CSV file.");
-    }
-    if len(csv_text) > STATEMENT_MAX {
-        raise Refused(
-            "too_long", "The statement is too big: upload a month at a time."
-        );
-    }
-    return {"ok": True, ** match_statement(cinema, csv_text, cinema_timezone(cinema))};
 }
 
 def _count(tenant: str, counted_cents: int) -> dict[str, any] {  # jac:ignore[W1037]
@@ -118,7 +121,8 @@ def _platform_reconciliation -> dict[str, any] {  # jac:ignore[W1037]
                     {
                         ** exception_view(e),
                         "cinema_name": cinema.name,
-                        "slug": cinema.slug
+                        "slug": cinema.slug,
+                        "timezone": cinema_timezone(cinema)
                     }
                 );
             }
@@ -136,6 +140,10 @@ def:protect reconciliation(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     return answer(lambda -> any { return _reconciliation(tenant); });  # jac:ignore[W1037]
 }
 
+def:protect reconciliation_open(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _open_count(tenant); });  # jac:ignore[W1037]
+}
+
 def:protect resolve_exception(
     tenant: str, exception_id: str, note: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
@@ -145,16 +153,6 @@ def:protect resolve_exception(
         "reconcile_exception",
         str(exception_id),
         lambda -> any { return _resolve(tenant, exception_id, note); }  # jac:ignore[W1037]
-    );
-}
-
-def:protect upload_mpesa_statement(tenant: str, csv_text: str) -> dict[str, any] {  # jac:ignore[W1037]
-    return audited(
-        tenant,
-        "reconcile.statement_uploaded",
-        "mpesa_statement",
-        "",
-        lambda -> any { return _upload(tenant, csv_text); }  # jac:ignore[W1037]
     );
 }
 

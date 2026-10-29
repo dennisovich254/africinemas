@@ -297,7 +297,7 @@ import from core.billing.billing_api {
 import from core.payments.reconcile_api {
     reconciliation,  # jac:ignore[W2037]
     resolve_exception,  # jac:ignore[W2037]
-    upload_mpesa_statement,  # jac:ignore[W2037]
+    reconciliation_open,  # jac:ignore[W2037]
     count_cash,  # jac:ignore[W2037]
     platform_reconciliation,  # jac:ignore[W2037]
     platform_takings,  # jac:ignore[W2037]
