@@ -121,3 +121,38 @@ def:pub OffersBox(
             Send me this cinema's offers and news by email. You can stop them at any time.
         </label>;
 }
+
+def:pub AdultBox(
+    checked: bool,
+    error: str,
+    on_change: any  # jac:ignore[W1037]
+) -> JsxElement {
+    # "I'm 18 or over", at sign-up and before paying (Data Protection Act s.33, P15.0):
+    # AfriCinemas doesn't take children's details. Never ticked for the customer.
+    return
+        <div className="flex flex-col gap-1">
+            <label
+                className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+                data-testid="adult-box"
+            >
+                <input
+                    type="checkbox"
+                    id="adult"
+                    className="size-5"
+                    checked={checked}
+                    aria-invalid={"true" if error else "false"}
+                    aria-describedby={"adult-error" if error else None}
+                    onChange={lambda { on_change(not checked); }}
+                />
+                I'm 18 or over.
+            </label>
+            {error
+                and <p
+                    id="adult-error"
+                    role="alert"
+                    className="text-sm text-destructive"
+                >
+                    {error}
+                </p>}
+        </div>;
+}

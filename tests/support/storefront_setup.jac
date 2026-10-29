@@ -170,7 +170,8 @@ def customer_at(app: Served, slug: str, name: str, email: str = "") -> str {
             "slug": slug,
             "email": email or f"{name}@example.com",
             "password": TEST_PASSWORD,
-            "name": name
+            "name": name,
+            "adult": "yes"
         }
     );
     assert made["ok"] , made;

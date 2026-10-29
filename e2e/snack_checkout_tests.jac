@@ -100,6 +100,7 @@ test "a visitor adds popcorn with butter, pays for it all, and sees it booked" {
             assert "KES 1,260" in page.inner_text('[data-testid="order-total"]');
             page.fill("#mpesa-phone", "0712 345 678");  # jac:ignore[W6002]
             page.fill("#tickets-email", "anna@example.com");  # jac:ignore[W6002]
+            page.check("#adult");  # "I'm 18 or over" (P15.0)
             _press(page, project, '[data-testid="pay-mpesa"]');
             page.wait_for_selector('[data-testid="booked"]', timeout=SETTLE_MS);
             assert "Popcorn · Large"
@@ -135,6 +136,7 @@ test "the snack counter hands a paid order's snacks over once, by its pickup cod
         page.wait_for_selector('[data-testid="pay-panel"]');
         page.fill("#mpesa-phone", "0712 345 678");  # jac:ignore[W6002]
         page.fill("#tickets-email", "ben@example.com");  # jac:ignore[W6002]
+        page.check("#adult");  # "I'm 18 or over" (P15.0)
         _press(page, "desktop", '[data-testid="pay-mpesa"]');
         page.wait_for_selector('[data-testid="pickup-reference"]', timeout=SETTLE_MS);
         code = page.inner_text('[data-testid="pickup-reference"]').strip();

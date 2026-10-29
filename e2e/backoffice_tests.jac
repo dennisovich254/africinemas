@@ -137,6 +137,11 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
             email = email_for(unique("signup"));
             _type(page, "#email", email);
             _type(page, "#password", PASSWORD);
+            # "I'm 18 or over" is never ticked for them, and needed (P15.0).
+            page.click('button[type="submit"]');
+            page.wait_for_selector('#adult-error:has-text("18 or over")');
+            assert "/signup" in page.url;
+            page.check("#adult");
             page.click('button[type="submit"]');
             # Your cinemas, asking for the emailed link first (P14.2).
             page.wait_for_url("**/app");
@@ -240,6 +245,7 @@ test "an account made in the browser can sign out and sign back in" {
             page.goto(BASE_URL + "/signup");
             _type(page, "#email", email);
             _type(page, "#password", PASSWORD);
+            page.check("#adult");  # "I'm 18 or over" (P15.0)
             page.click('button[type="submit"]');
             # Your cinemas; the emailed link confirms the email (P14.2), then the wizard.
             page.wait_for_url("**/app");

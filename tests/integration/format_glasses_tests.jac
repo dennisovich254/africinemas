@@ -182,7 +182,8 @@ test "bought glasses are snack sales and stay attached to their ticket" {
                 ** where,
                 "phone": fresh_phone(),
                 "email": "viewer@example.com",
-                "idempotency_key": f"pay-{uuid.uuid4().hex}"
+                "idempotency_key": f"pay-{uuid.uuid4().hex}",
+                "adult": "yes"
             }
         );
         assert started["ok"] , started;

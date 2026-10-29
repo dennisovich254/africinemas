@@ -66,14 +66,24 @@ def:pub StorefrontSearch(slug: str, compact: bool = False) -> JsxElement {
         if home["ok"] {
             for m in home["movies"] {
                 found.append(
-                    {"key": m["movie_key"], "title": m["title"], "soon": False}
+                    {
+                        "key": m["movie_key"],
+                        "title": m["title"],
+                        "rating": m.get("age_rating") or "",
+                        "soon": False
+                    }
                 );
             }
             for s in home["page"]["sections"] {
                 if s["type"] == "coming_soon" {
                     for m in s["movies"] {
                         found.append(
-                            {"key": m["movie_key"], "title": m["title"], "soon": True}
+                            {
+                                "key": m["movie_key"],
+                                "title": m["title"],
+                                "rating": m.get("age_rating") or "",
+                                "soon": True
+                            }
                         );
                     }
                 }
@@ -195,6 +205,13 @@ def:pub StorefrontSearch(slug: str, compact: bool = False) -> JsxElement {
                                                 <span className="font-medium">
                                                     {m["title"]}
                                                 </span>
+                                                {m["rating"]
+                                                    and <span
+                                                        className="text-xs text-muted-foreground"
+                                                        data-testid="search-rating"
+                                                    >
+                                                        {f"KFCB {m['rating']}"}
+                                                    </span>}
                                                 {m["soon"]
                                                     and <span
                                                         className="text-xs text-muted-foreground"

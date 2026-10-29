@@ -1372,7 +1372,8 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "slug": "{tenant}",
                  "email": "probe@example.com",
                  "password": "probe-password-1",
-                 "name": "Probe"
+                 "name": "Probe",
+                 "adult": "yes"
              }
          },
          "my_storefront_account": {
@@ -1530,7 +1531,8 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
                  "holder": "probe-holder-0123456789abcdef",
                  "phone": "0712345678",
                  "email": "probe@example.com",
-                 "idempotency_key": "probe-key-xxxxxxxxxxxxxxxx"
+                 "idempotency_key": "probe-key-xxxxxxxxxxxxxxxx",
+                 "adult": "yes"
              }
          },
          "more_snacks": {

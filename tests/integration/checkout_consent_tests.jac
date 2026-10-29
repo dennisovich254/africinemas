@@ -49,6 +49,7 @@ def _pay_with(app: Served, screening: str, email: str, offers: str) -> any {  # 
             "phone": "254700000004",
             "email": email,
             "idempotency_key": f"pay-{uuid.uuid4().hex}",
+            "adult": "yes",
             "offers": offers
         }
     );
@@ -129,6 +130,29 @@ test "offers are recorded only when ticked, and stop from My account" {
         # Only a customer of the cinema has offers to read.
         assert code_of(app.call("owner", "my_offers", {"slug": "nova"}))
             == "not_your_cinema";
+    } finally {
+        app.close();
+    }
+}
+
+test "paying online needs the customer's word that they're 18 or over" {
+    (app, nova, screening) = paying_cinema([]);
+    try {
+        body = {
+            "slug": "nova",
+            "screening_id": screening,
+            "holder": ANNA,
+            "phone": "254700000004",
+            "email": "anna@example.com",
+            "idempotency_key": f"pay-{uuid.uuid4().hex}"
+        };
+        # Left out, or anything but "yes": refused (P15.0).
+        for given in [{}, {"adult": ""}, {"adult": "no"}, {"adult": "True"}] {
+            got = browse(app, "start_payment", {** body, ** given});
+            assert code_of(got) == "adult_required" , (given, got);
+            assert "18 or over" in got["error"]["message"];
+        }
+        assert browse(app, "start_payment", {** body, "adult": "yes"})["ok"];
     } finally {
         app.close();
     }

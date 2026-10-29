@@ -188,3 +188,22 @@ test "with an SMTP host, mail is sent over SMTP with the same message" {
         }
     }
 }
+
+test "the ticket email gives the film's rating and the terms the booking was made under" {
+    plain = ticket_mail(_mail(), "tickets@africinemas.example");
+    # Neither is invented when it isn't known.
+    assert "KFCB" not in plain.text and "terms of use" not in plain.text;
+    data = _mail();
+    data.age_rating = "16";
+    data.terms_version = "0.1";
+    data.terms_link = "https://africinemas.example/legal/terms";
+    made = ticket_mail(data, "tickets@africinemas.example");
+    # The KFCB rating (Films and Stage Plays Act s.17(3)), in both versions.
+    assert "Rafiki · KFCB 16" in made.text , made.text;
+    assert "Rated 16 by the KFCB" in made.html;
+    # The terms' version, with a link (Consumer Protection Act s.32; P15.0).
+    assert "terms of use, version 0.1: https://africinemas.example/legal/terms"
+        in made.text , made.text;
+    assert 'href="https://africinemas.example/legal/terms"' in made.html
+        and "version 0.1" in made.html;
+}

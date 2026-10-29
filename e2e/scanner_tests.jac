@@ -62,7 +62,8 @@ def _paid_tickets(owner: dict[str, str]) -> list[dict[str, str]] {
             ** where,
             "phone": "0712345678",
             "email": "guest@example.com",
-            "idempotency_key": f"pay-{uuid.uuid4().hex}"
+            "idempotency_key": f"pay-{uuid.uuid4().hex}",
+            "adult": "yes"
         }
     );
     assert started["ok"] , started;

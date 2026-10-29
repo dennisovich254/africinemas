@@ -21,7 +21,13 @@ def _sign_up(
     return browse(
         app,
         "customer_sign_up",
-        {"slug": slug, "email": email, "password": password, "name": "Wanjiru"}
+        {
+            "slug": slug,
+            "email": email,
+            "password": password,
+            "name": "Wanjiru",
+            "adult": "yes"
+        }
     );
 }
 
@@ -123,6 +129,27 @@ test "a staff account is no one's customer" {
         # Signed out, the storefront knows nobody.
         assert browse(app, "my_storefront_account", {"slug": "nova"})["signed_in"]
             == False;
+    } finally {
+        app.close();
+    }
+}
+
+test "a customer account needs their word that they're 18 or over" {
+    (app, nova, screening) = paying_cinema([]);
+    try {
+        body = {
+            "slug": "nova",
+            "email": "young@example.com",
+            "password": TEST_PASSWORD,
+            "name": "Wanjiru"
+        };
+        # Left out, or anything but "yes": refused, and no account is made (P15.0).
+        for given in [{}, {"adult": ""}, {"adult": "no"}] {
+            got = browse(app, "customer_sign_up", {** body, ** given});
+            assert code_of(got) == "adult_required" , (given, got);
+        }
+        made = browse(app, "customer_sign_up", {** body, "adult": "yes"});
+        assert made["ok"] , made;
     } finally {
         app.close();
     }

@@ -176,12 +176,16 @@ test "a signed-in customer books and pays in the card, and the booking is theirs
             app, token, "card_order", {** where, "items": items, "key": key}
         );
         assert ordered["ok"] , ordered;
-        paying = _card(
-            app,
-            token,
-            "card_pay",
-            {** where, "phone": fresh_phone(), "email": EMAIL, "key": f"pay-{key}"}
-        );
+        pay_with = {
+            ** where,
+            "phone": fresh_phone(),
+            "email": EMAIL,
+            "key": f"pay-{key}"
+        };
+        # Not without the customer's "I'm 18 or over" (P15.0).
+        unticked = _card(app, token, "card_pay", pay_with);
+        assert not unticked["ok"] and "18 or over" in unticked["message"] , unticked;
+        paying = _card(app, token, "card_pay", {** pay_with, "adult": "yes"});
         assert paying["ok"] and paying["state"] == "stk_requested" , paying;
         # The card's state comes back after a reload, mid-way.
         assert _card(app, token, "card_state", where)["order"] is not None;

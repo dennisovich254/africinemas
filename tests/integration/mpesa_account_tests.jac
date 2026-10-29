@@ -144,7 +144,8 @@ def _pay(app: Served, screening: str, holder: str) -> any {  # jac:ignore[W1037]
             "holder": holder,
             "phone": fresh_phone(),
             "email": "anna@example.com",
-            "idempotency_key": f"pay-{uuid.uuid4().hex}"
+            "idempotency_key": f"pay-{uuid.uuid4().hex}",
+            "adult": "yes"
         }
     );
 }

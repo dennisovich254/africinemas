@@ -64,6 +64,10 @@ test "a paid order's tickets are emailed once, with a QR image per seat and the 
         for t in mine["tickets"] {
             assert t["reference"] in mails[0]["text"];
         }
+        # The film's KFCB rating, and the terms the booking was made under (P15.0).
+        assert "Rafiki · KFCB PG" in mails[0]["text"] , mails[0]["text"];
+        assert "AfriCinemas' terms of use, version 0.1:" in mails[0]["text"];
+        assert "/legal/terms" in mails[0]["text"];
         # Sent once: the job finds nothing more to send.
         assert len(_sent(app)) == 1;
     } finally {
@@ -80,6 +84,7 @@ test "the link shows the booking; a wrong token or another cinema shows nothing"
         assert seen["ok"] , seen;
         booking = seen["booking"];
         assert booking["movie_title"] == "Rafiki" and booking["starts_at"];
+        assert booking["age_rating"] == "PG";
         assert booking["email"] == "a***@example.com";
         assert [t["seat_label"] for t in booking["tickets"]] == ["A1", "A2"];
         assert all([t["qr"].startswith("TKT1.") for t in booking["tickets"]]);

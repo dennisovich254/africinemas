@@ -45,7 +45,13 @@ obj TicketMail {
         # "2 × Popcorn · Large (Butter)" lines, and their pickup code (P12.9).
         snacks: list[str] = [],
         pickup_reference: str = "",
-        pickup_qr: str = "";
+        pickup_qr: str = "",
+        # The film's KFCB rating (Films and Stage Plays Act s.17(3)).
+        age_rating: str = "",
+        # The AfriCinemas terms of use the booking was made under, and where they're
+        # published (Consumer Protection Act s.32; P15.0).
+        terms_version: str = "",
+        terms_link: str = "";
 }
 
 def _when(starts_at: str, timezone: str) -> str {
@@ -66,6 +72,10 @@ def _qr_png(payload: str) -> bytes {
 def ticket_mail(data: TicketMail, from_addr: str) -> OutgoingMail {
     when = _when(data.starts_at, data.timezone);
     e = html.escape;
+    rated = f" · KFCB {data.age_rating}" if data.age_rating else "";
+    terms = f"Booked under AfriCinemas' terms of use, version {data.terms_version}: {data.terms_link}"
+        if data.terms_version
+        else "";
     images: list[MailImage] = [];
     text_seats: list[str] = [];
     html_seats: list[str] = [];
@@ -143,6 +153,7 @@ def ticket_mail(data: TicketMail, from_addr: str) -> OutgoingMail {
         [
             f"Your tickets for {data.movie_title}",
             "",
+            f"{data.movie_title}{rated}" if rated else data.movie_title,
             when,
             data.place,
             f"Order {data.order_reference}",
@@ -152,19 +163,22 @@ def ticket_mail(data: TicketMail, from_addr: str) -> OutgoingMail {
         ]
             + text_seats
             + text_snacks
-            + [
-                "",
-                f"Your tickets, any time: {data.link}",
-                "",
-                f"{data.cinema_name}",
-                FOOTER
-            ]
+            + ["", f"Your tickets, any time: {data.link}", ""]
+            + ([terms, ""] if terms else [])
+            + [f"{data.cinema_name}", FOOTER]
     );
     body = (
         '<div style="font-family:Arial,sans-serif;color:#111;max-width:480px;margin:0 auto">'
         + f'<h1 style="font-size:20px;margin:0 0 4px">Your tickets for {e(
             data.movie_title
         )}</h1>'
+        + (
+            f'<p style="margin:0" data-rating="1">Rated {e(
+                data.age_rating
+            )} by the KFCB</p>'
+                if data.age_rating
+                else ""
+        )
         + f'<p style="margin:0">{e(when)}</p>'
         + f'<p style="margin:0">{e(data.place)}</p>'
         + f'<p style="margin:0 0 16px;color:#555">Order {e(data.order_reference)}</p>'
@@ -176,6 +190,13 @@ def ticket_mail(data: TicketMail, from_addr: str) -> OutgoingMail {
         + f'<p style="margin:16px 0"><a href="{e(
             data.link
         )}">Open your tickets</a> any time: {e(data.link)}</p>'
+        + (
+            f'<p style="margin:16px 0 0;color:#555;font-size:13px">Booked under AfriCinemas\' <a href="{e(
+                data.terms_link
+            )}">terms of use</a>, version {e(data.terms_version)}.</p>'
+                if data.terms_version
+                else ""
+        )
         + f'<p style="margin:24px 0 0;color:#555;font-size:13px">{e(
             data.cinema_name
         )} · {FOOTER}</p>'

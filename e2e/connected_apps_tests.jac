@@ -37,6 +37,7 @@ def _sign_up(page: any, slug: str) {  # jac:ignore[W1037]
     _type(page, "#name", "Kim");
     _type(page, "#email", email_for(unique("kim")));
     _type(page, "#password", PASSWORD);
+    page.check('[data-testid="customer-sign-up"] #adult');  # "I'm 18 or over" (P15.0)
     page.click('[data-testid="customer-sign-up"] button[type="submit"]');
     page.wait_for_function("!!localStorage.getItem('jac_token')");
     page.wait_for_url(f"**/c/{slug}");
