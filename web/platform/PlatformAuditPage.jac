@@ -3,7 +3,7 @@
 `/audit`: the platform's own events, newest first, PAGE at a time with Previous and
 Next, as the cinema audit log is (web/backoffice/AuditSection.jac). It's narrowed by an
 action, a search of who did it or who it was done to, and a cinema (`?cinema=<slug>`,
-from a cinema's page), shown as a filter that can be cleared. Each row says when (in
+shown as a filter that can be cleared; or fixed, on a cinema's Logs tab). Each row says when (in
 this browser's time zone), who, what, to whom or what, and the result in words.
 Refused attempts are there too, by accounts that aren't platform staff as well. For
 super admins (platform.audit); the server checks every request. Nobody can change or
@@ -82,11 +82,12 @@ def on_label(event: dict[str, str]) -> str {
     return target + (f" ({note})" if note else "");
 }
 
-def:pub PlatformAuditPage -> JsxElement {
+def:pub PlatformAuditPage(only_cinema: str = "") -> JsxElement {
+    # only_cinema: shown on a cinema's Logs tab, always narrowed to it.
     where: any = useLocation();  # jac:ignore[W1037,W1051]
     win: any = window;  # jac:ignore[W1037,W2001]
     query: any = new(win.URLSearchParams, where.search);  # jac:ignore[W1037]
-    cinema: str = query.get("cinema") or "";
+    cinema: str = only_cinema or query.get("cinema") or "";
     [events, set_events] = useState([]);
     # The `before` cursor of each page reached so far (the first is ""), and which one
     # is shown; the next page's cursor comes with each answer.
@@ -230,6 +231,7 @@ def:pub PlatformAuditPage -> JsxElement {
                 </div>
             </div>
             {cinema
+                and not only_cinema
                 and <p
                     className="flex flex-wrap items-center gap-2 text-sm"
                     data-testid="platform-audit-cinema"

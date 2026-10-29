@@ -22,8 +22,9 @@ def email_for(name: str) -> str {
     return f"{name}@example.com";
 }
 
-def register(email: str) -> str {
-    # Signs up with an email identity (as the web form does) and returns a session token.
+def register(email: str, confirm: bool = True) -> str {
+    # Signs up with an email identity (as the web form does) and returns a session token;
+    # `confirm`: and follows the emailed link.
     (status, body) = http_call(
         "POST",
         f"{BASE_URL}/user/register",
@@ -43,8 +44,11 @@ def register(email: str) -> str {
     );
     assert status == 200 , f"login {email}: {status} {body}";
     token = str(body["data"]["token"]);
-    # Staff confirm their email before creating a cinema (P14.2), the real way.
-    confirm_email_of(email, token);
+    # Staff confirm their email before creating a cinema (P14.2) or starting a shift,
+    # the real way.
+    if confirm {
+        confirm_email_of(email, token);
+    }
     return token;
 }
 
@@ -212,8 +216,11 @@ def add_screen(owner: dict[str, str], venue_id: str, name: str = "Screen 1") -> 
     return answer["auditorium"]["auditorium_id"];
 }
 
-def add_staff(owner: dict[str, str], role: str, venue_id: str = "") -> dict[str, str] {
+def add_staff(
+    owner: dict[str, str], role: str, venue_id: str = "", confirm: bool = True
+) -> dict[str, str] {
     # Invites a new person with `role` and has them accept; returns their credentials.
+    # `confirm`: their email is confirmed (it must be, before they start a shift).
     invite = call(
         owner["token"],
         "invite_staff",
@@ -221,7 +228,7 @@ def add_staff(owner: dict[str, str], role: str, venue_id: str = "") -> dict[str,
     );
     assert invite["ok"] , invite;
     email = email_for(unique(role));
-    token = register(email);
+    token = register(email, confirm);
     accepted = call(token, "accept_invite", {"token": invite["token"], "email": email});
     assert accepted["ok"] , accepted;
     return {"email": email, "token": token};

@@ -126,6 +126,15 @@ def:pub CinemaPicker -> JsxElement {
     }
     useEffect(start_loading, []);
     slugs = [c["slug"] for c in cinemas] if cinemas else [];
+    # What confirming the email is for: creating a cinema and taking it live, for
+    # someone with no cinema yet or an owner; starting their shifts, for other staff.
+    listed: list[dict[str, any]] = cinemas or [];  # jac:ignore[W1037]
+    owned: list[str] = [
+        c["slug"]
+        for c in listed
+        if "owner" in c["roles"]
+    ];
+    may_own: bool = cinemas is not None and (len(listed) == 0 or len(owned) > 0);
     body: any = None;  # jac:ignore[W1037]
     if failed {
         body = <div className="flex flex-col gap-4">
@@ -171,7 +180,11 @@ def:pub CinemaPicker -> JsxElement {
     }
     return
         <PlainLayout title="Your cinemas" account={<AccountActions slugs={slugs}/>}>
-            <EmailCheckBanner/>
-            {body}
+            {cinemas is not None
+                and <EmailCheckBanner
+                    unlocks={"You'll need it to create a cinema and to go live."
+                        if may_own
+                        else "Until you do, you can't start a shift at your cinema."}
+                />}{body}
         </PlainLayout>;
 }

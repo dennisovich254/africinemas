@@ -80,6 +80,12 @@ system, not real money.
 - [ ] **Refunding an unmatched payment** is done outside the app (M-Pesa reversal or a
   transfer). Agree who does it and how it's recorded.
 
+## Staff emails (ADR-0087)
+
+- [ ] **Staff can't start a shift until they confirm their email.** The confirmation
+  email must reach new staff as soon as they join, from the live email provider. Try it
+  with a real invite on staging before inviting a cinema's team.
+
 ## Reconciliation (P15.6)
 
 - [ ] **The daily M-Pesa check against live Daraja**: the STK status query still answers

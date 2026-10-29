@@ -22,7 +22,8 @@ import from e2e.support.api {
     owner_with_cinema,
     add_venue,
     add_staff,
-    outbox_link
+    outbox_link,
+    confirm_email_of
 }
 
 glob SIDEBAR: str = '[data-testid="shell-sidebar"]',
@@ -361,6 +362,50 @@ test "an usher sees only the overview, the scanner and their profile" {
                 == ["Overview", "Scanner", "Your profile"] , project;
             page.goto(f"{BASE_URL}/app/{owner['slug']}/staff");
             page.wait_for_selector('[data-testid="no-access"]');
+            page.context.close();
+        }
+    } finally {
+        close_contexts(browser);
+    }
+}
+
+test "a member's work is locked until they confirm their email, and the banner says what" {
+    owner = owner_with_cinema();
+    (pw, browser) = shared_browser();
+    try {
+        for project in PROJECTS {
+            agent = add_staff(owner, "box_office_agent", "", False);
+            page = _page(browser, pw, project);
+            _sign_in(page, agent["email"]);
+            # Your cinemas: confirm it to start a shift.
+            check = page.locator('[data-testid="email-check"]');
+            check.wait_for();
+            assert agent["email"] in check.inner_text();
+            assert "you can't start a shift at your cinema" in check.inner_text();
+            # The back office: what it locks for their role.
+            page.click(f'[data-testid="cinema-list"] a[href="/app/{owner["slug"]}"]');
+            page.wait_for_selector(TITLE);
+            check.wait_for();
+            said = check.inner_text();
+            assert "you can't start a shift, so you can't sell at the box office"
+                in said , said;
+            assert "take your cinema live" not in said , said;
+            # Start shift says why it can't.
+            page.click(f'{BANNER} button:has-text("Start shift")');
+            page.wait_for_selector(
+                '[data-testid="shift-banner-text"]:has-text("Confirm your email first")'
+            );
+            assert agent["email"]
+                in page.inner_text('[data-testid="shift-banner-text"]');
+            # Confirmed: the banner goes, and the shift starts.
+            confirm_email_of(agent["email"], agent["token"]);
+            page.reload();
+            page.wait_for_selector(TITLE);
+            page.wait_for_selector(BANNER);
+            page.wait_for_load_state("networkidle");
+            assert page.locator('[data-testid="email-check"]').count() == 0;
+            page.click(f'{BANNER} button:has-text("Start shift")');
+            page.wait_for_selector(BANNER, state="detached");
             page.context.close();
         }
     } finally {

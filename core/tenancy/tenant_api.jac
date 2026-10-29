@@ -28,6 +28,9 @@ import from core.clock { now }
 import from core.tenancy.shifts { open_shift, close_shift, shift_is_open }
 import from core.audit.log { audited }
 import from core.tenancy.open_cinema { preview_pass, is_preview }
+import from core.tenancy.membership { records_of }
+import from core.tenancy.principal { node_id, act_as, restore }
+import from core.accounts.email_verification { is_confirmed }
 
 def:protect storefront_preview(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     # A pass for the cinema's own team to see its storefront before it goes live
@@ -245,7 +248,7 @@ def:protect start_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "shift.started",
         "shift",
         "",
-        lambda -> any { return _do_start_shift(tenant); }  # jac:ignore[W1037]
+        lambda -> any { return _do_start_confirmed_shift(tenant); }  # jac:ignore[W1037]
     );
 }
 
@@ -257,4 +260,42 @@ def:protect end_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
         "",
         lambda -> any { return _do_end_shift(tenant); }  # jac:ignore[W1037]
     );
+}
+
+def unconfirmed_email(scope: TenantScope) -> str {
+    # The caller's sign-in email at the cinema if they haven't confirmed it yet, else
+    # "" (confirmed, or a record without an email address, as create_cinema checks).
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        mine = [
+            m.email
+            for m in records_of(scope.tenant)
+            if m.staff_root_id == me and "@" in m.email
+        ];
+    } finally {
+        restore(me);
+    }
+    if not mine or is_confirmed(me, mine[0]) {
+        return "";
+    }
+    return mine[0];
+}
+
+def _do_start_confirmed_shift(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # start_shift, once the member has confirmed their email (owner, 2026-10-29,
+    # ADR-0087): until then their role's work, which all needs a shift, is locked.
+    try {
+        scope = resolve_context(tenant);
+    } except NotFound {
+        return NOT_FOUND;
+    }
+    unconfirmed = unconfirmed_email(scope);
+    if unconfirmed {
+        return refused(
+            "confirm_email",
+            f"Confirm your email first: open the link we sent to {unconfirmed}. You can send a new one from the banner at the top of the page."
+        );
+    }
+    return _do_start_shift(tenant);
 }
