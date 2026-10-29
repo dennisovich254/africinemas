@@ -483,7 +483,20 @@ def:pub t_sim_change(phone: str, outcome: str, amount_cents: int) -> int {
     # M-Pesa changes its mind about `phone`'s pushes (P15.6): their outcome, and the
     # amount it says was paid when not 0. How many pushes.
     changed = 0;
-    for push in _simulator().pushes.values() {
+    sim = _simulator();
+    if outcome == "forget" {
+        # M-Pesa no longer knows them (a prompt too old to ask about).
+        gone = [
+            k
+            for (k, push) in sim.pushes.items()
+            if push.request.phone == phone
+        ];
+        for k in gone {
+            sim.pushes.pop(k);
+        }
+        return len(gone);
+    }
+    for push in sim.pushes.values() {
         if push.request.phone == phone {
             push.outcome = outcome;
             if amount_cents {

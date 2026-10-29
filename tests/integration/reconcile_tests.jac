@@ -3,7 +3,7 @@
 In-process app (payment_app.jac), the simulated M-Pesa told to change its mind.
 
 - The daily check asks M-Pesa again about each payment, once: matching ones make no
-  exception; one M-Pesa now says wasn't paid, one for another amount, one it says was
+  exception, nor does one M-Pesa no longer knows (it's asked again later); one M-Pesa now says wasn't paid, one for another amount, one it says was
   paid though nothing was sold, and a receipt on two payments each make one. Running
   again adds nothing.
 - An M-Pesa statement is matched by receipt for the time it covers: money no order
@@ -168,6 +168,13 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
                 "receipt": receipts[refs[1]]
             }
         );
+        # M-Pesa no longer knows Anna's payment: unchecked, never "not paid".
+        assert app.call(
+            "owner",
+            "t_sim_change",
+            {"phone": anna, "outcome": "forget", "amount_cents": 0}
+        )
+            == 1;
         assert _exceptions(app) == [];
         assert app.call("owner", "t_reconcile") == 4;
         found = _exceptions(app);

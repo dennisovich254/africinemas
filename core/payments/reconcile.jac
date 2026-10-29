@@ -4,7 +4,8 @@ Owner's decisions (2026-10-28): no extra Daraja credentials. Three checks, each 
 what doesn't add up into an **exception** for the cinema and the console:
 
 1. **Every day, M-Pesa is asked again** about each payment of the last LOOKBACK_DAYS, with
-   the account it was made with (provider_of), once per payment:
+   the account it was made with (provider_of), once per payment it answers about (one
+   it doesn't know, or hasn't answered yet, is asked again next time):
    - `not_paid`: we sold on it, but M-Pesa says it wasn't paid;
    - `no_order`: M-Pesa says it was paid, but nothing was sold for it;
    - `amount_differs`: M-Pesa's amount isn't ours.
@@ -30,7 +31,7 @@ import io;
 import from datetime { datetime, timedelta }
 import from zoneinfo { ZoneInfo }
 import from core.clock { now }
-import from core.claims { claim }
+import from core.claims { claim, release }
 import from core.catalog.answers { Refused }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.groups { attach_to_tenant }
@@ -284,11 +285,15 @@ def check_mpesa(cinema: Tenant, at: datetime) -> int {
                 continue;
             }
             status = provider.query(intent.checkout_request_id);
+            # No answer yet, or M-Pesa doesn't know it (a prompt too old to ask about):
+            # unchecked, so asked again next time while it's still recent.
+            if status.state in [PaymentState.UNKNOWN, PaymentState.STK_REQUESTED] {
+                release(CHECKED, f"{node_id(cinema)}|{ref}", "1");
+                continue;
+            }
             taken = sold.get(node_id(intent));
             paid = status.state == PaymentState.SUCCESS;
-            if taken is not None
-                and not paid
-                and status.state != PaymentState.STK_REQUESTED {
+            if taken is not None and not paid {
                 made += int(
                     keep(
                         cinema,
