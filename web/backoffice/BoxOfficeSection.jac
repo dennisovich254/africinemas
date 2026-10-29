@@ -17,6 +17,7 @@ or all codes can be printed. New sale starts over with a new holder id.
 
 import from react { useState, useEffect }
 import from .CashUp { CashUp }
+import from ..shell.Tabs { Tabs }
 import from core.payments.reconcile_api { cash_status }  # jac:ignore[W2037] authenticated endpoint
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
@@ -391,37 +392,21 @@ def CounterDone(tenant: str, payment: dict[str, any], on_new_sale: any) -> JsxEl
 
 def SaleKind(kind: str, on_kind: any) -> JsxElement {  # jac:ignore[W1037]
     # Tickets (with snacks if the customer wants) or snacks only (P12.10).
+    kinds: list[tuple[str, str]] = [
+        ("tickets", "Tickets"),
+        ("snacks", "Snacks only"),
+        ("extra", "Existing booking"),
+        # Counting the cash taken (P15.6).
+        ("cash", "Count cash")
+    ];
     return
-        <div
-            role="group"
-            aria-label="What's being sold"
-            className="flex flex-wrap gap-2 border-b"
-        >
-            {[
-                <button
-                    key={k}
-                    type="button"
-                    aria-pressed={"true" if kind == k else "false"}
-                    data-testid={f"sale-kind-{k}"}
-                    onClick={lambda { on_kind(k); }}
-                    className={"-mb-px inline-flex min-h-11 items-center border-b-2 px-3 text-sm font-medium "
-                        + (
-                            "border-primary text-foreground"
-                                if kind == k
-                                else "border-transparent text-muted-foreground hover:text-foreground"
-                        )}
-                >
-                    {label}
-                </button>
-                for (k, label) in [
-                    ("tickets", "Tickets"),
-                    ("snacks", "Snacks only"),
-                    ("extra", "Existing booking"),
-                    # Counting the cash taken (P15.6).
-                    ("cash", "Count cash")
-                ]
-            ]}
-        </div>;
+        <Tabs
+            label="What's being sold"
+            tabs={[{"key": k, "label": label, "count": ""} for (k, label) in kinds]}
+            current={kind}
+            on_pick={on_kind}
+            testid="sale-kind"
+        />;
 }
 
 def:pub BoxOfficeSection(

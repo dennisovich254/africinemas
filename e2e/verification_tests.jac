@@ -1,9 +1,9 @@
 """P14.4 E2E: the owner verifies themself and the business, and submits for review.
 
 A cinema not yet live, set up (venue, screen, prices) with its policies published. Its
-owner opens Verification, reads why each item is asked for, fills the details (a wrong
-KRA PIN is flagged beside its field), uploads the ID photos and the certificates, and
-submits. The page then says it's with AfriCinemas, and nothing can be changed. Phone
+owner opens Verification, reads why each item is asked for, and works through its tabs:
+About you (the details and the ID photos), Your business (the details, a wrong KRA PIN
+flagged beside its field and counted on the tab, and the certificates), and Submit. The page then says it's with AfriCinemas, and nothing can be changed. Phone
 and desktop, no sideways scrolling; on a phone the ID box takes a photo.
 """
 
@@ -23,10 +23,12 @@ import from e2e.support.api { PASSWORD, call }
 import from e2e.support.catalog { cinema_selling_tickets }
 
 glob WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth",
-     FIELDS: dict[str, str] = {
+     ABOUT: dict[str, str] = {
          "#verify-legal_name": "Kimani Wanjiru",
          "#verify-id_number": "12345678",
-         "#verify-phone": "0712 345 678",
+         "#verify-phone": "0712 345 678"
+     },
+     BUSINESS: dict[str, str] = {
          "#verify-registered_name": "Nova Cinemas Ltd",
          "#verify-registration_number": "PVT-ABC123",
          "#verify-premises_address": "Westgate Mall, Nairobi"
@@ -75,6 +77,13 @@ def _ready(owner: dict[str, str]) {
     }
 }
 
+def _tab(page: any, key: str) {  # jac:ignore[W1037]
+    page.click(f'[data-testid="verification-tab-{key}"]');
+    page.wait_for_selector(
+        f'[data-testid="verification-tab-{key}"][aria-pressed="true"]'
+    );
+}
+
 def _uploaded(page: any, item: str, path: str) {  # jac:ignore[W1037]
     page.set_input_files(f"#verify-file-{item}", path);
     page.wait_for_selector(f'[data-testid="verify-file-{item}-chosen"]');
@@ -96,8 +105,21 @@ test "the owner fills the details, uploads the documents and submits for review"
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
             page.click('[data-testid="data-notice"] summary');
             assert "90 days" in page.inner_text('[data-testid="data-notice"]');
+            # Tabs, not one long page: About you first.
+            tabs = page.locator('[data-testid^="verification-tab-"]').all_inner_texts();
+            assert [t.split("\n")[0].strip() for t in tabs]
+                == ["About you", "Your business", "Submit"] , tabs;
+            assert page.locator("#verify-registered_name").count() == 0;
+            assert page.locator('[data-testid="submit-verification"]').count() == 0;
+            _tab(page, "submit");
             assert page.is_disabled('[data-testid="submit-verification"]');
-            for (selector, value) in FIELDS.items() {
+            assert page.locator("#verify-legal_name").count() == 0;
+            _tab(page, "about");
+            for (selector, value) in ABOUT.items() {
+                _type(page, selector, value);
+            }
+            _tab(page, "business");
+            for (selector, value) in BUSINESS.items() {
                 _type(page, selector, value);
             }
             page.select_option("#verify-business_type", "limited_company");
@@ -105,17 +127,26 @@ test "the owner fills the details, uploads the documents and submits for review"
             _type(page, "#verify-kra_pin", "123");
             page.click('[data-testid="verification-form"] button[type="submit"]');
             page.wait_for_selector('#verify-kra_pin[aria-invalid="true"]');
+            assert page.inner_text(
+                '[data-testid="verification-tab-business"]'
+            ).endswith(
+                "1"
+            );
             _type(page, "#verify-kra_pin", "P051234567Q");
             page.click('[data-testid="verification-form"] button[type="submit"]');
             page.wait_for_function(
                 "document.querySelector('[data-testid=verification-saved]').innerText === 'Saved.'"
             );
+            # Saved from Your business, About you's details are kept too.
+            _tab(page, "about");
+            assert page.input_value("#verify-legal_name") == "Kimani Wanjiru";
             # The ID boxes take a photo on a phone.
             accept = page.get_attribute("#verify-file-id_front", "accept") or "";
             assert "image/jpeg" in accept and "application/pdf" in accept;
             for item in ["id_front", "id_back"] {
                 _uploaded(page, item, photo);
             }
+            _tab(page, "business");
             for item in [
                 "registration_certificate",
                 "kra_certificate",
@@ -123,6 +154,8 @@ test "the owner fills the details, uploads the documents and submits for review"
             ] {
                 _uploaded(page, item, pdf);
             }
+            assert page.evaluate(WIDE_JS) <= 0 , f"{project}: tabs scroll sideways";
+            _tab(page, "submit");
             page.wait_for_selector(
                 '[data-testid="submit-verification"]:not([disabled])'
             );
@@ -130,6 +163,8 @@ test "the owner fills the details, uploads the documents and submits for review"
             page.wait_for_function(
                 "document.querySelector('[data-testid=verification-status]')?.innerText.includes('for review')"
             );
+            # Read-only now: no Submit tab, and back on About you.
+            assert page.locator('[data-testid="verification-tab-submit"]').count() == 0;
             assert page.locator('[data-testid="verification-submit"]').count() == 0;
             assert page.is_disabled("#verify-legal_name");
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways after";

@@ -1,14 +1,17 @@
 """`/app/:slug/verification`: the owner's details and the business's documents, for
 AfriCinemas to check before the cinema goes public (P14.4, ADR-0070).
 
-The owner alone sees it (`tenant.verification`). A notice says why each item is asked
-for and how long it's kept. About you: legal name, ID or passport number, phone, the
-ID's front and back (a photo from the phone's camera, or a PDF). Your business: its
-registered name, type, registration number, KRA PIN, address, the county permit's
-expiry date, and three certificates. Every problem the server finds shows beside its
-field. "Before you submit" lists what's still needed, the go-live essentials included,
-with links; Submit for review sends it all. Once submitted, it's read-only until
-AfriCinemas answers (14.5).
+The owner alone sees it (`tenant.verification`). Its status and a notice (why each item
+is asked for and how long it's kept) come first, then tabs (owner, 2026-10-29):
+- About you: legal name, ID or passport number, phone, and the ID's front and back (a
+  photo from the phone's camera, or a PDF);
+- Your business: its registered name, type, registration number, KRA PIN, address, the
+  county permit's expiry date, and three certificates;
+- Submit (while it can be changed): what's still needed, the go-live essentials
+  included, with links, and Submit for review, which sends it all.
+Every problem the server finds shows beside its field, and its tab counts them. Save
+details saves both tabs' details. Once submitted, it's read-only until AfriCinemas
+answers (14.5).
 
 Photos over MAX_PHOTO_BYTES are made smaller here before they're sent (a phone's camera
 takes large ones); the server checks and re-encodes every file anyway.
@@ -32,6 +35,7 @@ import from ..shell.AppLink { AppLink }
 import from .form_parts { TextField, FieldError, read_as_base64, submit_with }
 import from .PdfDrop { PdfDrop }
 import from .nav { section_path }
+import from ..shell.Tabs { Tabs }
 import from ..site { storefront_address }
 
 glob MAX_PHOTO_BYTES: int = 4 * 1024 * 1024,
@@ -238,6 +242,7 @@ def:pub VerificationSection(slug: str) -> JsxElement {
     [busy, set_busy] = useState("");
     [message, set_message] = useState("");
     [failed, set_failed] = useState("");
+    [tab, set_tab] = useState("about");
 
     def seen(answer: any) {  # jac:ignore[W1037]
         set_view(answer);
@@ -435,6 +440,38 @@ def:pub VerificationSection(slug: str) -> JsxElement {
     essentials: list[dict[str, str]] = shown["essentials"];
     confirmed: bool = shown["email_confirmed"];
     blocked: bool = (len(missing) + len(essentials)) > 0 or not confirmed;
+    # What needs fixing on each tab, from the server's problems.
+    about_keys: list[str] = [k for (k, _, _) in ABOUT_YOU] + [i for (i, _) in ID_FILES];
+    business_keys: list[str] = [k for (k, _, _) in BUSINESS]
+        + ["business_type", "permit_expiry"]
+        + [i for (i, _) in BUSINESS_FILES];
+    def wrong(keys: list[str]) -> str {
+        n = len(
+            [
+                k
+                for k in keys
+                if errors.get(k, "")
+            ]
+        );
+        return str(n) if n > 0 else "";
+    }
+    to_do: int = len(missing) + len(essentials) + (0 if confirmed else 1);
+    tabs: list[dict[str, str]] = [
+        {"key": "about", "label": "About you", "count": wrong(about_keys)},
+        {"key": "business", "label": "Your business", "count": wrong(business_keys)}
+    ]
+        + (
+            [
+                {
+                    "key": "submit",
+                    "label": "Submit",
+                    "count": str(to_do) if to_do > 0 else ""
+                }
+            ]
+                if open
+                else []
+        );
+    showing: str = tab if tab != "submit" or open else "about";
     def fields(rows: list[tuple[str, str, str]]) -> list[any] {  # jac:ignore[W1037]
         return [
             <TextField
@@ -477,98 +514,117 @@ def:pub VerificationSection(slug: str) -> JsxElement {
             <Status view={shown}/>
             {shown["status"] == "approved" and <ShareLink slug={slug}/>}
             <Notice/>
-            <form
-                className="flex flex-col gap-6"
-                onSubmit={submit_with(lambda { save(); })}
-                data-testid="verification-form"
-            >
-                <fieldset
-                    disabled={not open}
-                    className="flex flex-col gap-4 rounded-lg border bg-card p-4"
+            {failed
+                and <Alert variant="destructive" role="alert">
+                    <AlertDescription>{failed}</AlertDescription>
+                </Alert>}
+            <Tabs
+                label="Verification"
+                tabs={tabs}
+                current={showing}
+                on_pick={set_tab}
+                testid="verification-tab"
+            />
+            {showing != "submit"
+                and <form
+                    className="flex flex-col gap-6"
+                    onSubmit={submit_with(lambda { save(); })}
+                    data-testid="verification-form"
                 >
-                    <legend className="px-1 font-semibold">About you</legend>
-                    {fields(ABOUT_YOU)}
-                </fieldset>
-                <fieldset
-                    disabled={not open}
-                    className="flex flex-col gap-4 rounded-lg border bg-card p-4"
-                >
-                    <legend className="px-1 font-semibold">Your business</legend>
-                    {fields(BUSINESS[:2])}
-                    <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="verify-business_type">Type of business</Label>
-                        <select
-                            id="verify-business_type"
-                            value={typed.get("business_type", "")}
-                            aria-invalid={"true"
-                                if errors.get("business_type", "")
-                                else "false"}
-                            onChange={picked_type}
-                            className="min-h-11 rounded-md border bg-background px-3"
+                    {showing == "about"
+                        and <fieldset
+                            disabled={not open}
+                            className="flex flex-col gap-4 rounded-lg border bg-card p-4"
                         >
-                            <option value="">Choose…</option>
-                            {[
-                                <option key={t[0]} value={t[0]}>{t[1]}</option>
-                                for t in TYPES
-                            ]}
-                        </select>
-                        {errors.get("business_type", "")
-                            and <FieldError
-                                field_id="verify-business_type"
-                                error={errors["business_type"]}
-                            />}
-                    </div>
-                    {fields(BUSINESS[2:])}
-                    <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="verify-permit_expiry">
-                            County permit expires on
-                        </Label>
-                        <Input
-                            id="verify-permit_expiry"
-                            type="date"
-                            value={typed.get("permit_expiry", "")}
-                            aria-invalid={"true"
-                                if errors.get("permit_expiry", "")
-                                else "false"}
-                            onChange={picked_expiry}
-                            className="min-h-11 w-fit"
-                        />
-                        {errors.get("permit_expiry", "")
-                            and <FieldError
-                                field_id="verify-permit_expiry"
-                                error={errors["permit_expiry"]}
-                            />}
-                    </div>
-                </fieldset>
-                {open
-                    and <Button
-                        type="submit"
-                        className="min-h-11 w-fit px-5"
-                        disabled={busy != ""}
-                    >
-                        {busy == "save" and <Spinner aria-hidden="true"/>}Save details
-                    </Button>}
-            </form>
-            <section
-                aria-labelledby="verify-id-files"
-                className="flex flex-col gap-4 rounded-lg border bg-card p-4"
-            >
-                <h3 id="verify-id-files" className="font-semibold">Your ID</h3>
-                <p className="text-sm text-muted-foreground">
-                    Your national ID or passport. On a phone, you can take the photos now.
-                </p>
-                {drops(ID_FILES)}
-            </section>
-            <section
-                aria-labelledby="verify-business-files"
-                className="flex flex-col gap-4 rounded-lg border bg-card p-4"
-            >
-                <h3 id="verify-business-files" className="font-semibold">
-                    Your business's documents
-                </h3>
-                {drops(BUSINESS_FILES)}
-            </section>
-            {open
+                            <legend className="px-1 font-semibold">About you</legend>
+                            {fields(ABOUT_YOU)}
+                        </fieldset>}{showing == "business"
+                        and <fieldset
+                            disabled={not open}
+                            className="flex flex-col gap-4 rounded-lg border bg-card p-4"
+                        >
+                            <legend className="px-1 font-semibold">
+                                Your business
+                            </legend>
+                            {fields(BUSINESS[:2])}
+                            <div className="flex flex-col gap-1.5">
+                                <Label htmlFor="verify-business_type">
+                                    Type of business
+                                </Label>
+                                <select
+                                    id="verify-business_type"
+                                    value={typed.get("business_type", "")}
+                                    aria-invalid={"true"
+                                        if errors.get("business_type", "")
+                                        else "false"}
+                                    onChange={picked_type}
+                                    className="min-h-11 rounded-md border bg-background px-3"
+                                >
+                                    <option value="">Choose…</option>
+                                    {[
+                                        <option key={t[0]} value={t[0]}>{t[1]}</option>
+                                        for t in TYPES
+                                    ]}
+                                </select>
+                                {errors.get("business_type", "")
+                                    and <FieldError
+                                        field_id="verify-business_type"
+                                        error={errors["business_type"]}
+                                    />}
+                            </div>
+                            {fields(BUSINESS[2:])}
+                            <div className="flex flex-col gap-1.5">
+                                <Label htmlFor="verify-permit_expiry">
+                                    County permit expires on
+                                </Label>
+                                <Input
+                                    id="verify-permit_expiry"
+                                    type="date"
+                                    value={typed.get("permit_expiry", "")}
+                                    aria-invalid={"true"
+                                        if errors.get("permit_expiry", "")
+                                        else "false"}
+                                    onChange={picked_expiry}
+                                    className="min-h-11 w-fit"
+                                />
+                                {errors.get("permit_expiry", "")
+                                    and <FieldError
+                                        field_id="verify-permit_expiry"
+                                        error={errors["permit_expiry"]}
+                                    />}
+                            </div>
+                        </fieldset>}{open
+                        and <Button
+                            type="submit"
+                            className="min-h-11 w-fit px-5"
+                            disabled={busy != ""}
+                        >
+                            {busy == "save"
+                                and <Spinner aria-hidden="true"/>}Save details
+                        </Button>}
+                </form>}
+            {showing == "about"
+                and <section
+                    aria-labelledby="verify-id-files"
+                    className="flex flex-col gap-4 rounded-lg border bg-card p-4"
+                >
+                    <h3 id="verify-id-files" className="font-semibold">Your ID</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Your national ID or passport. On a phone, you can take the photos now.
+                    </p>
+                    {drops(ID_FILES)}
+                </section>}
+            {showing == "business"
+                and <section
+                    aria-labelledby="verify-business-files"
+                    className="flex flex-col gap-4 rounded-lg border bg-card p-4"
+                >
+                    <h3 id="verify-business-files" className="font-semibold">
+                        Your business's documents
+                    </h3>
+                    {drops(BUSINESS_FILES)}
+                </section>}
+            {showing == "submit"
                 and <section
                     aria-labelledby="verify-submit"
                     className="flex flex-col gap-3 rounded-lg border bg-card p-4"
@@ -628,10 +684,6 @@ def:pub VerificationSection(slug: str) -> JsxElement {
                                 </li> for (i, e) in enumerate(essentials)
                             ]}
                         </ul>}
-                    {failed
-                        and <Alert variant="destructive" role="alert">
-                            <AlertDescription>{failed}</AlertDescription>
-                        </Alert>}
                     <Button
                         type="button"
                         className="min-h-11 w-fit px-5"
