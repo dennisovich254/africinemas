@@ -83,13 +83,13 @@ def:pub AccountActions(slugs: list[str], switch_to: str = "") -> JsxElement {
                         className="flex w-full max-w-sm flex-col gap-3 rounded-lg border bg-card p-4 shadow-lg"
                     >
                         <h2 id="uncounted-title" className="text-lg font-semibold">
-                            You haven't counted your cash
+                            Count your cash before you sign out
                         </h2>
                         <p
                             id="uncounted-text"
                             className="text-sm text-muted-foreground"
                         >
-                            Count the cash you took this shift before you go. If you sign out without counting, your manager will see that it wasn't counted.
+                            You've taken cash since your last count. Count it now: the next person on shift shouldn't have to count it for you.
                         </p>
                         <div
                             className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
@@ -97,10 +97,9 @@ def:pub AccountActions(slugs: list[str], switch_to: str = "") -> JsxElement {
                             <Button
                                 variant="outline"
                                 className="min-h-11"
-                                disabled={busy}
-                                onClick={go}
+                                onClick={lambda { set_uncounted(""); }}
                             >
-                                Sign out anyway
+                                Not now
                             </Button>
                             <Button className="min-h-11" onClick={count_now}>
                                 Count now
