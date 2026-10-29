@@ -34,7 +34,7 @@ def _save_json(name: str, data: any) {  # jac:ignore[W1037]
 
 def:pub YourData(
     slug: str,
-    deleting: any,  # jac:ignore[W1037] {"asked_at", "due"}, or None
+    deleting: any,  # jac:ignore[W1037] {"asked_at", "due", "kept"}, or None
     tz: str,
     on_changed: any  # jac:ignore[W1037]
 ) -> JsxElement {
@@ -102,8 +102,8 @@ def:pub YourData(
         on_changed();
     }
 
-    pending: dict[str, str] | None = deleting;  # jac:ignore[W1037]
-    told: list[str] = kept;
+    pending: dict[str, any] | None = deleting;  # jac:ignore[W1037]
+    told: list[str] = pending["kept"] if pending is not None else kept;
     return
         <section className="flex flex-col gap-3" data-testid="your-data">
             <h2 className="text-lg font-semibold">Your data</h2>

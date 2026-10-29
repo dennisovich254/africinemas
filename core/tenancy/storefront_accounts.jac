@@ -35,6 +35,13 @@ glob ACCOUNTS: str = "customer-account",
      # An account its customer asked to delete (P15.0): {"slug", "asked_at", "due"},
      # until it's deleted or they cancel (core/accounts/customer_data.jac).
      DELETING: str = "customer-deleting",
+     # What a deletion keeps, and why (owner, 2026-10-29), for the page to say.
+     KEPT: list[str] = [
+         "Your orders stay, as the cinema's sales records, which the law asks it to keep: the seats, the amounts and how you paid. We take your email off the ones whose showtime has passed.",
+         "The phone number an M-Pesa payment came from stays with its receipt, as the record of that payment.",
+         "Tickets for showtimes still to come keep working.",
+         "If you asked for offers, the record that you stopped them stays, as proof."
+     ],
      EMAIL_SHAPE: str = r"^[^@\s:]{1,64}@[^@\s:]{1,190}\.[^@\s:]{2,63}$",
      PASSWORD_MIN: int = 8,
      PASSWORD_MAX: int = 128;
@@ -227,6 +234,8 @@ def:pub my_storefront_account(slug: str) -> dict[str, any] {  # jac:ignore[W1037
         "name": str((found or {}).get("name", "")) if mine else "",
         "account_cinema": found["slug"] if found is not None else "",
         # When it's being deleted (P15.0): {"asked_at", "due"}, else None.
-        "deleting": deletion_of(me) if mine else None
+        "deleting": {** deletion_of(me), "kept": KEPT}
+            if mine and deletion_of(me) is not None
+            else None
     };
 }

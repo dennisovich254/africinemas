@@ -119,7 +119,11 @@ test "a customer downloads their data, and their account is deleted a week after
         assert code_of(app.call("kim", "my_tickets", {"slug": "nova"}))
             == "being_deleted";
         assert app.call("kim", "my_data", {"slug": "nova"})["data"]["deleting"];
-        assert app.call("kim", "my_storefront_account", {"slug": "nova"})["deleting"];
+        # The account page knows when, and what's kept, however often it's opened.
+        pending = app.call("kim", "my_storefront_account", {"slug": "nova"})[
+            "deleting"
+        ];
+        assert pending["due"] and len(pending["kept"]) > 0 , pending;
         # Cancelled: it's theirs again.
         assert app.call("kim", "cancel_account_deletion", {"slug": "nova"})["ok"];
         assert app.call("kim", "my_tickets", {"slug": "nova"})["ok"];

@@ -17,7 +17,8 @@ So a cinema can answer access, portability and erasure requests in time
     orders stay: they're the cinema's sales records, which tax law keeps, and the
     phone stays with the M-Pesa receipt as the payment record. Upcoming tickets keep
     working.
-  What's kept, and why, is in KEPT, which the page shows.
+  What's kept, and why, is in KEPT (core/tenancy/storefront_accounts.jac), which the
+  page shows.
 """
 
 import os;
@@ -32,6 +33,7 @@ import from core.tenancy.principal { node_id, same_id, act_as, restore, flush_no
 import from core.tenancy.storefront_accounts {
     ACCOUNTS,
     DELETING,
+    KEPT,
     account_of,
     deletion_of,
     require_customer_of,
@@ -52,13 +54,7 @@ import from core.platform.cinemas_api { all_cinemas }
 glob DELETE_AFTER_DAYS: int = 7,
      DELETE_SECONDS: int = int(os.environ.get("AFRICINEMAS_DELETE_SECONDS", "3600")),
      # Erased accounts, for the record that a request was answered: no email or name.
-     DELETED: str = "customer-deleted",
-     KEPT: list[str] = [
-         "Your orders stay, as the cinema's sales records, which the law asks it to keep: the seats, the amounts and how you paid. We take your email off the ones whose showtime has passed.",
-         "The phone number an M-Pesa payment came from stays with its receipt, as the record of that payment.",
-         "Tickets for showtimes still to come keep working.",
-         "If you asked for offers, the record that you stopped them stays, as proof."
-     ];
+     DELETED: str = "customer-deleted";
 
 def _as_cinema(cinema: Tenant, work: any) -> any {  # jac:ignore[W1037]
     me = node_id(root);

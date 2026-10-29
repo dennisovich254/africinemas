@@ -73,9 +73,10 @@ test "a customer downloads their data, asks to delete the account, and keeps it"
             assert page.locator('[data-testid="account-email"]').count() == 0;
             assert page.locator('[data-testid="delete-account"]').count() == 0;
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
-            # Still asked after a reload.
+            # Still asked after a reload, with what's kept.
             page.reload();
             waiting.wait_for();
+            assert page.locator('[data-testid="account-kept"] li').count() > 0;
             # Kept: the page is back.
             page.click('[data-testid="keep-account"]');
             page.wait_for_selector('[data-testid="account-email"]');
