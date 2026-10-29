@@ -259,6 +259,8 @@ test "a logo uploaded here shows on the storefront and in the back-office" {
         page = _page(browser, pw, "desktop");
         _sign_in(page, owner["email"]);
         _open_branding(page, owner);
+        # The logo is on the Design tab.
+        _tab(page, "design");
         page.set_input_files(
             "#logo-file",
             files=[{"name": "logo.png", "mimeType": "image/png", "buffer": _logo_png()}]
