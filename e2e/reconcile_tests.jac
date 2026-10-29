@@ -114,7 +114,10 @@ def _on_shift(page: any) {  # jac:ignore[W1037]
 
 def _sign_out(page: any, project: str) {  # jac:ignore[W1037]
     if project == "mobile" {
-        page.click(MENU);
+        # The menu may still be open (after "Not now").
+        if not page.locator(DRAWER).is_visible() {
+            page.click(MENU);
+        }
         page.wait_for_selector(DRAWER, state="visible");
         page.click(f'{DRAWER} button:has-text("Sign out")');
     } else {
