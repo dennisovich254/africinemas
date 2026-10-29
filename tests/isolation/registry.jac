@@ -333,6 +333,16 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "cash.counted",
              "probe": {"tenant": "{tenant}", "counted_cents": 0}
          },
+         "recount_cash": {
+             "scope": "tenant",
+             "audit": "cash.recounted",
+             "probe": {"tenant": "{tenant}", "counted_cents": 0}
+         },
+         "cash_status": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
          "platform_reconciliation": {"scope": "platform", "audit": ""},
          "platform_takings": {"scope": "platform", "audit": ""},
          # Collecting what's owed (P15.5).
@@ -490,6 +500,20 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "audit": "cinema.doors_changed",
              "probe": {"tenant": "{tenant}", "minutes": 30}
+         },
+         "box_office_rules": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "set_box_office_rules": {
+             "scope": "tenant",
+             "audit": "cinema.box_office_rules_changed",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "shift_hours": 8,
+                 "cash_count_max_cents": 50000000
+             }
          },
          "invite_staff": {
              "scope": "tenant",

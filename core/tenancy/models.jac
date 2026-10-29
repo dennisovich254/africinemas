@@ -18,7 +18,15 @@ glob ROLE_OWNER: str = "owner",
      # The door opens this many minutes before a showtime starts (improvements #10);
      # each cinema may change it, from 0 to DOORS_OPEN_MAX.
      DOORS_OPEN_DEFAULT: int = 45,
-     DOORS_OPEN_MAX: int = 240;
+     DOORS_OPEN_MAX: int = 240,
+     # A box office shift lasts this many hours (P15.6b); each cinema may change it.
+     SHIFT_HOURS_DEFAULT: int = 8,
+     SHIFT_HOURS_MAX: int = 12,
+     # The most a member may enter as one cash count (P15.6b): KES 500,000, and each
+     # cinema may change it, from KES 1,000 to KES 10,000,000.
+     CASH_COUNT_MAX_DEFAULT: int = 50000000,
+     CASH_COUNT_MAX_LOW: int = 100000,
+     CASH_COUNT_MAX_HIGH: int = 1000000000;
 
 node Tenant {
     has slug: str,
@@ -53,7 +61,11 @@ node Tenant {
         suspended_reason: str = "",
         suspended_by: str = "",
         # Minutes before a showtime's start that its tickets can be scanned.
-        doors_open_minutes: int = DOORS_OPEN_DEFAULT;
+        doors_open_minutes: int = DOORS_OPEN_DEFAULT,
+        # The box office's rules (P15.6b): how long a shift lasts, and the most one
+        # cash count may be.
+        shift_hours: int = SHIFT_HOURS_DEFAULT,
+        cash_count_max_cents: int = CASH_COUNT_MAX_DEFAULT;
 
     def move_to(target: TenantState) {
         self.state = transition(TenantState(self.state), target).value;

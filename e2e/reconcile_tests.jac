@@ -1,17 +1,22 @@
-"""P15.6 E2E: reconciliation in the back office and the console, on phone and desktop.
+"""P15.6, P15.6b E2E: counting cash and reconciliation, on phone and desktop.
 
-A cinema's box office agent sells A1 and A2 for cash (KES 1,660). On Count cash, what
-they sold isn't shown first; "abc" is refused; KES 1,600 is KES 60 short; counting
-again at once matches (nothing since); after one more sale (KES 830), KES 1,000 is
-KES 170 over. The agent has no Reconciliation page, and no count on its sidebar. The
-owner's sidebar counts 2; both are on the Cash tab, in words ("Cash sales recorded",
-"Cash counted", "short"/"over", no "ours" or "theirs"), at the cinema's time; M-Pesa has
-nothing. A note is needed to resolve the short one, which then moves to Resolved with
-its note, and the sidebar counts 1; the three counts are listed. There's no statement
-upload. In the console, the overview's takings tables (by month and by cinema) include
-the cinema, and Reconciliation lists the open cash over, not the resolved short one.
-The daily M-Pesa check needs M-Pesa to change its mind:
-tests/integration/reconcile_tests.jac.
+The owner sets the box office's rules on Settings → Box office (6 hours, at most
+KES 400,000). A box office agent sells A1 and A2 for cash (KES 1,660). On Count cash:
+- what they sold isn't shown first; "abc" and KES 450,000 (over the limit) are
+  refused;
+- KES 1,600 is shown large and in words before saving; Change goes back; saving says
+  KES 60 short and ends the shift;
+- "Count again" corrects it to KES 1,660 (matches; "Corrected from KES 1,600");
+- after a new shift and one more sale (KES 830), KES 1,000 is KES 170 over;
+- after another sale, Sign out reminds them; Count now opens Count cash, where they
+  count it, and Sign out then goes straight out.
+The agent has no Reconciliation page. In the console, Reconciliation lists the open
+cash over but not the corrected short, and the takings tables include the cinema. The
+owner's sidebar counts 1; the Cash tab says what each amount is (no "ours"/"theirs"), at
+the cinema's time; resolving with a note clears the count; Resolved has both, the
+corrected one "by the count"; the counts are listed, the correction with its first
+figure. Last, signing out anyway with cash uncounted goes out.
+The daily M-Pesa check, and "Cash not counted": tests/integration/reconcile_tests.jac.
 """
 
 import uuid;
@@ -28,7 +33,10 @@ import from e2e.support.web {
 import from e2e.support.api { PASSWORD, platform_admin, add_staff, call }
 import from e2e.support.catalog { cinema_selling_tickets }
 
-glob WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth";
+glob WIDE_JS: str = "document.documentElement.scrollWidth - document.documentElement.clientWidth",
+     SIDEBAR: str = '[data-testid="shell-sidebar"]',
+     MENU: str = '[data-testid="shell-menu-button"]',
+     DRAWER: str = '[data-testid="shell-drawer"]';
 
 def _type(page: any, selector: str, value: str) {  # jac:ignore[W1037]
     # Playwright's fill(); the checker mistakes it for JS Array.fill (W6002).
@@ -73,14 +81,41 @@ def _sale_by(owner: dict[str, str], agent: dict[str, str], seats: list[str]) {
     assert sold["ok"] , sold;
 }
 
-def _count(desk: any, amount: str) -> str {  # jac:ignore[W1037]
-    # Saves a count; what the page says.
+def _check(desk: any, amount: str) -> any {  # jac:ignore[W1037]
+    # Types an amount and asks to save it: the dialog that shows it back.
     _type(desk, "#cash-counted", amount);
     desk.click('[data-testid="cash-up"] button[type="submit"]');
+    return desk.locator('[data-testid="cash-confirm"]');
+}
+
+def _count(desk: any, amount: str) -> str {  # jac:ignore[W1037]
+    # Saves a count; what the page says.
+    shown = _check(desk, amount);
+    shown.wait_for();
+    shown.locator('button:has-text("Save count")').click();
     desk.wait_for_function(
         f"document.querySelector('[data-testid=cash-up-result]')?.innerText.includes('You counted KES {amount};')"
     );
     return desk.inner_text('[data-testid="cash-up-result"]');
+}
+
+def _on_shift(page: any) {  # jac:ignore[W1037]
+    # Starts the member's shift if the page asks for one.
+    banner = page.locator('[data-testid="shift-banner"]');
+    if banner.count() > 0 {
+        banner.locator("button").first.click();
+        banner.wait_for(state="detached");
+    }
+}
+
+def _sign_out(page: any, project: str) {  # jac:ignore[W1037]
+    if project == "mobile" {
+        page.click(MENU);
+        page.wait_for_selector(DRAWER, state="visible");
+        page.click(f'{DRAWER} button:has-text("Sign out")');
+    } else {
+        page.click(f'{SIDEBAR} button:has-text("Sign out")');
+    }
 }
 
 def _tab(page: any, key: str) -> any {  # jac:ignore[W1037]
@@ -90,40 +125,108 @@ def _tab(page: any, key: str) -> any {  # jac:ignore[W1037]
     return page.locator('[data-testid="exception"]');
 }
 
-test "cash counts are listed in tabs, counted on the sidebar, resolved, and seen in the console" {
+test "cash is counted to end a shift, checked, corrected, reminded, and reconciled in tabs" {
     admin = platform_admin();
     (pw, browser) = shared_browser();
     try {
         for project in PROJECTS {
             owner = cinema_selling_tickets();
             agent = add_staff(owner, "box_office_agent", owner["venue"]);
+            # The owner's rules: 6-hour shifts, at most KES 400,000 a count.
+            page = _sign_in(browser, pw, project, owner["email"]);
+            page.goto(f"{BASE_URL}/app/{owner['slug']}/settings/box-office");
+            page.wait_for_selector('[data-testid="box-office-rules"]');
+            _on_shift(page);
+            assert page.input_value("#shift-hours") == "8";
+            assert page.input_value("#cash-count-max") == "500000";
+            _type(page, "#shift-hours", "13");
+            page.click('[data-testid="box-office-rules"] button[type="submit"]');
+            page.wait_for_selector(
+                '[data-testid="box-office-rules"] [role="alert"]:has-text("from 1 to 12")'
+            );
+            _type(page, "#shift-hours", "6");
+            _type(page, "#cash-count-max", "400,000");
+            page.click('[data-testid="box-office-rules"] button[type="submit"]');
+            page.wait_for_selector(
+                '[data-testid="box-office-rules"] [role="status"]:has-text("Saved")'
+            );
+            assert page.evaluate(WIDE_JS) <= 0 , f"{project}: settings scroll sideways";
+            # The agent sells two seats, and counts: what they sold isn't shown.
             _sale_by(owner, agent, ["A1", "A2"]);
-            # The agent counts: what they sold isn't shown until they have.
             desk = _sign_in(browser, pw, project, agent["email"]);
             desk.goto(f"{BASE_URL}/app/{owner['slug']}/box-office");
             desk.click('[data-testid="sale-kind-cash"]');
             desk.wait_for_selector('[data-testid="cash-up"]');
             assert "KES 1,660" not in desk.inner_text('[data-testid="cash-up"]');
-            # Not an amount.
-            _type(desk, "#cash-counted", "abc");
-            desk.click('[data-testid="cash-up"] button[type="submit"]');
-            desk.wait_for_selector(
-                '[data-testid="cash-up"] [role="alert"]:has-text("Enter the cash you counted")'
-            );
+            alert = '[data-testid="cash-up"] [role="alert"]';
+            # Not an amount; more than the cinema's limit.
+            _check(desk, "abc");
+            desk.wait_for_selector(f'{alert}:has-text("Enter the cash you counted")');
+            _check(desk, "450,000");
+            desk.wait_for_selector(f'{alert}:has-text("more than KES 400,000")');
+            assert desk.locator('[data-testid="cash-confirm"]').count() == 0;
+            # Shown back large and in words; Change goes back without saving.
+            shown = _check(desk, "1,600");
+            shown.wait_for();
+            assert shown.locator('[data-testid="cash-confirm-amount"]').inner_text()
+                == "KES 1,600";
+            assert shown.locator('[data-testid="cash-confirm-words"]').text_content()
+                == "one thousand six hundred shillings";
+            assert "ends your shift" in shown.inner_text();
+            shown.locator('button:has-text("Change")').click();
+            shown.wait_for(state="detached");
             assert desk.locator('[data-testid="cash-up-result"]').count() == 0;
-            # KES 60 short.
+            # Saved: KES 60 short, and the shift has ended.
             said = _count(desk, "1,600");
             assert "You counted KES 1,600; you recorded KES 1,660" in said , said;
             assert "KES 60 short" in said and "your manager will see it" in said , said;
-            # Straight away again: nothing since, so it matches.
-            said = _count(desk, "0");
-            assert "you recorded KES 0" in said and "It matches." in said , said;
-            # One more sale (KES 830), and KES 1,000 counted: over.
+            desk.wait_for_selector('[data-testid="shift-ended"]');
+            desk.wait_for_selector('[data-testid="shift-banner"]');
+            # Corrected once: it matches, and says what it was.
+            desk.click('[data-testid="count-again"]');
+            again = _check(desk, "1,660");
+            again.wait_for();
+            assert "ends your shift" not in again.inner_text();
+            again.locator('button:has-text("Save count")').click();
+            desk.wait_for_selector(
+                '[data-testid="cash-up-result"]:has-text("It matches.")'
+            );
+            assert "Corrected from KES 1,600"
+                in desk.inner_text('[data-testid="cash-up"]');
+            assert desk.locator('[data-testid="count-again"]').count() == 0;
+            # A new shift, one more sale (KES 830), and KES 1,000: over.
             _sale_by(owner, agent, ["A3"]);
+            desk.reload();
+            desk.click('[data-testid="sale-kind-cash"]');
+            desk.wait_for_selector("#cash-counted");
             said = _count(desk, "1,000");
             assert "you recorded KES 830" in said and "KES 170 over" in said , said;
             assert desk.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
-            # The box office has no Reconciliation page.
+            # Another sale, then Sign out: reminded; Count now opens Count cash.
+            _sale_by(owner, agent, ["A4"]);
+            desk.goto(f"{BASE_URL}/app/{owner['slug']}");
+            desk.wait_for_selector('[data-testid="shift-banner"]', state="detached");
+            _sign_out(desk, project);
+            reminder = desk.locator('[data-testid="uncounted-cash"]');
+            reminder.wait_for();
+            assert "You haven't counted your cash" in reminder.inner_text();
+            reminder.locator('button:has-text("Count now")').click();
+            desk.wait_for_url(f"**/app/{owner['slug']}/box-office/count");
+            if project == "mobile" {
+                desk.keyboard.press("Escape");
+                desk.wait_for_selector(DRAWER, state="hidden");
+            }
+            desk.wait_for_selector("#cash-counted");
+            said = _count(desk, "830");
+            assert "It matches." in said , said;
+            # Counted: Sign out goes straight out.
+            _sign_out(desk, project);
+            desk.wait_for_url("**/login**");
+            # The box office has no Reconciliation page (signed in again).
+            desk.context.close();
+            desk = _sign_in(browser, pw, project, agent["email"]);
+            desk.goto(f"{BASE_URL}/app/{owner['slug']}");
+            desk.wait_for_selector('[data-testid="shell-title"]');
             assert desk.locator(
                 f'a[href="/app/{owner["slug"]}/reconciliation"]'
             ).count()
@@ -132,68 +235,7 @@ test "cash counts are listed in tabs, counted on the sidebar, resolved, and seen
                 == 0;
             desk.goto(f"{BASE_URL}/app/{owner['slug']}/reconciliation");
             desk.wait_for_selector('[data-testid="no-access"]');
-            desk.context.close();
-            # The owner's sidebar counts both; they're on the Cash tab, in words.
-            page = _sign_in(browser, pw, project, owner["email"]);
-            page.goto(f"{BASE_URL}/app/{owner['slug']}/reconciliation");
-            page.wait_for_selector('[data-testid="open-exceptions"]');
-            assert page.inner_text('[data-testid="open-exceptions"]') == "2 to look at";
-            counted = page.locator('[data-testid="nav-count-reconciliation"]').first;
-            counted.wait_for(state="attached");
-            assert counted.text_content().startswith("2") , counted.text_content();
-            assert page.locator('[data-testid="statement-upload"]').count() == 0;
-            assert page.locator('#statement-file').count() == 0;
-            # M-Pesa is first, with nothing in it.
-            assert _tab(page, "mpesa").count() == 0;
-            assert "Nothing to look at here."
-                in page.inner_text('[data-testid="nothing-here"]');
-            assert "2" in page.inner_text('[data-testid="recon-tab-cash"]');
-            rows = _tab(page, "cash");
-            assert rows.count() == 2;
-            short = rows.filter(has_text="Cash short at a cash-up");
-            over = rows.filter(has_text="Cash over at a cash-up");
-            said = short.inner_text();
-            assert "Cash sales recorded: KES 1,660" in said
-                and "Cash counted: KES 1,600" in said
-                and "KES 60 short" in said , said;
-            assert "ours" not in said and "theirs" not in said , said;
-            assert agent["email"] in said;
-            assert "Cash sales recorded: KES 830" in over.inner_text()
-                and "KES 170 over" in over.inner_text();
-            # At the cinema's time (Nairobi), whatever the browser is set to.
-            local = datetime.now(timezone.utc).astimezone(ZoneInfo("Africa/Nairobi"));
-            assert local.strftime("%H:") in said , said;
-            # A note is needed.
-            short.locator('button:has-text("Mark resolved")').click();
-            short.locator(
-                '[role="alert"]:has-text("Say how it was sorted out")'
-            ).wait_for();
-            short.locator("input").fill("Counted again: KES 60 was in the float.");  # jac:ignore[W6002]
-            short.locator('button:has-text("Mark resolved")').click();
-            page.wait_for_selector(
-                '[data-testid="open-exceptions"]:has-text("1 to look at")'
-            );
-            page.wait_for_function(
-                "document.querySelector('[data-testid=nav-count-reconciliation]')?.textContent.startsWith('1')"
-            );
-            # The over one is still on Cash; the short one is on Resolved, with its note.
-            assert _tab(page, "cash").count() == 1;
-            assert "Cash over at a cash-up"
-                in page.locator('[data-testid="exception"]').nth(0).inner_text();
-            # The three counts are listed under Cash.
-            counts = page.inner_text('[data-testid="cash-ups"]');
-            assert "counted KES 1,600, recorded KES 1,660" in counts , counts;
-            assert "counted KES 1,000, recorded KES 830" in counts;
-            assert "counted KES 0, recorded KES 0" in counts;
-            done = _tab(page, "resolved");
-            assert done.count() == 1;
-            last = done.nth(0).inner_text();
-            assert "Resolved" in last
-                and "Counted again: KES 60 was in the float." in last , last;
-            assert page.locator('[data-testid="cash-ups"]').count() == 0;
-            assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
-            page.context.close();
-            # The console: AfriCinemas' takings, and the open exceptions only.
+            # The console: AfriCinemas' takings, and only the open cash over.
             us = browser.new_context(
                 **context_options(pw, project, "light")
             ).new_page();
@@ -226,12 +268,79 @@ test "cash counts are listed in tabs, counted on the sidebar, resolved, and seen
             assert us.evaluate(WIDE_JS) <= 0 , f"{project}: overview scrolls sideways";
             us.goto(PLATFORM_URL + "/reconciliation");
             us.wait_for_selector('[data-testid="platform-reconciliation"]');
-            listed = us.locator('[data-testid="platform-exception"]');
-            # Its open cash over is there; the resolved short one isn't.
-            mine = listed.filter(has_text=agent["email"]);
+            mine = us.locator('[data-testid="platform-exception"]').filter(
+                has_text=agent["email"]
+            );
+            mine.first.wait_for();
             assert mine.count() == 1 and "Cash over" in mine.inner_text();
+            assert "Cash sales recorded: KES 830" in mine.inner_text();
             assert us.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
             us.context.close();
+            # The owner: the sidebar counts 1, on the Cash tab, in words.
+            page.goto(f"{BASE_URL}/app/{owner['slug']}/reconciliation");
+            page.wait_for_selector('[data-testid="open-exceptions"]');
+            assert page.inner_text('[data-testid="open-exceptions"]') == "1 to look at";
+            counted = page.locator('[data-testid="nav-count-reconciliation"]').first;
+            counted.wait_for(state="attached");
+            assert counted.text_content().startswith("1") , counted.text_content();
+            assert page.locator('#statement-file').count() == 0;
+            assert _tab(page, "mpesa").count() == 0;
+            assert "Nothing to look at here."
+                in page.inner_text('[data-testid="nothing-here"]');
+            rows = _tab(page, "cash");
+            assert rows.count() == 1;
+            over = rows.nth(0);
+            said = over.inner_text();
+            assert "Cash over at a cash-up" in said;
+            assert "Cash sales recorded: KES 830" in said
+                and "Cash counted: KES 1,000" in said
+                and "KES 170 over" in said , said;
+            assert "ours" not in said and "theirs" not in said , said;
+            assert agent["email"] in said;
+            # At the cinema's time (Nairobi), whatever the browser is set to.
+            local = datetime.now(timezone.utc).astimezone(ZoneInfo("Africa/Nairobi"));
+            assert local.strftime("%H:") in said , said;
+            # A note is needed; then the count goes.
+            over.locator('button:has-text("Mark resolved")').click();
+            over.locator(
+                '[role="alert"]:has-text("Say how it was sorted out")'
+            ).wait_for();
+            over.locator("input").fill("KES 170 was change from the float.");  # jac:ignore[W6002]
+            over.locator('button:has-text("Mark resolved")').click();
+            page.wait_for_selector(
+                '[data-testid="open-exceptions"]:has-text("Nothing to look at")'
+            );
+            page.wait_for_selector(
+                '[data-testid="nav-count-reconciliation"]', state="detached"
+            );
+            # The counts are listed under Cash, the correction with its first figure.
+            assert _tab(page, "cash").count() == 0;
+            counts = page.inner_text('[data-testid="cash-ups"]');
+            assert "counted KES 1,660, recorded KES 1,660; first counted KES 1,600"
+                in counts , counts;
+            assert "counted KES 1,000, recorded KES 830" in counts;
+            assert "counted KES 830, recorded KES 830" in counts;
+            # Resolved: the corrected short "by the count", and the over with its note.
+            done = _tab(page, "resolved");
+            assert done.count() == 2;
+            short = done.filter(has_text="Cash short at a cash-up").inner_text();
+            assert "Resolved by the count" in short
+                and "first counted KES 1,600" in short , short;
+            assert "KES 170 was change from the float."
+                in done.filter(has_text="Cash over at a cash-up").inner_text();
+            assert page.locator('[data-testid="cash-ups"]').count() == 0;
+            assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
+            page.context.close();
+            # Last: with cash uncounted, Sign out anyway goes out.
+            _sale_by(owner, agent, ["A5"]);
+            desk.goto(f"{BASE_URL}/app/{owner['slug']}");
+            desk.wait_for_selector('[data-testid="shift-banner"]', state="detached");
+            _sign_out(desk, project);
+            reminder = desk.locator('[data-testid="uncounted-cash"]');
+            reminder.wait_for();
+            reminder.locator('button:has-text("Sign out anyway")').click();
+            desk.wait_for_url("**/login**");
+            desk.context.close();
         }
     } finally {
         close_contexts(browser);

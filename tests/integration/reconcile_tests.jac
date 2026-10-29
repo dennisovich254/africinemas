@@ -7,7 +7,11 @@ In-process app (payment_app.jac), the simulated M-Pesa told to change its mind.
   paid though nothing was sold, and a receipt on two payments each make one. Running
   again adds nothing.
 - A cash-up compares the count with the cash that member sold since their last one;
-  a difference is an exception.
+  a difference is an exception. Counting ends the shift (P15.6b); it can be corrected
+  once within 10 minutes (both figures kept); more than the cinema's limit is refused;
+  cash left uncounted when a shift ends is "Cash not counted", and must be counted
+  before the next cash sale. Shift length and the limit are the cinema's, set by its
+  owner or admin.
 - Only the cinema's finance readers see and resolve its exceptions (with a note, once),
   and the sidebar's count is theirs (0 for the rest of its staff); the box office
   counts its cash. Times come with the cinema's time zone. Platform staff see every
@@ -82,6 +86,10 @@ def _cash_sale(app: Served, screening: str, seat: str) {
         {"tenant": "nova", "screening_id": screening, "holder": holder, "email": ""}
     );
     assert sold["ok"] , sold;
+}
+
+def _new_shift(app: Served, who: str) {
+    assert app.call(who, "start_shift", {"tenant": "nova"})["ok"];
 }
 
 def _platform_member(app: Served, label: str, role: str) {
@@ -317,6 +325,13 @@ test "a cash-up compares the count with the cash that member sold since their la
         assert right["cash_up"]["expected_cents"] == price
             and right["cash_up"]["since"] == "";
         assert _exceptions(app) == [];
+        # Counting ended the shift: no more sales until a new one starts.
+        assert right["shift_ended"];
+        assert _code(
+            app.call("agent", "count_cash", {"tenant": "nova", "counted_cents": 0})
+        )
+            == "no_shift";
+        _new_shift(app, "agent");
         # Another sale, and KES 100 short.
         _cash_sale(app, screening, "A4");
         short = app.call(
@@ -325,6 +340,7 @@ test "a cash-up compares the count with the cash that member sold since their la
         assert short["cash_up"]["expected_cents"] == price , short;
         assert short["cash_up"]["difference_cents"] == -10000;
         assert short["cash_up"]["since"] == right["cash_up"]["at"];
+        _new_shift(app, "agent");
         found = _exceptions(app);
         assert _kinds(found) == ["cash_short"] , found;
         assert found[0]["expected_cents"] == price
@@ -337,15 +353,25 @@ test "a cash-up compares the count with the cash that member sold since their la
         assert over["cash_up"]["expected_cents"] == 0;
         assert over["cash_up"]["difference_cents"] == 5000;
         assert _kinds(_exceptions(app)) == ["cash_over", "cash_short"];
+        _new_shift(app, "agent");
         # Nothing sold, nothing counted: it matches, and adds nothing.
         even = app.call("agent", "count_cash", {"tenant": "nova", "counted_cents": 0});
         assert even["cash_up"]["difference_cents"] == 0
             and even["cash_up"]["expected_cents"] == 0;
         assert len(_exceptions(app)) == 2;
+        _new_shift(app, "agent");
         # The owner sells too, so counts their own cash (the agent's isn't theirs).
         mine = app.call("owner", "count_cash", {"tenant": "nova", "counted_cents": 0});
         assert mine["ok"] and mine["cash_up"]["expected_cents"] == 0 , mine;
-        assert _actions(app).count("cash.counted") == 5;
+        _new_shift(app, "owner");
+        done = [
+            e["action"]
+            for e in app.call("owner", "audit_log", {"tenant": "nova", "limit": 100})[
+                "events"
+            ]
+            if e["result"] == "ok"
+        ];
+        assert done.count("cash.counted") == 5 , done;
         # Not an amount; not the usher (no sales).
         assert _code(
             app.call("agent", "count_cash", {"tenant": "nova", "counted_cents": -1})
@@ -358,6 +384,179 @@ test "a cash-up compares the count with the cash that member sold since their la
         assert len(ups) == 5 and ups[3]["difference_cents"] == -10000 , ups;
         assert ups[0]["member"];
     } finally {
+        app.close();
+    }
+}
+
+test "a count ends the shift, can be corrected once, has a limit, and is missed when skipped" {
+    os.environ["AFRICINEMAS_CLOCK_CONTROL"] = "1";
+    (app, nova, screening) = paying_cinema(["agent", "finance", "cinemaadmin"]);
+    try {
+        hire(app, "agent", "box_office_agent", nova.venue);
+        hire(app, "finance", "finance_manager", "");
+        hire(app, "cinemaadmin", "tenant_admin", "");
+        # The rules: 8 hours and KES 500,000 unless changed; the owner and the cinema
+        # admin change them; finance and the box office can only read them.
+        rules = {"tenant": "nova"};
+        assert app.call("agent", "box_office_rules", rules)
+            == {"ok": True, "shift_hours": 8, "cash_count_max_cents": 50000000};
+        change = {** rules, "shift_hours": 6, "cash_count_max_cents": 2000000};
+        for who in ["agent", "finance"] {
+            assert _code(app.call(who, "set_box_office_rules", change)) == "forbidden";
+        }
+        for (hours, most, code) in [
+            (0, 2000000, "invalid_hours"),
+            (13, 2000000, "invalid_hours"),
+            (6, 99999, "invalid_limit"),
+            (6, 1000000001, "invalid_limit")
+        ] {
+            assert _code(
+                app.call(
+                    "owner",
+                    "set_box_office_rules",
+                    {** rules, "shift_hours": hours, "cash_count_max_cents": most}
+                )
+            )
+                == code , (hours, most);
+        }
+        assert app.call("cinemaadmin", "set_box_office_rules", change)["shift_hours"]
+            == 6;
+        assert "cinema.box_office_rules_changed" in _actions(app);
+        # The five-seat screen: a second showtime for more sales.
+        more = add_screening(app, "owner", nova, "Rafiki", 24 * 3);
+        # A new shift lasts the cinema's 6 hours.
+        started = app.call("agent", "start_shift", rules);
+        left = datetime.fromisoformat(started["expires_at"])
+            - datetime.now(ZoneInfo("UTC"));
+        assert timedelta(hours=5, minutes=50) < left <= timedelta(hours=6) , left;
+        # More than KES 20,000 is refused, and saves nothing.
+        _cash_sale(app, screening, "A3");
+        status = app.call("agent", "cash_status", rules);
+        assert status["ok"] and status["uncounted"] and not status["count_first"];
+        assert status["max_cents"] == 2000000 and "expected_cents" not in status;
+        too_much = app.call(
+            "agent", "count_cash", {** rules, "counted_cents": 2000001}
+        );
+        assert _code(too_much) == "too_much" , too_much;
+        assert "KES 20,000" in too_much["error"]["message"];
+        assert app.call("owner", "reconciliation", rules)["cash_ups"] == [];
+        # KES 100 short; corrected within 10 minutes, once: both figures kept, the
+        # first count's exception settled.
+        price = app.call(
+            "owner", "t_order_fees", {"slug": "nova", "screening_id": screening}
+        );
+        price = [
+            o["total_cents"]
+            for o in price
+            if o["status"] == "confirmed"
+        ][0];
+        first = app.call(
+            "agent", "count_cash", {** rules, "counted_cents": price - 10000}
+        );
+        assert first["shift_ended"] and first["cash_up"]["recount_until"] , first;
+        assert _kinds(_exceptions(app)) == ["cash_short"];
+        fixed = app.call("agent", "recount_cash", {** rules, "counted_cents": price});
+        assert fixed["ok"] , fixed;
+        assert fixed["cash_up"]["counted_cents"] == price
+            and fixed["cash_up"]["first_counted_cents"] == price - 10000;
+        assert fixed["cash_up"]["recount_until"] == "";
+        found = _exceptions(app);
+        assert [(e["kind"], e["status"]) for e in found]
+            == [("cash_short", "resolved")];
+        assert found[0]["resolved_by"] == "the count"
+            and "first counted" in found[0]["resolved_note"];
+        assert _code(
+            app.call("agent", "recount_cash", {** rules, "counted_cents": price})
+        )
+            == "too_late";
+        assert "cash.recounted" in _actions(app);
+        # A correction that's still off is kept; too late after 10 minutes.
+        _new_shift(app, "agent");
+        _cash_sale(app, screening, "A4");
+        assert app.call("agent", "count_cash", {** rules, "counted_cents": price})[
+            "ok"
+        ];
+        wrong = app.call(
+            "agent", "recount_cash", {** rules, "counted_cents": price + 500}
+        );
+        assert wrong["ok"]
+            and _kinds(
+                [
+                    e
+                    for e in _exceptions(app)
+                    if e["status"] == "open"
+                ]
+            )
+                == ["cash_over"];
+        _new_shift(app, "agent");
+        _cash_sale(app, screening, "A5");
+        assert app.call("agent", "count_cash", {** rules, "counted_cents": price})[
+            "ok"
+        ];
+        app.call(
+            "owner",
+            "t_clock_at",
+            {"at": (datetime.now(ZoneInfo("UTC")) + timedelta(minutes=11)).isoformat()}
+        );
+        assert _code(app.call("agent", "recount_cash", {** rules, "counted_cents": 0}))
+            == "too_late";
+        app.call("owner", "t_clock_reset");
+        # Signing out without counting: once the shift is over, the manager sees
+        # "Cash not counted" (once), while a member still on shift isn't listed.
+        _new_shift(app, "agent");
+        _cash_sale(app, more, "A1");
+        assert app.call("owner", "t_cash_check") == 0;
+        assert app.call("agent", "end_shift", rules)["ok"];
+        assert app.call("owner", "t_cash_check") == 1;
+        assert app.call("owner", "t_cash_check") == 0;
+        missed = [
+            e
+            for e in _exceptions(app)
+            if e["kind"] == "cash_not_counted"
+        ];
+        assert len(missed) == 1 and missed[0]["expected_cents"] == price , missed;
+        assert missed[0]["detail"] and missed[0]["status"] == "open";
+        assert missed[0]["label"] == "Cash not counted at the end of a shift";
+        # The next shift: count the last one's cash before selling for cash again.
+        _new_shift(app, "agent");
+        status = app.call("agent", "cash_status", rules);
+        assert status["uncounted"] and status["count_first"] , status;
+        holder = _counter_order(app, more, "A2");
+        refused = app.call(
+            "agent",
+            "sell_for_cash",
+            {"tenant": "nova", "screening_id": more, "holder": holder, "email": ""}
+        );
+        assert _code(refused) == "count_first" , refused;
+        # Counting it doesn't end the new shift, and settles "not counted".
+        late = app.call("agent", "count_cash", {** rules, "counted_cents": price});
+        assert late["ok"] and not late["shift_ended"] , late;
+        missed = [
+            e
+            for e in _exceptions(app)
+            if e["kind"] == "cash_not_counted"
+        ];
+        assert missed[0]["status"] == "resolved"
+            and "Counted later" in missed[0]["resolved_note"];
+        assert not app.call("agent", "cash_status", rules)["count_first"];
+        sold = app.call(
+            "agent",
+            "sell_for_cash",
+            {"tenant": "nova", "screening_id": more, "holder": holder, "email": ""}
+        );
+        assert sold["ok"] , sold;
+        # The list says so too.
+        ups = app.call("owner", "reconciliation", rules)["cash_ups"];
+        assert len(
+            [
+                u
+                for u in ups
+                if u["first_counted_cents"] >= 0
+            ]
+        )
+            == 2 , ups;
+    } finally {
+        os.environ.pop("AFRICINEMAS_CLOCK_CONTROL", None);
         app.close();
     }
 }

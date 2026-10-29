@@ -13,7 +13,9 @@ uploads (2026-10-29). Two checks, each turning what doesn't add up into an
    And every receipt is on one payment only (`receipt_twice`).
 2. **A cash-up** at the box office: the cash counted against the cash sales (less cash
    refunds) recorded by that member of staff since their last cash-up. Any
-   difference is `cash_short` or `cash_over`.
+   difference is `cash_short` or `cash_over`. Counting ends the shift (P15.6b); the
+   count may be corrected once within RECOUNT_SECONDS, both figures kept. Cash left
+   uncounted when a shift ends is `cash_not_counted`, until it's counted.
 
 Each exception is kept once (a claim on its kind and what it's about), so checks that
 run again add nothing. Staff who read the reports mark one resolved with a note; it
@@ -46,6 +48,8 @@ glob LOOKBACK_DAYS: int = 3,
      KEPT: str = "recon-exception",
      REFUNDS: list[str] = ["refund", "refund_due", "reversal"],
      NOTE_MAX: int = 500,
+     # A count may be corrected once, by whoever made it, this soon after (P15.6b).
+     RECOUNT_SECONDS: int = 600,
      RECON_SECONDS: int = int(os.environ.get("AFRICINEMAS_RECON_SECONDS", "21600")),
      LABELS: dict[str, str] = {
          "not_paid": "Sold, but M-Pesa says it wasn't paid",
@@ -53,7 +57,8 @@ glob LOOKBACK_DAYS: int = 3,
          "amount_differs": "M-Pesa's amount differs from the sale",
          "receipt_twice": "One M-Pesa receipt on two payments",
          "cash_short": "Cash short at a cash-up",
-         "cash_over": "Cash over at a cash-up"
+         "cash_over": "Cash over at a cash-up",
+         "cash_not_counted": "Cash not counted at the end of a shift"
      };
 
 node ReconException {
@@ -69,6 +74,8 @@ node ReconException {
         found_cents: int = 0,
         detail: str = "",
         found_at: str = "",
+        # What it's about, as keep() claimed it: a cash-up's is "member|when".
+        about: str = "",
         status: str = "open",
         resolved_by: str = "",
         resolved_at: str = "",
@@ -77,13 +84,16 @@ node ReconException {
 
 node CashUp {
     # A member of staff's count: what they counted, what they'd recorded, since when.
+    # first_counted_cents is what they counted before correcting it (-1: never
+    # corrected).
     has tenant_id: str,
         member_id: str,
         member: str,
         counted_cents: int,
         expected_cents: int,
         since: str,
-        at: str;
+        at: str,
+        first_counted_cents: int = -1;
 }
 
 def exception_view(e: ReconException) -> dict[str, any] {  # jac:ignore[W1037]
@@ -151,7 +161,8 @@ def keep(  # jac:ignore[W3030] the exception: whose, what, why, about what, the 
             expected_cents=expected,
             found_cents=found,
             detail=detail,
-            found_at=now().isoformat()
+            found_at=now().isoformat(),
+            about=about
         );
         cinema ++> e;
         attach_to_tenant(e, cinema);
@@ -366,18 +377,24 @@ def cash_ups_of(cinema: Tenant) -> list[CashUp] {
     return sorted(found, key=lambda (c: CashUp) -> str { return c.at; }, reverse=True);
 }
 
-def cash_up(cinema: Tenant, member_id: str, member: str, counted: int) -> CashUp {
-    # The member's count against the cash they recorded since their last cash-up.
-    if not isinstance(counted, int) or counted < 0 {
-        raise Refused("invalid_amount", "Enter the cash you counted, in shillings.");
-    }
+def _last_count(cinema: Tenant, member_id: str) -> CashUp | None {
     mine = [
         c
         for c in cash_ups_of(cinema)
         if c.member_id == member_id
     ];
-    since = mine[0].at if mine else "";
+    return mine[0] if mine else None;
+}
+
+def uncounted(cinema: Tenant, member_id: str) -> tuple[int, str, str] {
+    # The cash the member recorded since their last count, and the first and last time
+    # they recorded any ("" when there's none). A sale and its refund still count as
+    # cash handled.
+    last = _last_count(cinema, member_id);
+    since = last.at if last is not None else "";
     expected = 0;
+    first = "";
+    latest = "";
     for (_, _, entries) in _records(cinema) {
         for e in entries {
             if e.recorded_by != member_id or e.method != "cash" {
@@ -388,9 +405,87 @@ def cash_up(cinema: Tenant, member_id: str, member: str, counted: int) -> CashUp
             }
             if e.kind == "payment" or e.kind in REFUNDS {
                 expected += e.amount_cents;
+                if not first or e.created_at < first {
+                    first = e.created_at;
+                }
+                if e.created_at > latest {
+                    latest = e.created_at;
+                }
             }
         }
     }
+    return (expected, first, latest);
+}
+
+def count_first(cinema: Tenant, member_id: str, started_at: str) -> bool {
+    # Cash from before the member's shift started is still uncounted: they're asked to
+    # count it before selling for cash again.
+    (_, first, _) = uncounted(cinema, member_id);
+    return bool(first) and bool(started_at) and first < started_at;
+}
+
+def require_counted(cinema: Tenant, member_id: str, started_at: str) {
+    # Before a cash sale: cash from an earlier shift must be counted first (P15.6b).
+    if count_first(cinema, member_id, started_at) {
+        raise Refused(
+            "count_first",
+            "Count the cash from your last shift first, on Box office → Count cash."
+        );
+    }
+}
+
+def _check_amount(cinema: Tenant, counted: int) {
+    if isinstance(counted, bool) or not isinstance(counted, int) or counted < 0 {
+        raise Refused("invalid_amount", "Enter the cash you counted, in shillings.");
+    }
+    if counted > cinema.cash_count_max_cents {
+        raise Refused(
+            "too_much",
+            f"That's more than KES {cinema.cash_count_max_cents
+                // 100:,}, the most one count can be. Check the amount, or ask your manager to raise the limit."
+        );
+    }
+}
+
+def _settle(cinema: Tenant, about: str, note: str) {
+    # Marks the open cash exceptions about `about` resolved, by the count itself.
+    def run {
+        for e in [cinema-->[?:ReconException]] {
+            if e.status == "open" and e.about == about {
+                e.status = "resolved";
+                e.resolved_by = "the count";
+                e.resolved_at = now().isoformat();
+                e.resolved_note = note;
+            }
+        }
+        flush_now();
+    }
+    _as_cinema(cinema, run);
+}
+
+def _keep_difference(cinema: Tenant, c: CashUp, about: str) {
+    if c.counted_cents != c.expected_cents {
+        keep(
+            cinema,
+            "cash_short" if c.counted_cents < c.expected_cents else "cash_over",
+            "cash_up",
+            about,
+            "",
+            "",
+            c.expected_cents,
+            c.counted_cents,
+            c.member
+        );
+    }
+}
+
+def cash_up(cinema: Tenant, member_id: str, member: str, counted: int) -> CashUp {
+    # The member's count against the cash they recorded since their last cash-up. A
+    # "not counted" exception for that cash is settled by it.
+    _check_amount(cinema, counted);
+    last = _last_count(cinema, member_id);
+    since = last.at if last is not None else "";
+    (expected, _, _) = uncounted(cinema, member_id);
     at = now().isoformat();
     def made -> any {  # jac:ignore[W1037]
         c = CashUp(
@@ -408,29 +503,103 @@ def cash_up(cinema: Tenant, member_id: str, member: str, counted: int) -> CashUp
         return c;
     }
     done = _as_cinema(cinema, made);
-    if counted != expected {
-        keep(
-            cinema,
-            "cash_short" if counted < expected else "cash_over",
-            "cash_up",
-            f"{member_id}|{at}",
-            "",
-            "",
-            expected,
-            counted,
-            member
+    _keep_difference(cinema, done, f"{member_id}|{at}");
+    _settle(
+        cinema,
+        f"{member_id}|{since}|uncounted",
+        f"Counted later: KES {counted // 100:,}."
+    );
+    return done;
+}
+
+def recount(cinema: Tenant, member_id: str, counted: int) -> CashUp {
+    # Corrects the member's last count, once, within RECOUNT_SECONDS of making it. Both
+    # figures are kept; the first count's exception is settled and the new one's kept.
+    _check_amount(cinema, counted);
+    last = _last_count(cinema, member_id);
+    if last is None
+        or last.first_counted_cents >= 0
+        or (now() - datetime.fromisoformat(last.at)).total_seconds()
+            > RECOUNT_SECONDS {
+        raise Refused(
+            "too_late",
+            "A count can be corrected once, within 10 minutes. Ask your manager to sort it out on the Reconciliation page."
         );
     }
+    first = last.counted_cents;
+    def change -> any {  # jac:ignore[W1037]
+        last.first_counted_cents = first;
+        last.counted_cents = counted;
+        flush_now();
+        return last;
+    }
+    done = _as_cinema(cinema, change);
+    _settle(
+        cinema,
+        f"{member_id}|{last.at}",
+        f"Recounted: KES {counted // 100:,} (first counted KES {first // 100:,})."
+    );
+    _keep_difference(cinema, done, f"{member_id}|{last.at}|recount");
     return done;
+}
+
+def check_uncounted(
+    cinema: Tenant,
+    names: dict[str, str],
+    still_on: any  # jac:ignore[W1037]
+) -> int {
+    # Staff whose shift has ended (signed out, or it ran out) with cash they haven't
+    # counted: `cash_not_counted`, once per uncounted stretch. `still_on(member_id)`
+    # says whether their shift is open; `names` maps member ids to how they're shown.
+    members: set[str] = set();
+    for (_, _, entries) in _records(cinema) {
+        for e in entries {
+            if e.method == "cash" and e.recorded_by {
+                members.add(e.recorded_by);
+            }
+        }
+    }
+    made = 0;
+    for member_id in sorted(members) {
+        if still_on(member_id) {
+            continue;
+        }
+        (expected, first, _) = uncounted(cinema, member_id);
+        if not first {
+            continue;
+        }
+        last = _last_count(cinema, member_id);
+        since = last.at if last is not None else "";
+        made += int(
+            keep(
+                cinema,
+                "cash_not_counted",
+                "cash_up",
+                f"{member_id}|{since}|uncounted",
+                "",
+                "",
+                expected,
+                0,
+                names.get(member_id, member_id)
+            )
+        );
+    }
+    return made;
 }
 
 def cash_up_view(c: CashUp) -> dict[str, any] {  # jac:ignore[W1037]
     return {
         "member": c.member,
         "counted_cents": c.counted_cents,
+        "first_counted_cents": c.first_counted_cents,
         "expected_cents": c.expected_cents,
         "difference_cents": c.counted_cents - c.expected_cents,
         "since": c.since,
-        "at": c.at
+        "at": c.at,
+        "recount_until": (
+            datetime.fromisoformat(c.at) + timedelta(seconds=RECOUNT_SECONDS)
+        ).isoformat()
+            if c.first_counted_cents < 0
+            else ""
     };
 }

@@ -48,7 +48,10 @@ def:pub ExceptionText(e: dict[str, any]) -> str {  # jac:ignore[W1037]
     }
     expected = int(e["expected_cents"]);
     found = int(e["found_cents"]);
-    if e["source"] == "cash_up" {
+    if e["kind"] == "cash_not_counted" {
+        parts.append(f"Cash sales recorded: {_kes(expected)}");
+        parts.append("Not counted when the shift ended");
+    } elif e["source"] == "cash_up" {
         parts.append(f"Cash sales recorded: {_kes(expected)}");
         parts.append(f"Cash counted: {_kes(found)}");
         gap = found - expected;
@@ -213,6 +216,11 @@ def CashUps(ups: list[dict[str, any]], tz: str) -> JsxElement {  # jac:ignore[W1
                                     ""
                                         if int(u["difference_cents"]) == 0
                                         else f" ({_kes(u['difference_cents'])})"
+                                )
+                                + (
+                                    f"; first counted {_kes(u['first_counted_cents'])}"
+                                        if int(u["first_counted_cents"]) >= 0
+                                        else ""
                                 )}
                         </li> for u in ups
                     ]}

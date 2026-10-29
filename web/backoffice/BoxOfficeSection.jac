@@ -17,6 +17,7 @@ or all codes can be printed. New sale starts over with a new holder id.
 
 import from react { useState, useEffect }
 import from .CashUp { CashUp }
+import from core.payments.reconcile_api { cash_status }  # jac:ignore[W2037] authenticated endpoint
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
@@ -423,9 +424,16 @@ def SaleKind(kind: str, on_kind: any) -> JsxElement {  # jac:ignore[W1037]
         </div>;
 }
 
-def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
+def:pub BoxOfficeSection(
+    slug: str,
+    shift_open: bool = True,
+    start_with: str = "",
+    on_shift_ended: any = None  # jac:ignore[W1037]
+) -> JsxElement {
     # shift_open: reload once the member starts their shift (the server refuses without).
-    [kind, set_kind] = useState("tickets");
+    # on_shift_ended: counting the cash ended it (P15.6b). start_with "count"
+    # (/app/:slug/box-office/count, from the sign-out reminder) opens Count cash.
+    [kind, set_kind] = useState("cash" if start_with == "count" else "tickets");
     [page, set_page] = useState(None);
     [chosen, set_chosen] = useState("");
     [holder, set_holder] = useState(_counter_holder());
@@ -444,11 +452,34 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
         );
     }
 
+    async def must_count {
+        # Cash left uncounted from an earlier shift: Count cash comes first (P15.6b).
+        got: any = None;  # jac:ignore[W1037]
+        try {
+            got = await cash_status(slug);  # jac:ignore[W2037]
+        } except Exception as e {
+            console.warn("cash_status failed", e);
+        }
+        if got is not None and got["ok"] and got["count_first"] {
+            set_kind("cash");
+        }
+    }
+
     def start_loading -> any {  # jac:ignore[W1037]
         load();
+        if shift_open {
+            must_count();
+        }
         return lambda {};
     }
     useEffect(start_loading, [slug, shift_open]);
+
+    def follow_address {
+        if start_with == "count" {
+            set_kind("cash");
+        }
+    }
+    useEffect(follow_address, [start_with]);
 
     def new_sale {
         set_holder(_counter_holder());
@@ -463,7 +494,7 @@ def:pub BoxOfficeSection(slug: str, shift_open: bool = True) -> JsxElement {
         return
             <div className="flex flex-col gap-6">
                 <SaleKind kind={kind} on_kind={set_kind}/>
-                <CashUp slug={slug}/>
+                <CashUp slug={slug} on_shift_ended={on_shift_ended}/>
             </div>;
     }
     if kind == "extra" {

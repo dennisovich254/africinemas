@@ -87,8 +87,12 @@ system, not real money.
 - [ ] **Money paid to a paybill outside AfriCinemas** isn't checked by the app
   (statement uploads were removed, 2026-10-29). Tell cinemas to compare their own M-Pesa
   statement with the Reports page.
-- [ ] **Cash counts in practice**: the box office counts at the end of each shift, and a
-  manager looks at the Reconciliation page. Agree who resolves a short count.
+- [ ] **Cash counts in practice**: the box office counts at the end of each shift (it
+  ends the shift), and a manager looks at the Reconciliation page. Agree who resolves a
+  short count, and each cinema's shift length and largest count (Settings → Box office).
+- [ ] **"Cash not counted" in real time**: a shift that runs out (nobody signed out)
+  is listed within about 15 minutes. The browser tests can't wait out a shift, so this
+  is tested in-process only.
 
 ## The monthly billing job, in real time (P15.4)
 
