@@ -333,6 +333,11 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "cash.counted",
              "probe": {"tenant": "{tenant}", "counted_cents": 0}
          },
+         "count_left_cash": {
+             "scope": "tenant",
+             "audit": "cash.counted_for",
+             "probe": {"tenant": "{tenant}", "member_id": "x", "counted_cents": 0}
+         },
          "recount_cash": {
              "scope": "tenant",
              "audit": "cash.recounted",

@@ -11,8 +11,8 @@ import from ..auth.session { sign_out }
 import from core.payments.reconcile_api { cash_status }  # jac:ignore[W2037] authenticated endpoint
 
 # Signing out ends the shift at each cinema in `slugs` first (ADR-0006). Box office
-# staff with cash they haven't counted are reminded first (P15.6b): Count now, or Sign
-# out anyway (their manager then sees "Cash not counted").
+# staff with cash they haven't counted count it first (P15.6b): Count now opens Count
+# cash, which signs them out once it's saved. There's no signing out without it.
 def:pub AccountActions(slugs: list[str], switch_to: str = "") -> JsxElement {
     nav = useNavigate();
     [busy, set_busy] = useState(False);
@@ -42,7 +42,7 @@ def:pub AccountActions(slugs: list[str], switch_to: str = "") -> JsxElement {
     def count_now {
         where: str = uncounted;
         set_uncounted("");
-        nav(f"/app/{where}/box-office/count");
+        nav(f"/app/{where}/box-office/sign-out");
     }
     return
         <div className="flex flex-col gap-1">

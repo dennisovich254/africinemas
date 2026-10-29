@@ -55,8 +55,7 @@ import from core.payments.payment_api { ORDER_PAYMENT, stored_intent, counter_pa
 import from core.payments.settlement { FINALIZE, PROVISIONAL_SECONDS }
 import from core.payments.state { PaymentState, is_final }
 import from core.audit.log { audited }
-import from core.tenancy.shifts { shift_started_at }
-import from core.payments.reconcile { require_counted }
+import from core.payments.reconcile { check_cash_sale }
 
 glob SELL: str = "bookings.create",
      SHOWTIMES_MAX: int = 30;
@@ -164,10 +163,7 @@ def _sell_for_cash(
     tenant: str, screening_id: str, holder: str, email: str
 ) -> dict[str, any] {  # jac:ignore[W1037]
     (scope, screening) = _showtime(tenant, screening_id);
-    member = scope.ctx.member_root_id;
-    require_counted(
-        scope.tenant, member, shift_started_at(scope.ctx.tenant_id, member)
-    );
+    check_cash_sale(scope);
     # Tickets are signed (P6.1): without the key none can be issued, so refuse before
     # anything is claimed or changed, as online payments do.
     try {

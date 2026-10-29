@@ -5,17 +5,19 @@ KES 400,000). A box office agent sells A1 and A2 for cash (KES 1,660). On Count 
 - what they sold isn't shown first; "abc" and KES 450,000 (over the limit) are
   refused;
 - KES 1,600 is shown large and in words before saving; Change goes back; saving says
-  KES 60 short and ends the shift;
+  KES 60 short, and the shift carries on;
 - "Count again" corrects it to KES 1,660 (matches; "Corrected from KES 1,600");
-- after a new shift and one more sale (KES 830), KES 1,000 is KES 170 over;
-- after another sale, Sign out reminds them; Count now opens Count cash, where they
-  count it, and Sign out then goes straight out.
+- after one more sale (KES 830), KES 1,000 is KES 170 over;
+- after another sale, Sign out asks for a count first (Not now stays); Count now opens
+  Count cash, and once it's counted, Sign out now signs them out.
 The agent has no Reconciliation page. In the console, Reconciliation lists the open
 cash over but not the corrected short, and the takings tables include the cinema. The
 owner's sidebar counts 1; the Cash tab says what each amount is (no "ours"/"theirs"), at
 the cinema's time; resolving with a note clears the count; Resolved has both, the
 corrected one "by the count"; the counts are listed, the correction with its first
-figure. Last, signing out anyway with cash uncounted goes out.
+figure. Last, the agent sells again and leaves without signing out: the next agent at
+the venue is shown their cash, counts it on their behalf, and signs out with nothing to
+count.
 The daily M-Pesa check, and "Cash not counted": tests/integration/reconcile_tests.jac.
 """
 
@@ -100,7 +102,9 @@ def _count(desk: any, amount: str) -> str {  # jac:ignore[W1037]
 }
 
 def _on_shift(page: any) {  # jac:ignore[W1037]
-    # Starts the member's shift if the page asks for one.
+    # Starts the member's shift if the page asks for one (once it's loaded).
+    page.wait_for_selector('[data-testid="shell-title"]');
+    page.wait_for_load_state("networkidle");
     banner = page.locator('[data-testid="shift-banner"]');
     if banner.count() > 0 {
         banner.locator("button").first.click();
@@ -172,21 +176,18 @@ test "cash is counted to end a shift, checked, corrected, reminded, and reconcil
                 == "KES 1,600";
             assert shown.locator('[data-testid="cash-confirm-words"]').text_content()
                 == "one thousand six hundred shillings";
-            assert "ends your shift" in shown.inner_text();
             shown.locator('button:has-text("Change")').click();
             shown.wait_for(state="detached");
             assert desk.locator('[data-testid="cash-up-result"]').count() == 0;
-            # Saved: KES 60 short, and the shift has ended.
+            # Saved: KES 60 short, and the shift carries on.
             said = _count(desk, "1,600");
             assert "You counted KES 1,600; you recorded KES 1,660" in said , said;
             assert "KES 60 short" in said and "your manager will see it" in said , said;
-            desk.wait_for_selector('[data-testid="shift-ended"]');
-            desk.wait_for_selector('[data-testid="shift-banner"]');
+            assert desk.locator('[data-testid="shift-banner"]').count() == 0;
             # Corrected once: it matches, and says what it was.
             desk.click('[data-testid="count-again"]');
             again = _check(desk, "1,660");
             again.wait_for();
-            assert "ends your shift" not in again.inner_text();
             again.locator('button:has-text("Save count")').click();
             desk.wait_for_selector(
                 '[data-testid="cash-up-result"]:has-text("It matches.")'
@@ -194,7 +195,7 @@ test "cash is counted to end a shift, checked, corrected, reminded, and reconcil
             assert "Corrected from KES 1,600"
                 in desk.inner_text('[data-testid="cash-up"]');
             assert desk.locator('[data-testid="count-again"]').count() == 0;
-            # A new shift, one more sale (KES 830), and KES 1,000: over.
+            # One more sale (KES 830), and KES 1,000: over.
             _sale_by(owner, agent, ["A3"]);
             desk.reload();
             desk.click('[data-testid="sale-kind-cash"]');
@@ -202,25 +203,37 @@ test "cash is counted to end a shift, checked, corrected, reminded, and reconcil
             said = _count(desk, "1,000");
             assert "you recorded KES 830" in said and "KES 170 over" in said , said;
             assert desk.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
-            # Another sale, then Sign out: reminded; Count now opens Count cash.
+            # Another sale, then Sign out: a count first, with no way round it.
             _sale_by(owner, agent, ["A4"]);
             desk.goto(f"{BASE_URL}/app/{owner['slug']}");
-            desk.wait_for_selector('[data-testid="shift-banner"]', state="detached");
+            desk.wait_for_selector('[data-testid="shell-title"]');
             _sign_out(desk, project);
             reminder = desk.locator('[data-testid="uncounted-cash"]');
             reminder.wait_for();
-            assert "You haven't counted your cash" in reminder.inner_text();
+            assert "Count your cash before you sign out" in reminder.inner_text();
+            assert reminder.locator('button:has-text("Sign out anyway")').count() == 0;
+            reminder.locator('button:has-text("Not now")').click();
+            reminder.wait_for(state="detached");
+            assert "/login" not in desk.url;
+            _sign_out(desk, project);
+            reminder.wait_for();
             reminder.locator('button:has-text("Count now")').click();
-            desk.wait_for_url(f"**/app/{owner['slug']}/box-office/count");
+            desk.wait_for_url(f"**/app/{owner['slug']}/box-office/sign-out");
             if project == "mobile" {
                 desk.keyboard.press("Escape");
                 desk.wait_for_selector(DRAWER, state="hidden");
             }
-            desk.wait_for_selector("#cash-counted");
-            said = _count(desk, "830");
-            assert "It matches." in said , said;
-            # Counted: Sign out goes straight out.
-            _sign_out(desk, project);
+            desk.wait_for_selector(
+                '[data-testid="cash-up"] h2:has-text("Count your cash to sign out")'
+            );
+            shown = _check(desk, "830");
+            shown.wait_for();
+            assert "Once it's saved, you can sign out." in shown.inner_text();
+            shown.locator('button:has-text("Save count")').click();
+            desk.wait_for_selector(
+                '[data-testid="cash-up-result"]:has-text("It matches.")'
+            );
+            desk.click('[data-testid="cash-sign-out"]');
             desk.wait_for_url("**/login**");
             # The box office has no Reconciliation page (signed in again).
             desk.context.close();
@@ -331,16 +344,36 @@ test "cash is counted to end a shift, checked, corrected, reminded, and reconcil
             assert page.locator('[data-testid="cash-ups"]').count() == 0;
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
             page.context.close();
-            # Last: with cash uncounted, Sign out anyway goes out.
+            # Last: the agent sells again and leaves without signing out. The next agent
+            # at the venue is shown their cash, and counts it on their behalf.
             _sale_by(owner, agent, ["A5"]);
-            desk.goto(f"{BASE_URL}/app/{owner['slug']}");
-            desk.wait_for_selector('[data-testid="shift-banner"]', state="detached");
-            _sign_out(desk, project);
-            reminder = desk.locator('[data-testid="uncounted-cash"]');
-            reminder.wait_for();
-            reminder.locator('button:has-text("Sign out anyway")').click();
-            desk.wait_for_url("**/login**");
             desk.context.close();
+            other = add_staff(owner, "box_office_agent", owner["venue"]);
+            nxt = _sign_in(browser, pw, project, other["email"]);
+            nxt.goto(f"{BASE_URL}/app/{owner['slug']}/box-office");
+            _on_shift(nxt);
+            nxt.click('[data-testid="sale-kind-cash"]');
+            left = nxt.locator('[data-testid="left-cash"]');
+            left.wait_for();
+            assert f"{agent['email']} didn't count their cash" in left.inner_text();
+            assert "They're still signed in" in left.inner_text();
+            left.locator("input").fill("830");  # jac:ignore[W6002]
+            left.locator('button[type="submit"]').click();
+            shown = nxt.locator('[data-testid="cash-confirm"]');
+            shown.wait_for();
+            assert f"You're counting {agent['email']}'s cash." in shown.inner_text();
+            shown.locator('button:has-text("Save count")').click();
+            nxt.wait_for_selector(
+                f'[data-testid="left-cash-result"]:has-text("{agent[
+                    "email"
+                ]} recorded KES 830")'
+            );
+            assert "It matches." in nxt.inner_text('[data-testid="left-cash-result"]');
+            assert nxt.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
+            # With nothing of their own to count, Sign out goes straight out.
+            _sign_out(nxt, project);
+            nxt.wait_for_url("**/login**");
+            nxt.context.close();
         }
     } finally {
         close_contexts(browser);

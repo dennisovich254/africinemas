@@ -422,7 +422,6 @@ def:pub BackOffice -> JsxElement {
             slug={slug}
             shift_open={shift_open}
             start_with={item}
-            on_shift_ended={lambda { set_shift_open(False); }}
         />;
     } elif section == "scanner" {
         content = <ScannerSection

@@ -7,10 +7,11 @@ In-process app (payment_app.jac), the simulated M-Pesa told to change its mind.
   paid though nothing was sold, and a receipt on two payments each make one. Running
   again adds nothing.
 - A cash-up compares the count with the cash that member sold since their last one;
-  a difference is an exception. Counting ends the shift (P15.6b); it can be corrected
-  once within 10 minutes (both figures kept); more than the cinema's limit is refused;
-  cash left uncounted when a shift ends is "Cash not counted", and must be counted
-  before the next cash sale. Shift length and the limit are the cinema's, set by its
+  a difference is an exception. A count can be corrected once within 10 minutes (both
+  figures kept, P15.6b); more than the cinema's limit is refused. Cash left by someone
+  who didn't sign out is offered to the next agent at the venue while they're still on
+  shift; once it's over it's "Cash not counted", and the next agent counts it on their
+  behalf before selling for cash. Their own earlier shift's cash too. Shift length and the limit are the cinema's, set by its
   owner or admin.
 - Only the cinema's finance readers see and resolve its exceptions (with a note, once),
   and the sidebar's count is theirs (0 for the rest of its staff); the box office
@@ -90,6 +91,16 @@ def _cash_sale(app: Served, screening: str, seat: str) {
 
 def _new_shift(app: Served, who: str) {
     assert app.call(who, "start_shift", {"tenant": "nova"})["ok"];
+}
+
+def _sale_by(app: Served, who: str, screening: str, seat: str) {
+    holder = _counter_order(app, screening, seat);
+    sold = app.call(
+        who,
+        "sell_for_cash",
+        {"tenant": "nova", "screening_id": screening, "holder": holder, "email": ""}
+    );
+    assert sold["ok"] , sold;
 }
 
 def _platform_member(app: Served, label: str, role: str) {
@@ -325,13 +336,8 @@ test "a cash-up compares the count with the cash that member sold since their la
         assert right["cash_up"]["expected_cents"] == price
             and right["cash_up"]["since"] == "";
         assert _exceptions(app) == [];
-        # Counting ended the shift: no more sales until a new one starts.
-        assert right["shift_ended"];
-        assert _code(
-            app.call("agent", "count_cash", {"tenant": "nova", "counted_cents": 0})
-        )
-            == "no_shift";
-        _new_shift(app, "agent");
+        # Counting doesn't end the shift.
+        assert "shift_ended" not in right;
         # Another sale, and KES 100 short.
         _cash_sale(app, screening, "A4");
         short = app.call(
@@ -390,7 +396,9 @@ test "a cash-up compares the count with the cash that member sold since their la
 
 test "a count ends the shift, can be corrected once, has a limit, and is missed when skipped" {
     os.environ["AFRICINEMAS_CLOCK_CONTROL"] = "1";
-    (app, nova, screening) = paying_cinema(["agent", "finance", "cinemaadmin"]);
+    (app, nova, screening) = paying_cinema(
+        ["agent", "agent2", "finance", "cinemaadmin"]
+    );
     try {
         hire(app, "agent", "box_office_agent", nova.venue);
         hire(app, "finance", "finance_manager", "");
@@ -453,7 +461,7 @@ test "a count ends the shift, can be corrected once, has a limit, and is missed 
         first = app.call(
             "agent", "count_cash", {** rules, "counted_cents": price - 10000}
         );
-        assert first["shift_ended"] and first["cash_up"]["recount_until"] , first;
+        assert first["cash_up"]["recount_until"] , first;
         assert _kinds(_exceptions(app)) == ["cash_short"];
         fixed = app.call("agent", "recount_cash", {** rules, "counted_cents": price});
         assert fixed["ok"] , fixed;
@@ -501,11 +509,18 @@ test "a count ends the shift, can be corrected once, has a limit, and is missed 
         assert _code(app.call("agent", "recount_cash", {** rules, "counted_cents": 0}))
             == "too_late";
         app.call("owner", "t_clock_reset");
-        # Signing out without counting: once the shift is over, the manager sees
-        # "Cash not counted" (once), while a member still on shift isn't listed.
+        # Forgot to sign out: while they're still on shift, the next agent at the
+        # venue is offered their cash, and may still sell; once their shift is over,
+        # the manager sees "Cash not counted" (once) and the next agent must count it.
         _new_shift(app, "agent");
         _cash_sale(app, more, "A1");
         assert app.call("owner", "t_cash_check") == 0;
+        hire(app, "agent2", "box_office_agent", nova.venue);
+        offered = app.call("agent2", "cash_status", rules)["left_behind"];
+        assert len(offered) == 1 and offered[0]["on_shift"] , offered;
+        assert offered[0]["member"];
+        gone_id = offered[0]["member_id"];
+        _sale_by(app, "agent2", more, "A2");
         assert app.call("agent", "end_shift", rules)["ok"];
         assert app.call("owner", "t_cash_check") == 1;
         assert app.call("owner", "t_cash_check") == 0;
@@ -517,34 +532,68 @@ test "a count ends the shift, can be corrected once, has a limit, and is missed 
         assert len(missed) == 1 and missed[0]["expected_cents"] == price , missed;
         assert missed[0]["detail"] and missed[0]["status"] == "open";
         assert missed[0]["label"] == "Cash not counted at the end of a shift";
-        # The next shift: count the last one's cash before selling for cash again.
-        _new_shift(app, "agent");
-        status = app.call("agent", "cash_status", rules);
-        assert status["uncounted"] and status["count_first"] , status;
-        holder = _counter_order(app, more, "A2");
-        refused = app.call(
-            "agent",
-            "sell_for_cash",
-            {"tenant": "nova", "screening_id": more, "holder": holder, "email": ""}
+        status = app.call("agent2", "cash_status", rules);
+        behind = [(l["member_id"], l["on_shift"]) for l in status["left_behind"]];
+        assert behind == [(gone_id, False)] , behind;
+        holder = _counter_order(app, more, "A3");
+        sell = {"tenant": "nova", "screening_id": more, "holder": holder, "email": ""};
+        assert _code(app.call("agent2", "sell_for_cash", sell)) == "count_left";
+        # The next agent counts it on their behalf: theirs, counted by agent2.
+        counted = app.call(
+            "agent2",
+            "count_left_cash",
+            {** rules, "member_id": gone_id, "counted_cents": price}
         );
-        assert _code(refused) == "count_first" , refused;
-        # Counting it doesn't end the new shift, and settles "not counted".
-        late = app.call("agent", "count_cash", {** rules, "counted_cents": price});
-        assert late["ok"] and not late["shift_ended"] , late;
+        assert counted["ok"] , counted;
+        assert counted["cash_up"]["expected_cents"] == price
+            and counted["cash_up"]["counted_by"]
+            and counted["cash_up"]["member"] == offered[0]["member"];
         missed = [
             e
             for e in _exceptions(app)
             if e["kind"] == "cash_not_counted"
         ];
         assert missed[0]["status"] == "resolved"
-            and "Counted later" in missed[0]["resolved_note"];
-        assert not app.call("agent", "cash_status", rules)["count_first"];
-        sold = app.call(
-            "agent",
-            "sell_for_cash",
-            {"tenant": "nova", "screening_id": more, "holder": holder, "email": ""}
+            and "Counted later by" in missed[0]["resolved_note"] , missed;
+        assert "cash.counted_for" in _actions(app);
+        assert _code(
+            app.call(
+                "agent2",
+                "count_left_cash",
+                {** rules, "member_id": gone_id, "counted_cents": 0}
+            )
+        )
+            == "nothing_left";
+        assert app.call("agent2", "sell_for_cash", sell)["ok"];
+        # Their own cash from an earlier shift: counted before the next cash sale, and
+        # counting it doesn't end the new shift.
+        assert app.call("agent2", "end_shift", rules)["ok"];
+        _new_shift(app, "agent2");
+        status = app.call("agent2", "cash_status", rules);
+        assert status["uncounted"] and status["count_first"] , status;
+        holder = _counter_order(app, more, "A4");
+        sell = {"tenant": "nova", "screening_id": more, "holder": holder, "email": ""};
+        assert _code(app.call("agent2", "sell_for_cash", sell)) == "count_first";
+        theirs = app.call(
+            "agent2", "count_cash", {** rules, "counted_cents": 2 * price}
         );
-        assert sold["ok"] , sold;
+        assert theirs["ok"] and theirs["cash_up"]["difference_cents"] == 0 , theirs;
+        assert not app.call("agent2", "cash_status", rules)["count_first"];
+        assert app.call("agent2", "sell_for_cash", sell)["ok"];
+        assert app.call("agent2", "cash_status", rules)["uncounted"];
+        # Counting for someone still signed in ends their shift.
+        _new_shift(app, "agent");
+        _cash_sale(app, more, "A5");
+        assert app.call(
+            "agent2",
+            "count_left_cash",
+            {** rules, "member_id": gone_id, "counted_cents": price}
+        )["ok"];
+        assert _code(app.call("agent", "count_cash", {** rules, "counted_cents": 0}))
+            == "no_shift";
+        # A counted-for count can't be corrected by its member.
+        assert _code(app.call("agent", "recount_cash", {** rules, "counted_cents": 0}))
+            == "too_late";
         # The list says so too.
         ups = app.call("owner", "reconciliation", rules)["cash_ups"];
         assert len(

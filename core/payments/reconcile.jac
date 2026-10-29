@@ -13,9 +13,11 @@ uploads (2026-10-29). Two checks, each turning what doesn't add up into an
    And every receipt is on one payment only (`receipt_twice`).
 2. **A cash-up** at the box office: the cash counted against the cash sales (less cash
    refunds) recorded by that member of staff since their last cash-up. Any
-   difference is `cash_short` or `cash_over`. Counting ends the shift (P15.6b); the
-   count may be corrected once within RECOUNT_SECONDS, both figures kept. Cash left
-   uncounted when a shift ends is `cash_not_counted`, until it's counted.
+   difference is `cash_short` or `cash_over`. The count may be corrected once within
+   RECOUNT_SECONDS, both figures kept (P15.6b). Staff can't sign out with cash
+   uncounted; cash left by someone who didn't sign out is `cash_not_counted` once
+   their shift is over, and the next at that venue counts it on their behalf
+   (left_behind) before selling for cash.
 
 Each exception is kept once (a claim on its kind and what it's about), so checks that
 run again add nothing. Staff who read the reports mark one resolved with a note; it
@@ -42,6 +44,9 @@ import from core.payments.models { PaymentIntent }
 import from core.payments.ledger { LedgerEntry }
 import from core.payments.state { PaymentState }
 import from core.payments.payment_api { provider_of }
+import from core.authz.policy { ROLE_PERMISSIONS }
+import from core.tenancy.membership { records_of }
+import from core.tenancy.shifts { shift_is_open, shift_started_at }
 
 glob LOOKBACK_DAYS: int = 3,
      CHECKED: str = "recon-checked",
@@ -93,7 +98,10 @@ node CashUp {
         expected_cents: int,
         since: str,
         at: str,
-        first_counted_cents: int = -1;
+        first_counted_cents: int = -1,
+        # Who counted it, when it isn't the member: the next at the venue, for cash
+        # left by someone who didn't sign out (P15.6b).
+        counted_by: str = "";
 }
 
 def exception_view(e: ReconException) -> dict[str, any] {  # jac:ignore[W1037]
@@ -231,6 +239,33 @@ def _records(
         ];
     }
     return _as_cinema(cinema, read);
+}
+
+def _cash_entries(cinema: Tenant) -> list[tuple[str, LedgerEntry]] {
+    # Every cash payment or refund, with the venue it was taken at.
+    def walk -> any {  # jac:ignore[W1037]
+        found: list[tuple[str, LedgerEntry]] = [];
+        for venue in [cinema-->[?:Venue]] {
+            vid = node_id(venue);
+            orders: list[Order] = [venue-->[?:Order]];
+            for screen in [venue-->[?:Auditorium]] {
+                for sc in [screen-->[?:Screening]] {
+                    orders.extend([sc-->[?:Order]]);
+                }
+            }
+            for o in orders {
+                for e in [o-->[?:LedgerEntry]] {
+                    if e.method == "cash"
+                        and e.recorded_by
+                        and (e.kind == "payment" or e.kind in REFUNDS) {
+                        found.append((vid, e));
+                    }
+                }
+            }
+        }
+        return found;
+    }
+    return _as_cinema(cinema, walk);
 }
 
 def _recent(stamp: str, since: datetime) -> bool {
@@ -386,35 +421,75 @@ def _last_count(cinema: Tenant, member_id: str) -> CashUp | None {
     return mine[0] if mine else None;
 }
 
-def uncounted(cinema: Tenant, member_id: str) -> tuple[int, str, str] {
-    # The cash the member recorded since their last count, and the first and last time
-    # they recorded any ("" when there's none). A sale and its refund still count as
-    # cash handled.
+def uncounted_at(cinema: Tenant, member_id: str) -> tuple[int, str, str, list[str]] {
+    # The cash the member recorded since their last count, the first and last time
+    # they recorded any ("" when there's none), and the venues it was taken at. A sale
+    # and its refund still count as cash handled.
     last = _last_count(cinema, member_id);
     since = last.at if last is not None else "";
     expected = 0;
     first = "";
     latest = "";
-    for (_, _, entries) in _records(cinema) {
-        for e in entries {
-            if e.recorded_by != member_id or e.method != "cash" {
-                continue;
-            }
-            if since and e.created_at <= since {
-                continue;
-            }
-            if e.kind == "payment" or e.kind in REFUNDS {
-                expected += e.amount_cents;
-                if not first or e.created_at < first {
-                    first = e.created_at;
-                }
-                if e.created_at > latest {
-                    latest = e.created_at;
-                }
-            }
+    venues: list[str] = [];
+    for (venue_id, e) in _cash_entries(cinema) {
+        if e.recorded_by != member_id or (since and e.created_at <= since) {
+            continue;
+        }
+        expected += e.amount_cents;
+        if not first or e.created_at < first {
+            first = e.created_at;
+        }
+        if e.created_at > latest {
+            latest = e.created_at;
+        }
+        if venue_id not in venues {
+            venues.append(venue_id);
         }
     }
+    return (expected, first, latest, venues);
+}
+
+def uncounted(cinema: Tenant, member_id: str) -> tuple[int, str, str] {
+    (expected, first, latest, _) = uncounted_at(cinema, member_id);
     return (expected, first, latest);
+}
+
+def left_behind(  # jac:ignore[W3030] whose cinema, who asks, where they sell, who's on
+    cinema: Tenant,
+    me: str,
+    my_venues: list[str] | None,
+    still_on: any,  # jac:ignore[W1037]
+    names: dict[str, str]
+) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # Others' uncounted cash at the venues `me` sells at (None: all of them), for the
+    # next at the venue to count (owner's decision, 2026-10-29). `still_on(member_id)`
+    # says whether that member is still on shift: if so it's only offered (they may
+    # still be working); once it's over it must be counted before the next cash sale.
+    members: list[str] = [];
+    for (_, e) in _cash_entries(cinema) {
+        if e.recorded_by != me and e.recorded_by not in members {
+            members.append(e.recorded_by);
+        }
+    }
+    found: list[dict[str, any]] = [];  # jac:ignore[W1037]
+    for member_id in sorted(members) {
+        (_, first, latest, venues) = uncounted_at(cinema, member_id);
+        if not first {
+            continue;
+        }
+        if my_venues is not None and not any([v in my_venues for v in venues]) {
+            continue;
+        }
+        found.append(
+            {
+                "member_id": member_id,
+                "member": names.get(member_id, member_id),
+                "on_shift": bool(still_on(member_id)),
+                "last_sale_at": latest
+            }
+        );
+    }
+    return found;
 }
 
 def count_first(cinema: Tenant, member_id: str, started_at: str) -> bool {
@@ -424,14 +499,78 @@ def count_first(cinema: Tenant, member_id: str, started_at: str) -> bool {
     return bool(first) and bool(started_at) and first < started_at;
 }
 
-def require_counted(cinema: Tenant, member_id: str, started_at: str) {
-    # Before a cash sale: cash from an earlier shift must be counted first (P15.6b).
+def require_counted(  # jac:ignore[W3030] whose cinema, who sells, since when, what's left
+    cinema: Tenant,
+    member_id: str,
+    started_at: str,
+    behind: list[dict[str, any]]  # jac:ignore[W1037]
+) {
+    # Before a cash sale (P15.6b): cash from the member's own earlier shift, and cash
+    # left at their venue by someone whose shift is over, must be counted first.
     if count_first(cinema, member_id, started_at) {
         raise Refused(
             "count_first",
             "Count the cash from your last shift first, on Box office → Count cash."
         );
     }
+    gone = [
+        b["member"]
+        for b in behind
+        if not b["on_shift"]
+    ];
+    if gone {
+        raise Refused(
+            "count_left",
+            f"{gone[
+                0
+            ]} didn't count their cash before leaving. Count it first, on Box office → Count cash."
+        );
+    }
+}
+
+def staff_names(cinema: Tenant) -> dict[str, str] {
+    # Member ids to how they're shown: their sign-in email, else the id.
+    def read -> any {  # jac:ignore[W1037]
+        return {
+            m.staff_root_id: m.email or m.staff_root_id for m in records_of(cinema)
+        };
+    }
+    return _as_cinema(cinema, read);
+}
+
+def selling_venues(scope: any) -> list[str] | None {  # jac:ignore[W1037]
+    # The venues the caller sells at; None when it's all of them.
+    venues: list[str] = [];
+    for a in scope.ctx.assignments {
+        if "bookings.create" not in ROLE_PERMISSIONS[a.role] {
+            continue;
+        }
+        if a.venue_ids is None {
+            return None;
+        }
+        venues.extend(a.venue_ids);
+    }
+    return venues;
+}
+
+def behind_for(scope: any) -> list[dict[str, any]] {  # jac:ignore[W1037]
+    # Cash others left uncounted at the caller's venues (left_behind).
+    tid = scope.ctx.tenant_id;
+    return left_behind(
+        scope.tenant,
+        scope.ctx.member_root_id,
+        selling_venues(scope),
+        lambda (member_id: str) -> bool { return shift_is_open(tid, member_id); },
+        staff_names(scope.tenant)
+    );
+}
+
+def check_cash_sale(scope: any) {  # jac:ignore[W1037]
+    # Before a cash sale: nothing left uncounted (require_counted).
+    me = scope.ctx.member_root_id;
+    require_counted(
+        scope.tenant, me, shift_started_at(scope.ctx.tenant_id, me), behind_for(scope)
+    );
 }
 
 def _check_amount(cinema: Tenant, counted: int) {
@@ -474,14 +613,17 @@ def _keep_difference(cinema: Tenant, c: CashUp, about: str) {
             "",
             c.expected_cents,
             c.counted_cents,
-            c.member
+            f"{c.member}, counted by {c.counted_by}" if c.counted_by else c.member
         );
     }
 }
 
-def cash_up(cinema: Tenant, member_id: str, member: str, counted: int) -> CashUp {
-    # The member's count against the cash they recorded since their last cash-up. A
-    # "not counted" exception for that cash is settled by it.
+def cash_up(  # jac:ignore[W3030] whose cinema, whose cash, their name, how much, by whom
+    cinema: Tenant, member_id: str, member: str, counted: int, counted_by: str = ""
+) -> CashUp {
+    # The member's count against the cash they recorded since their last cash-up, by
+    # them or (counted_by) by the next at the venue. A "not counted" exception for that
+    # cash is settled by it.
     _check_amount(cinema, counted);
     last = _last_count(cinema, member_id);
     since = last.at if last is not None else "";
@@ -495,7 +637,8 @@ def cash_up(cinema: Tenant, member_id: str, member: str, counted: int) -> CashUp
             counted_cents=counted,
             expected_cents=expected,
             since=since,
-            at=at
+            at=at,
+            counted_by=counted_by
         );
         cinema ++> c;
         attach_to_tenant(c, cinema);
@@ -507,7 +650,9 @@ def cash_up(cinema: Tenant, member_id: str, member: str, counted: int) -> CashUp
     _settle(
         cinema,
         f"{member_id}|{since}|uncounted",
-        f"Counted later: KES {counted // 100:,}."
+        f"Counted later by {counted_by}: KES {counted // 100:,}."
+            if counted_by
+            else f"Counted later: KES {counted // 100:,}."
     );
     return done;
 }
@@ -518,6 +663,7 @@ def recount(cinema: Tenant, member_id: str, counted: int) -> CashUp {
     _check_amount(cinema, counted);
     last = _last_count(cinema, member_id);
     if last is None
+        or last.counted_by
         or last.first_counted_cents >= 0
         or (now() - datetime.fromisoformat(last.at)).total_seconds()
             > RECOUNT_SECONDS {
@@ -552,12 +698,8 @@ def check_uncounted(
     # counted: `cash_not_counted`, once per uncounted stretch. `still_on(member_id)`
     # says whether their shift is open; `names` maps member ids to how they're shown.
     members: set[str] = set();
-    for (_, _, entries) in _records(cinema) {
-        for e in entries {
-            if e.method == "cash" and e.recorded_by {
-                members.add(e.recorded_by);
-            }
-        }
+    for (_, e) in _cash_entries(cinema) {
+        members.add(e.recorded_by);
     }
     made = 0;
     for member_id in sorted(members) {
@@ -596,6 +738,7 @@ def cash_up_view(c: CashUp) -> dict[str, any] {  # jac:ignore[W1037]
         "difference_cents": c.counted_cents - c.expected_cents,
         "since": c.since,
         "at": c.at,
+        "counted_by": c.counted_by,
         "recount_until": (
             datetime.fromisoformat(c.at) + timedelta(seconds=RECOUNT_SECONDS)
         ).isoformat()

@@ -425,15 +425,12 @@ def SaleKind(kind: str, on_kind: any) -> JsxElement {  # jac:ignore[W1037]
 }
 
 def:pub BoxOfficeSection(
-    slug: str,
-    shift_open: bool = True,
-    start_with: str = "",
-    on_shift_ended: any = None  # jac:ignore[W1037]
+    slug: str, shift_open: bool = True, start_with: str = ""
 ) -> JsxElement {
     # shift_open: reload once the member starts their shift (the server refuses without).
-    # on_shift_ended: counting the cash ended it (P15.6b). start_with "count"
-    # (/app/:slug/box-office/count, from the sign-out reminder) opens Count cash.
-    [kind, set_kind] = useState("cash" if start_with == "count" else "tickets");
+    # start_with "sign-out" (/app/:slug/box-office/sign-out: Sign out with cash to
+    # count, P15.6b) opens Count cash, which signs out once it's counted.
+    [kind, set_kind] = useState("cash" if start_with == "sign-out" else "tickets");
     [page, set_page] = useState(None);
     [chosen, set_chosen] = useState("");
     [holder, set_holder] = useState(_counter_holder());
@@ -453,14 +450,23 @@ def:pub BoxOfficeSection(
     }
 
     async def must_count {
-        # Cash left uncounted from an earlier shift: Count cash comes first (P15.6b).
+        # Cash left uncounted, by this member's earlier shift or by someone whose shift
+        # is over: Count cash comes first (P15.6b).
         got: any = None;  # jac:ignore[W1037]
         try {
             got = await cash_status(slug);  # jac:ignore[W2037]
         } except Exception as e {
             console.warn("cash_status failed", e);
         }
-        if got is not None and got["ok"] and got["count_first"] {
+        if got is None or not got["ok"] {
+            return;
+        }
+        gone = [
+            l
+            for l in got["left_behind"]
+            if not l["on_shift"]
+        ];
+        if got["count_first"] or len(gone) > 0 {
             set_kind("cash");
         }
     }
@@ -475,7 +481,7 @@ def:pub BoxOfficeSection(
     useEffect(start_loading, [slug, shift_open]);
 
     def follow_address {
-        if start_with == "count" {
+        if start_with == "sign-out" {
             set_kind("cash");
         }
     }
@@ -494,7 +500,7 @@ def:pub BoxOfficeSection(
         return
             <div className="flex flex-col gap-6">
                 <SaleKind kind={kind} on_kind={set_kind}/>
-                <CashUp slug={slug} on_shift_ended={on_shift_ended}/>
+                <CashUp slug={slug} sign_out_after={start_with == "sign-out"}/>
             </div>;
     }
     if kind == "extra" {

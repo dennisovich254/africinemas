@@ -7,12 +7,14 @@
 - resolve_exception(tenant, exception_id, note): the same staff; in the cinema's audit
   log.
 - count_cash(tenant, counted_cents): a box office cash-up (bookings.create, on shift),
-  its result shown only once counted. It ends the shift (P15.6b), except a count of
-  cash left from an earlier shift ("count_first"), which lets the new one go on.
-- recount_cash(tenant, counted_cents): corrects the caller's last count, once, within
-  10 minutes; no shift needed, since counting ended it.
+  its result shown only once counted. Sign-out asks for it when there's cash to count.
+- count_left_cash(tenant, member_id, counted_cents): the next at a venue counts the
+  cash someone left there without counting (P15.6b), which ends that member's shift.
+- recount_cash(tenant, counted_cents): corrects the caller's own last count, once,
+  within 10 minutes; no shift needed, so it works just after signing out's count.
 - cash_status(tenant): whether the caller has cash to count (not how much: the count is
-  blind), whether it's from an earlier shift, and the most one count may be.
+  blind), whether it's from an earlier shift, whose cash is left at their venues, and
+  the most one count may be.
 - platform_reconciliation(): every cinema's open exceptions; platform_takings():
   AfriCinemas' takings (core/billing/takings.jac); both for platform staff.
 - reconcile_payments: the daily check, every RECON_SECONDS on every server copy.
@@ -41,6 +43,8 @@ import from core.payments.reconcile {
     uncounted,
     count_first,
     check_uncounted,
+    behind_for,
+    staff_names,
     cash_ups_of,
     cash_up_view,
     check_all,
@@ -126,13 +130,28 @@ def _seller(scope: any) -> any {  # jac:ignore[W1037]
 def _count(tenant: str, counted_cents: int) -> dict[str, any] {  # jac:ignore[W1037]
     scope = _seller(on_shift(tenant));
     cinema = scope.tenant;
-    me = node_id(root);
-    earlier = count_first(cinema, me, shift_started_at(scope.ctx.tenant_id, me));
-    done = cash_up(cinema, me, _me_at(cinema), counted_cents);
-    if not earlier {
-        close_shift(scope.ctx.tenant_id, me);
+    done = cash_up(cinema, node_id(root), _me_at(cinema), counted_cents);
+    return {"ok": True, "cash_up": cash_up_view(done)};
+}
+
+def _count_left(tenant: str, member_id: str, counted_cents: int) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = _seller(on_shift(tenant));
+    cinema = scope.tenant;
+    found = [
+        b
+        for b in behind_for(scope)
+        if b["member_id"] == member_id
+    ];
+    if not found {
+        raise Refused(
+            "nothing_left", "There's no cash of theirs left to count at your venue."
+        );
     }
-    return {"ok": True, "cash_up": cash_up_view(done), "shift_ended": not earlier};
+    done = cash_up(
+        cinema, member_id, found[0]["member"], counted_cents, _me_at(cinema)
+    );
+    close_shift(scope.ctx.tenant_id, member_id);
+    return {"ok": True, "cash_up": cash_up_view(done)};
 }
 
 def _recount(tenant: str, counted_cents: int) -> dict[str, any] {  # jac:ignore[W1037]
@@ -152,6 +171,7 @@ def _cash_status(tenant: str) -> dict[str, any] {  # jac:ignore[W1037]
     ];
     return {
         "ok": True,
+        "left_behind": behind_for(scope),
         "uncounted": bool(first),
         "count_first": count_first(
             scope.tenant, me, shift_started_at(scope.ctx.tenant_id, me)
@@ -179,7 +199,7 @@ def check_all_counted -> int {
         tid = node_id(cinema);
         made += check_uncounted(
             cinema,
-            _names(cinema),
+            staff_names(cinema),
             lambda (member_id: str) -> bool { return shift_is_open(tid, member_id); }
         );
     }
@@ -238,6 +258,18 @@ def:protect count_cash(tenant: str, counted_cents: int) -> dict[str, any] {  # j
         "cash_up",
         "",
         lambda -> any { return _count(tenant, counted_cents); }  # jac:ignore[W1037]
+    );
+}
+
+def:protect count_left_cash(
+    tenant: str, member_id: str, counted_cents: int
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "cash.counted_for",
+        "cash_up",
+        str(member_id),
+        lambda -> any { return _count_left(tenant, member_id, counted_cents); }  # jac:ignore[W1037]
     );
 }
 

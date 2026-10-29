@@ -302,6 +302,7 @@ import from core.payments.reconcile_api {
     reconciliation_open,  # jac:ignore[W2037]
     count_cash,  # jac:ignore[W2037]
     recount_cash,  # jac:ignore[W2037]
+    count_left_cash,  # jac:ignore[W2037]
     cash_status,  # jac:ignore[W2037]
     platform_reconciliation,  # jac:ignore[W2037]
     platform_takings,  # jac:ignore[W2037]
