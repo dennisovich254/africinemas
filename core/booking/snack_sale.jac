@@ -66,6 +66,7 @@ import from core.payments.payment_api {
 import from core.payments.settlement { FINALIZE }
 import from core.payments.state { PaymentState, is_final }
 import from core.audit.log { audited }
+import from core.payments.reconcile { check_cash_sale }
 
 glob SELL: str = "bookings.create";
 
@@ -326,6 +327,7 @@ def _cash(tenant: str, venue_id: str, holder: str) -> dict[str, any] {  # jac:ig
 }
 
 def cash_sale(scope: TenantScope, order: Order) -> dict[str, any] {  # jac:ignore[W1037]
+    check_cash_sale(scope);
     order_id = node_id(order);
     active = claim_holder(ORDER_PAYMENT, order_id);
     if active is not None {

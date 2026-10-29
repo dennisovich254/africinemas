@@ -11,6 +11,8 @@ import from core.tenancy.tenant_api {
     storefront_preview,  # jac:ignore[W2037]
     rename_cinema,  # jac:ignore[W2037]
     set_doors_open,  # jac:ignore[W2037]
+    box_office_rules,  # jac:ignore[W2037]
+    set_box_office_rules,  # jac:ignore[W2037]
     start_shift,  # jac:ignore[W2037]
     end_shift  # jac:ignore[W2037]
 }
@@ -297,8 +299,11 @@ import from core.billing.billing_api {
 import from core.payments.reconcile_api {
     reconciliation,  # jac:ignore[W2037]
     resolve_exception,  # jac:ignore[W2037]
-    upload_mpesa_statement,  # jac:ignore[W2037]
+    reconciliation_open,  # jac:ignore[W2037]
     count_cash,  # jac:ignore[W2037]
+    recount_cash,  # jac:ignore[W2037]
+    count_left_cash,  # jac:ignore[W2037]
+    cash_status,  # jac:ignore[W2037]
     platform_reconciliation,  # jac:ignore[W2037]
     platform_takings,  # jac:ignore[W2037]
     reconcile_payments  # jac:ignore[W2037]

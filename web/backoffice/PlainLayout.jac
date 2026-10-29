@@ -8,15 +8,41 @@ import from "@hugeicons/core-free-icons" { Logout01Icon, Building03Icon }
 import from ...components.ui.button { Button }
 import from ..theme.ThemeProvider { ThemeProvider }
 import from ..auth.session { sign_out }
+import from core.payments.reconcile_api { cash_status }  # jac:ignore[W2037] authenticated endpoint
 
-# Signing out ends the shift at each cinema in `slugs` first (ADR-0006).
+# Signing out ends the shift at each cinema in `slugs` first (ADR-0006). Box office
+# staff with cash they haven't counted count it first (P15.6b): Count now opens Count
+# cash, which signs them out once it's saved. There's no signing out without it.
 def:pub AccountActions(slugs: list[str], switch_to: str = "") -> JsxElement {
     nav = useNavigate();
     [busy, set_busy] = useState(False);
-    async def leave {
+    [uncounted, set_uncounted] = useState("");
+    async def go {
         set_busy(True);
         await sign_out(slugs);
         nav("/login", {"replace": True});
+    }
+    async def leave {
+        set_busy(True);
+        for slug in slugs {
+            got: any = None;  # jac:ignore[W1037]
+            try {
+                got = await cash_status(slug);  # jac:ignore[W2037]
+            } except Exception as e {
+                console.warn("cash_status failed", e);
+            }
+            if got is not None and got["ok"] and got["uncounted"] {
+                set_busy(False);
+                set_uncounted(slug);
+                return;
+            }
+        }
+        await go();
+    }
+    def count_now {
+        where: str = uncounted;
+        set_uncounted("");
+        nav(f"/app/{where}/box-office/sign-out");
     }
     return
         <div className="flex flex-col gap-1">
@@ -44,6 +70,43 @@ def:pub AccountActions(slugs: list[str], switch_to: str = "") -> JsxElement {
                 <HugeiconsIcon icon={Logout01Icon} strokeWidth={2} aria-hidden="true"/>
                 {"Signing out…" if busy else "Sign out"}
             </Button>
+            {uncounted
+                and <div
+                    className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
+                >
+                    <div
+                        role="alertdialog"
+                        aria-modal="true"
+                        aria-labelledby="uncounted-title"
+                        aria-describedby="uncounted-text"
+                        data-testid="uncounted-cash"
+                        className="flex w-full max-w-sm flex-col gap-3 rounded-lg border bg-card p-4 shadow-lg"
+                    >
+                        <h2 id="uncounted-title" className="text-lg font-semibold">
+                            Count your cash before you sign out
+                        </h2>
+                        <p
+                            id="uncounted-text"
+                            className="text-sm text-muted-foreground"
+                        >
+                            You've taken cash since your last count. Count it now: the next person on shift shouldn't have to count it for you.
+                        </p>
+                        <div
+                            className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+                        >
+                            <Button
+                                variant="outline"
+                                className="min-h-11"
+                                onClick={lambda { set_uncounted(""); }}
+                            >
+                                Not now
+                            </Button>
+                            <Button className="min-h-11" onClick={count_now}>
+                                Count now
+                            </Button>
+                        </div>
+                    </div>
+                </div>}
         </div>;
 }
 

@@ -36,6 +36,7 @@ import from core.tenancy.principal {
 import from core.tenancy.models { Tenant }
 import from core.catalog.answers { Refused, answer }
 import from core.catalog.venues { find_venue }
+import from core.catalog.storefront_api { cinema_timezone }
 import from core.audit.log { audited }
 import from core.snacks.models { SnackProduct, SnackVariant, StockMovement }
 import from core.snacks.catalog { variant_label }
@@ -276,6 +277,7 @@ def _history(
     }
     return {
         "ok": True,
+        "timezone": cinema_timezone(scope.tenant),
         "movements": [
             {
                 "variant_id": m.variant_id,

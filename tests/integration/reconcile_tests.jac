@@ -6,14 +6,16 @@ In-process app (payment_app.jac), the simulated M-Pesa told to change its mind.
   exception, nor does one M-Pesa no longer knows (it's asked again later); one M-Pesa now says wasn't paid, one for another amount, one it says was
   paid though nothing was sold, and a receipt on two payments each make one. Running
   again adds nothing.
-- An M-Pesa statement is matched by receipt for the time it covers: money no order
-  took, an amount that differs and a payment of ours that isn't on it make exceptions;
-  test payments (account TEST) are skipped; uploading again adds nothing; a file that
-  isn't a statement is refused.
 - A cash-up compares the count with the cash that member sold since their last one;
-  a difference is an exception.
+  a difference is an exception. A count can be corrected once within 10 minutes (both
+  figures kept, P15.6b); more than the cinema's limit is refused. Cash left by someone
+  who didn't sign out is offered to the next agent at the venue while they're still on
+  shift; once it's over it's "Cash not counted", and the next agent counts it on their
+  behalf before selling for cash. Their own earlier shift's cash too. Shift length and the limit are the cinema's, set by its
+  owner or admin.
 - Only the cinema's finance readers see and resolve its exceptions (with a note, once),
-  and upload statements; the box office counts its cash. Platform staff see every
+  and the sidebar's count is theirs (0 for the rest of its staff); the box office
+  counts its cash. Times come with the cinema's time zone. Platform staff see every
   cinema's open exceptions.
 - AfriCinemas' takings: fees earned, invoiced, paid and overdue per month and cinema;
   what's invoiced is the sum of the invoices.
@@ -81,6 +83,20 @@ def _cash_sale(app: Served, screening: str, seat: str) {
     holder = _counter_order(app, screening, seat);
     sold = app.call(
         "agent",
+        "sell_for_cash",
+        {"tenant": "nova", "screening_id": screening, "holder": holder, "email": ""}
+    );
+    assert sold["ok"] , sold;
+}
+
+def _new_shift(app: Served, who: str) {
+    assert app.call(who, "start_shift", {"tenant": "nova"})["ok"];
+}
+
+def _sale_by(app: Served, who: str, screening: str, seat: str) {
+    holder = _counter_order(app, screening, seat);
+    sold = app.call(
+        who,
         "sell_for_cash",
         {"tenant": "nova", "screening_id": screening, "holder": holder, "email": ""}
     );
@@ -225,6 +241,19 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         for who in ["agent", "usher", "rival"] {
             assert not app.call(who, "reconciliation", {"tenant": "nova"})["ok"] , who;
         }
+        assert app.call("owner", "reconciliation", {"tenant": "nova"})["timezone"]
+            == "Africa/Nairobi";
+        # The sidebar's count: what's open, for those who read them; 0 for the rest of
+        # the staff; another cinema's owner is refused.
+        for who in ["owner", "finance", "auditor"] {
+            got = app.call(who, "reconciliation_open", {"tenant": "nova"});
+            assert got == {"ok": True, "open": 4} , (who, got);
+        }
+        for who in ["agent", "usher"] {
+            assert app.call(who, "reconciliation_open", {"tenant": "nova"})["open"]
+                == 0;
+        }
+        assert not app.call("rival", "reconciliation_open", {"tenant": "nova"})["ok"];
         assert app.call("rival", "reconciliation", {"tenant": "rift"})["exceptions"]
             == [];
         # Resolved with a note, once.
@@ -245,6 +274,8 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         assert _code(app.call("owner", "resolve_exception", {** body, "note": "Again"}))
             == "already_resolved";
         assert app.call("owner", "reconciliation", {"tenant": "nova"})["open"] == 3;
+        assert app.call("owner", "reconciliation_open", {"tenant": "nova"})["open"]
+            == 3;
         logged = [
             e["action"]
             for e in app.call("owner", "audit_log", {"tenant": "nova", "limit": 50})[
@@ -261,6 +292,7 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         ];
         assert len(mine) == 3
             and target not in [e["exception_id"] for e in mine] , listed;
+        assert all([e["timezone"] == "Africa/Nairobi" for e in mine]);
         assert not app.call("owner", "platform_reconciliation", {})["ok"];
         # Reviewers and support staff see it too.
         _platform_member(app, "rev", "reviewer");
@@ -278,214 +310,6 @@ test "the daily check asks M-Pesa again, once, and lists what doesn't add up" {
         }
     } finally {
         os.environ.pop(ADMINS_ENV, None);
-        app.close();
-    }
-}
-
-def _statement(rows: list[list[str]]) -> str {
-    # The M-Pesa portal's CSV: a few lines about the account, then the table.
-    lines = [
-        "Organisation Name,Nova Cinemas Ltd",
-        "Short Code,600100",
-        "",
-        "Receipt No.,Completion Time,Initiation Time,Details,Transaction Status,Paid In,Withdrawn,Balance,A/C No."
-    ];
-    for r in rows {
-        lines.append(",".join(r));
-    }
-    return "\n".join(lines) + "\n";
-}
-
-test "an uploaded M-Pesa statement is matched by receipt, for the time it covers" {
-    (app, nova, screening) = paying_cinema(["agent", "rival"]);
-    try {
-        hire(app, "agent", "box_office_agent", nova.venue);
-        open_cinema_for(app, "rival", "rift", "Rift");
-        started = pay(app, screening, fresh_phone());
-        settle(app, screening, started["payment"]["reference"]);
-        _mpesa_sale(app, screening, "A3", fresh_phone());
-        _mpesa_sale(app, screening, "A4", fresh_phone());
-        fees = {
-            o["reference"]: o["total_cents"]
-            for o in browse(
-                app, "t_order_fees", {"slug": "nova", "screening_id": screening}
-            )
-            if o["status"] == "confirmed"
-        };
-        receipts = _receipts(app, screening);
-        (first, second, third) = sorted(receipts.keys());
-        local = datetime.now(NAIROBI).replace(tzinfo=None);
-        at = lambda (minutes: int) -> str { return (
-            local + timedelta(minutes=minutes)
-        ).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ); };
-        shillings = lambda (cents: int) -> str { return f"{cents // 100:,}.{cents
-            % 100:02d}"; };
-        csv_text = _statement(
-            [
-                # Ours, the same amount.
-                [
-                    receipts[first],
-                    at(-90),
-                    at(-90),
-                    "Pay Bill",
-                    "Completed",
-                    '"' + shillings(fees[first]) + '"',
-                    "",
-                    "",
-                    first
-                ],
-                # Ours, another amount.
-                [
-                    receipts[second],
-                    at(-80),
-                    at(-80),
-                    "Pay Bill",
-                    "Completed",
-                    "1.00",
-                    "",
-                    "",
-                    second
-                ],
-                # Not ours: paid at the paybill by hand.
-                [
-                    "QHX0000001",
-                    at(-70),
-                    at(-70),
-                    "Pay Bill",
-                    "Completed",
-                    "500.00",
-                    "",
-                    "",
-                    "SEAT A9"
-                ],
-                # The KES 1 test payment: skipped.
-                [
-                    "QHX0000002",
-                    at(-60),
-                    at(-60),
-                    "Pay Bill",
-                    "Completed",
-                    "1.00",
-                    "",
-                    "",
-                    "TEST"
-                ],
-                # Not completed: skipped.
-                [
-                    "QHX0000003",
-                    at(-50),
-                    at(-50),
-                    "Pay Bill",
-                    "Failed",
-                    "200.00",
-                    "",
-                    "",
-                    "X"
-                ],
-                # A withdrawal: no money in.
-                [
-                    "QHX0000004",
-                    at(-40),
-                    at(-40),
-                    "Withdraw",
-                    "Completed",
-                    "",
-                    "100.00",
-                    "",
-                    ""
-                ],
-                [
-                    "QHX0000005",
-                    at(60),
-                    at(60),
-                    "Pay Bill",
-                    "Completed",
-                    "10.00",
-                    "",
-                    "",
-                    "LATE"
-                ]
-            ]
-        );
-        # Ours not on it (the third) within the time it covers.
-        assert not app.call(
-            "agent", "upload_mpesa_statement", {"tenant": "nova", "csv_text": csv_text}
-        )["ok"];
-        assert not app.call(
-            "rival", "upload_mpesa_statement", {"tenant": "nova", "csv_text": csv_text}
-        )["ok"];
-        got = app.call(
-            "owner", "upload_mpesa_statement", {"tenant": "nova", "csv_text": csv_text}
-        );
-        assert got["ok"] , got;
-        assert got["rows"] == 4
-            and got["matched"] == 1
-            and got["exceptions"] == 4 , got;
-        found = _exceptions(app);
-        assert _kinds(found)
-            == [
-                "amount_differs",
-                "not_in_app",
-                "not_in_app",
-                "not_in_statement"
-            ] , found;
-        missing = [
-            e
-            for e in found
-            if e["kind"] == "not_in_statement"
-        ][0];
-        assert missing["reference"] == third and missing["source"] == "statement";
-        stranger = [
-            e
-            for e in found
-            if e["receipt"] == "QHX0000001"
-        ][0];
-        assert stranger["found_cents"] == 50000;
-        differs = [
-            e
-            for e in found
-            if e["kind"] == "amount_differs"
-        ][0];
-        assert differs["expected_cents"] == fees[second]
-            and differs["found_cents"] == 100;
-        # Again: nothing new.
-        again = app.call(
-            "owner", "upload_mpesa_statement", {"tenant": "nova", "csv_text": csv_text}
-        );
-        assert again["exceptions"] == 0 and len(_exceptions(app)) == 4;
-        # Not a statement, or nothing in it.
-        assert _code(
-            app.call(
-                "owner",
-                "upload_mpesa_statement",
-                {"tenant": "nova", "csv_text": "a,b\n1,2\n"}
-            )
-        )
-            == "not_a_statement";
-        assert _code(
-            app.call(
-                "owner",
-                "upload_mpesa_statement",
-                {"tenant": "nova", "csv_text": _statement([])}
-            )
-        )
-            == "empty_statement";
-        assert _code(
-            app.call(
-                "owner", "upload_mpesa_statement", {"tenant": "nova", "csv_text": " "}
-            )
-        )
-            == "empty_statement";
-        logged = [
-            e["action"]
-            for e in app.call("owner", "audit_log", {"tenant": "nova", "limit": 50})[
-                "events"
-            ]
-        ];
-        assert "reconcile.statement_uploaded" in logged;
-    } finally {
         app.close();
     }
 }
@@ -512,6 +336,8 @@ test "a cash-up compares the count with the cash that member sold since their la
         assert right["cash_up"]["expected_cents"] == price
             and right["cash_up"]["since"] == "";
         assert _exceptions(app) == [];
+        # Counting doesn't end the shift.
+        assert "shift_ended" not in right;
         # Another sale, and KES 100 short.
         _cash_sale(app, screening, "A4");
         short = app.call(
@@ -520,6 +346,7 @@ test "a cash-up compares the count with the cash that member sold since their la
         assert short["cash_up"]["expected_cents"] == price , short;
         assert short["cash_up"]["difference_cents"] == -10000;
         assert short["cash_up"]["since"] == right["cash_up"]["at"];
+        _new_shift(app, "agent");
         found = _exceptions(app);
         assert _kinds(found) == ["cash_short"] , found;
         assert found[0]["expected_cents"] == price
@@ -532,15 +359,25 @@ test "a cash-up compares the count with the cash that member sold since their la
         assert over["cash_up"]["expected_cents"] == 0;
         assert over["cash_up"]["difference_cents"] == 5000;
         assert _kinds(_exceptions(app)) == ["cash_over", "cash_short"];
+        _new_shift(app, "agent");
         # Nothing sold, nothing counted: it matches, and adds nothing.
         even = app.call("agent", "count_cash", {"tenant": "nova", "counted_cents": 0});
         assert even["cash_up"]["difference_cents"] == 0
             and even["cash_up"]["expected_cents"] == 0;
         assert len(_exceptions(app)) == 2;
+        _new_shift(app, "agent");
         # The owner sells too, so counts their own cash (the agent's isn't theirs).
         mine = app.call("owner", "count_cash", {"tenant": "nova", "counted_cents": 0});
         assert mine["ok"] and mine["cash_up"]["expected_cents"] == 0 , mine;
-        assert _actions(app).count("cash.counted") == 5;
+        _new_shift(app, "owner");
+        done = [
+            e["action"]
+            for e in app.call("owner", "audit_log", {"tenant": "nova", "limit": 100})[
+                "events"
+            ]
+            if e["result"] == "ok"
+        ];
+        assert done.count("cash.counted") == 5 , done;
         # Not an amount; not the usher (no sales).
         assert _code(
             app.call("agent", "count_cash", {"tenant": "nova", "counted_cents": -1})
@@ -553,6 +390,222 @@ test "a cash-up compares the count with the cash that member sold since their la
         assert len(ups) == 5 and ups[3]["difference_cents"] == -10000 , ups;
         assert ups[0]["member"];
     } finally {
+        app.close();
+    }
+}
+
+test "a count ends the shift, can be corrected once, has a limit, and is missed when skipped" {
+    os.environ["AFRICINEMAS_CLOCK_CONTROL"] = "1";
+    (app, nova, screening) = paying_cinema(
+        ["agent", "agent2", "finance", "cinemaadmin"]
+    );
+    try {
+        hire(app, "agent", "box_office_agent", nova.venue);
+        hire(app, "finance", "finance_manager", "");
+        hire(app, "cinemaadmin", "tenant_admin", "");
+        # The rules: 8 hours and KES 500,000 unless changed; the owner and the cinema
+        # admin change them; finance and the box office can only read them.
+        rules = {"tenant": "nova"};
+        assert app.call("agent", "box_office_rules", rules)
+            == {"ok": True, "shift_hours": 8, "cash_count_max_cents": 50000000};
+        change = {** rules, "shift_hours": 6, "cash_count_max_cents": 2000000};
+        for who in ["agent", "finance"] {
+            assert _code(app.call(who, "set_box_office_rules", change)) == "forbidden";
+        }
+        for (hours, most, code) in [
+            (0, 2000000, "invalid_hours"),
+            (13, 2000000, "invalid_hours"),
+            (6, 99999, "invalid_limit"),
+            (6, 1000000001, "invalid_limit")
+        ] {
+            assert _code(
+                app.call(
+                    "owner",
+                    "set_box_office_rules",
+                    {** rules, "shift_hours": hours, "cash_count_max_cents": most}
+                )
+            )
+                == code , (hours, most);
+        }
+        assert app.call("cinemaadmin", "set_box_office_rules", change)["shift_hours"]
+            == 6;
+        assert "cinema.box_office_rules_changed" in _actions(app);
+        # The five-seat screen: a second showtime for more sales.
+        more = add_screening(app, "owner", nova, "Rafiki", 24 * 3);
+        # A new shift lasts the cinema's 6 hours.
+        started = app.call("agent", "start_shift", rules);
+        left = datetime.fromisoformat(started["expires_at"])
+            - datetime.now(ZoneInfo("UTC"));
+        assert timedelta(hours=5, minutes=50) < left <= timedelta(hours=6) , left;
+        # More than KES 20,000 is refused, and saves nothing.
+        _cash_sale(app, screening, "A3");
+        status = app.call("agent", "cash_status", rules);
+        assert status["ok"] and status["uncounted"] and not status["count_first"];
+        assert status["max_cents"] == 2000000 and "expected_cents" not in status;
+        too_much = app.call(
+            "agent", "count_cash", {** rules, "counted_cents": 2000001}
+        );
+        assert _code(too_much) == "too_much" , too_much;
+        assert "KES 20,000" in too_much["error"]["message"];
+        assert app.call("owner", "reconciliation", rules)["cash_ups"] == [];
+        # KES 100 short; corrected within 10 minutes, once: both figures kept, the
+        # first count's exception settled.
+        price = app.call(
+            "owner", "t_order_fees", {"slug": "nova", "screening_id": screening}
+        );
+        price = [
+            o["total_cents"]
+            for o in price
+            if o["status"] == "confirmed"
+        ][0];
+        first = app.call(
+            "agent", "count_cash", {** rules, "counted_cents": price - 10000}
+        );
+        assert first["cash_up"]["recount_until"] , first;
+        assert _kinds(_exceptions(app)) == ["cash_short"];
+        fixed = app.call("agent", "recount_cash", {** rules, "counted_cents": price});
+        assert fixed["ok"] , fixed;
+        assert fixed["cash_up"]["counted_cents"] == price
+            and fixed["cash_up"]["first_counted_cents"] == price - 10000;
+        assert fixed["cash_up"]["recount_until"] == "";
+        found = _exceptions(app);
+        assert [(e["kind"], e["status"]) for e in found]
+            == [("cash_short", "resolved")];
+        assert found[0]["resolved_by"] == "the count"
+            and "first counted" in found[0]["resolved_note"];
+        assert _code(
+            app.call("agent", "recount_cash", {** rules, "counted_cents": price})
+        )
+            == "too_late";
+        assert "cash.recounted" in _actions(app);
+        # A correction that's still off is kept; too late after 10 minutes.
+        _new_shift(app, "agent");
+        _cash_sale(app, screening, "A4");
+        assert app.call("agent", "count_cash", {** rules, "counted_cents": price})[
+            "ok"
+        ];
+        wrong = app.call(
+            "agent", "recount_cash", {** rules, "counted_cents": price + 500}
+        );
+        assert wrong["ok"]
+            and _kinds(
+                [
+                    e
+                    for e in _exceptions(app)
+                    if e["status"] == "open"
+                ]
+            )
+                == ["cash_over"];
+        _new_shift(app, "agent");
+        _cash_sale(app, screening, "A5");
+        assert app.call("agent", "count_cash", {** rules, "counted_cents": price})[
+            "ok"
+        ];
+        app.call(
+            "owner",
+            "t_clock_at",
+            {"at": (datetime.now(ZoneInfo("UTC")) + timedelta(minutes=11)).isoformat()}
+        );
+        assert _code(app.call("agent", "recount_cash", {** rules, "counted_cents": 0}))
+            == "too_late";
+        app.call("owner", "t_clock_reset");
+        # Forgot to sign out: while they're still on shift, the next agent at the
+        # venue is offered their cash, and may still sell; once their shift is over,
+        # the manager sees "Cash not counted" (once) and the next agent must count it.
+        _new_shift(app, "agent");
+        _cash_sale(app, more, "A1");
+        assert app.call("owner", "t_cash_check") == 0;
+        hire(app, "agent2", "box_office_agent", nova.venue);
+        offered = app.call("agent2", "cash_status", rules)["left_behind"];
+        assert len(offered) == 1 and offered[0]["on_shift"] , offered;
+        assert offered[0]["member"];
+        gone_id = offered[0]["member_id"];
+        _sale_by(app, "agent2", more, "A2");
+        assert app.call("agent", "end_shift", rules)["ok"];
+        assert app.call("owner", "t_cash_check") == 1;
+        assert app.call("owner", "t_cash_check") == 0;
+        missed = [
+            e
+            for e in _exceptions(app)
+            if e["kind"] == "cash_not_counted"
+        ];
+        assert len(missed) == 1 and missed[0]["expected_cents"] == price , missed;
+        assert missed[0]["detail"] and missed[0]["status"] == "open";
+        assert missed[0]["label"] == "Cash not counted at the end of a shift";
+        status = app.call("agent2", "cash_status", rules);
+        behind = [(l["member_id"], l["on_shift"]) for l in status["left_behind"]];
+        assert behind == [(gone_id, False)] , behind;
+        holder = _counter_order(app, more, "A3");
+        sell = {"tenant": "nova", "screening_id": more, "holder": holder, "email": ""};
+        assert _code(app.call("agent2", "sell_for_cash", sell)) == "count_left";
+        # The next agent counts it on their behalf: theirs, counted by agent2.
+        counted = app.call(
+            "agent2",
+            "count_left_cash",
+            {** rules, "member_id": gone_id, "counted_cents": price}
+        );
+        assert counted["ok"] , counted;
+        assert counted["cash_up"]["expected_cents"] == price
+            and counted["cash_up"]["counted_by"]
+            and counted["cash_up"]["member"] == offered[0]["member"];
+        missed = [
+            e
+            for e in _exceptions(app)
+            if e["kind"] == "cash_not_counted"
+        ];
+        assert missed[0]["status"] == "resolved"
+            and "Counted later by" in missed[0]["resolved_note"] , missed;
+        assert "cash.counted_for" in _actions(app);
+        assert _code(
+            app.call(
+                "agent2",
+                "count_left_cash",
+                {** rules, "member_id": gone_id, "counted_cents": 0}
+            )
+        )
+            == "nothing_left";
+        assert app.call("agent2", "sell_for_cash", sell)["ok"];
+        # Their own cash from an earlier shift: counted before the next cash sale, and
+        # counting it doesn't end the new shift.
+        assert app.call("agent2", "end_shift", rules)["ok"];
+        _new_shift(app, "agent2");
+        status = app.call("agent2", "cash_status", rules);
+        assert status["uncounted"] and status["count_first"] , status;
+        holder = _counter_order(app, more, "A4");
+        sell = {"tenant": "nova", "screening_id": more, "holder": holder, "email": ""};
+        assert _code(app.call("agent2", "sell_for_cash", sell)) == "count_first";
+        theirs = app.call(
+            "agent2", "count_cash", {** rules, "counted_cents": 2 * price}
+        );
+        assert theirs["ok"] and theirs["cash_up"]["difference_cents"] == 0 , theirs;
+        assert not app.call("agent2", "cash_status", rules)["count_first"];
+        assert app.call("agent2", "sell_for_cash", sell)["ok"];
+        assert app.call("agent2", "cash_status", rules)["uncounted"];
+        # Counting for someone still signed in ends their shift.
+        _new_shift(app, "agent");
+        _cash_sale(app, more, "A5");
+        assert app.call(
+            "agent2",
+            "count_left_cash",
+            {** rules, "member_id": gone_id, "counted_cents": price}
+        )["ok"];
+        assert _code(app.call("agent", "count_cash", {** rules, "counted_cents": 0}))
+            == "no_shift";
+        # A counted-for count can't be corrected by its member.
+        assert _code(app.call("agent", "recount_cash", {** rules, "counted_cents": 0}))
+            == "too_late";
+        # The list says so too.
+        ups = app.call("owner", "reconciliation", rules)["cash_ups"];
+        assert len(
+            [
+                u
+                for u in ups
+                if u["first_counted_cents"] >= 0
+            ]
+        )
+            == 2 , ups;
+    } finally {
+        os.environ.pop("AFRICINEMAS_CLOCK_CONTROL", None);
         app.close();
     }
 }

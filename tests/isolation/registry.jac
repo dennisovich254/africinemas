@@ -323,18 +323,30 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "reconcile.resolved",
              "probe": {"tenant": "{tenant}", "exception_id": "x", "note": "probe"}
          },
-         "upload_mpesa_statement": {
+         "reconciliation_open": {
              "scope": "tenant",
-             "audit": "reconcile.statement_uploaded",
-             "probe": {
-                 "tenant": "{tenant}",
-                 "csv_text": "Receipt No.,Completion Time,Paid In"
-             }
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
          },
          "count_cash": {
              "scope": "tenant",
              "audit": "cash.counted",
              "probe": {"tenant": "{tenant}", "counted_cents": 0}
+         },
+         "count_left_cash": {
+             "scope": "tenant",
+             "audit": "cash.counted_for",
+             "probe": {"tenant": "{tenant}", "member_id": "x", "counted_cents": 0}
+         },
+         "recount_cash": {
+             "scope": "tenant",
+             "audit": "cash.recounted",
+             "probe": {"tenant": "{tenant}", "counted_cents": 0}
+         },
+         "cash_status": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
          },
          "platform_reconciliation": {"scope": "platform", "audit": ""},
          "platform_takings": {"scope": "platform", "audit": ""},
@@ -493,6 +505,20 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "audit": "cinema.doors_changed",
              "probe": {"tenant": "{tenant}", "minutes": 30}
+         },
+         "box_office_rules": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "set_box_office_rules": {
+             "scope": "tenant",
+             "audit": "cinema.box_office_rules_changed",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "shift_hours": 8,
+                 "cash_count_max_cents": 50000000
+             }
          },
          "invite_staff": {
              "scope": "tenant",
