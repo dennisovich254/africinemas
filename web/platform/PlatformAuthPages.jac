@@ -53,8 +53,11 @@ def:pub PlatformSignInPage -> JsxElement {
         outcome = await platform_sign_in(email, password);
         set_busy(False);
         if outcome == "ok" {
-            await record_sign_in();
-            nav("/");
+            # Recorded without waiting: navigating after it would send someone who
+            # already moved on (signed in, the page goes to the overview at once) back
+            # to the overview.
+            record_sign_in();
+            nav("/", {"replace": True});
         } elif outcome == "offline" {
             set_error(OFFLINE);
         } else {
@@ -122,7 +125,8 @@ def:pub PlatformJoinPage -> JsxElement {
         }
         signed_in: bool = await platform_sign_in_as(answer["sign_in_name"], password);
         if signed_in {
-            await record_sign_in();
+            # Not waited for, as on the sign-in page.
+            record_sign_in();
         }
         set_busy(False);
         # Out of the address bar and history: the link is spent.

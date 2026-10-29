@@ -88,6 +88,10 @@ def confirm_kim(app: Served) {
 }
 
 def verifying_app -> Served {
+    # Verification files are sealed with it (P15.0).
+    os.environ.setdefault(
+        "AFRICINEMAS_FILES_KEY", "files-test-sealing-key-0123456789abcdef"
+    );
     os.environ["AFRICINEMAS_OUTBOX_DIR"] = tempfile.mkdtemp(
         prefix="africinemas-outbox-"
     );
