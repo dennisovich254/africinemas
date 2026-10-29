@@ -1,4 +1,5 @@
-"""What platform staff act on in the console's Billing page (P15.5, ADR-0084).
+"""What platform staff act on in the console's Billing page (P15.5, ADR-0084), each
+part on its own tab there (desk_lists gives them and their counts):
 
 - Payments to match: paid but not matched to an invoice (already paid, waived, another
   amount, a receipt used before). A super admin matches one to an invoice of the same
@@ -248,69 +249,76 @@ def Overdue(row: dict[str, any], may_suspend: bool, on_changed: any) -> JsxEleme
         </li>;
 }
 
-def:pub BillingDesk(
+def:pub desk_lists(found: dict[str, any]) -> dict[str, list[dict[str, any]]] {  # jac:ignore[W1037]
+    # What needs acting on: {"match", "disputes", "overdue"}.
+    rows: list[dict[str, any]] = found["statements"];  # jac:ignore[W1037]
+    return {
+        "match": found["unmatched"],
+        "disputes": [
+            r
+            for r in rows
+            if r["dispute"] is not None and r["dispute"]["open"]
+        ],
+        # Past the grace period, or suspended with an invoice still owed.
+        "overdue": [
+            r
+            for r in rows
+            if r["suspendable"]
+                or (r["cinema_state"] == "suspended" and r["status"] == "overdue")
+        ]
+    };
+}
+
+def:pub BillingDesk(  # jac:ignore[W3030] what's listed, which part, who may do what, what then
     found: dict[str, any],  # jac:ignore[W1037]
+    part: str,
     may_act: bool,
     may_suspend: bool,
     on_changed: any  # jac:ignore[W1037]
 ) -> JsxElement {
-    rows: list[dict[str, any]] = found["statements"];  # jac:ignore[W1037]
-    unmatched: list[dict[str, any]] = found["unmatched"];  # jac:ignore[W1037]
-    disputes = [
-        r
-        for r in rows
-        if r["dispute"] is not None and r["dispute"]["open"]
-    ];
-    # Past the grace period, or suspended with an invoice still owed.
-    late = [
-        r
-        for r in rows
-        if r["suspendable"]
-            or (r["cinema_state"] == "suspended" and r["status"] == "overdue")
-    ];
+    # One of desk_lists' parts, its own tab on the Billing page (owner, 2026-10-29).
+    lists = desk_lists(found);
+    shown: list[dict[str, any]] = lists[part];  # jac:ignore[W1037]
+    empty = {
+        "match": "No payments to match.",
+        "disputes": "No disputed invoices.",
+        "overdue": f"No invoice is more than {found['grace_days']} days overdue."
+    };
+    if len(shown) == 0 {
+        return
+            <p
+                className="rounded-lg border bg-card p-4 text-sm text-muted-foreground"
+                data-testid="billing-desk-empty"
+            >
+                {empty[part]}
+            </p>;
+    }
     return
-        <div className="flex flex-col gap-6" data-testid="billing-desk">
-            {len(unmatched) > 0
-                and <section className="flex flex-col gap-3">
-                    <h2 className="text-lg font-semibold">Payments to match</h2>
-                    <ul className="flex flex-col gap-3">
-                        {[
-                            <ToMatch
-                                key={r["reference"]}
-                                row={r}
-                                may_act={may_act}
-                                on_changed={on_changed}
-                            /> for r in unmatched
-                        ]}
-                    </ul>
-                </section>}{len(disputes) > 0
-                and <section className="flex flex-col gap-3">
-                    <h2 className="text-lg font-semibold">Disputed invoices</h2>
-                    <ul className="flex flex-col gap-3">
-                        {[
-                            <Disputed
-                                key={r["number"]}
-                                row={r}
-                                may_act={may_act}
-                                on_changed={on_changed}
-                            /> for r in disputes
-                        ]}
-                    </ul>
-                </section>}{len(late) > 0
-                and <section className="flex flex-col gap-3">
-                    <h2 className="text-lg font-semibold">
-                        {f"More than {found['grace_days']} days overdue"}
-                    </h2>
-                    <ul className="flex flex-col gap-3">
-                        {[
-                            <Overdue
-                                key={r["number"]}
-                                row={r}
-                                may_suspend={may_suspend}
-                                on_changed={on_changed}
-                            /> for r in late
-                        ]}
-                    </ul>
-                </section>}
-        </div>;
+        <ul className="flex flex-col gap-3" data-testid="billing-desk">
+            {part == "match"
+                and [
+                    <ToMatch
+                        key={r["reference"]}
+                        row={r}
+                        may_act={may_act}
+                        on_changed={on_changed}
+                    /> for r in shown
+                ]}{part == "disputes"
+                and [
+                    <Disputed
+                        key={r["number"]}
+                        row={r}
+                        may_act={may_act}
+                        on_changed={on_changed}
+                    /> for r in shown
+                ]}{part == "overdue"
+                and [
+                    <Overdue
+                        key={r["number"]}
+                        row={r}
+                        may_suspend={may_suspend}
+                        on_changed={on_changed}
+                    /> for r in shown
+                ]}
+        </ul>;
 }

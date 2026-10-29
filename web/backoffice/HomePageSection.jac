@@ -7,6 +7,7 @@ theme, filled from today's programme by preview_home_page). The preview also che
 draft as it changes, so problems show under their fields before saving. "Save draft"
 keeps the changes private; "Publish" saves and puts them on the storefront. Each
 publish is a version; restoring an earlier one asks first, then publishes it again.
+Tabs: Edit (the template and the sections), Versions, and Preview.
 """
 
 import from react { useState, useEffect }
@@ -674,7 +675,8 @@ def:pub HomePageSection(slug: str) -> JsxElement {
         </div>
     </div>;
 
-    tabs = [("edit", "Edit"), ("preview", "Preview")];
+    # Published versions on their own tab (owner, 2026-10-29: no long lists).
+    tabs = [("edit", "Edit"), ("versions", "Versions"), ("preview", "Preview")];
     return
         <div className="flex flex-col gap-6" data-testid="home-editor">
             <div className="flex flex-wrap items-center gap-3">
@@ -722,8 +724,11 @@ def:pub HomePageSection(slug: str) -> JsxElement {
             >
                 {view == "edit"
                     and <div className="flex max-w-3xl flex-col gap-8">
-                        {templates}{section_list}{history}
-                    </div>}{view == "preview" and preview_box}
+                        {templates}{section_list}
+                    </div>}{view == "versions"
+                    and <div className="flex max-w-3xl flex-col gap-8">{history}</div>}{view
+                    == "preview"
+                    and preview_box}
             </div>
         </div>;
 }

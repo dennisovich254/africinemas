@@ -58,10 +58,15 @@ def _editor(
 }
 
 def _tab(page: any, name: str) {  # jac:ignore[W1037]
-    # Switches to the Edit or Preview tab; the preview waits until it has drawn.
+    # Switches to the Edit, Versions or Preview tab; the preview waits until it has
+    # drawn.
     page.click(f'[data-testid="home-tab-{name}"]');
     if name == "preview" {
         page.wait_for_selector(f"{PREVIEW} [data-testid^=section-]");
+    } elif name == "versions" {
+        page.wait_for_selector(
+            '[data-testid="home-tab-versions"][aria-selected="true"]'
+        );
     } else {
         page.wait_for_selector('[data-testid="edit-hero"]');
     }
@@ -199,7 +204,9 @@ test "an owner restores an earlier version of the page" {
         _tab(page, "preview");
         page.wait_for_selector(f'{PREVIEW}[data-template="schedule"]');
         _publish(page);
-        _tab(page, "edit");
+        # Published versions on their own tab.
+        _tab(page, "versions");
+        assert page.locator('[data-testid="edit-hero"]').count() == 0;
         page.click('button:has-text("Restore version 1")');
         page.wait_for_selector('[data-testid="home-restore-confirm"]');
         page.click(
