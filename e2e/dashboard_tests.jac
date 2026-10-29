@@ -115,12 +115,13 @@ test "after a cash sale, Reports shows matching totals, today and for the showti
             _wait_text(page, "today-net", SALE);
             page.goto(f"{BASE_URL}/app/{owner['slug']}/reports");
             # Today: the money came in today; the showtime is in two days.
-            # Money taken first; Snacks and Showtimes on their own tabs.
+            _wait_text(page, "kpi-net", SALE);
+            # Money taken first (once the report has loaded); Snacks and Showtimes on
+            # their own tabs.
             tabs = page.locator('[data-testid^="report-tab-"]').all_inner_texts();
             assert [t.strip() for t in tabs]
                 == ["Money taken", "Snacks", "Showtimes"] , tabs;
             assert page.locator('[data-testid="kpi-tickets"]').count() == 0;
-            _wait_text(page, "kpi-net", SALE);
             assert _text(page, "kpi-counter") == SALE;
             # AfriCinemas' fee on a box office sale: 3% (P15.2), and the cinema's share.
             assert _text(page, "kpi-fees") == "KES 49.80";
