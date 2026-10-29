@@ -440,11 +440,13 @@ def:pub VerificationSection(slug: str) -> JsxElement {
     essentials: list[dict[str, str]] = shown["essentials"];
     confirmed: bool = shown["email_confirmed"];
     blocked: bool = (len(missing) + len(essentials)) > 0 or not confirmed;
-    # What needs fixing on each tab, from the server's problems.
-    about_keys: list[str] = [k for (k, _, _) in ABOUT_YOU] + [i for (i, _) in ID_FILES];
-    business_keys: list[str] = [k for (k, _, _) in BUSINESS]
+    # What needs fixing on each tab, from the server's problems. (`row[0]`, not
+    # `(k, _, _)`: two `_` targets compile to invalid JavaScript, JI-062.)
+    about_keys: list[str] = [row[0] for row in ABOUT_YOU]
+        + [row[0] for row in ID_FILES];
+    business_keys: list[str] = [row[0] for row in BUSINESS]
         + ["business_type", "permit_expiry"]
-        + [i for (i, _) in BUSINESS_FILES];
+        + [row[0] for row in BUSINESS_FILES];
     def wrong(keys: list[str]) -> str {
         n = len(
             [
