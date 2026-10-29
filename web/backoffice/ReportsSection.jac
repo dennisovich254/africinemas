@@ -1,9 +1,11 @@
 """`/app/:slug/reports`: the owner's dashboard (P7.3, on P7.1's sales report; ADR-0026).
 
-Filters in one row (a period preset or custom dates, and a venue), then two blocks that
-count on different days, so each says which: "Money taken" (the day the money came in)
-and "Showtimes in this period" (the day the showtime starts). Money taken has its tiles
-and the takings chart; showtimes have theirs, the top movies and the drill-down. For
+Filters in one row (a period preset or custom dates, and a venue), then tabs (owner,
+2026-10-29) for blocks that count on different days, so each says which: "Money taken"
+(the day the money came in: its tiles, the takings chart, the film shares and the
+splits), "Snacks" (what sold, and what's running low), and "Showtimes in this period"
+(the day the showtime starts: its tiles, the top movies and the drill-down). The
+filters apply to every tab. For
 staff with financial_reports.read; the server checks it on every request.
 """
 
@@ -15,6 +17,7 @@ import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037] authenticated endpoint
 import from .report_view { PRESETS, preset_range, period_label, percent, money_label }
+import from ..shell.Tabs { Tabs }
 
 glob DEFAULT_PRESET: str = "last7";
 import from "@hugeicons/core-free-icons" {
@@ -68,6 +71,7 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
     [answer, set_answer] = useState(None);
     [failed, set_failed] = useState("");
     [loading, set_loading] = useState(True);
+    [tab, set_tab] = useState("money");
 
     async def load(date_from: str, date_to: str, venue_id: str) {
         got: any = None;  # jac:ignore[W1037]
@@ -234,252 +238,280 @@ def:pub ReportsSection(slug: str, shift_open: bool = True) -> JsxElement {
                         <AlertDescription>{failed}</AlertDescription>
                     </Alert>}
             </div>
-            <section aria-labelledby="money-heading" className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                    <h2 id="money-heading" className="text-lg font-semibold">
-                        Money taken
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                        Counted on the day the money came in, {span_text}.
-                    </p>
-                </div>
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    <div
-                        data-testid="money-headline"
-                        className="flex min-w-0 flex-col gap-4 rounded-2xl bg-card p-5 ring-1 ring-foreground/10 lg:col-span-2"
-                    >
-                        <div className="flex flex-col gap-1">
-                            <p className="text-sm text-muted-foreground">Net takings</p>
-                            <p
-                                data-testid="kpi-net"
-                                className="text-4xl font-semibold tracking-tight tabular-nums"
-                            >
-                                {money_label(takings["net_cents"], currency)}
-                            </p>
-                            {previous is not None
-                                and <TrendBadge
-                                    now_cents={takings["net_cents"]}
-                                    before_cents={previous["net_cents"]}
-                                    days={previous["days"]}
-                                    currency={currency}
-                                />}
-                        </div>
-                        <TakingsChart
-                            points={sales["chart"]["points"]}
-                            unit={sales["chart"]["unit"]}
-                            currency={currency}
-                        />
-                    </div>
-                    <div
-                        className="flex min-w-0 flex-col gap-3 rounded-2xl bg-card p-5 ring-1 ring-foreground/10"
-                    >
-                        <ShareDonut
-                            rows={sales["top_movies"]}
-                            whole_cents={shown["ticket_revenue_cents"]}
-                            currency={currency}
-                        />
-                    </div>
-                </div>
-                <div
-                    data-testid="money-splits"
-                    className="grid grid-cols-1 gap-5 rounded-2xl bg-card p-5 ring-1 ring-foreground/10 sm:grid-cols-2"
+            <Tabs
+                label="Reports"
+                tabs={[
+                    {"key": "money", "label": "Money taken", "count": ""},
+                    {"key": "snacks", "label": "Snacks", "count": ""},
+                    {"key": "shows", "label": "Showtimes", "count": ""}
+                ]}
+                current={tab}
+                on_pick={set_tab}
+                testid="report-tab"
+            />
+            {tab == "money"
+                and <section
+                    aria-labelledby="money-heading"
+                    className="flex flex-col gap-4"
                 >
-                    <SplitBar
-                        title="Where the money came from"
-                        left_label="Tickets"
-                        left_cents={takings["tickets_cents"]}
-                        right_label="Snacks"
-                        right_cents={takings["snacks_cents"]}
-                        currency={currency}
-                        testid="split-items"
-                    />
-                    <SplitBar
-                        title="How it was paid"
-                        left_label="M-Pesa"
-                        left_cents={takings["mpesa_cents"]}
-                        right_label="Cash"
-                        right_cents={takings["cash_cents"]}
-                        currency={currency}
-                        testid="split-method"
-                    />
-                    <SplitBar
-                        title="Where it was sold"
-                        left_label="Online"
-                        left_cents={takings["online_cents"]}
-                        right_label="Box office"
-                        right_cents={takings["counter_cents"]}
-                        currency={currency}
-                        testid="split-channel"
-                    />
-                    <SplitBar
-                        title="Your share and AfriCinemas fees"
-                        left_label="Your share"
-                        left_cents={fees["cinema_share_cents"]}
-                        right_label="AfriCinemas fees"
-                        right_cents={fees["fees_cents"]}
-                        currency={currency}
-                        testid="split-fees"
-                    />
-                </div>
-                <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">
-                        The numbers
-                    </h3>
-                    <div
-                        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
-                    >
-                        <KpiTile
-                            label="Gross"
-                            value={money_label(takings["gross_cents"], currency)}
-                            note={f"Refunds {money_label(
-                                takings['refunds_cents'], currency
-                            )}"}
-                            testid="kpi-gross"
-                            icon={Money03Icon}
-                            slot="1"
-                        />
-                        <KpiTile
-                            label="M-Pesa"
-                            value={money_label(takings["mpesa_cents"], currency)}
-                            note={f"Cash {money_label(
-                                takings['cash_cents'], currency
-                            )}"}
-                            testid="kpi-mpesa"
-                            icon={SmartPhone01Icon}
-                            slot="2"
-                        />
-                        <KpiTile
-                            label="At the box office"
-                            value={money_label(takings["counter_cents"], currency)}
-                            note={f"Online {money_label(
-                                takings['online_cents'], currency
-                            )}"}
-                            testid="kpi-counter"
-                            icon={Store01Icon}
-                            slot="3"
-                        />
-                        <KpiTile
-                            label="Ticket net takings"
-                            value={money_label(takings["tickets_cents"], currency)}
-                            note="Booking fees included"
-                            testid="kpi-ticket-net"
-                            icon={Ticket02Icon}
-                            slot="1"
-                        />
-                        <KpiTile
-                            label="Snack net takings"
-                            value={money_label(takings["snacks_cents"], currency)}
-                            note="With tickets and snacks-only sales"
-                            testid="kpi-snack-net"
-                            icon={PopcornIcon}
-                            slot="2"
-                        />
-                        <KpiTile
-                            label="AfriCinemas fees"
-                            value={money_label(fees["fees_cents"], currency)}
-                            note={f"Credited on refunds {money_label(
-                                fees['credited_cents'], currency
-                            )}"}
-                            testid="kpi-fees"
-                            icon={PercentCircleIcon}
-                            slot="4"
-                        />
-                        <KpiTile
-                            label="Your share"
-                            value={money_label(fees["cinema_share_cents"], currency)}
-                            note="Net takings less AfriCinemas fees, invoiced monthly"
-                            testid="kpi-share"
-                            icon={Money03Icon}
-                            slot="3"
-                        />
+                    <div className="flex flex-col gap-1">
+                        <h2 id="money-heading" className="text-lg font-semibold">
+                            Money taken
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            Counted on the day the money came in, {span_text}.
+                        </p>
                     </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                    Refunds and adjustments are split in proportion to the order's ticket and snack totals.
-                </p>
-            </section>
-            <SnackReport snacks={sales["snacks"]} currency={currency}/>
-            <section aria-labelledby="shows-heading" className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                    <h2 id="shows-heading" className="text-lg font-semibold">
-                        Showtimes in this period
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                        Counted on the day the showtime starts; tickets bought earlier count here too.
-                    </p>
-                </div>
-                <OccupancyMeter
-                    sold={shown["tickets_sold"]}
-                    seats={shown["seats_on_sale"]}
-                    showtimes={shown["showtimes"]}
-                />
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                        <div
+                            data-testid="money-headline"
+                            className="flex min-w-0 flex-col gap-4 rounded-2xl bg-card p-5 ring-1 ring-foreground/10 lg:col-span-2"
+                        >
+                            <div className="flex flex-col gap-1">
+                                <p className="text-sm text-muted-foreground">
+                                    Net takings
+                                </p>
+                                <p
+                                    data-testid="kpi-net"
+                                    className="text-4xl font-semibold tracking-tight tabular-nums"
+                                >
+                                    {money_label(takings["net_cents"], currency)}
+                                </p>
+                                {previous is not None
+                                    and <TrendBadge
+                                        now_cents={takings["net_cents"]}
+                                        before_cents={previous["net_cents"]}
+                                        days={previous["days"]}
+                                        currency={currency}
+                                    />}
+                            </div>
+                            <TakingsChart
+                                points={sales["chart"]["points"]}
+                                unit={sales["chart"]["unit"]}
+                                currency={currency}
+                            />
+                        </div>
+                        <div
+                            className="flex min-w-0 flex-col gap-3 rounded-2xl bg-card p-5 ring-1 ring-foreground/10"
+                        >
+                            <ShareDonut
+                                rows={sales["top_movies"]}
+                                whole_cents={shown["ticket_revenue_cents"]}
+                                currency={currency}
+                            />
+                        </div>
+                    </div>
                     <div
-                        className="flex flex-col gap-3 rounded-2xl bg-card p-5 ring-1 ring-foreground/10"
+                        data-testid="money-splits"
+                        className="grid grid-cols-1 gap-5 rounded-2xl bg-card p-5 ring-1 ring-foreground/10 sm:grid-cols-2"
                     >
-                        <h3 className="text-base font-semibold">Top movies</h3>
-                        <TopMoviesList
-                            slug={slug}
-                            rows={sales["top_movies"]}
+                        <SplitBar
+                            title="Where the money came from"
+                            left_label="Tickets"
+                            left_cents={takings["tickets_cents"]}
+                            right_label="Snacks"
+                            right_cents={takings["snacks_cents"]}
                             currency={currency}
+                            testid="split-items"
+                        />
+                        <SplitBar
+                            title="How it was paid"
+                            left_label="M-Pesa"
+                            left_cents={takings["mpesa_cents"]}
+                            right_label="Cash"
+                            right_cents={takings["cash_cents"]}
+                            currency={currency}
+                            testid="split-method"
+                        />
+                        <SplitBar
+                            title="Where it was sold"
+                            left_label="Online"
+                            left_cents={takings["online_cents"]}
+                            right_label="Box office"
+                            right_cents={takings["counter_cents"]}
+                            currency={currency}
+                            testid="split-channel"
+                        />
+                        <SplitBar
+                            title="Your share and AfriCinemas fees"
+                            left_label="Your share"
+                            left_cents={fees["cinema_share_cents"]}
+                            right_label="AfriCinemas fees"
+                            right_cents={fees["fees_cents"]}
+                            currency={currency}
+                            testid="split-fees"
                         />
                     </div>
-                    <div className="flex flex-col gap-3">
-                        <h3 className="text-sm font-medium">
-                            By venue, screen, movie and showtime
+                    <div className="flex flex-col gap-2">
+                        <h3 className="text-sm font-medium text-muted-foreground">
+                            The numbers
                         </h3>
-                        <DrillDown
-                            venues={sales["venues"]}
-                            currency={currency}
-                            timezone={sales["timezone"]}
-                        />
+                        <div
+                            className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
+                        >
+                            <KpiTile
+                                label="Gross"
+                                value={money_label(takings["gross_cents"], currency)}
+                                note={f"Refunds {money_label(
+                                    takings['refunds_cents'], currency
+                                )}"}
+                                testid="kpi-gross"
+                                icon={Money03Icon}
+                                slot="1"
+                            />
+                            <KpiTile
+                                label="M-Pesa"
+                                value={money_label(takings["mpesa_cents"], currency)}
+                                note={f"Cash {money_label(
+                                    takings['cash_cents'], currency
+                                )}"}
+                                testid="kpi-mpesa"
+                                icon={SmartPhone01Icon}
+                                slot="2"
+                            />
+                            <KpiTile
+                                label="At the box office"
+                                value={money_label(takings["counter_cents"], currency)}
+                                note={f"Online {money_label(
+                                    takings['online_cents'], currency
+                                )}"}
+                                testid="kpi-counter"
+                                icon={Store01Icon}
+                                slot="3"
+                            />
+                            <KpiTile
+                                label="Ticket net takings"
+                                value={money_label(takings["tickets_cents"], currency)}
+                                note="Booking fees included"
+                                testid="kpi-ticket-net"
+                                icon={Ticket02Icon}
+                                slot="1"
+                            />
+                            <KpiTile
+                                label="Snack net takings"
+                                value={money_label(takings["snacks_cents"], currency)}
+                                note="With tickets and snacks-only sales"
+                                testid="kpi-snack-net"
+                                icon={PopcornIcon}
+                                slot="2"
+                            />
+                            <KpiTile
+                                label="AfriCinemas fees"
+                                value={money_label(fees["fees_cents"], currency)}
+                                note={f"Credited on refunds {money_label(
+                                    fees['credited_cents'], currency
+                                )}"}
+                                testid="kpi-fees"
+                                icon={PercentCircleIcon}
+                                slot="4"
+                            />
+                            <KpiTile
+                                label="Your share"
+                                value={money_label(
+                                    fees["cinema_share_cents"], currency
+                                )}
+                                note="Net takings less AfriCinemas fees, invoiced monthly"
+                                testid="kpi-share"
+                                icon={Money03Icon}
+                                slot="3"
+                            />
+                        </div>
                     </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">
-                        The numbers
-                    </h3>
-                    <div
-                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-                    >
-                        <KpiTile
-                            label="Tickets sold"
-                            value={f"{shown['tickets_sold']}"}
-                            note={f"{shown['tickets_scanned']} scanned at the door"}
-                            testid="kpi-tickets"
-                            icon={QrCode01Icon}
-                            slot="1"
-                        />
-                        <KpiTile
-                            label="Occupancy"
-                            value={percent(full)}
-                            note={f"{shown['seats_on_sale']} seats on sale, {shown[
-                                'showtimes'
-                            ]} showtimes"}
-                            testid="kpi-occupancy"
-                            icon={UserGroupIcon}
-                            slot="2"
-                        />
-                        <KpiTile
-                            label="Average ticket"
-                            value={money_label(shown["average_ticket_cents"], currency)}
-                            note="Booking fee included"
-                            testid="kpi-average"
-                            icon={Coins01Icon}
-                            slot="3"
-                        />
-                        <KpiTile
-                            label="Ticket revenue"
-                            value={money_label(shown["ticket_revenue_cents"], currency)}
-                            note={f"{money_label(
-                                shown['revenue_per_seat_cents'], currency
-                            )} per seat on sale"}
-                            testid="kpi-revenue"
-                            icon={ChartIncreaseIcon}
-                            slot="4"
-                        />
+                    <p className="text-sm text-muted-foreground">
+                        Refunds and adjustments are split in proportion to the order's ticket and snack totals.
+                    </p>
+                </section>}
+            {tab == "snacks"
+                and <SnackReport snacks={sales["snacks"]} currency={currency}/>}
+            {tab == "shows"
+                and <section
+                    aria-labelledby="shows-heading"
+                    className="flex flex-col gap-4"
+                >
+                    <div className="flex flex-col gap-1">
+                        <h2 id="shows-heading" className="text-lg font-semibold">
+                            Showtimes in this period
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            Counted on the day the showtime starts; tickets bought earlier count here too.
+                        </p>
                     </div>
-                </div>
-            </section>
+                    <OccupancyMeter
+                        sold={shown["tickets_sold"]}
+                        seats={shown["seats_on_sale"]}
+                        showtimes={shown["showtimes"]}
+                    />
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div
+                            className="flex flex-col gap-3 rounded-2xl bg-card p-5 ring-1 ring-foreground/10"
+                        >
+                            <h3 className="text-base font-semibold">Top movies</h3>
+                            <TopMoviesList
+                                slug={slug}
+                                rows={sales["top_movies"]}
+                                currency={currency}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <h3 className="text-sm font-medium">
+                                By venue, screen, movie and showtime
+                            </h3>
+                            <DrillDown
+                                venues={sales["venues"]}
+                                currency={currency}
+                                timezone={sales["timezone"]}
+                            />
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <h3 className="text-sm font-medium text-muted-foreground">
+                            The numbers
+                        </h3>
+                        <div
+                            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+                        >
+                            <KpiTile
+                                label="Tickets sold"
+                                value={f"{shown['tickets_sold']}"}
+                                note={f"{shown['tickets_scanned']} scanned at the door"}
+                                testid="kpi-tickets"
+                                icon={QrCode01Icon}
+                                slot="1"
+                            />
+                            <KpiTile
+                                label="Occupancy"
+                                value={percent(full)}
+                                note={f"{shown['seats_on_sale']} seats on sale, {shown[
+                                    'showtimes'
+                                ]} showtimes"}
+                                testid="kpi-occupancy"
+                                icon={UserGroupIcon}
+                                slot="2"
+                            />
+                            <KpiTile
+                                label="Average ticket"
+                                value={money_label(
+                                    shown["average_ticket_cents"], currency
+                                )}
+                                note="Booking fee included"
+                                testid="kpi-average"
+                                icon={Coins01Icon}
+                                slot="3"
+                            />
+                            <KpiTile
+                                label="Ticket revenue"
+                                value={money_label(
+                                    shown["ticket_revenue_cents"], currency
+                                )}
+                                note={f"{money_label(
+                                    shown['revenue_per_seat_cents'], currency
+                                )} per seat on sale"}
+                                testid="kpi-revenue"
+                                icon={ChartIncreaseIcon}
+                                slot="4"
+                            />
+                        </div>
+                    </div>
+                </section>}
         </div>;
 }
