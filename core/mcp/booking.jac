@@ -221,7 +221,10 @@ def card_call(name: str, args: dict[str, any], customer: str) -> dict[str, any] 
             holder,
             str(args.get("phone", "")),
             str(args.get("email", "")),
-            str(args.get("key", ""))
+            str(args.get("key", "")),
+            "",
+            # Their declaration that they're 18 or over (P15.0), from the card's box.
+            str(args.get("adult", ""))
         );
         if not _ok(got) {
             return _refusal(got, "The M-Pesa prompt couldn't be sent.");

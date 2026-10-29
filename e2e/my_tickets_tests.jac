@@ -73,6 +73,7 @@ def _fill_sign_up(page: any, email: str) {  # jac:ignore[W1037]
     _type(page, "#name", "Kim");
     _type(page, "#email", email);
     _type(page, "#password", PASSWORD);
+    page.check('[data-testid="customer-sign-up"] #adult');  # "I'm 18 or over" (P15.0)
     page.click('[data-testid="customer-sign-up"] button[type="submit"]');
 }
 
@@ -98,6 +99,7 @@ def _book_and_pay(page: any, project: str, owner: dict[str, str]) {  # jac:ignor
     page.wait_for_selector('[data-testid="pay-panel"]');
     _type(page, "#mpesa-phone", "0712 345 678");
     _type(page, "#tickets-email", "kim@example.com");
+    page.check("#adult");  # "I'm 18 or over" (P15.0)
     _press(page, project, '[data-testid="pay-mpesa"]');
     page.wait_for_selector('[data-testid="booked"]', timeout=SETTLE_MS);
 }

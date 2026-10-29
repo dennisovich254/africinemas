@@ -77,6 +77,7 @@ test "a customer books and pays on a cinema's own address, and it's in My ticket
             _type(page, "#name", "Kim");
             _type(page, "#email", email_for(unique("kim")));
             _type(page, "#password", PASSWORD);
+            page.check('[data-testid="customer-sign-up"] #adult');  # "I'm 18 or over" (P15.0)
             _press(
                 page, project, '[data-testid="customer-sign-up"] button[type="submit"]'
             );
@@ -90,6 +91,7 @@ test "a customer books and pays on a cinema's own address, and it's in My ticket
             page.wait_for_selector('[data-testid="pay-panel"]');
             _type(page, "#mpesa-phone", "0712 345 678");
             _type(page, "#tickets-email", "kim@example.com");
+            page.check("#adult");  # "I'm 18 or over" (P15.0)
             _press(page, project, '[data-testid="pay-mpesa"]');
             page.wait_for_selector('[data-testid="booked"]', timeout=SETTLE_MS);
             page.wait_for_selector(

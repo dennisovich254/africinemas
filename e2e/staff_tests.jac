@@ -160,6 +160,7 @@ test "someone new creates an account from the invitation and joins" {
         if page.locator("#confirm-password").count() > 0 {
             _type(page, "#confirm-password", PASSWORD);
         }
+        page.check("#adult");  # "I'm 18 or over" (P15.0)
         page.click('button[type="submit"]');
         page.wait_for_url("**/invite/**");
         page.click('button:has-text("Accept invitation")');

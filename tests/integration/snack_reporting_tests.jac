@@ -77,7 +77,8 @@ test "reports split mixed M-Pesa and snacks-only cash, with stock per venue" {
                 ** where,
                 "phone": fresh_phone(),
                 "email": "buyer@example.com",
-                "idempotency_key": f"pay-{uuid.uuid4().hex}"
+                "idempotency_key": f"pay-{uuid.uuid4().hex}",
+                "adult": "yes"
             }
         );
         assert started["ok"] , started;

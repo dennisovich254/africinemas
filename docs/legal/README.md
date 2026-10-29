@@ -43,14 +43,21 @@ Found while drafting. Each is small, and listed so it isn't lost:
   (**Cookies and storage** included); a new version of the cinema agreement must be
   accepted again (P15.1).
 - ~~**The registrations checklist** in the console.~~ (done in P15.0b)
-- **The confirmation email names the version of the terms agreed**, with a link
-  (Consumer Protection Act, s.32).
-- **A test that every browser-storage key is listed** in the cookie notice.
-- **The KFCB rating wherever a film is listed** (Films and Stage Plays Act, s.17(3)):
-  check every listing, card, chat card and email.
-- **An 18-or-over declaration** at sign-up and payment (Data Protection Act, s.33).
-- **The verification page's guidance** to cover anything not asked for, such as family
-  details, on uploaded documents (DPIA R6).
+- ~~**The confirmation email names the version of the terms agreed**, with a link
+  (Consumer Protection Act, s.32).~~ (done 2026-10-29: "Booked under AfriCinemas'
+  terms of use, version 0.1", linked, in the ticket email)
+- ~~**A test that every browser-storage key is listed** in the cookie notice.~~ (done
+  2026-10-29: tests/unit/storage_notice_tests.jac; the chat's key is left out while the
+  chat is off, and must come back with it)
+- ~~**The KFCB rating wherever a film is listed** (Films and Stage Plays Act, s.17(3)):
+  check every listing, card, chat card and email.~~ (done 2026-10-29: checked; added to
+  search, the tickets page, My tickets and the ticket email)
+- ~~**An 18-or-over declaration** at sign-up and payment (Data Protection Act, s.33).~~
+  (done 2026-10-29: never ticked for the customer; the server refuses an online payment
+  or a customer account without it. Staff sign-up asks on the page only: it's Jac's own
+  endpoint)
+- ~~**The verification page's guidance** to cover anything not asked for, such as
+  family details, on uploaded documents (DPIA R6).~~ (done 2026-10-29)
 - **Verification files encrypted at rest** with a separate key, and the owner emailed
   when their verification is viewed or changed (DPIA R1, R4; P17.5).
 - **Customers' "Download my data" and "Delete my account"**, so cinemas can answer

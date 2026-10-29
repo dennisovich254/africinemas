@@ -108,6 +108,11 @@ test "search finds a movie and a cinema, and says when nothing matches" {
             page.wait_for_selector(
                 '[data-testid="search-results"] a:has-text("Rafiki")'
             );
+            # Its KFCB rating beside it (Films and Stage Plays Act s.17(3); P15.0).
+            assert "KFCB 16"
+                in page.inner_text(
+                    '[data-testid="search-results"] a:has-text("Rafiki")'
+                );
             _type(page, "#storefront-search", "cbd");
             page.wait_for_selector('[data-testid="search-results"] a:has-text("CBD")');
             _type(page, "#storefront-search", "zzz");

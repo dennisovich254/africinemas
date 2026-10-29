@@ -90,6 +90,13 @@ test "pay with M-Pesa: check your phone, then the tickets, also after a reload" 
             assert page.get_attribute(EMAIL, "inputmode") == "email";
             _type(page, PHONE, "0712 345 678");
             _type(page, EMAIL, ANNA_EMAIL);
+            # "I'm 18 or over" is never ticked for them, and needed to pay (P15.0).
+            assert not page.is_checked("#adult");
+            _press(page, project, '[data-testid="pay-mpesa"]');
+            page.wait_for_selector('#adult-error:has-text("18 or over")');
+            assert page.locator('[data-testid="payment-status"]').count() == 0;
+            page.check("#adult");
+            page.wait_for_selector("#adult-error", state="detached");
             _press(page, project, '[data-testid="pay-mpesa"]');
             page.wait_for_selector(
                 '[data-testid="payment-status"], [data-testid="booked"]'
@@ -108,6 +115,9 @@ test "pay with M-Pesa: check your phone, then the tickets, also after a reload" 
             page.wait_for_selector('[data-testid="tickets-page"]');
             assert "/tickets/" in page.url;
             assert "Rafiki" in page.inner_text('[data-testid="tickets-page"]');
+            # The film's KFCB rating (P15.0).
+            assert page.inner_text('[data-testid="tickets-rating"]')
+                == "Rated 16 by the KFCB";
             _check_qr_codes(page);
             _press(page, project, '[data-testid="resend"]');
             page.wait_for_function(
@@ -132,6 +142,7 @@ test "the M-Pesa number is checked inline, next to the field" {
         assert "0712 345 678" in page.inner_text('[data-testid="phone-error"]');
         assert page.get_attribute(PHONE, "aria-invalid") == "true";
         assert page.get_attribute(PHONE, "aria-describedby") == "mpesa-phone-error";
+        page.check("#adult");  # "I'm 18 or over" (P15.0)
         page.locator('[data-testid="pay-mpesa"]').tap();
         assert page.locator('[data-testid="payment-status"]').count() == 0;
         _type(page, PHONE, "+254 712 345 678");
@@ -144,6 +155,7 @@ test "the M-Pesa number is checked inline, next to the field" {
         page.wait_for_selector('[data-testid="email-error"]');
         assert page.get_attribute(EMAIL, "aria-invalid") == "true";
         assert page.get_attribute(EMAIL, "aria-describedby") == "tickets-email-error";
+        page.check("#adult");  # "I'm 18 or over" (P15.0)
         page.locator('[data-testid="pay-mpesa"]').tap();
         assert page.locator('[data-testid="payment-status"]').count() == 0;
         _type(page, EMAIL, ANNA_EMAIL);
@@ -165,6 +177,7 @@ test "a failed payment says so, and paying again works" {
         # The simulator's test number for a payment that fails.
         _type(page, PHONE, "0700 000 001");
         _type(page, EMAIL, ANNA_EMAIL);
+        page.check("#adult");  # "I'm 18 or over" (P15.0)
         page.click('[data-testid="pay-mpesa"]');
         page.wait_for_selector(
             '[data-testid="payment-status"][data-state="failed"]', timeout=SETTLE_MS
@@ -173,6 +186,7 @@ test "a failed payment says so, and paying again works" {
             in page.inner_text('[data-testid="payment-message"]');
         assert page.inner_text('[data-testid="pay-mpesa"]').strip() == "Try again";
         _type(page, PHONE, "0712 345 678");
+        page.check("#adult");  # "I'm 18 or over" (P15.0)
         page.click('[data-testid="pay-mpesa"]');
         page.wait_for_selector('[data-testid="booked"]', timeout=SETTLE_MS);
     } finally {
@@ -198,6 +212,7 @@ test "review screenshots of paying" {
                 );
                 _type(page, PHONE, "0712 345 678");
                 _type(page, EMAIL, ANNA_EMAIL);
+                page.check("#adult");  # "I'm 18 or over" (P15.0)
                 _press(page, project, '[data-testid="pay-mpesa"]');
                 page.wait_for_selector('[data-testid="booked"]', timeout=SETTLE_MS);
                 page.screenshot(

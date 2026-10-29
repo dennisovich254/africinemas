@@ -25,7 +25,7 @@ import from .customer_session {
     asked_next
 }
 import from ..site { with_site_slug }
-import from .AgreeNotice { use_agreement, AgreeNotice, OffersBox }
+import from .AgreeNotice { use_agreement, AgreeNotice, OffersBox, AdultBox }
 import from core.notify.offer_consent { set_my_offers }  # jac:ignore[W2037]
 
 glob PASSWORD_MIN: int = 8,
@@ -133,6 +133,9 @@ def:pub CustomerSignUpPage -> JsxElement {
     # What creating an account agrees to, and the box for offers (P14.3c).
     agreement = use_agreement(slug);
     [offers, set_offers] = useState(False);
+    # "I'm 18 or over", never ticked for them (P15.0).
+    [adult, set_adult] = useState(False);
+    [adult_error, set_adult_error] = useState("");
     after = back_to(slug, asked_next());
 
     def typed_name(event: any) {  # jac:ignore[W1037]
@@ -149,9 +152,13 @@ def:pub CustomerSignUpPage -> JsxElement {
             set_error(f"Use a password of at least {PASSWORD_MIN} characters.");
             return;
         }
+        if not adult {
+            set_adult_error("Confirm you're 18 or over to create an account.");
+            return;
+        }
         set_busy(True);
         set_error("");
-        problem = await create_customer_account(slug, email, password, name);
+        problem = await create_customer_account(slug, email, password, name, adult);
         set_busy(False);
         if problem {
             set_error(problem);
@@ -215,6 +222,14 @@ def:pub CustomerSignUpPage -> JsxElement {
                             agreement={agreement}
                             checked={offers}
                             on_change={set_offers}
+                        />
+                        <AdultBox
+                            checked={adult}
+                            error={adult_error}
+                            on_change={lambda (v: bool) {
+                                set_adult(v);
+                                set_adult_error("");
+                            }}
                         />
                         <AgreeNotice
                             slug={slug}

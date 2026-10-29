@@ -229,6 +229,7 @@ test "a visitor books and pays in the chat, and the showtime page shows the same
             page.wait_for_selector(f'{BOOKING} [data-testid="pay-panel"]');
             page.fill("#mpesa-phone", "0712 345 678");  # jac:ignore[W6002]
             page.fill("#tickets-email", "anna@example.com");  # jac:ignore[W6002]
+            page.check(f'{BOOKING} #adult');  # "I'm 18 or over" (P15.0)
             _press(page, project, f'{BOOKING} [data-testid="pay-mpesa"]');
             page.wait_for_selector(
                 f'{BOOKING} [data-testid="booked"]', timeout=SETTLE_MS

@@ -614,6 +614,12 @@ def:pub VerificationSection(slug: str) -> JsxElement {
                     <p className="text-sm text-muted-foreground">
                         Your national ID or passport. On a phone, you can take the photos now.
                     </p>
+                    <p
+                        className="text-sm text-muted-foreground"
+                        data-testid="only-whats-asked"
+                    >
+                        We only need what's on the front and back of the card. If a document shows anything else, like family details, cover it before you take the photo or upload it.
+                    </p>
                     {drops(ID_FILES)}
                 </section>}
             {showing == "business"
@@ -624,6 +630,9 @@ def:pub VerificationSection(slug: str) -> JsxElement {
                     <h3 id="verify-business-files" className="font-semibold">
                         Your business's documents
                     </h3>
+                    <p className="text-sm text-muted-foreground">
+                        Upload each certificate as it was issued. Cover anything on it that isn't about the business, like a personal address or other people's details.
+                    </p>
                     {drops(BUSINESS_FILES)}
                 </section>}
             {showing == "submit"

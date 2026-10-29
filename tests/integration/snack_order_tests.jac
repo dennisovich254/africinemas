@@ -83,7 +83,8 @@ def _pay(app: Served, screening: str, holder: str) -> str {
             "holder": holder,
             "phone": fresh_phone(),
             "email": "ben@example.com",
-            "idempotency_key": f"pay-{uuid.uuid4().hex}"
+            "idempotency_key": f"pay-{uuid.uuid4().hex}",
+            "adult": "yes"
         }
     );
     assert started["ok"] , started;

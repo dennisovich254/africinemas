@@ -87,7 +87,8 @@ def pay(
             "holder": ANNA,
             "phone": phone,
             "email": email,
-            "idempotency_key": key or f"pay-{uuid.uuid4().hex}"
+            "idempotency_key": key or f"pay-{uuid.uuid4().hex}",
+            "adult": "yes"
         }
     );
 }

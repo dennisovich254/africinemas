@@ -17,6 +17,7 @@ the ticket email and resending it.
   for another cinema, or an order that isn't paid all answer not_found, alike.
 """
 
+import from core.legal.legal_api { VERSION as TERMS_VERSION }
 import os;
 import from core.clock { now }
 import from core.booking.snack_additions {
@@ -25,7 +26,7 @@ import from core.booking.snack_additions {
     addition_allowed
 }
 import math;
-import from core.site { storefront_address }
+import from core.site { storefront_address, main_address }
 import from core.claims { claim, release, make_permanent, claims_in, holder }
 import from core.tenancy.models { Tenant }
 import from core.tenancy.open_cinema { open_cinema, tenant_by_id }
@@ -148,6 +149,8 @@ def booking_view(cinema: Tenant, order: Order) -> dict[str, any] {  # jac:ignore
             ),
         "reference": order.reference,
         "movie_title": movie.title if movie is not None else "",
+        # Its KFCB rating, wherever the film is shown (Films and Stage Plays Act s.17(3)).
+        "age_rating": movie.age_rating if movie is not None else "",
         "starts_at": screening.starts_at if screening is not None else "",
         "timezone": cinema_timezone(cinema),
         "venue": venue,
@@ -193,6 +196,9 @@ def _mail_for(cinema: Tenant, order: Order, address: str) -> TicketMail {
         cinema_name=cinema.name,
         reply_to=_contact_email(cinema),
         movie_title=view["movie_title"],
+        age_rating=view["age_rating"],
+        terms_version=TERMS_VERSION,
+        terms_link=main_address() + "/legal/terms",
         starts_at=view["starts_at"],
         timezone=view["timezone"],
         place=place,

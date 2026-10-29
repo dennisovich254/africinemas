@@ -73,11 +73,13 @@ async def:pub customer_sign_in(slug: str, email: str, password: str) -> str {
 
 # "" when the account was made and is signed in, else what to tell the customer.
 async def:pub create_customer_account(
-    slug: str, email: str, password: str, name: str
+    slug: str, email: str, password: str, name: str, adult: bool
 ) -> str {
     made: any = None;  # jac:ignore[W1037]
     try {
-        made = await customer_sign_up(slug, email, password, name.strip());
+        made = await customer_sign_up(
+            slug, email, password, name.strip(), "yes" if adult else ""
+        );
     } except Exception as e {
         console.warn("sign-up failed", e);
         return "We couldn't reach the cinema. Check your connection and try again.";

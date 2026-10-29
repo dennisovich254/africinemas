@@ -171,11 +171,26 @@ def _sign_up(slug: str, email: str, password: str, name: str) -> dict[str, any] 
 }
 
 def:pub customer_sign_up(
-    slug: str, email: str, password: str, name: str = ""
+    slug: str, email: str, password: str, name: str = "", adult: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # A customer account at this cinema, with the name its bookings are saved under;
-    # the page then signs in with sign_in_name.
-    return answer(lambda -> any { return _sign_up(slug, email, password, name); });  # jac:ignore[W1037]
+    # the page then signs in with sign_in_name. adult: "yes" when they declared they're
+    # 18 or over (Data Protection Act s.33, P15.0); none is made without it. Text, not
+    # a bool, for JI-060.
+    return answer(
+        lambda -> any { return _adult_sign_up(slug, email, password, name, adult); }
+    );  # jac:ignore[W1037]
+}
+
+def _adult_sign_up(
+    slug: str, email: str, password: str, name: str, adult: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    if adult != "yes" {
+        raise Refused(
+            "adult_required", "Confirm you're 18 or over to create an account."
+        );
+    }
+    return _sign_up(slug, email, password, name);
 }
 
 def:pub my_storefront_account(slug: str) -> dict[str, any] {  # jac:ignore[W1037]

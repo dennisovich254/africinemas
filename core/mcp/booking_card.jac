@@ -34,6 +34,8 @@ glob BOOKING_CSS: str = """h1 { font-size: 20px; line-height: 1.25; margin: 0; o
 .field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
 .field label { font-weight: 600; font-size: 14px; }
 .field input, .field select { font: inherit; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); color: var(--fg); }
+.check { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 12px; font-size: 14px; }
+.check input { width: 20px; height: 20px; }
 .total { font-size: 18px; font-weight: 700; margin-top: 16px; }
 ul.seats { padding-left: 20px; margin: 8px 0 0; }
 """,
@@ -177,11 +179,18 @@ ul.seats { padding-left: 20px; margin: 8px 0 0; }
     email.id = "email"; email.type = "email"; email.inputMode = "email"; email.autocomplete = "email";
     emailField.appendChild(emailLabel); emailField.appendChild(email);
     nodes.push(phoneField); nodes.push(emailField);
+    // "I'm 18 or over" (Data Protection Act s.33, P15.0): never ticked for them.
+    var adultField = el("label", "check");
+    var adult = el("input");
+    adult.id = "adult"; adult.type = "checkbox";
+    adultField.appendChild(adult);
+    adultField.appendChild(document.createTextNode(" I'm 18 or over."));
+    nodes.push(adultField);
     if (problem) { nodes.push(problemNode(problem)); }
     var row = el("div", "row");
     row.appendChild(button("Pay with M-Pesa", true, function () {
       if (!payKey) { payKey = randomKey("pay-"); }
-      ask("card_pay", { phone: phone.value, email: email.value, key: payKey }).then(function (got) {
+      ask("card_pay", { phone: phone.value, email: email.value, key: payKey, adult: adult.checked ? "yes" : "" }).then(function (got) {
         if (!got.ok) { showPay(got.message); return; }
         polls = 0;
         showPaying(got.message);

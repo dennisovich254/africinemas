@@ -134,7 +134,8 @@ test "bad numbers, missing orders, bad keys and switched-off payments are refuse
                 "holder": "holder-ben-0123456789abcdefgh",
                 "phone": fresh_phone(),
                 "email": "ben@example.com",
-                "idempotency_key": "pay-key-ben-00000000001"
+                "idempotency_key": "pay-key-ben-00000000001",
+                "adult": "yes"
             }
         );
         assert code_of(nobody) == "no_order";

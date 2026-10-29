@@ -106,6 +106,13 @@ def:pub TicketsPage -> JsxElement {
                     >
                         {booking["movie_title"]}
                     </h1>
+                    {booking.get("age_rating")
+                        and <p
+                            data-testid="tickets-rating"
+                            className="text-sm text-muted-foreground"
+                        >
+                            {f"Rated {booking['age_rating']} by the KFCB"}
+                        </p>}
                     <p data-testid="tickets-when" className="text-lg font-medium">
                         {f"{long_day_label(starts_at, tz)}, {time_label(
                             starts_at, tz

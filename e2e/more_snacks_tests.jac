@@ -78,6 +78,7 @@ test "My tickets adds snacks with another M-Pesa payment and the same pickup" {
             page.fill("#name", "Snack buyer");  # jac:ignore[W6002]
             page.fill("#email", email);  # jac:ignore[W6002]
             page.fill("#password", PASSWORD);  # jac:ignore[W6002]
+            page.check('[data-testid="customer-sign-up"] #adult');  # "I'm 18 or over" (P15.0)
             page.click('[data-testid="customer-sign-up"] button[type="submit"]');
             page.wait_for_selector('[data-testid="saved-to-account"]');
             page.goto(f"{BASE_URL}/c/{owner['slug']}/my-tickets");

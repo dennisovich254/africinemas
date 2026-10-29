@@ -451,19 +451,43 @@ def counter_payment(
     return _start_payment(slug, screening_id, holder, phone, email, key, sold_by);
 }
 
-def:pub start_payment(
+def:pub start_payment(  # jac:ignore[W3030] the order, the customer, the key, the two choices
     slug: str,
     screening_id: str,
     holder: str,
     phone: str,
     email: str,
     idempotency_key: str,
-    offers: str = ""
+    offers: str = "",
+    adult: str = ""
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # offers: "yes" when the customer ticked the box for the cinema's offers (P14.3c).
+    # adult: "yes" when they declared they're 18 or over (Data Protection Act s.33,
+    # P15.0): an online payment isn't started without it, so every order paid online
+    # was declared. Text, not a bool, for JI-060.
     return answer(
-        lambda -> any { return _start_payment(  # jac:ignore[W1037]
-            slug, screening_id, holder, phone, email, idempotency_key, "", offers
+        lambda -> any { return _start_online(  # jac:ignore[W1037]
+            slug, screening_id, holder, phone, email, idempotency_key, offers, adult
         ); }
+    );
+}
+
+def _start_online(  # jac:ignore[W3030] start_payment's fields, and the declaration
+    slug: str,
+    screening_id: str,
+    holder: str,
+    phone: str,
+    email: str,
+    idempotency_key: str,
+    offers: str,
+    adult: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    if adult != "yes" {
+        raise Refused(
+            "adult_required", "Confirm you're 18 or over to book and pay online."
+        );
+    }
+    return _start_payment(
+        slug, screening_id, holder, phone, email, idempotency_key, "", offers
     );
 }

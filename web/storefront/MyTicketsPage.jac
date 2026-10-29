@@ -37,6 +37,13 @@ def BookingRow(booking: dict[str, any]) -> JsxElement {  # jac:ignore[W1037]
         >
             <div className="flex flex-col gap-0.5">
                 <p className="text-lg font-semibold">{booking["movie_title"]}</p>
+                {booking.get("age_rating")
+                    and <p
+                        data-testid="saved-booking-rating"
+                        className="text-sm text-muted-foreground"
+                    >
+                        {f"Rated {booking['age_rating']} by the KFCB"}
+                    </p>}
                 <p className="font-medium">
                     {f"{long_day_label(starts_at, tz)}, {time_label(starts_at, tz)}"}
                 </p>

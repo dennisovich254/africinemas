@@ -9,6 +9,7 @@ import from ...components.ui.field { FieldGroup }
 import from ...components.ui.spinner { Spinner }
 import from .AuthLayout { AuthLayout, AuthFooter, EmailField, FormError }
 import from .PasswordField { PasswordField }
+import from ..storefront.AgreeNotice { AdultBox }
 import from .session { sign_up, next_path, use_staff_session }
 import from core.accounts.email_verification { send_email_check }  # jac:ignore[W2037] authenticated endpoint
 
@@ -25,6 +26,10 @@ def:pub SignupPage -> JsxElement {
     [password, set_password] = useState("");
     [busy, set_busy] = useState(False);
     [error, set_error] = useState("");
+    # "I'm 18 or over" (P15.0), never ticked for them. Signing up is Jac's own endpoint,
+    # which takes no other field, so it's asked here only.
+    [adult, set_adult] = useState(False);
+    [adult_error, set_adult_error] = useState("");
     invited = next_path();
     # A customer account (P8.6c) isn't a back-office one: they can make one here.
     if use_staff_session() == "staff" {
@@ -38,6 +43,10 @@ def:pub SignupPage -> JsxElement {
         }
         if len(password) < PASSWORD_MIN {
             set_error(f"Choose a password of at least {PASSWORD_MIN} characters.");
+            return;
+        }
+        if not adult {
+            set_adult_error("Confirm you're 18 or over to create an account.");
             return;
         }
         set_busy(True);
@@ -84,6 +93,14 @@ def:pub SignupPage -> JsxElement {
                         auto_complete="new-password"
                         hint={f"At least {PASSWORD_MIN} characters."}
                         min_length={PASSWORD_MIN}
+                    />
+                    <AdultBox
+                        checked={adult}
+                        error={adult_error}
+                        on_change={lambda (v: bool) {
+                            set_adult(v);
+                            set_adult_error("");
+                        }}
                     />
                     <div
                         data-testid="signup-legal"

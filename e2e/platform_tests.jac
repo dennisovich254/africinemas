@@ -185,6 +185,7 @@ test "signing in to a storefront or the back office in the same browser keeps th
         page.fill("#name", "Kim");  # jac:ignore[W6002]
         page.fill("#email", email_for(unique("customer")));  # jac:ignore[W6002]
         page.fill("#password", PASSWORD);  # jac:ignore[W6002]
+        page.check('[data-testid="customer-sign-up"] #adult');  # "I'm 18 or over" (P15.0)
         page.click('[data-testid="customer-sign-up"] button[type="submit"]');
         page.wait_for_url(f"**/c/{owner['slug']}**");
         page.wait_for_selector('[data-testid="customer-sign-up"]', state="detached");

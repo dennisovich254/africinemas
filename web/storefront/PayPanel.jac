@@ -6,7 +6,8 @@ says to check the phone and asks my_payment every few seconds what happened, ann
 changes politely. Paid: the parent shows the tickets (Tickets). Failed or cancelled: the
 message, and the form again to try once more (a new attempt, with a new idempotency
 key). The visitor's PIN never touches the app (architecture §39). Above Pay, what
-paying agrees to, and the box for the cinema's offers (AgreeNotice.jac, P14.3c).
+paying agrees to, and the box for the cinema's offers (AgreeNotice.jac, P14.3c). The
+customer ticks that they're 18 or over before paying (AdultBox, P15.0).
 """
 
 import from react { useState, useEffect }
@@ -21,7 +22,7 @@ import from core.payments.settlement { my_payment }
 import from .showtimes { listed }
 import from .checkout_rules { money, phone_problem, email_problem, order_key }
 import from .TicketDelivery { TicketDelivery }
-import from .AgreeNotice { use_agreement, AgreeNotice, OffersBox }
+import from .AgreeNotice { use_agreement, AgreeNotice, OffersBox, AdultBox }
 
 glob WAITING: list[str] = ["created", "stk_requested", "timeout", "unknown"],
      RETRYABLE: list[str] = ["failed", "cancelled"],
@@ -194,6 +195,10 @@ def:pub PayPanel(
     # What paying agrees to, and the box for the cinema's offers (P14.3c).
     agreement = use_agreement(slug);
     [offers, set_offers] = useState(False);
+    # The customer's declaration that they're 18 or over (Data Protection Act s.33,
+    # P15.0): never ticked for them, and needed to pay (the server checks too).
+    [adult, set_adult] = useState(False);
+    [adult_error, set_adult_error] = useState("");
     current: dict[str, any] | None = payment;  # jac:ignore[W1037]
     state: str = current["state"] if current is not None else "";
     waiting: bool = listed(state, WAITING);
@@ -240,7 +245,8 @@ def:pub PayPanel(
         set_phone_error(wrong);
         address_wrong = email_problem(email);
         set_email_error(address_wrong);
-        if len(wrong) > 0 or len(address_wrong) > 0 {
+        set_adult_error("" if adult else "Confirm you're 18 or over to book.");
+        if len(wrong) > 0 or len(address_wrong) > 0 or not adult {
             return;
         }
         set_busy(True);
@@ -254,7 +260,8 @@ def:pub PayPanel(
                 phone,
                 email,
                 order_key(),
-                "yes" if offers else ""
+                "yes" if offers else "",
+                "yes" if adult else ""
             ]
         );
         set_busy(False);
@@ -384,6 +391,14 @@ def:pub PayPanel(
                     </p>}
             </div>
             <OffersBox agreement={agreement} checked={offers} on_change={set_offers}/>
+            <AdultBox
+                checked={adult}
+                error={adult_error}
+                on_change={lambda (v: bool) {
+                    set_adult(v);
+                    set_adult_error("");
+                }}
+            />
             <AgreeNotice slug={slug} agreement={agreement} action="paying"/>
             <Button
                 type="submit"
