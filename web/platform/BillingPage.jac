@@ -2,9 +2,10 @@
 invoices, newest first, for platform staff (platform.read), each with its PDF.
 
 A super admin (platform.settings) can issue what's due now, in case the monthly job
-missed it; a month already issued is never issued again. Above the statements,
-BillingDesk lists what needs acting on (P15.5): payments to match, disputes, and
-cinemas past the grace period, to suspend or reinstate.
+missed it; a month already issued is never issued again. In tabs (owner, 2026-10-29):
+the Statements, and what needs acting on (BillingDesk, P15.5), each counted: Payments
+to match, Disputes, and Overdue (cinemas past the grace period, to suspend or
+reinstate).
 """
 
 import from react { useState, useEffect }
@@ -16,12 +17,14 @@ import from core.billing.billing_api {
     platform_issue_statements  # jac:ignore[W2037] authenticated endpoint
 }
 import from ..backoffice.BillingSection { Statement }
-import from .BillingDesk { BillingDesk }
+import from .BillingDesk { BillingDesk, desk_lists }
+import from ..shell.Tabs { Tabs }
 
 def:pub BillingPage(may_issue: bool = False, may_suspend: bool = False) -> JsxElement {
     [shown, set_shown] = useState(None);
     [busy, set_busy] = useState(False);
     [note, set_note] = useState("");
+    [tab, set_tab] = useState("statements");
 
     async def load {
         got: any = None;  # jac:ignore[W1037]
@@ -72,6 +75,10 @@ def:pub BillingPage(may_issue: bool = False, may_suspend: bool = False) -> JsxEl
         return <Spinner/>;
     }
     statements: list[dict[str, any]] = found["statements"];  # jac:ignore[W1037]
+    lists = desk_lists(found);
+    def counted(key: str) -> str {
+        return str(len(lists[key])) if len(lists[key]) > 0 else "";
+    }
     return
         <div className="flex max-w-3xl flex-col gap-4" data-testid="platform-billing">
             <p className="text-sm text-muted-foreground">
@@ -97,17 +104,41 @@ def:pub BillingPage(may_issue: bool = False, may_suspend: bool = False) -> JsxEl
                         {note}
                     </p>
                 </div>}
-            <BillingDesk
-                found={found}
-                may_act={may_issue}
-                may_suspend={may_suspend}
-                on_changed={load}
+            <Tabs
+                label="Billing"
+                tabs={[
+                    {"key": "statements", "label": "Statements", "count": ""},
+                    {
+                        "key": "match",
+                        "label": "Payments to match",
+                        "count": counted("match")
+                    },
+                    {
+                        "key": "disputes",
+                        "label": "Disputes",
+                        "count": counted("disputes")
+                    },
+                    {"key": "overdue", "label": "Overdue", "count": counted("overdue")}
+                ]}
+                current={tab}
+                on_pick={set_tab}
+                testid="billing-tab"
             />
-            {len(statements) == 0
+            {tab != "statements"
+                and <BillingDesk
+                    found={found}
+                    part={tab}
+                    may_act={may_issue}
+                    may_suspend={may_suspend}
+                    on_changed={load}
+                />}
+            {tab == "statements"
+                and len(statements) == 0
                 and <p className="rounded-lg border bg-card p-4 text-sm">
                     No statements yet.
                 </p>}
-            {len(statements) > 0
+            {tab == "statements"
+                and len(statements) > 0
                 and <ul className="flex flex-col gap-4">
                     {[
                         <Statement
