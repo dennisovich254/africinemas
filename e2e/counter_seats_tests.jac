@@ -1,9 +1,10 @@
 """Seats kept for the counter, E2E (2026-10-30): on phone and desktop.
 
-The owner opens a screen's page, Counter seats, ticks B5 and B6 and saves. On the
+The owner opens a screen's page, Counter seats, ticks B4 and B5 and saves (B6 is a
+blocked seat, never for sale). On the
 storefront those show as sold at the box office, and others can still be chosen. The
 box office sees them marked and can choose them. On the Screenings page one showtime
-keeps B4 as well, and the storefront shows that. Settings → Box office shows the
+keeps B3 as well, and the storefront shows that. Settings → Box office shows the
 release time (2 hours). The rules themselves: tests/integration/counter_seats_tests.jac.
 """
 
@@ -67,20 +68,20 @@ test "counter seats are chosen per screen and per showtime, and kept from online
             page.click('[data-testid="screen-tab-counter"]');
             editor = page.locator('[data-testid="screen-counter-seats"]');
             editor.wait_for();
-            for label in ["B5", "B6"] {
+            for label in ["B4", "B5"] {
                 editor.locator(f'[data-testid="seat"][data-seat="{label}"]').click();
             }
             editor.locator('button:has-text("Save counter seats")').click();
             page.wait_for_selector(
                 '[role="status"]:has-text("2 seats kept for the counter")'
             );
-            assert "B5, B6" in page.inner_text('[data-testid="counter-seats-count"]');
+            assert "B4, B5" in page.inner_text('[data-testid="counter-seats-count"]');
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
             # Online: sold at the box office; the rest as before.
             said = _storefront_state(browser, pw, project, owner, "B5");
             assert said.startswith("not_for_sale|")
                 and "sold at the box office" in said , said;
-            assert _storefront_state(browser, pw, project, owner, "B3").startswith(
+            assert _storefront_state(browser, pw, project, owner, "A3").startswith(
                 "available|"
             );
             # One showtime keeps B4 too.
@@ -95,13 +96,13 @@ test "counter seats are chosen per screen and per showtime, and kept from online
             page.locator('[data-testid="showtime-counter-seats"]').first.click();
             mine = page.locator('[data-testid="showtime-counter-editor"]');
             mine.wait_for();
-            assert "B5, B6" in mine.inner_text();
-            mine.locator('[data-testid="seat"][data-seat="B4"]').click();
+            assert "B4, B5" in mine.inner_text();
+            mine.locator('[data-testid="seat"][data-seat="B3"]').click();
             mine.locator('button:has-text("Save counter seats")').click();
             page.wait_for_selector(
                 '[role="status"]:has-text("3 seats kept for the counter")'
             );
-            assert _storefront_state(browser, pw, project, owner, "B4").startswith(
+            assert _storefront_state(browser, pw, project, owner, "B3").startswith(
                 "not_for_sale|"
             );
             # Settings → Box office: the release time.
