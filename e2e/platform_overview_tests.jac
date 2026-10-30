@@ -51,9 +51,10 @@ test "a super admin sees the platform's figures on the overview" {
             assert page.locator('[data-testid="overview-jobs-silent"]').count() == 0;
             assert "All background jobs are running"
                 in page.inner_text('[data-testid="overview-jobs-heading"]');
-            # M-Pesa across the platform (P16.3): going through, not flagged.
-            assert "M-Pesa: going through"
-                in page.inner_text('[data-testid="overview-mpesa"]');
+            # M-Pesa (P16.3): answering, or not checked yet on a fresh server; not down.
+            said = page.inner_text('[data-testid="overview-mpesa"]');
+            assert said.startswith("M-Pesa: answering")
+                or said == "M-Pesa: not checked yet." , said;
             assert page.locator('[data-testid="overview-mpesa-down"]').count() == 0;
             assert page.evaluate(WIDE_JS) <= 1 , f"{project}: overview scrolls sideways";
             page.screenshot(

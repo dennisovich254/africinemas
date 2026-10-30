@@ -77,6 +77,35 @@ def:pub OverviewFigures -> JsxElement {
     ];
     mpesa: dict[str, any] = shown["mpesa"];  # jac:ignore[W1037]
     links: list[list[str]] = mpesa["links"];
+    why: list[str] = mpesa["why"];
+    asked: dict[str, str] | None = mpesa["probe"];
+    seen: list[str] = [];
+    if "daraja" in why {
+        seen.append("Daraja hasn't answered our last two checks");
+    }
+    if "payments" in why {
+        seen.append(
+            f"{mpesa['failures']} of the last {mpesa[
+                'attempts'
+            ]} payments failed on Safaricom's side"
+        );
+    }
+    mpesa_why = " and ".join(seen) + ".";
+    mpesa_line = "M-Pesa: not checked yet."
+        if asked is None
+        else (
+            f"M-Pesa: answering (checked {day_time_label(
+                asked['at'], shown['timezone']
+            )})."
+                if asked["result"] in ["ok", "refused"]
+                else (
+                    "M-Pesa: not checked (no M-Pesa provider set)."
+                        if asked["result"] == "not_configured"
+                        else f"M-Pesa: no answer at the last check ({day_time_label(
+                            asked['at'], shown['timezone']
+                        )})."
+                )
+        );
     # An empty 14 days says so, not as a chart of zeros.
     quiet = shown["bookings"] == 0 and shown["takings_net_cents"] == 0;
     return
@@ -91,13 +120,8 @@ def:pub OverviewFigures -> JsxElement {
                         M-Pesa is likely down (Safaricom), not the cinemas
                     </h2>
                     <p className="text-sm">
-                        {f"In the last hour, payments failed at {mpesa[
-                            'failing'
-                        ]} of the {mpesa['trying']} cinemas taking M-Pesa ({mpesa[
-                            'failures'
-                        ]} of {mpesa[
-                            'attempts'
-                        ]} attempts). Tell the cinemas to take cash meanwhile, and post on the status page."}
+                        {mpesa_why
+                            + " Tell the cinemas to take cash meanwhile, and post on the status page."}
                     </p>
                     <ul className="flex flex-wrap gap-x-5 text-sm">
                         {[
@@ -199,9 +223,14 @@ def:pub OverviewFigures -> JsxElement {
                         className="text-sm text-muted-foreground"
                         data-testid="overview-mpesa"
                     >
-                        {f"M-Pesa: going through ({mpesa[
-                            'attempts'
-                        ]} attempts in the last hour, at {mpesa['trying']} cinemas)."}
+                        {mpesa_line}
+                    </p>}
+                {mpesa["our_keys_refused"]
+                    and <p
+                        className="text-sm text-destructive"
+                        data-testid="overview-mpesa-keys"
+                    >
+                        Daraja refuses AfriCinemas' own M-Pesa keys (DARAJA_*): invoices can't be paid with M-Pesa until they're fixed.
                     </p>}
                 {len(waiting) > 0
                     and <p className="text-sm text-muted-foreground">

@@ -364,3 +364,24 @@ test "Daraja's rate limit (429) is waited out once; a status query still refused
     assert not refused.accepted and refused.error_code == "rate_limited";
     assert not refused.uncertain;
 }
+
+test "asking Daraja tells an answer, no answer and our keys refused apart (P16.3)" {
+    assert _provider(FakeHttp(replies=[(200, "oauth_ok")])).reachable() == "ok";
+    # Refused with a 4xx: Daraja answered, and these keys aren't accepted.
+    assert _provider(FakeHttp(replies=[(400, "stk_push_error")])).reachable()
+        == "refused";
+    # A 5xx, or no answer at all (every retry): not answering.
+    assert _provider(FakeHttp(replies=[(503, "stk_push_error")])).reachable()
+        == "unreachable";
+    assert _provider(FakeHttp(replies=["timeout"] * 10)).reachable() == "unreachable";
+    # A push whose keys are refused says so, apart from Daraja being unreachable.
+    pushed = _provider(FakeHttp(replies=[(400, "stk_push_error")])).stk_push(
+        _request()
+    );
+    assert not pushed.accepted and pushed.error_code == "credentials";
+    assert not pushed.uncertain;
+    unreachable = _provider(FakeHttp(replies=[(503, "stk_push_error")])).stk_push(
+        _request()
+    );
+    assert unreachable.error_code == "unavailable";
+}

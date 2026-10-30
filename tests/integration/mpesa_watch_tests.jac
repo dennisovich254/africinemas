@@ -1,45 +1,33 @@
-"""P16.3: M-Pesa failing across most cinemas is likely Safaricom; at one, it isn't.
+"""P16.3: is M-Pesa down? Safaricom's side, told apart from customers and cinemas.
 
-In-process app (payment_app.jac), the simulated M-Pesa, the development outbox. Each
-cinema's payment uses a phone number the simulator refuses (254700000004: the prompt
-isn't sent), or one that goes through.
-- One cinema failing, the others fine: not M-Pesa; no alert.
-- Most cinemas failing: likely M-Pesa; the overview says so with Safaricom's channels,
-  and the team is emailed once; when payments go through again it clears, with one
-  more email. Counts only.
-- Failures more than an hour old don't count.
+In-process app (payment_app.jac), the simulated M-Pesa, the development outbox, the
+clock frozen and moved. One cinema is enough (owner, 2026-10-30).
+- Customers' failures (insufficient funds, cancelled, a phone that's off) and a
+  cinema's keys refused never say M-Pesa is down; the keys show on the cinema's health.
+- Three payments failing on Safaricom's side within 15 minutes (no answer, Daraja
+  unreachable), at least half of the attempts, do: the overview says so with
+  Safaricom's channels, and the team is emailed once; 15 minutes on, it clears.
+- Asking Daraja ourselves: two checks in a row without an answer say it's down, with
+  no payments at all; answering again clears it. Our own keys refused is its own alert.
 """
 
 import os;
 import uuid;
 import tempfile;
-import from datetime { datetime, timedelta }
+import from datetime { datetime, timedelta, timezone }
 import from tests.support.served { Served }
-import from tests.support.storefront_setup {
-    browse,
-    open_cinema_for,
-    add_movie,
-    set_prices,
-    add_screening
-}
+import from tests.support.storefront_setup { browse, add_screening }
 import from tests.support.payment_setup { paying_cinema, fresh_phone }
 import from tests.support.platform_setup { ADMINS_ENV, super_admin }
 
 glob BOSS: str = "boss@example.com",
-     REFUSED: str = "254700000004";
+     # The clock starts at the real time, so the showtimes (days ahead) stay ahead.
+     START: datetime = datetime.now(timezone.utc).replace(microsecond=0);
 
-def _cinema(app: Served, slug: str) -> str {
-    # Another cinema selling one showtime of Rafiki; its showtime.
-    cinema = open_cinema_for(app, "owner", slug, f"Cinema {slug}");
-    add_movie(app, "owner", cinema, "Rafiki");
-    set_prices(app, "owner", cinema);
-    return add_screening(app, "owner", cinema, "Rafiki", 0);
-}
-
-def _try(app: Served, slug: str, screening: str, seat: str, phone: str) {
-    # A customer orders `seat` and pays from `phone`.
+def _try(app: Served, screening: str, seat: str, phone: str) {
+    # A customer orders `seat` at Nova and pays from `phone`.
     holder = f"holder-{uuid.uuid4().hex}";
-    where = {"slug": slug, "screening_id": screening, "holder": holder};
+    where = {"slug": "nova", "screening_id": screening, "holder": holder};
     assert browse(app, "hold_seats", {** where, "labels": [seat]})["ok"];
     assert browse(
         app,
@@ -50,7 +38,7 @@ def _try(app: Served, slug: str, screening: str, seat: str, phone: str) {
             "items": [{"seat_label": seat, "ticket_type": "ADULT"}]
         }
     )["ok"];
-    started = browse(
+    browse(
         app,
         "start_payment",
         {
@@ -61,7 +49,12 @@ def _try(app: Served, slug: str, screening: str, seat: str, phone: str) {
             "adult": "yes"
         }
     );
-    assert started["ok"] or phone == REFUSED , started;
+}
+
+def _at(app: Served, minutes: int) {
+    assert app.call(
+        "owner", "t_clock_at", {"at": (START + timedelta(minutes=minutes)).isoformat()}
+    );
 }
 
 def _alerts(app: Served) -> list[str] {
@@ -72,56 +65,95 @@ def _alerts(app: Served) -> list[str] {
     ];
 }
 
-test "M-Pesa failing at most cinemas is flagged as Safaricom, and at one it isn't" {
+test "Safaricom's side failing is told apart from customers and a cinema's keys" {
     os.environ["AFRICINEMAS_OUTBOX_DIR"] = tempfile.mkdtemp(
         prefix="africinemas-outbox-"
     );
     os.environ["AFRICINEMAS_CLOCK_CONTROL"] = "1";
-    (app, _, _) = paying_cinema([]);
+    (app, nova, _) = paying_cinema([]);
     try {
         super_admin(app, "boss", BOSS);
         app.call("owner", "tm_clear_outbox");
-        shows = {
-            slug: _cinema(app, slug) for slug in ["mtaa", "pwani", "ziwa", "rafu"]
-        };
-        # One cinema failing, the others fine: that cinema's problem, not M-Pesa's.
-        for seat in ["A1", "A2"] {
-            _try(app, "mtaa", shows["mtaa"], seat, REFUSED);
-        }
-        for slug in ["pwani", "ziwa", "rafu"] {
-            _try(app, slug, shows[slug], "A1", fresh_phone());
-            _try(app, slug, shows[slug], "A2", fresh_phone());
+        _at(app, 0);
+        show = add_screening(app, "owner", nova, "Rafiki", 24);
+        # Customers' failures, and the cinema's keys refused: not M-Pesa being down.
+        for (seat, phone) in [
+            ("A1", "254700000001"),
+            ("A2", "254700000002"),
+            ("A3", "254700000003"),
+            ("A4", "254700000007"),
+            ("A5", "254700000007")
+        ] {
+            _try(app, show, seat, phone);
         }
         state = app.call("owner", "t_mpesa_state");
-        assert state["trying"] == 4 and state["failing"] == 1 , state;
+        assert state["attempts"] == 5 and state["failures"] == 0 , state;
         assert not state["likely_down"];
         assert app.call("owner", "t_check_mpesa") == 0;
-        # Most cinemas failing: likely M-Pesa.
-        for slug in ["pwani", "ziwa"] {
-            for seat in ["A3", "A4", "A5"] {
-                _try(app, slug, shows[slug], seat, REFUSED);
-            }
+        health = {
+            s["key"]: s
+            for s in app.call("boss", "platform_cinema", {"slug": "nova"})["cinema"][
+                "health"
+            ]["signals"]
+        };
+        assert health["mpesa_keys"]["up"] and health["mpesa_keys"]["count"] == 2;
+        # Fifteen minutes on, three payments fail on Safaricom's side: likely down.
+        _at(app, 20);
+        later = add_screening(app, "owner", nova, "Rafiki", 48);
+        for (seat, phone) in [
+            ("A1", "254700000005"),
+            ("A2", "254700000006"),
+            ("A3", "254700000005"),
+            ("A4", fresh_phone())
+        ] {
+            _try(app, later, seat, phone);
         }
         state = app.call("owner", "t_mpesa_state");
-        assert state["failing"] == 3 and state["likely_down"] , state;
-        assert len(state["links"]) == 3
-            and "x.com/SafaricomPLC" in state["links"][0][1];
-        assert "phone" not in str(state) and REFUSED not in str(state);
+        assert state["failures"] == 3 and state["attempts"] == 4 , state;
+        assert state["likely_down"] and state["why"] == ["payments"] , state;
+        assert "x.com/SafaricomPLC" in state["links"][0][1];
         shown = app.call("boss", "platform_overview", {})["mpesa"];
-        assert shown["likely_down"] and shown["failing"] == 3;
+        assert shown["likely_down"];
         assert app.call("owner", "t_check_mpesa") == 1;
         assert app.call("owner", "t_check_mpesa") == 0;
         assert _alerts(app) == ["AfriCinemas: M-Pesa is likely down"];
-        # An hour on, those failures are old: back to normal, and the team hears once.
-        start = datetime.fromisoformat(state["since"]) + timedelta(minutes=60);
-        assert app.call(
-            "owner", "t_clock_at", {"at": (start + timedelta(minutes=61)).isoformat()}
-        );
+        # Fifteen minutes later those are old: it clears, with one more email.
+        _at(app, 40);
         assert not app.call("owner", "t_mpesa_state")["likely_down"];
         assert app.call("owner", "t_check_mpesa") == 1;
         assert _alerts(app)[-1]
             == "AfriCinemas: M-Pesa payments are going through again";
+        # No payments at all, and Daraja stops answering us: two checks in a row say so.
+        assert app.call("owner", "t_sim_daraja", {"down": True, "keys_refused": False});
+        _at(app, 45);
+        assert app.call("owner", "t_check_mpesa") == 0;
+        _at(app, 50);
+        assert app.call("owner", "t_check_mpesa") == 1;
+        state = app.call("owner", "t_mpesa_state");
+        assert state["why"] == ["daraja"] and state["probe"]["result"] == "unreachable";
+        assert _alerts(app)[-1] == "AfriCinemas: M-Pesa is likely down";
+        # Answering again clears it.
+        assert app.call(
+            "owner", "t_sim_daraja", {"down": False, "keys_refused": False}
+        );
+        _at(app, 55);
+        assert app.call("owner", "t_check_mpesa") == 1;
+        assert not app.call("owner", "t_mpesa_state")["likely_down"];
+        # Our own keys refused: its own alert, never "M-Pesa is down".
+        assert app.call("owner", "t_sim_daraja", {"down": False, "keys_refused": True});
+        _at(app, 60);
+        assert app.call("owner", "t_check_mpesa") == 1;
+        state = app.call("owner", "t_mpesa_state");
+        assert state["our_keys_refused"] and not state["likely_down"];
+        assert _alerts(app)[-1] == "AfriCinemas: M-Pesa refused our own keys";
+        assert app.call(
+            "owner", "t_sim_daraja", {"down": False, "keys_refused": False}
+        );
+        _at(app, 65);
+        assert app.call("owner", "t_check_mpesa") == 1;
+        assert _alerts(app)[-1] == "AfriCinemas: M-Pesa accepts our keys again";
     } finally {
+        app.call("owner", "t_sim_daraja", {"down": False, "keys_refused": False});
         app.call("owner", "t_clock_reset");
         for name in [
             "AFRICINEMAS_OUTBOX_DIR",

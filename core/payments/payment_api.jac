@@ -158,9 +158,11 @@ def _record(cinema: Tenant, intent: PaymentIntent, result: dict[str, any]) {  # 
             intent.checkout_request_id = str(result.get("checkout_request_id", ""));
         } elif result.get("uncertain") {
             intent.push_uncertain = True;
+            intent.push_error = str(result.get("error_code", ""));
         } else {
             intent.state = transition(current, PaymentState.FAILED).value;
             intent.result_text = str(result.get("message", ""));
+            intent.push_error = str(result.get("error_code", ""));
             refused = True;
         }
         intent.updated_at = now().isoformat();

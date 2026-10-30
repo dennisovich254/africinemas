@@ -20,7 +20,7 @@ import from core.claims { claim, holder, take_claim }
 import from core.notify.mailer { OutgoingMail, send, from_address }
 import from core.platform.staff_api { allowlisted }
 import from core.platform.jobs { job_status, ran }
-import from core.platform.mpesa_watch { mpesa_state }
+import from core.platform.mpesa_watch { mpesa_state, probe_mpesa }
 
 glob ALERT_ENV: str = "AFRICINEMAS_ALERT_EMAILS",
      ALERTED: str = "job-alerted",
@@ -80,14 +80,23 @@ def check_jobs_now -> int {
 def mpesa_mail(to: str, state: dict[str, any]) -> OutgoingMail {  # jac:ignore[W1037]
     if state["likely_down"] {
         subject = "AfriCinemas: M-Pesa is likely down";
-        lead = f"In the last hour, M-Pesa payments failed at {state['failing']} of the {state[
-            'trying'
-        ]} cinemas taking them ({state['failures']} of {state[
-            'attempts'
-        ]} attempts). That's likely Safaricom, not the cinemas. Check Safaricom's channels, post on the status page, and tell the cinemas to take cash meanwhile.";
+        seen: list[str] = [];
+        if "daraja" in state["why"] {
+            seen.append("Daraja hasn't answered our last two checks");
+        }
+        if "payments" in state["why"] {
+            seen.append(
+                f"{state['failures']} of the last {state[
+                    'attempts'
+                ]} payments failed on Safaricom's side"
+            );
+        }
+        lead = f"{' and '.join(
+            seen
+        )}. That's likely Safaricom, not the cinemas. Check Safaricom's channels, post on the status page, and tell the cinemas to take cash meanwhile.";
     } else {
         subject = "AfriCinemas: M-Pesa payments are going through again";
-        lead = "M-Pesa payments are going through at the cinemas again.";
+        lead = "M-Pesa is answering again, and payments are going through.";
     }
     links = " ".join([f"{l[0]}: {l[1]}" for l in state["links"]]);
     return OutgoingMail(
@@ -99,26 +108,60 @@ def mpesa_mail(to: str, state: dict[str, any]) -> OutgoingMail {  # jac:ignore[W
     );
 }
 
-def check_mpesa_now -> int {
-    # Emails the team when M-Pesa looks down across the platform, and when it's back;
-    # how many emails.
-    state = mpesa_state(now());
-    told = holder(ALERTED, "mpesa");
-    if state["likely_down"] == bool(told) {
+def _flip(key: str, up: bool, mail: any) -> int {  # jac:ignore[W1037]
+    # Emails the team when `key` comes up or goes down (mail(address)); how many.
+    told = holder(ALERTED, key);
+    if up == bool(told) {
         return 0;
     }
     sent = 0;
     for address in team() {
-        if send(mpesa_mail(address, state)) {
+        if send(mail(address)) {
             sent += 1;
         }
     }
-    if state["likely_down"] {
-        claim(ALERTED, "mpesa", json.dumps({"at": now().isoformat()}));
+    if up {
+        claim(ALERTED, key, json.dumps({"at": now().isoformat()}));
     } else {
-        take_claim(ALERTED, "mpesa");
+        take_claim(ALERTED, key);
     }
     return sent;
+}
+
+def keys_mail(to: str, refused: bool) -> OutgoingMail {
+    if refused {
+        subject = "AfriCinemas: M-Pesa refused our own keys";
+        lead = "Daraja answered, but refused AfriCinemas' own M-Pesa keys (DARAJA_*): invoices can't be paid with M-Pesa until they're fixed. This isn't an outage.";
+    } else {
+        subject = "AfriCinemas: M-Pesa accepts our keys again";
+        lead = "Daraja accepts AfriCinemas' own M-Pesa keys again.";
+    }
+    return OutgoingMail(
+        to=to,
+        sender=formataddr(("AfriCinemas alerts", from_address())),
+        subject=subject,
+        text=f"{lead}\n",
+        html=f"<p>{html.escape(lead)}</p>"
+    );
+}
+
+def check_mpesa_now -> int {
+    # Asks Daraja, then emails the team when M-Pesa looks down and when it's back, and
+    # when our own keys are refused and accepted again; how many emails.
+    probe_mpesa(now());
+    state = mpesa_state(now());
+    sent = _flip(
+        "mpesa",
+        state["likely_down"],
+        lambda (to: str) -> any { return mpesa_mail(to, state); }  # jac:ignore[W1037]
+    );
+    refused = state["our_keys_refused"];
+    return sent
+        + _flip(
+            "mpesa-keys",
+            refused,
+            lambda (to: str) -> any { return keys_mail(to, refused); }
+        );  # jac:ignore[W1037]
 }
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=CHECK_SECONDS)

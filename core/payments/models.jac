@@ -29,6 +29,9 @@ node PaymentIntent {
         result_code: int = -1,
         result_text: str = "",
         push_uncertain: bool = False,
+        # Why the push itself failed, as the provider said (P16.3): "unavailable",
+        # "timeout", "credentials", or Safaricom's errorCode or HTTP status.
+        push_error: str = "",
         receipt: str = "",
         paid_amount_cents: int = 0,
         attention_reason: str = "",

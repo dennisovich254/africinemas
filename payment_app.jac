@@ -532,6 +532,14 @@ def:pub t_mpesa_state -> dict[str, any] {  # jac:ignore[W1037]
     return mpesa_state(clock_now());
 }
 
+def:pub t_sim_daraja(down: bool, keys_refused: bool) -> bool {
+    # The simulated Daraja stops answering, or refuses our keys (P16.3).
+    found: any = payment_provider();  # jac:ignore[W1037]
+    found.down = bool(down);
+    found.keys_refused = bool(keys_refused);
+    return True;
+}
+
 def:pub t_check_mpesa -> int {
     # The check for M-Pesa down across the platform, now: how many emails (P16.3).
     return check_mpesa_now();
