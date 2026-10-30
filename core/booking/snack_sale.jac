@@ -289,10 +289,10 @@ def place_sale(
         attach_to_tenant(order, cinema);
         commit_now();
     } except Exception as e {
-        restore(me);
         release_snacks(cinema, venue_id, held);
         release(OPEN_ORDERS, order_ref, node_id(cinema));
         release(ORDER_KEYS, key_name, order_ref);
+        restore(me);
         raise e;
     }
     restore(me);

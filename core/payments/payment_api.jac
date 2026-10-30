@@ -404,11 +404,11 @@ def pay_order(  # jac:ignore[W3030] the cinema, the order's lookup and the payme
         commit_now();
     } except Exception as e {
         # Graph work rolls back with the request; undo the claims, which don't.
-        restore(me);
         release(CALLBACK_TOKENS, token, f"{node_id(cinema)}|{ref}");
         release(OPEN_PAYMENTS, ref, node_id(cinema));
         release(ORDER_PAYMENT, order_id, ref);
         release(PAY_KEYS, key_name, ref);
+        restore(me);
         raise e;
     }
     restore(me);

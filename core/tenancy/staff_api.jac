@@ -218,8 +218,8 @@ def _do_accept_invite(token: str, email: str = "") -> dict[str, any] {  # jac:ig
             restore(me);
         }
     } except Exception as e {
-        restore(me);
         release(INVITE_CLAIMS, invite_id, me);
+        restore(me);
         raise e;
     }
     on_commit(

@@ -14,12 +14,21 @@ Rules (ADR-0003):
   `flush_now` writes into the same open transaction instead.
 """
 
+import os;
 import secrets;
 import from uuid { UUID, uuid4 }
 import from jaclang { JacRuntime as Jac }
 import from jaclang.runtime.exceptions { WriteConflict }
 
 glob PRINCIPAL_PREFIX: str = "svc-tenant-";
+
+# Requests start writable, never on a read-only snapshot (docs/jac-issues/PROGRESS.md,
+# JI-042). A request's first write on the snapshot re-runs the whole request, and since
+# Jac 0.38.1 that includes writes after a mid-request commit_now: a payment already
+# committed was started again with a fresh key. Jac reads this on every request.
+with entry {
+    os.environ.setdefault("JAC_DB_RO_UNITS", "0");
+}
 
 obj Principal {
     has user_id: str,
@@ -138,6 +147,8 @@ def act_as(root_id: str) -> str {
 }
 
 def restore(previous_root_id: str) {
+    # In an `except` that undoes claims, call this last: after a read-only retry, Jac
+    # 0.38.1+ answers it with the retry again, and the claims would stay taken.
     Jac.get_context().set_user_root(previous_root_id);
 }
 

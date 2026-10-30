@@ -382,11 +382,11 @@ def _place_order(
     } except Exception as e {
         # Graph work rolls back with the request; undo the claims and the snack stock
         # set aside, which don't.
-        restore(me);
         release_snacks(cinema, venue_id, held);
         release(OPEN_ORDERS, order_ref, node_id(cinema));
         release(ORDER_HOLDS, hold_id, order_ref);
         release(ORDER_KEYS, key_name, order_ref);
+        restore(me);
         raise e;
     }
     restore(me);
