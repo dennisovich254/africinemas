@@ -52,6 +52,8 @@ test "a silent job shows on the overview and alerts the team, once each way" {
         _at(app, 0);
         # Not checked in yet: waiting, and nothing to say.
         assert _jobs(app)["send_ticket_mail"] == "waiting";
+        # The nightly backup runs from cron (scripts/backup.sh) and is listed too.
+        assert _jobs(app)["nightly_backup"] == "waiting";
         assert app.call("owner", "t_check_jobs") == 0;
         # Checked in (every 5 seconds): running.
         assert app.call("owner", "t_job_ran", {"name": "send_ticket_mail", "every": 5});

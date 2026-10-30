@@ -40,7 +40,9 @@ glob JOBS: str = "job-ran",
          "delete_due_accounts": "Deleting customer accounts",
          "write_setup_links": "The setup file",
          "check_jobs": "Checking the jobs"
-     };
+     },
+     # Jobs run outside the app, by cron, that check in the same way (P16.5).
+     OUTSIDE: dict[str, str] = {"nightly_backup": "The nightly backup"};
 
 def ran(name: str, every: int) {
     # `name` has just run, and runs every `every` seconds.
@@ -56,7 +58,7 @@ def last_run(name: str) -> dict[str, any] | None {  # jac:ignore[W1037]
 def job_status(at: datetime) -> list[dict[str, any]] {  # jac:ignore[W1037]
     # Each known job: its label, when it last ran, and "running", "silent" or "waiting".
     rows: list[dict[str, any]] = [];  # jac:ignore[W1037]
-    for (name, label) in KNOWN.items() {
+    for (name, label) in [*KNOWN.items(), *OUTSIDE.items()] {
         found = last_run(name);
         state = "waiting";
         if found is not None {
