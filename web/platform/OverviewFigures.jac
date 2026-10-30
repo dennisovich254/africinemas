@@ -75,10 +75,45 @@ def:pub OverviewFigures -> JsxElement {
         for j in jobs
         if j["state"] == "waiting"
     ];
+    mpesa: dict[str, any] = shown["mpesa"];  # jac:ignore[W1037]
+    links: list[list[str]] = mpesa["links"];
     # An empty 14 days says so, not as a chart of zeros.
     quiet = shown["bookings"] == 0 and shown["takings_net_cents"] == 0;
     return
         <div className="flex flex-col gap-4" data-testid="platform-figures">
+            {mpesa["likely_down"]
+                and <section
+                    role="alert"
+                    className="flex flex-col gap-2 rounded-xl border border-destructive/50 bg-destructive/5 p-4"
+                    data-testid="overview-mpesa-down"
+                >
+                    <h2 className="font-semibold">
+                        M-Pesa is likely down (Safaricom), not the cinemas
+                    </h2>
+                    <p className="text-sm">
+                        {f"In the last hour, payments failed at {mpesa[
+                            'failing'
+                        ]} of the {mpesa['trying']} cinemas taking M-Pesa ({mpesa[
+                            'failures'
+                        ]} of {mpesa[
+                            'attempts'
+                        ]} attempts). Tell the cinemas to take cash meanwhile, and post on the status page."}
+                    </p>
+                    <ul className="flex flex-wrap gap-x-5 text-sm">
+                        {[
+                            <li key={l[1]}>
+                                <a
+                                    href={l[1]}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex min-h-11 items-center underline underline-offset-4"
+                                >
+                                    {l[0]}
+                                </a>
+                            </li> for l in links
+                        ]}
+                    </ul>
+                </section>}
             <section
                 className="grid grid-cols-2 gap-3 lg:grid-cols-4"
                 aria-label="The platform today"
@@ -159,6 +194,15 @@ def:pub OverviewFigures -> JsxElement {
                             </li> for j in silent
                         ]}
                     </ul>}
+                {not mpesa["likely_down"]
+                    and <p
+                        className="text-sm text-muted-foreground"
+                        data-testid="overview-mpesa"
+                    >
+                        {f"M-Pesa: going through ({mpesa[
+                            'attempts'
+                        ]} attempts in the last hour, at {mpesa['trying']} cinemas)."}
+                    </p>}
                 {len(waiting) > 0
                     and <p className="text-sm text-muted-foreground">
                         {f"Not run yet since the server started: {', '.join(

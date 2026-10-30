@@ -1,4 +1,5 @@
-"""Telling the team when a background job goes silent (P16.2).
+"""Telling the team when a background job goes silent (P16.2), or M-Pesa is likely down
+across the platform (P16.3, mpesa_watch.jac).
 
 check_jobs runs every CHECK_SECONDS: for each job now silent (jobs.jac), the team is
 emailed once ("… has stopped"); when it runs again, once more ("… is running again").
@@ -19,6 +20,7 @@ import from core.claims { claim, holder, take_claim }
 import from core.notify.mailer { OutgoingMail, send, from_address }
 import from core.platform.staff_api { allowlisted }
 import from core.platform.jobs { job_status, ran }
+import from core.platform.mpesa_watch { mpesa_state }
 
 glob ALERT_ENV: str = "AFRICINEMAS_ALERT_EMAILS",
      ALERTED: str = "job-alerted",
@@ -75,8 +77,53 @@ def check_jobs_now -> int {
     return sent;
 }
 
+def mpesa_mail(to: str, state: dict[str, any]) -> OutgoingMail {  # jac:ignore[W1037]
+    if state["likely_down"] {
+        subject = "AfriCinemas: M-Pesa is likely down";
+        lead = f"In the last hour, M-Pesa payments failed at {state['failing']} of the {state[
+            'trying'
+        ]} cinemas taking them ({state['failures']} of {state[
+            'attempts'
+        ]} attempts). That's likely Safaricom, not the cinemas. Check Safaricom's channels, post on the status page, and tell the cinemas to take cash meanwhile.";
+    } else {
+        subject = "AfriCinemas: M-Pesa payments are going through again";
+        lead = "M-Pesa payments are going through at the cinemas again.";
+    }
+    links = " ".join([f"{l[0]}: {l[1]}" for l in state["links"]]);
+    return OutgoingMail(
+        to=to,
+        sender=formataddr(("AfriCinemas alerts", from_address())),
+        subject=subject,
+        text=f"{lead}\n\n{links}\n",
+        html=f"<p>{html.escape(lead)}</p><p>{html.escape(links)}</p>"
+    );
+}
+
+def check_mpesa_now -> int {
+    # Emails the team when M-Pesa looks down across the platform, and when it's back;
+    # how many emails.
+    state = mpesa_state(now());
+    told = holder(ALERTED, "mpesa");
+    if state["likely_down"] == bool(told) {
+        return 0;
+    }
+    sent = 0;
+    for address in team() {
+        if send(mpesa_mail(address, state)) {
+            sent += 1;
+        }
+    }
+    if state["likely_down"] {
+        claim(ALERTED, "mpesa", json.dumps({"at": now().isoformat()}));
+    } else {
+        take_claim(ALERTED, "mpesa");
+    }
+    return sent;
+}
+
 @schedule(trigger=ScheduleTrigger.STATIC, interval=CHECK_SECONDS)
 def check_jobs {
     ran("check_jobs", CHECK_SECONDS);
     check_jobs_now();
+    check_mpesa_now();
 }

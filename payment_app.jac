@@ -301,7 +301,8 @@ import from core.notify.offer_consent { consent_of }
 import from core.accounts.customer_data { delete_due }
 import from core.tenancy.verification_notice { send_notices_due }
 import from core.platform.jobs { ran as job_ran }
-import from core.platform.job_alerts { check_jobs_now }
+import from core.platform.job_alerts { check_jobs_now, check_mpesa_now }
+import from core.platform.mpesa_watch { mpesa_state }
 import from core.tenancy.verification { record_of as verification_record }
 import from core.catalog.poster { read_media as read_stored_media }
 import from core.notify.offer_consent {
@@ -524,6 +525,16 @@ def:pub t_job_ran(name: str, every: int) -> bool {
     # The job `name` checks in, now (P16.2).
     job_ran(name, int(every));
     return True;
+}
+
+def:pub t_mpesa_state -> dict[str, any] {  # jac:ignore[W1037]
+    # M-Pesa across the platform, now (P16.3).
+    return mpesa_state(clock_now());
+}
+
+def:pub t_check_mpesa -> int {
+    # The check for M-Pesa down across the platform, now: how many emails (P16.3).
+    return check_mpesa_now();
 }
 
 def:pub t_check_jobs -> int {
