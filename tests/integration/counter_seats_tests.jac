@@ -145,6 +145,43 @@ test "counter seats are kept from online sale until their release time" {
         ]
             == 72;
         assert _public(app, screening)["A5"]["state"] == "available";
+        # Released: none kept now, and A5 (freed above) is on sale online.
+        mine = app.call(
+            "owner",
+            "showtime_counter_seats",
+            {"tenant": "nova", "screening_id": screening}
+        );
+        assert mine["released"]
+            and [
+                s["label"]
+                for s in mine["seats"]
+                if s["counter"]
+            ]
+                == [] , mine;
+        assert _public(app, screening)["A5"]["state"] == "available";
+        # Kept after the release time: kept online until the start, and still the box
+        # office's to sell.
+        late = app.call(
+            "owner",
+            "set_showtime_counter_seats",
+            {"tenant": "nova", "screening_id": screening, "labels": ["A5"]}
+        );
+        assert [
+            s["label"]
+            for s in late["seats"]
+            if s["counter"]
+        ]
+            == ["A5"] , late;
+        assert _public(app, screening)["A5"]["counter_only"];
+        assert code_of(_hold(app, screening, ["A5"])) == "counter_seats";
+        desk = app.call(
+            "agent",
+            "counter_seat_availability",
+            {"tenant": "nova", "screening_id": screening}
+        );
+        mine = {s["label"]: s for s in desk["seats"]};
+        assert mine["A5"]["state"] == "available" and mine["A5"]["counter"];
+        assert not mine["A4"]["counter"];
         # Who may, and what.
         for (who, name, body) in [
             (

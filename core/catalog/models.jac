@@ -98,7 +98,9 @@ node Screening {
         updated_at: str = "",
         # This showtime's counter seats, apart from the screen's: added, and freed.
         counter_add: list[str] = [],
-        counter_free: list[str] = [];
+        counter_free: list[str] = [],
+        # Seats kept for the counter after the release time: kept until the start.
+        counter_late: list[str] = [];
 }
 
 node SeatSlot {

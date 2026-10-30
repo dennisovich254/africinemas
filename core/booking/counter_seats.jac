@@ -6,7 +6,9 @@ customers can't book those, so the two never sell the same seat. Chosen once per
 counter_free). Until the cinema's release time before the showtime
 (Tenant.counter_release_hours, 2 hours unless changed), they're **kept**: online holds
 refuse them (hold_api), and the storefront shows them as sold at the box office. The
-Box office sells them as any other. After the release time, unsold ones are for anyone.
+Box office sells them as any other. After the release time, unsold ones are for anyone,
+except seats staff keep for the counter after it (Screening.counter_late), which stay
+kept until the showtime starts.
 """
 
 import from datetime { datetime, timedelta }
@@ -31,10 +33,15 @@ def released_at(cinema: Tenant, screening: Screening) -> datetime {
         - timedelta(hours=max(0, cinema.counter_release_hours));
 }
 
+def is_released(cinema: Tenant, screening: Screening, at: datetime) -> bool {
+    return at >= released_at(cinema, screening);
+}
+
 def kept_for_counter(cinema: Tenant, screening: Screening, at: datetime) -> list[str] {
-    # The seats online customers can't book right now: none once released.
-    if at >= released_at(cinema, screening) {
-        return [];
+    # The seats online customers can't book right now: once released, only those kept
+    # after the release time.
+    if is_released(cinema, screening, at) {
+        return sorted(set(screening.counter_late));
     }
     return counter_labels(find_auditorium(cinema, screening.auditorium_id), screening);
 }
