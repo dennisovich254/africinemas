@@ -300,6 +300,8 @@ import from core.catalog.documents {
 import from core.notify.offer_consent { consent_of }
 import from core.accounts.customer_data { delete_due }
 import from core.tenancy.verification_notice { send_notices_due }
+import from core.platform.jobs { ran as job_ran }
+import from core.platform.job_alerts { check_jobs_now }
 import from core.tenancy.verification { record_of as verification_record }
 import from core.catalog.poster { read_media as read_stored_media }
 import from core.notify.offer_consent {
@@ -516,6 +518,17 @@ def:pub t_stored_verification_file(slug: str, item: str) -> str {
     found = verification_record(cinema)["files"].get(item, {});
     data = read_stored_media(found.get("key", "")) or b"";
     return data[:12].hex();
+}
+
+def:pub t_job_ran(name: str, every: int) -> bool {
+    # The job `name` checks in, now (P16.2).
+    job_ran(name, int(every));
+    return True;
+}
+
+def:pub t_check_jobs -> int {
+    # The check for silent jobs, now: how many alert emails went (P16.2).
+    return check_jobs_now();
 }
 
 def:pub t_send_verification_notices -> int {

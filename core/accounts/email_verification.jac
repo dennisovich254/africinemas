@@ -35,6 +35,7 @@ import from core.tenancy.identity { verified_sign_in }
 import from core.tenancy.principal { node_id, same_id, fresh_node_id }
 import from core.notify.mailer { OutgoingMail, send, from_address }
 import from core.site { main_address }
+import from core.platform.jobs { ran }
 
 glob PURPOSE: str = "email-check",
      VERIFIED: str = "email-verified",
@@ -207,6 +208,7 @@ def send_checks_due -> int {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=MAIL_SECONDS)
 def send_email_checks {
+    ran("send_email_checks", MAIL_SECONDS);
     # Runs as Jac's system identity on every server copy; SENDING keeps one per email.
     send_checks_due();
 }

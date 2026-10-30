@@ -65,6 +65,7 @@ import from core.payments.payment_api {
     ensure_pushed,
     provider_of
 }
+import from core.platform.jobs { ran }
 
 glob INBOX: str = "mpesa-inbox",
      FINALIZE: str = "order-paid",
@@ -368,6 +369,7 @@ def process_inbox -> int {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=SETTLE_SECONDS)
 def settle_callbacks {
+    ran("settle_callbacks", SETTLE_SECONDS);
     # Runs as Jac's system identity on every server copy; settling twice is harmless.
     process_inbox();
 }

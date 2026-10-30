@@ -11,12 +11,14 @@ import os;
 import json;
 import from core.platform.accounts { join_link, SETUP_TTL_S }
 import from core.platform.staff_api { allowlisted }
+import from core.platform.jobs { ran }
 
 glob SETUP_FILE_ENV: str = "AFRICINEMAS_PLATFORM_SETUP_FILE",
      SETUP_FILE_SECONDS: int = 2 if os.environ.get(SETUP_FILE_ENV, "") else 3600;
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=SETUP_FILE_SECONDS)
 def write_setup_links {
+    ran("write_setup_links", SETUP_FILE_SECONDS);
     path = os.environ.get(SETUP_FILE_ENV, "");
     if not path or os.path.exists(path) {
         return;

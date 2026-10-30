@@ -50,6 +50,7 @@ import from core.payments.reconcile {
     check_all,
     RECON_SECONDS
 }
+import from core.platform.jobs { ran }
 
 glob CASH_CHECK_SECONDS: int = int(
          os.environ.get("AFRICINEMAS_CASH_CHECK_SECONDS", "900")
@@ -297,6 +298,7 @@ def:protect platform_takings -> dict[str, any] {  # jac:ignore[W1037]
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=RECON_SECONDS)
 def reconcile_payments {
+    ran("reconcile_payments", RECON_SECONDS);
     # Runs as Jac's system identity on every server copy; each payment is checked once.
     made = check_all(all_cinemas(), now());
     if made {
@@ -306,6 +308,7 @@ def reconcile_payments {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=CASH_CHECK_SECONDS)
 def check_cash_counted {
+    ran("check_cash_counted", CASH_CHECK_SECONDS);
     # Cash left uncounted when a shift ended (signed out, or it ran out): for managers.
     made = check_all_counted();
     if made {

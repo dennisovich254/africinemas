@@ -52,6 +52,7 @@ import from core.booking.ticket_codes { link_token, link_key }
 import from core.notify.addresses { email_problem, clean_email, masked_email }
 import from core.notify.mailer { send, from_address }
 import from core.notify.ticket_mail { TicketMail, MailTicket, ticket_mail }
+import from core.platform.jobs { ran }
 
 glob LINKS: str = "order-link",
      MAIL_QUEUE: str = "ticket-mail",
@@ -259,6 +260,7 @@ def send_due -> int {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=MAIL_SECONDS)
 def send_ticket_mail {
+    ran("send_ticket_mail", MAIL_SECONDS);
     # Runs as Jac's system identity on every server copy; SENDING keeps one per email.
     send_due();
 }

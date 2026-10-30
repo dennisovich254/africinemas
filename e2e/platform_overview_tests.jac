@@ -46,6 +46,11 @@ test "a super admin sees the platform's figures on the overview" {
             # Cinemas with technical problems (P13.5c): none in a fresh test run's.
             assert "Cinemas with technical problems"
                 in page.inner_text('[data-testid="overview-problems"]');
+            # The background jobs (P16.2): the server's are checking in, none silent.
+            page.wait_for_selector('[data-testid="overview-jobs-heading"]');
+            assert page.locator('[data-testid="overview-jobs-silent"]').count() == 0;
+            assert "All background jobs are running"
+                in page.inner_text('[data-testid="overview-jobs-heading"]');
             assert page.evaluate(WIDE_JS) <= 1 , f"{project}: overview scrolls sideways";
             page.screenshot(
                 path=artifact(f"platform-overview-{project}.png"), full_page=True

@@ -59,6 +59,9 @@ system, not real money.
   payments in flight still settle with the old account.
 - [ ] **The setup video** (a real AfriCinemas recording, its link set in the console)
   plays on phones and desktops, and booking a setup call reaches whoever answers Help.
+- [ ] **`AFRICINEMAS_ALERT_EMAILS` names who's on call** (P16.2): a stopped background
+  job is emailed there (the super admins when unset). Until the email provider is set
+  up (16.6), alerts only reach the outbox, so nobody hears them.
 - [ ] **`AFRICINEMAS_FILES_KEY` is set and backed up** with the deployment secrets
   (ADR-0089). Without it owners can't upload verification documents; losing it means
   the documents already uploaded can't be opened.

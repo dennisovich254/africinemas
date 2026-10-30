@@ -55,6 +55,7 @@ import from core.payments.mpesa_account {
     pays_to,
     account_view
 }
+import from core.platform.jobs { ran }
 
 glob OWNER: str = "tenant.verification",
      SETTINGS: str = "tenant.settings.update",
@@ -224,6 +225,7 @@ def send_mail_due -> int {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=MAIL_SECONDS)
 def send_mpesa_mail {
+    ran("send_mpesa_mail", MAIL_SECONDS);
     # Runs as Jac's system identity on every server copy; SENDING keeps one per email.
     send_mail_due();
 }

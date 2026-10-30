@@ -60,6 +60,7 @@ import from core.billing.statements {
     local_today
 }
 import from core.billing.billing_text { kes, day_label }
+import from core.platform.jobs { ran }
 
 glob TOKENS: str = "bill-callback-token",
      INBOX: str = "bill-inbox",
@@ -412,6 +413,7 @@ def settle_due -> int {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=SETTLE_SECONDS)
 def settle_bill_payments {
+    ran("settle_bill_payments", SETTLE_SECONDS);
     # Runs as Jac's system identity on every server copy.
     settle_due();
 }

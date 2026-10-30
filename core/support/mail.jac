@@ -18,6 +18,7 @@ import from core.notify.mailer { OutgoingMail, send, from_address }
 import from core.site { main_address }
 import from core.support.names { REPLY_MAIL }
 import from core.support.requests { CATEGORIES, request_of }
+import from core.platform.jobs { ran }
 
 glob SENDING: str = "support-reply-mail-sending",
      SENDING_S: int = 120,
@@ -91,6 +92,7 @@ def send_support_due -> int {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=MAIL_SECONDS)
 def send_support_mail {
+    ran("send_support_mail", MAIL_SECONDS);
     # Runs as Jac's system identity on every server copy; SENDING keeps one per email.
     send_support_due();
 }

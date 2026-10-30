@@ -15,6 +15,7 @@ import from core.platform.overview_api { platform_overview }  # jac:ignore[W2037
 import from ..shell.AppLink { AppLink }
 import from ..backoffice.report_parts { KpiTile, TakingsChart }
 import from ..backoffice.report_view { money_label }
+import from ..storefront.showtimes { day_time_label }
 
 def:pub OverviewFigures -> JsxElement {
     [found, set_found] = useState(None);
@@ -63,6 +64,17 @@ def:pub OverviewFigures -> JsxElement {
     ][0];
     currency: str = shown["currency"];
     troubled: list[dict[str, any]] = shown["with_problems"] or [];  # jac:ignore[W1037]
+    jobs: list[dict[str, str]] = shown["jobs"] or [];
+    silent: list[dict[str, str]] = [
+        j
+        for j in jobs
+        if j["state"] == "silent"
+    ];
+    waiting: list[dict[str, str]] = [
+        j
+        for j in jobs
+        if j["state"] == "waiting"
+    ];
     # An empty 14 days says so, not as a chart of zeros.
     quiet = shown["bookings"] == 0 and shown["takings_net_cents"] == 0;
     return
@@ -115,6 +127,45 @@ def:pub OverviewFigures -> JsxElement {
                         count_heading="Bookings"
                     />
                 </section>}
+            <section
+                className={"flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 "
+                    + (
+                        "ring-destructive/50"
+                            if len(silent) > 0
+                            else "ring-foreground/10"
+                    )}
+                data-testid="overview-jobs"
+            >
+                <h2 className="font-semibold" data-testid="overview-jobs-heading">
+                    {"All background jobs are running"
+                        if len(silent) == 0
+                        else f"Background jobs stopped: {len(silent)}"}
+                </h2>
+                {len(silent) > 0
+                    and <ul
+                        className="flex flex-col gap-1 text-sm"
+                        data-testid="overview-jobs-silent"
+                    >
+                        {[
+                            <li key={j["name"]}>
+                                <span className="font-medium">{j["label"]}</span>
+                                <span className="text-muted-foreground">
+                                    {f" · last ran {day_time_label(
+                                        j['last_ran'], shown['timezone']
+                                    )}"
+                                        if j["last_ran"]
+                                        else " · hasn't run"}
+                                </span>
+                            </li> for j in silent
+                        ]}
+                    </ul>}
+                {len(waiting) > 0
+                    and <p className="text-sm text-muted-foreground">
+                        {f"Not run yet since the server started: {', '.join(
+                            [j['label'] for j in waiting]
+                        )}."}
+                    </p>}
+            </section>
             <section
                 className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
                 data-testid="overview-problems"
