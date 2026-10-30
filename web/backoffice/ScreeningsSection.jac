@@ -21,6 +21,14 @@ import from react { useState, useEffect }
 import from ...components.ui.alert { Alert, AlertTitle, AlertDescription }
 import from ...components.ui.badge { Badge }
 import from ...components.ui.button { Button }
+import from ...components.ui.dialog {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogClose
+}
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
@@ -978,19 +986,32 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                             Cancel screening
                         </Button>
                     </div>}
-                {counter_for == sid
-                    and <div className="flex flex-col gap-3 rounded-lg border p-3">
-                        <ShowtimeCounterSeats slug={slug} screening_id={sid}/>
-                        <div>
-                            <Button
-                                variant="ghost"
-                                className="min-h-11 px-4"
-                                onClick={lambda { set_counter_for(""); }}
-                            >
-                                Done
-                            </Button>
+                <Dialog
+                    open={counter_for == sid}
+                    onOpenChange={lambda (o: bool) { set_counter_for(
+                        sid if o else ""
+                    ); }}
+                >
+                    <DialogContent data-testid="showtime-counter-dialog">
+                        <DialogHeader>
+                            <DialogTitle>Counter seats</DialogTitle>
+                            <DialogDescription>
+                                {f"{s['movie_title'] or 'Movie'} · {s.get(
+                                    'format', '2D'
+                                )} · {clock_of(s['starts_at'])}"}
+                            </DialogDescription>
+                        </DialogHeader>
+                        {counter_for == sid
+                            and <ShowtimeCounterSeats slug={slug} screening_id={sid}/>}
+                        <div className="flex justify-end">
+                            <DialogClose asChild={True}>
+                                <Button variant="outline" className="min-h-11 px-4">
+                                    Done
+                                </Button>
+                            </DialogClose>
                         </div>
-                    </div>}
+                    </DialogContent>
+                </Dialog>
                 {moving == sid
                     and <form
                         className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2"

@@ -2,7 +2,7 @@
 
 The owner opens a screen's page, Counter seats, ticks B4 and B5 and saves (B6 is a
 blocked seat, never for sale). On the
-storefront those show as sold at the box office, and others can still be chosen. The
+storefront those show as counter only, sold at the box office, and others can still be chosen. The
 box office sees them marked and can choose them. On the Screenings page one showtime
 keeps B3 as well, and the storefront shows that. Settings → Box office shows the
 release time (2 hours). The rules themselves: tests/integration/counter_seats_tests.jac.
@@ -51,6 +51,11 @@ def _storefront_state(  # jac:ignore[W3030] the browser, its kind, the cinema an
     _seat(page, "A1").wait_for();
     state = _seat(page, label).get_attribute("data-state");
     words = _seat(page, label).get_attribute("aria-label");
+    # Counter-only seats get a legend entry and a note under the map.
+    if state == "counter_only" {
+        assert "Counter only" in page.inner_text('[data-testid="seat-legend"]');
+        assert page.is_visible('[data-testid="counter-only-note"]');
+    }
     page.context.close();
     return f"{state}|{words}";
 }
@@ -77,9 +82,9 @@ test "counter seats are chosen per screen and per showtime, and kept from online
             );
             assert "B4, B5" in page.inner_text('[data-testid="counter-seats-count"]');
             assert page.evaluate(WIDE_JS) <= 0 , f"{project}: scrolls sideways";
-            # Online: sold at the box office; the rest as before.
+            # Online: counter only, sold at the box office; the rest as before.
             said = _storefront_state(browser, pw, project, owner, "B5");
-            assert said.startswith("not_for_sale|")
+            assert said.startswith("counter_only|")
                 and "sold at the box office" in said , said;
             assert _storefront_state(browser, pw, project, owner, "A3").startswith(
                 "available|"
@@ -94,6 +99,8 @@ test "counter seats are chosen per screen and per showtime, and kept from online
             )["screening"]["starts_at"];
             page.click(f'button[data-day="{starts[:10]}"]');
             page.locator('[data-testid="showtime-counter-seats"]').first.click();
+            # It opens in a window over the board.
+            page.wait_for_selector('[data-testid="showtime-counter-dialog"]');
             mine = page.locator('[data-testid="showtime-counter-editor"]');
             mine.wait_for();
             assert "B4, B5" in mine.inner_text();
@@ -103,7 +110,7 @@ test "counter seats are chosen per screen and per showtime, and kept from online
                 '[role="status"]:has-text("3 seats kept for the counter")'
             );
             assert _storefront_state(browser, pw, project, owner, "B3").startswith(
-                "not_for_sale|"
+                "counter_only|"
             );
             # Settings → Box office: the release time.
             page.goto(f"{BASE_URL}/app/{owner['slug']}/settings/box-office");
