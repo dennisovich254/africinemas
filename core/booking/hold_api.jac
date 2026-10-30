@@ -365,11 +365,11 @@ def _hold_seats(
         _mark(slots, wanted, hold_id, until);
         commit_now();
     } except Exception as e {
-        restore(me);
         if hold_ref {
             release(VISITOR_HOLDS, visitor, hold_ref);
             release(OPEN_HOLDS, hold_ref, node_id(cinema));
         }
+        restore(me);
         raise e;
     }
     restore(me);

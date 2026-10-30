@@ -159,12 +159,14 @@ def _do_create_cinema(
         );
         checkpoint("before_commit");
     } except Exception as e {
-        # Graph work rolls back with the request; undo what lives outside it.
-        restore(owner);
+        # Graph work rolls back with the request; undo what lives outside it. First:
+        # after a read-only retry, Jac 0.38.1+ answers any later session work, restore
+        # included, with the retry again, and the re-run would find this claim taken.
         release_slug(wanted, tenant_id);
         if principal is not None {
             delete_principal(principal.user_id);
         }
+        restore(owner);
         raise e;
     }
     on_commit(lambda { make_slug_permanent(wanted, tenant_id); });

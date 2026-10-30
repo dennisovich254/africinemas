@@ -20,6 +20,7 @@ import from "@jac/runtime" { useNavigate }
 import from ...components.ui.button { Button }
 import from ...components.ui.input { Input }
 import from ...components.ui.label { Label }
+import from ...components.ui.spinner { Spinner }
 import from core.payments.reconcile_api {
     count_cash,  # jac:ignore[W2037] authenticated endpoint
     count_left_cash,  # jac:ignore[W2037] authenticated endpoint
@@ -263,6 +264,8 @@ def:pub CashUp(slug: str, sign_out_after: bool = False) -> JsxElement {
     [status, set_status] = useState(None);
     [again, set_again] = useState(False);
     [leaving, set_leaving] = useState(False);
+    # The form waits for the status: without it the cinema's limit isn't known yet.
+    [loaded, set_loaded] = useState(False);
 
     async def load {
         got: any = None;  # jac:ignore[W1037]
@@ -274,6 +277,7 @@ def:pub CashUp(slug: str, sign_out_after: bool = False) -> JsxElement {
         if got is not None and got["ok"] {
             set_status(got);
         }
+        set_loaded(True);
     }
 
     def start {
@@ -300,6 +304,9 @@ def:pub CashUp(slug: str, sign_out_after: bool = False) -> JsxElement {
         nav("/login", {"replace": True});
     }
 
+    if not loaded {
+        return <Spinner aria-label="Loading"/>;
+    }
     blank: dict[str, any] = {"max_cents": 0, "count_first": False, "left_behind": []};  # jac:ignore[W1037]
     seen: dict[str, any] = status or blank;  # jac:ignore[W1037]
     most: int = int(seen["max_cents"]);

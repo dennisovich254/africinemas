@@ -122,8 +122,8 @@ def _change(slug: str, screening_id: str, holder: str) -> dict[str, any] {  # ja
         }
         commit_now();
     } except Exception as e {
-        restore(me);
         release(FINALIZE, order_id, mine);
+        restore(me);
         raise e;
     }
     restore(me);

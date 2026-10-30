@@ -30,6 +30,13 @@ The writer mark is per process and expires after 300 s. So the double count hits
 
 Workaround: `JAC_DB_RO_UNITS=0`, or no write after a mid-unit `commit()`.
 
+## Found during the 0.38.3 upgrade (2026-10-30)
+
+- **JI-042 got worse in 0.38.1.** A swallowed `ReadOnlyRetry` is now raised again at unit exit, and every later session call in that unit (`set_user_root` included) raises it too. So:
+  - A write after a mid-unit `commit_now()` re-runs the whole unit, including the committed part. The counter's M-Pesa sale mints a fresh idempotency key per run, so its re-run answered `payment_in_progress` to its own committed payment.
+  - `except` blocks that called `restore()` before releasing claims never released them, and sign-up's re-run found its own slug claim (`slug_taken`).
+- **Workaround in place:** `core/tenancy/principal.jac` sets `JAC_DB_RO_UNITS=0` (setdefault) at import, and the six claim clean-up blocks call `restore()` last.
+
 ## Found during the 0.38.0 upgrade, not yet logged
 
 - **JI-002 (bundled bun needs AVX2) still holds on 0.38.0.** Vite died with exit 132 and jac printed only "Vite dev server failed to start".
