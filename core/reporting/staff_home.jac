@@ -166,6 +166,7 @@ def _showtimes(scope: TenantScope, timezone: str, today: str) -> list[dict[str, 
                         {
                             "screening_id": node_id(s),
                             "starts_at": s.starts_at,
+                            "ends_at": s.ends_at,
                             "movie_title": movies[s.movie_id].title
                                 if s.movie_id in movies
                                 else "",

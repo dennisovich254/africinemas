@@ -41,6 +41,7 @@ import from .nav { section_path }
 import from .SetupGuide { use_guide_hidden, hide_guide }
 import from ...components.ui.button { Button }
 import from .StorefrontLink { StorefrontLink }
+import from .ScreeningsSection { timing_of }
 
 glob TILE: str = "flex flex-col gap-3 rounded-3xl bg-card p-4 ring-1 ring-foreground/10",
      PILL: str = "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2";
@@ -109,6 +110,7 @@ def Hero(
     has_backdrop: bool = show["has_backdrop"];
     has_poster: bool = show["has_poster"];
     when = time_label(show["starts_at"], tz);
+    ended = timing_of(show) == "ended";
     return
         <section
             aria-labelledby="hero-title"
@@ -142,7 +144,11 @@ def Hero(
                 >
                     {f"Up next · {when}"
                         if upcoming
-                        else f"Showing now · started {when}"}
+                        else (
+                            f"Ended · started {when}"
+                                if ended
+                                else f"Showing now · started {when}"
+                        )}
                 </span>
                 <h2
                     id="hero-title"
@@ -160,6 +166,7 @@ def Hero(
                 />
                 <div className="mt-1 flex flex-wrap gap-2">
                     {show["can_sell"]
+                        and not ended
                         and <AppLink
                             to={section_path(slug, "box-office")}
                             testid="hero-sell"
@@ -173,6 +180,7 @@ def Hero(
                             />
                             Sell tickets
                         </AppLink>}{show["can_scan"]
+                        and not ended
                         and <AppLink
                             to={section_path(slug, "scanner")}
                             testid="hero-scan"
@@ -233,13 +241,24 @@ def ShowtimeCard(
     slug: str,
     tz: str
 ) -> JsxElement {
-    # A poster card: time and title on the artwork, seats, then Sell or Scan.
+    # A poster card: time and title on the artwork, seats, then Sell or Scan. Once it
+    # has started it says so; once over, it's dimmed and has nothing to do.
+    timing = timing_of(show);
     return
         <li
             data-testid="home-showtime"
-            className="flex w-40 shrink-0 snap-start flex-col gap-2 sm:w-auto"
+            data-timing={timing or None}
+            className={"flex w-40 shrink-0 snap-start flex-col gap-2 sm:w-auto"
+                + (" opacity-60" if timing == "ended" else "")}
         >
             <div className="relative overflow-hidden rounded-2xl bg-black">
+                {timing
+                    and <span
+                        data-testid="home-showtime-timing"
+                        className="absolute top-2 left-2 z-10 rounded-full bg-black/70 px-2 py-0.5 text-xs font-medium text-white ring-1 ring-white/25"
+                    >
+                        {"Showing now" if timing == "showing" else "Ended"}
+                    </span>}
                 <ShowtimeArt
                     slug={slug}
                     screening_id={show["screening_id"]}
@@ -269,6 +288,7 @@ def ShowtimeCard(
             />
             <div className="flex gap-2">
                 {show["can_sell"]
+                    and timing != "ended"
                     and <AppLink
                         to={section_path(slug, "box-office")}
                         testid="home-sell"
@@ -276,6 +296,7 @@ def ShowtimeCard(
                     >
                         Sell
                     </AppLink>}{show["can_scan"]
+                    and timing != "ended"
                     and <AppLink
                         to={section_path(slug, "scanner")}
                         testid="home-scan"
