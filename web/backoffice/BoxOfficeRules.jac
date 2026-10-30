@@ -1,7 +1,8 @@
 """Settings → Box office (`/app/:slug/settings/box-office`, P15.6b).
 
-How long a box office shift lasts (8 hours unless changed, 1 to 12) and the most one cash
-count may be (KES 500,000 unless changed). For those who change the cinema's settings
+How long a box office shift lasts (8 hours unless changed, 1 to 12), the most one cash
+count may be (KES 500,000 unless changed), and how long before a showtime its unsold
+counter seats go on sale online (2 hours unless changed, 0 to 72; 2026-10-30). For those who change the cinema's settings
 (tenant.settings.update: owners, cinema admins and IT admins); a shift already open
 keeps its length.
 """
@@ -13,7 +14,8 @@ import from ...components.ui.label { Label }
 import from ...components.ui.spinner { Spinner }
 import from core.tenancy.tenant_api {
     box_office_rules,  # jac:ignore[W2037] authenticated endpoint
-    set_box_office_rules  # jac:ignore[W2037] authenticated endpoint
+    set_box_office_rules,  # jac:ignore[W2037] authenticated endpoint
+    set_counter_release_hours  # jac:ignore[W2037] authenticated endpoint
 }
 import from .PricesSection { cents_of }
 import from .form_parts { on_input }
@@ -21,6 +23,7 @@ import from .form_parts { on_input }
 def:pub BoxOfficeRules(slug: str) -> JsxElement {
     [hours, set_hours] = useState("");
     [most, set_most] = useState("");
+    [release, set_release] = useState("");
     [ready, set_ready] = useState(False);
     [busy, set_busy] = useState(False);
     [said, set_said] = useState("");
@@ -29,6 +32,7 @@ def:pub BoxOfficeRules(slug: str) -> JsxElement {
     def show(got: any) {  # jac:ignore[W1037]
         set_hours(str(got["shift_hours"]));
         set_most(str(int(int(got["cash_count_max_cents"]) / 100)));
+        set_release(str(got["counter_release_hours"]));
         set_ready(True);
     }
 
@@ -57,7 +61,8 @@ def:pub BoxOfficeRules(slug: str) -> JsxElement {
         set_problem("");
         cents: any = cents_of(most, False);  # jac:ignore[W1037]
         typed: str = hours.strip();
-        if cents is None or len(typed) == 0 {
+        typed_release: str = release.strip();
+        if cents is None or len(typed) == 0 or len(typed_release) == 0 {
             set_problem("Enter the hours and the amount.");
             return;
         }
@@ -65,6 +70,9 @@ def:pub BoxOfficeRules(slug: str) -> JsxElement {
         got: any = None;  # jac:ignore[W1037]
         try {
             got = await set_box_office_rules(slug, int(typed), cents);  # jac:ignore[W2037]
+            if got is not None and got["ok"] {
+                got = await set_counter_release_hours(slug, int(typed_release));  # jac:ignore[W2037]
+            }
         } except Exception as err {
             console.warn("set_box_office_rules failed", err);
         }
@@ -116,6 +124,22 @@ def:pub BoxOfficeRules(slug: str) -> JsxElement {
                 />
                 <p id="cash-count-max-help" className="text-sm text-muted-foreground">
                     From KES 1,000 to KES 10,000,000. A count above it is refused, to catch a slip like an extra zero.
+                </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+                <Label htmlFor="counter-release">
+                    Counter seats go on sale online (hours before the show)
+                </Label>
+                <Input
+                    id="counter-release"
+                    inputMode="numeric"
+                    value={release}
+                    onChange={on_input(set_release)}
+                    aria-describedby="counter-release-help"
+                    className="min-h-11 max-w-32"
+                />
+                <p id="counter-release-help" className="text-sm text-muted-foreground">
+                    From 0 to 72. Seats you keep for the counter (on each screen's page) can be booked online once it's this close to the showtime, so none go empty. 0 keeps them for the counter until the show starts.
                 </p>
             </div>
             <div>

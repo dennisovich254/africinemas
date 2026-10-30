@@ -73,6 +73,10 @@ def:pub seat_words(seat: dict[str, any], chosen: bool) -> str {  # jac:ignore[W1
     if kind {
         parts.append(kind);
     }
+    # At the box office, the seats kept for the counter (2026-10-30).
+    if seat.get("counter") {
+        parts.append("counter seat");
+    }
     parts.append("your seat" if chosen else seat["text"].toLowerCase());
     return ", ".join(parts);
 }

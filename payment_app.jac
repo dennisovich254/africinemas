@@ -23,7 +23,8 @@ import from core.tenancy.tenant_api {
     my_access,
     storefront_preview,
     box_office_rules,
-    set_box_office_rules
+    set_box_office_rules,
+    set_counter_release_hours
 }  # jac:ignore[W2037]
 import from core.tenancy.staff_api {
     invite_staff,  # jac:ignore[W2037]
@@ -67,7 +68,9 @@ import from core.notify.mailer { OUTBOX }
 import from core.booking.counter_api {
     counter_showtimes,  # jac:ignore[W2037]
     sell_for_cash,  # jac:ignore[W2037]
-    sell_with_mpesa  # jac:ignore[W2037]
+    sell_with_mpesa,  # jac:ignore[W2037]
+    counter_seat_availability,  # jac:ignore[W2037]
+    counter_hold_seats  # jac:ignore[W2037]
 }
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037]
 import from core.booking.customer_tickets {
@@ -396,7 +399,11 @@ import from core.catalog.screening_api {
     get_screening,  # jac:ignore[W2037]
     set_screening_format,  # jac:ignore[W2037]
     schedule_screening,  # jac:ignore[W2037]
-    publish_screening  # jac:ignore[W2037]
+    publish_screening,  # jac:ignore[W2037]
+    screen_counter_seats,  # jac:ignore[W2037]
+    set_screen_counter_seats,  # jac:ignore[W2037]
+    showtime_counter_seats,  # jac:ignore[W2037]
+    set_showtime_counter_seats  # jac:ignore[W2037]
 }
 import from core.catalog.pricing_api { save_price_list }  # jac:ignore[W2037]
 import from core.catalog.storefront_api {

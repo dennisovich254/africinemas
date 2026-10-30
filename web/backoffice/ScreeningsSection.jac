@@ -41,6 +41,7 @@ import from core.catalog.screening_api {
 }
 import from ..shell.AppLink { AppLink }
 import from .form_parts { FieldError, ConfirmDelete, error_id, on_input, submit_with }
+import from .CounterSeatsEditor { ShowtimeCounterSeats }
 
 glob SELECT_CLASSES: str = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm",
      NOT_PUBLISHED: list[str] = ["draft", "scheduled"],
@@ -217,6 +218,8 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
     [errors, set_errors] = useState({});
     [message, set_message] = useState("");
     [moving, set_moving] = useState("");
+    # The showtime whose counter seats are open (2026-10-30).
+    [counter_for, set_counter_for] = useState("");
     [move_to, set_move_to] = useState({"day": "", "clock": ""});
     [confirming, set_confirming] = useState(None);
     # The "Schedule a movie" panel.
@@ -954,6 +957,16 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                                 Move
                             </Button>}
                         <Button
+                            variant="outline"
+                            className="min-h-11 px-4"
+                            data-testid="showtime-counter-seats"
+                            onClick={lambda { set_counter_for(
+                                "" if counter_for == sid else sid
+                            ); }}
+                        >
+                            Counter seats
+                        </Button>
+                        <Button
                             variant="ghost"
                             className="min-h-11 px-4"
                             disabled={busy}
@@ -964,6 +977,19 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                         >
                             Cancel screening
                         </Button>
+                    </div>}
+                {counter_for == sid
+                    and <div className="flex flex-col gap-3 rounded-lg border p-3">
+                        <ShowtimeCounterSeats slug={slug} screening_id={sid}/>
+                        <div>
+                            <Button
+                                variant="ghost"
+                                className="min-h-11 px-4"
+                                onClick={lambda { set_counter_for(""); }}
+                            >
+                                Done
+                            </Button>
+                        </div>
                     </div>}
                 {moving == sid
                     and <form

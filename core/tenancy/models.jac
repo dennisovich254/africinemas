@@ -26,7 +26,11 @@ glob ROLE_OWNER: str = "owner",
      # cinema may change it, from KES 1,000 to KES 10,000,000.
      CASH_COUNT_MAX_DEFAULT: int = 50000000,
      CASH_COUNT_MAX_LOW: int = 100000,
-     CASH_COUNT_MAX_HIGH: int = 1000000000;
+     CASH_COUNT_MAX_HIGH: int = 1000000000,
+     # Counter seats (owner, 2026-10-30) go on sale online this many hours before the
+     # showtime, unless the cinema changes it (0 to 72).
+     COUNTER_RELEASE_DEFAULT: int = 2,
+     COUNTER_RELEASE_MAX: int = 72;
 
 node Tenant {
     has slug: str,
@@ -65,7 +69,9 @@ node Tenant {
         # The box office's rules (P15.6b): how long a shift lasts, and the most one
         # cash count may be.
         shift_hours: int = SHIFT_HOURS_DEFAULT,
-        cash_count_max_cents: int = CASH_COUNT_MAX_DEFAULT;
+        cash_count_max_cents: int = CASH_COUNT_MAX_DEFAULT,
+        # How long before a showtime its unsold counter seats go on sale online too.
+        counter_release_hours: int = COUNTER_RELEASE_DEFAULT;
 
     def move_to(target: TenantState) {
         self.state = transition(TenantState(self.state), target).value;

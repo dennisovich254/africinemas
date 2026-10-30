@@ -1071,6 +1071,47 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"tenant": "{tenant}"}
          },
+         # Seats kept for the counter (2026-10-30).
+         "counter_seat_availability": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
+         "counter_hold_seats": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "screening_id": "x",
+                 "holder": "counter-probe-0123456789",
+                 "labels": ["A1"]
+             }
+         },
+         "screen_counter_seats": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "auditorium_id": "x"}
+         },
+         "set_screen_counter_seats": {
+             "scope": "tenant",
+             "audit": "screen.counter_seats_set",
+             "probe": {"tenant": "{tenant}", "auditorium_id": "x", "labels": []}
+         },
+         "showtime_counter_seats": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
+         "set_showtime_counter_seats": {
+             "scope": "tenant",
+             "audit": "showtime.counter_seats_set",
+             "probe": {"tenant": "{tenant}", "screening_id": "x", "labels": []}
+         },
+         "set_counter_release_hours": {
+             "scope": "tenant",
+             "audit": "cinema.counter_release_changed",
+             "probe": {"tenant": "{tenant}", "hours": 2}
+         },
          # Snacks only, at the box office (P12.10): selling at the venue.
          "counter_snack_venues": {
              "scope": "tenant",

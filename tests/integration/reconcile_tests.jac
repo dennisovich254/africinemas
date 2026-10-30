@@ -407,7 +407,12 @@ test "a count ends the shift, can be corrected once, has a limit, and is missed 
         # admin change them; finance and the box office can only read them.
         rules = {"tenant": "nova"};
         assert app.call("agent", "box_office_rules", rules)
-            == {"ok": True, "shift_hours": 8, "cash_count_max_cents": 50000000};
+            == {
+                "ok": True,
+                "shift_hours": 8,
+                "cash_count_max_cents": 50000000,
+                "counter_release_hours": 2
+            };
         change = {** rules, "shift_hours": 6, "cash_count_max_cents": 2000000};
         for who in ["agent", "finance"] {
             assert _code(app.call(who, "set_box_office_rules", change)) == "forbidden";

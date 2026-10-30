@@ -34,14 +34,15 @@ import from core.catalog.storefront {
     movies_by_key
 }
 import from core.homepage.page { default_page }
-import from core.booking.availability {
-    effective_state,
-    public_state,
-    state_text,
-    sellable
+import from core.booking.availability { effective_state, public_state, state_text }
+import from core.catalog.venues {
+    find_screening,
+    find_movie,
+    slots_of,
+    find_auditorium
 }
-import from core.catalog.venues { find_screening, find_movie, slots_of }
 import from core.catalog.poster { read_media, media_key, fit_poster }
+import from core.booking.counter_seats { counter_labels, kept_for_counter }
 
 # How many of a movie's next showtimes the home page lists.
 glob NEXT_SHOWTIMES: int = 6,
@@ -464,11 +465,20 @@ def:pub public_seat_availability(slug: str, screening_id: str) -> dict[str, any]
     # A showtime's seats as a visitor may see them (P4.2): each seat's place, type and
     # zone, its state (available, held, sold or not for sale; a lapsed hold counts as
     # available) and the words for it, and how many are available. Only for showtimes
-    # on this cinema's storefront that haven't started.
+    # on this cinema's storefront that haven't started. Seats kept for the counter
+    # (counter_seats.jac) are shown not for sale, sold at the box office.
     cinema = open_cinema(slug);
     if cinema is None or not screening_id {
         return NOT_FOUND;
     }
+    return seat_availability(cinema, screening_id, False);
+}
+
+def seat_availability(
+    cinema: Tenant, screening_id: str, at_counter: bool
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # As public_seat_availability; `at_counter` (the box office) sees the counter seats
+    # as they are, each marked `counter`.
     shown = [
         e
         for e in upcoming(cinema)
@@ -479,14 +489,23 @@ def:pub public_seat_availability(slug: str, screening_id: str) -> dict[str, any]
         return NOT_FOUND;
     }
     at = now();
+    counter = counter_labels(
+        find_auditorium(cinema, screening.auditorium_id), screening
+    );
+    kept = kept_for_counter(cinema, screening, at);
     seats: list[dict[str, any]] = [];  # jac:ignore[W1037]
     available = 0;
     for x in slots_of(cinema, screening) {
         state = effective_state(x.state, x.hold_expires_at, at);
-        if sellable(state) {
+        visible = public_state(state);
+        text = state_text(visible);
+        if not at_counter and x.label in kept and visible == "available" {
+            visible = "not_for_sale";
+            text = "Sold at the box office";
+        }
+        if visible == "available" {
             available += 1;
         }
-        visible = public_state(state);
         seats.append(
             {
                 "label": x.label,
@@ -495,7 +514,8 @@ def:pub public_seat_availability(slug: str, screening_id: str) -> dict[str, any]
                 "seat_type": x.seat_type,
                 "zone": x.zone,
                 "state": visible,
-                "text": state_text(visible)
+                "text": text,
+                "counter": at_counter and x.label in counter
             }
         );
     }
