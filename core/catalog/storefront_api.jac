@@ -466,7 +466,8 @@ def:pub public_seat_availability(slug: str, screening_id: str) -> dict[str, any]
     # zone, its state (available, held, sold or not for sale; a lapsed hold counts as
     # available) and the words for it, and how many are available. Only for showtimes
     # on this cinema's storefront that haven't started. Seats kept for the counter
-    # (counter_seats.jac) are shown not for sale, sold at the box office.
+    # (counter_seats.jac) are shown not for sale and marked `counter_only`: sold at the
+    # box office.
     cinema = open_cinema(slug);
     if cinema is None or not screening_id {
         return NOT_FOUND;
@@ -499,9 +500,10 @@ def seat_availability(
         state = effective_state(x.state, x.hold_expires_at, at);
         visible = public_state(state);
         text = state_text(visible);
-        if not at_counter and x.label in kept and visible == "available" {
+        counter_only = not at_counter and x.label in kept and visible == "available";
+        if counter_only {
             visible = "not_for_sale";
-            text = "Sold at the box office";
+            text = "Counter only, sold at the box office";
         }
         if visible == "available" {
             available += 1;
@@ -515,7 +517,8 @@ def seat_availability(
                 "zone": x.zone,
                 "state": visible,
                 "text": text,
-                "counter": at_counter and x.label in counter
+                "counter": at_counter and x.label in counter,
+                "counter_only": counter_only
             }
         );
     }

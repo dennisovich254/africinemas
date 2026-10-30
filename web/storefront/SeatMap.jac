@@ -4,8 +4,9 @@ Seats sit where the cinema's layout puts them, in the back office's seat designe
 format: the screen as a labelled panel over the seats, row names down the left, and
 each seat its number. Each state has a shape and words as well as a colour
 (architecture §102): available seats are outlined with their number, the visitor's own
-are filled with a tick, held ones with a clock, sold ones with a cross; seats not for sale are faint and can't be chosen. The legend says the same
-in words, and every seat's name says it to screen readers.
+are filled with a tick, held ones with a clock, sold ones with a cross; seats kept for
+the cinema's counter are filled with a shop (2026-10-30); seats not for sale are faint
+and can't be chosen. The legend says the same in words, and every seat's name says it to screen readers.
 
 On a phone the map first fits the width, as an overview (a big hall's seats are small);
 the zoom buttons give full-size seats (up to 44 px), and the map then scrolls sideways
@@ -19,6 +20,7 @@ import from "@hugeicons/core-free-icons" {
     Tick02Icon,
     Cancel01Icon,
     Clock01Icon,
+    Store01Icon,
     PlusSignIcon,
     MinusSignIcon
 }
@@ -35,12 +37,16 @@ glob ZOOMS: list[str] = ["minmax(0, 2.75rem)", "2.25rem", "2.75rem"],
          "chosen": "cursor-pointer bg-[var(--ac-seat-selected)] text-[var(--ac-on-seat-selected)]",
          "held": "cursor-not-allowed bg-[var(--ac-seat-held)] text-white",
          "sold": "cursor-not-allowed bg-[var(--ac-seat-sold)] text-muted-foreground",
+         "counter_only": "cursor-not-allowed border-2 border-muted-foreground/40 bg-muted text-muted-foreground",
          "not_for_sale": "border border-dashed border-border opacity-60"
      };
 
 def _look(seat: dict[str, any], chosen: list[str]) -> str {  # jac:ignore[W1037]
     if listed(seat["label"], chosen) {
         return "chosen";
+    }
+    if seat.get("counter_only") {
+        return "counter_only";
     }
     return seat["state"];
 }
@@ -59,6 +65,15 @@ def SeatIcon(look: str) -> JsxElement {
         return
             <HugeiconsIcon
                 icon={Clock01Icon}
+                strokeWidth={2}
+                className="size-3"
+                aria-hidden="true"
+            />;
+    }
+    if look == "counter_only" {
+        return
+            <HugeiconsIcon
+                icon={Store01Icon}
                 strokeWidth={2}
                 className="size-3"
                 aria-hidden="true"
@@ -111,7 +126,8 @@ def SeatButton(
         </button>;
 }
 
-def:pub SeatLegend -> JsxElement {
+def:pub SeatLegend(counter_only: bool = False) -> JsxElement {
+    # "Counter only" is listed when the showtime has such seats.
     return
         <ul
             data-testid="seat-legend"
@@ -128,9 +144,10 @@ def:pub SeatLegend -> JsxElement {
                     ("available", "Available"),
                     ("chosen", "Your seats"),
                     ("held", "Held"),
-                    ("sold", "Sold"),
-                    ("not_for_sale", "Not for sale")
+                    ("sold", "Sold")
                 ]
+                    + ([("counter_only", "Counter only")] if counter_only else [])
+                    + [("not_for_sale", "Not for sale")]
             ]}
         </ul>;
 }
@@ -191,6 +208,14 @@ def:pub SeatMap(
             }
         }
     }
+    any_counter_only = len(
+        [
+            s
+            for s in seats
+            if s.get("counter_only")
+        ]
+    )
+        > 0;
     names = row_names(seats, rows);
     labels = [
         <span
@@ -290,6 +315,13 @@ def:pub SeatMap(
                     </div>
                 </div>
             </div>
-            <SeatLegend/>
+            <SeatLegend counter_only={any_counter_only}/>
+            {any_counter_only
+                and <p
+                    data-testid="counter-only-note"
+                    className="text-sm text-muted-foreground"
+                >
+                    Counter-only seats are sold at the cinema's box office. Any left go on sale here closer to the show.
+                </p>}
         </div>;
 }

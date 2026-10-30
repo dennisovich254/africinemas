@@ -61,7 +61,8 @@ test "counter seats are kept from online sale until their release time" {
         # Online: shown as sold at the box office, and refused.
         seats = _public(app, screening);
         assert seats["A4"]["state"] == "not_for_sale"
-            and seats["A4"]["text"] == "Sold at the box office";
+            and seats["A4"]["text"] == "Counter only, sold at the box office"
+            and seats["A4"]["counter_only"];
         assert seats["A3"]["state"] == "available";
         refused = _hold(app, screening, ["A3", "A4"]);
         assert code_of(refused) == "counter_seats" , refused;
