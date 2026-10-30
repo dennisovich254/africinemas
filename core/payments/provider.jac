@@ -55,6 +55,11 @@ obj StkStatus {
 obj PaymentProvider {
     def stk_push(request: StkRequest) -> StkPushResult abst;
     def query(checkout_request_id: str) -> StkStatus abst;
+    def reachable -> str {
+        # Whether M-Pesa answers right now (P16.3): "ok", "unreachable" (no answer, or
+        # Safaricom's error) or "refused" (these keys aren't accepted).
+        return "ok";
+    }
 }
 
 def state_for_result(code: int) -> PaymentState {

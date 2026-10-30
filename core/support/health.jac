@@ -8,6 +8,8 @@ health_of(cinema) counts, from the cinema's own records:
   whose prompt may not have arrived, out of all attempts then. Customers cancel and
   mistype PINs, so failures count as a problem only when they're most attempts
   (FAILURE_SHARE, at least FAILURE_MIN of them);
+- **M-Pesa keys refused**: Daraja refused the cinema's own keys on a payment (P16.3),
+  which the cinema fixes in Settings → Payments;
 - **stuck payments and orders**: a payment still waiting on M-Pesa, or an unpaid order
   past its time, more than STUCK_MINUTES after it should have been settled or released
   (the resolver and the sweeper do that within minutes, P5.5);
@@ -78,6 +80,7 @@ def health_of(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
     attention = 0;
     attempts = 0;
     failures = 0;
+    refused_keys = 0;
     stuck = 0;
     refunds = 0;
     refund_cents = 0;
@@ -102,6 +105,9 @@ def health_of(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
                                 if intent.state in FAILED_STATES
                                     or intent.push_uncertain {
                                     failures += 1;
+                                }
+                                if intent.push_error == "credentials" {
+                                    refused_keys += 1;
                                 }
                             }
                             if intent.state in WAITING_STATES
@@ -148,6 +154,15 @@ def health_of(cinema: Tenant) -> dict[str, any] {  # jac:ignore[W1037]
             "count": failures,
             "note": f"Of {attempts} in the last {FAILURE_DAYS} days",
             "up": failing
+        },
+        {
+            # The cinema's own M-Pesa keys refused by Daraja (P16.3): the cinema's to fix
+            # in Settings → Payments, never Safaricom being down.
+            "key": "mpesa_keys",
+            "label": "M-Pesa refused the cinema's keys",
+            "count": refused_keys,
+            "note": f"Last {FAILURE_DAYS} days",
+            "up": refused_keys > 0
         },
         {
             "key": "stuck",

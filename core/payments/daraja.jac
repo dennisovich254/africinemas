@@ -55,6 +55,9 @@ glob SANDBOX_URL: str = "https://sandbox.safaricom.co.ke",
 
 class DarajaUnavailable(ConnectionError) {}
 
+# Daraja answered, and refused the keys: the account's problem, not Safaricom's (P16.3).
+class DarajaCredentialsRefused(DarajaUnavailable) {}
+
 obj DarajaConfig {
     # One merchant's Daraja credentials. transaction_type is CustomerPayBillOnline for
     # a Paybill and CustomerBuyGoodsOnline for a Till. For a Till, shortcode is the
@@ -236,7 +239,10 @@ obj DarajaProvider(PaymentProvider) {
             LOG.warning(
                 "Daraja login refused: HTTP %d %s", status, body.get("errorCode", "")
             );
-            raise DarajaUnavailable("Daraja refused the credentials");
+            if 400 <= status < 500 {
+                raise DarajaCredentialsRefused("Daraja refused the credentials");
+            }
+            raise DarajaUnavailable("Daraja login failed");
         }
         raise DarajaUnavailable("Daraja login failed");
     }
@@ -300,6 +306,19 @@ obj DarajaProvider(PaymentProvider) {
         };
     }
 
+    def reachable -> str {
+        # A fresh token, as the check every few minutes (P16.3) asks: Daraja answers,
+        # or doesn't, or refuses these keys.
+        try {
+            self._login();
+        } except DarajaCredentialsRefused {
+            return "refused";
+        } except (TimeoutError, OSError) {
+            return "unreachable";
+        }
+        return "ok";
+    }
+
     def stk_push(request: StkRequest) -> StkPushResult {
         problem = valid_push(request);
         if not problem and not request.callback_url.startswith("https://") {
@@ -330,6 +349,13 @@ obj DarajaProvider(PaymentProvider) {
                 error_code="timeout",
                 message="M-Pesa didn't answer in time.",
                 uncertain=True
+            );
+        } except DarajaCredentialsRefused {
+            LOG.warning("STK push for %s: the keys were refused", request.reference);
+            return StkPushResult(
+                accepted=False,
+                error_code="credentials",
+                message="M-Pesa didn't accept this cinema's keys."
             );
         } except OSError {
             LOG.warning("STK push for %s: Daraja unreachable", request.reference);

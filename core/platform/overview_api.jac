@@ -24,6 +24,7 @@ import from core.platform.staff_api { require_platform }
 import from core.platform.cinemas_api { all_cinemas, STATE_LABELS }
 import from core.support.health { health_of }
 import from core.platform.jobs { job_status }
+import from core.platform.mpesa_watch { mpesa_state }
 
 glob PLATFORM_TIMEZONE: str = "Africa/Nairobi",
      DAYS: int = 14,
@@ -105,7 +106,9 @@ def _overview -> dict[str, any] {  # jac:ignore[W1037]
         "timezone": PLATFORM_TIMEZONE,
         "currency": CURRENCY,
         # The background jobs (P16.2): running, silent or waiting.
-        "jobs": job_status(now())
+        "jobs": job_status(now()),
+        # M-Pesa failing across the platform (P16.3), counts only.
+        "mpesa": mpesa_state(now(), cinemas)
     };
 }
 
