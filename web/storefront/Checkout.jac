@@ -31,6 +31,10 @@ import from "@hugeicons/core-free-icons" { Clock01Icon }
 import from ...components.ui.button { Button }
 import from core.catalog.storefront_api { public_seat_availability }
 import from core.booking.hold_api { hold_seats, my_hold, release_hold, extend_hold }
+import from core.booking.counter_api {
+    counter_seat_availability,  # jac:ignore[W2037] authenticated endpoint
+    counter_hold_seats  # jac:ignore[W2037] authenticated endpoint
+}
 import from core.booking.change_order { change_order }
 import from core.booking.order_api {
     place_order,
@@ -247,7 +251,10 @@ def:pub Checkout(
     }
 
     async def load_map {
-        shown = await call(public_seat_availability, [slug, screening_id]);
+        # At the box office, its own map: counter seats bookable (2026-10-30).
+        shown = await call(counter_seat_availability, [slug, screening_id])
+            if counter_holder
+            else await call(public_seat_availability, [slug, screening_id]);
         if shown is not None and shown["ok"] {
             set_seat_map(shown);
         }
@@ -499,7 +506,9 @@ def:pub Checkout(
 
     async def hold_chosen {
         set_busy(True);
-        held = await call(hold_seats, [slug, screening_id, holder, chosen]);
+        held = await call(counter_hold_seats, [slug, screening_id, holder, chosen])
+            if counter_holder
+            else await call(hold_seats, [slug, screening_id, holder, chosen]);
         set_busy(False);
         if held is not None and held["ok"] {
             set_problem("");

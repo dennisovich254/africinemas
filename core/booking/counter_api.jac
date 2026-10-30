@@ -42,10 +42,10 @@ import from core.catalog.venues {
     screenings_of_cinema,
     slots_of
 }
-import from core.catalog.storefront_api { cinema_timezone }
+import from core.catalog.storefront_api { cinema_timezone, seat_availability }
 import from core.booking.models { Order }
 import from core.booking.availability { SeatState }
-import from core.booking.hold_api { check_holder }
+import from core.booking.hold_api { check_holder, hold_for }
 import from core.booking.order_api { pending_order }
 import from core.booking.confirm { Takings, confirm_order }
 import from core.booking.ticket_codes { ticket_key, TicketKeyMissing }
@@ -272,6 +272,35 @@ def _do_sell_with_mpesa(
             tenant, screening_id, holder, phone, email
         ); }
     );
+}
+
+def _counter_seats(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    # The showtime's seat map as the box office sees it: counter seats bookable, and
+    # marked (core/booking/counter_seats.jac).
+    (scope, screening) = _showtime(tenant, screening_id);
+    return seat_availability(scope.tenant, node_id(screening), True);
+}
+
+def _counter_hold(
+    tenant: str, screening_id: str, holder: str, labels: list[str]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # Holds seats for a counter sale, counter seats too.
+    (scope, screening) = _showtime(tenant, screening_id);
+    return hold_for(scope.tenant.slug, node_id(screening), holder, labels, True);
+}
+
+def:protect counter_seat_availability(
+    tenant: str, screening_id: str
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _counter_seats(tenant, screening_id); });  # jac:ignore[W1037]
+}
+
+def:protect counter_hold_seats(
+    tenant: str, screening_id: str, holder: str, labels: list[str]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(
+        lambda -> any { return _counter_hold(tenant, screening_id, holder, labels); }
+    );  # jac:ignore[W1037]
 }
 
 def:protect sell_for_cash(

@@ -51,6 +51,7 @@ import from core.catalog.storefront { upcoming }
 import from core.catalog.venues { find_screening, slots_of }
 import from core.booking.models { SeatHold }
 import from core.booking.availability { SeatState }
+import from core.booking.counter_seats { kept_for_counter }
 
 glob HOLD_ENV: str = "AFRICINEMAS_HOLD_SECONDS",
      MAX_ENV: str = "AFRICINEMAS_HOLD_MAX_SECONDS",
@@ -173,8 +174,20 @@ def free_seats(slots: list[SeatSlot], labels: list[str], hold_id: str) {
     }
 }
 
+def hold_for(
+    slug: str, screening_id: str, holder: str, labels: list[str], at_counter: bool
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # Holds `labels` for `holder`. Seats kept for the counter (counter_seats.jac) are
+    # refused unless the box office asks (`at_counter`).
+    return _hold_seats(slug, screening_id, holder, labels, at_counter);
+}
+
 def _hold_seats(
-    slug: str, screening_id: str, holder: str, labels: list[str]
+    slug: str,
+    screening_id: str,
+    holder: str,
+    labels: list[str],
+    at_counter: bool = False
 ) -> dict[str, any] {  # jac:ignore[W1037]
     (cinema, screening) = showtime_on_sale(slug, screening_id);
     check_holder(holder);
@@ -244,6 +257,22 @@ def _hold_seats(
         raise Refused(
             "unknown_seats", "Some of these seats don't exist.", {"seats": unknown}
         );
+    }
+    if not at_counter {
+        counter = kept_for_counter(cinema, screening, now());
+        at_desk = [
+            label
+            for label in wanted
+            if label in counter
+        ];
+        if at_desk {
+            give_back();
+            raise Refused(
+                "counter_seats",
+                "Some of these seats are sold at the cinema's box office. Choose others.",
+                {"seats": at_desk}
+            );
+        }
     }
     unsellable = [
         label

@@ -20,7 +20,8 @@ import from core.tenancy.models {
     DOORS_OPEN_MAX,
     SHIFT_HOURS_MAX,
     CASH_COUNT_MAX_LOW,
-    CASH_COUNT_MAX_HIGH
+    CASH_COUNT_MAX_HIGH,
+    COUNTER_RELEASE_MAX
 }
 import from core.tenancy.responses { NOT_FOUND, FORBIDDEN, NO_SHIFT, refused }
 import from datetime { timedelta }
@@ -129,7 +130,8 @@ def _rules_of(cinema: any) -> dict[str, any] {  # jac:ignore[W1037]
     return {
         "ok": True,
         "shift_hours": cinema.shift_hours,
-        "cash_count_max_cents": cinema.cash_count_max_cents
+        "cash_count_max_cents": cinema.cash_count_max_cents,
+        "counter_release_hours": cinema.counter_release_hours
     };
 }
 
@@ -174,6 +176,30 @@ def _do_set_box_office_rules(
     }
     scope.tenant.shift_hours = shift_hours;
     scope.tenant.cash_count_max_cents = cash_count_max_cents;
+    return _rules_of(scope.tenant);
+}
+
+def _do_set_counter_release(tenant: str, hours: int) -> dict[str, any] {  # jac:ignore[W1037]
+    # How long before a showtime its unsold counter seats go on sale online
+    # (core/booking/counter_seats.jac).
+    try {
+        scope = scoped(tenant, "tenant.settings.update");
+    } except NotFound {
+        return NOT_FOUND;
+    } except NoShift {
+        return NO_SHIFT;
+    } except Forbidden {
+        return FORBIDDEN;
+    }
+    if isinstance(hours, bool)
+        or not isinstance(hours, int)
+        or not 0 <= hours <= COUNTER_RELEASE_MAX {
+        return refused(
+            "invalid_hours",
+            f"Enter a whole number of hours from 0 to {COUNTER_RELEASE_MAX}."
+        );
+    }
+    scope.tenant.counter_release_hours = hours;
     return _rules_of(scope.tenant);
 }
 
@@ -239,6 +265,16 @@ def:protect set_box_office_rules(
         lambda -> any { return _do_set_box_office_rules(  # jac:ignore[W1037]
             tenant, shift_hours, cash_count_max_cents
         ); }
+    );
+}
+
+def:protect set_counter_release_hours(tenant: str, hours: int) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "cinema.counter_release_changed",
+        "cinema",
+        tenant,
+        lambda -> any { return _do_set_counter_release(tenant, hours); }  # jac:ignore[W1037]
     );
 }
 

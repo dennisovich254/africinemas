@@ -31,7 +31,10 @@ node Auditorium {
         venue_id: str,
         name: str,
         created_at: str = "",
-        schedule_rev: int = 0;
+        schedule_rev: int = 0,
+        # Seats kept for the counter on every showtime here (owner, 2026-10-30): online
+        # customers can't book them until the cinema's release time.
+        counter_seats: list[str] = [];
 }
 
 node SeatLayout {
@@ -92,7 +95,10 @@ node Screening {
         format: str = "2D",
         state: str = "draft",
         created_at: str = "",
-        updated_at: str = "";
+        updated_at: str = "",
+        # This showtime's counter seats, apart from the screen's: added, and freed.
+        counter_add: list[str] = [],
+        counter_free: list[str] = [];
 }
 
 node SeatSlot {

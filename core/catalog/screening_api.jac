@@ -71,6 +71,7 @@ import from core.catalog.screening_rules {
 }
 import from core.audit.log { audited }
 import from core.catalog.formats { normalize_format }
+import from core.booking.counter_seats { counter_labels, released_at }
 
 glob READ: str = "showtimes.read",
      CREATE: str = "showtimes.create",
@@ -583,5 +584,184 @@ def:protect unpublish_screening(tenant: str, screening_id: str) -> dict[str, any
         "showtime",
         screening_id,
         lambda -> any { return _do_unpublish_screening(tenant, screening_id); }  # jac:ignore[W1037]
+    );
+}
+
+# Seats kept for the counter (owner, 2026-10-30; core/booking/counter_seats.jac): chosen
+# once per screen (seats.configure), changed for one showtime (showtimes.update).
+glob COUNTER_SET: str = "seats.configure";
+
+def _counter_grid(layout: SeatLayout, counter: list[str]) -> dict[str, any] {  # jac:ignore[W1037]
+    # The layout's seats, each saying whether it's kept for the counter and whether it
+    # can be sold at all.
+    return {
+        "rows": layout.rows,
+        "cols": layout.cols,
+        "seats": [
+            {
+                "label": s.label,
+                "row": s.row,
+                "col": s.col,
+                "seat_type": s.seat_type,
+                "counter": s.label in counter,
+                "sellable": s.seat_type not in UNSELLABLE
+            } for s in layout.seats
+        ]
+    };
+}
+
+def _sellable_labels(layout: SeatLayout, labels: list[str]) -> list[str] {
+    # The asked-for labels that are seats of `layout` that can be sold, once each.
+    known = [
+        s.label
+        for s in layout.seats
+        if s.seat_type not in UNSELLABLE
+    ];
+    if not isinstance(labels, list) {
+        raise Refused("invalid_seats", "Choose the counter seats.");
+    }
+    wanted = sorted(
+        set(
+            [
+                str(l).strip().upper()
+                for l in labels
+                if str(l).strip()
+            ]
+        )
+    );
+    unknown = [
+        l
+        for l in wanted
+        if l not in known
+    ];
+    if unknown {
+        raise Refused(
+            "unknown_seats",
+            f"These aren't seats that can be sold on this screen: {', '.join(
+                unknown
+            )}.",
+            {"seats": unknown}
+        );
+    }
+    return wanted;
+}
+
+def _screen_counter(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = on_shift(tenant);
+    screen = _screen(scope, auditorium_id, READ);
+    layout = _published_layout(scope, screen);
+    return {
+        "ok": True,
+        "screen": screen.name,
+        "release_hours": scope.tenant.counter_release_hours,
+        ** _counter_grid(layout, list(screen.counter_seats))
+    };
+}
+
+def _set_screen_counter(
+    tenant: str, auditorium_id: str, labels: list[str]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = on_shift(tenant);
+    screen = _screen(scope, auditorium_id, COUNTER_SET);
+    layout = _published_layout(scope, screen);
+    chosen = _sellable_labels(layout, labels);
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        screen.counter_seats = chosen;
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    return _screen_counter(tenant, auditorium_id);
+}
+
+def _showtime_counter(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    scope = on_shift(tenant);
+    screening = _screening(scope, screening_id, READ);
+    screen = find_auditorium(scope.tenant, screening.auditorium_id);
+    layout = find_layout(scope.tenant, screening.layout_id);
+    if screen is None or layout is None {
+        raise NotFound();
+    }
+    return {
+        "ok": True,
+        "screen": screen.name,
+        "from_screen": list(screen.counter_seats),
+        "released_at": released_at(scope.tenant, screening).isoformat(),
+        ** _counter_grid(layout, counter_labels(screen, screening))
+    };
+}
+
+def _set_showtime_counter(
+    tenant: str, screening_id: str, labels: list[str]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    # This showtime's counter seats are `labels`: kept as what it adds to the screen's,
+    # and what it frees of them, so a later change to the screen still applies.
+    scope = on_shift(tenant);
+    screening = _screening(scope, screening_id, UPDATE);
+    screen = find_auditorium(scope.tenant, screening.auditorium_id);
+    layout = find_layout(scope.tenant, screening.layout_id);
+    if screen is None or layout is None {
+        raise NotFound();
+    }
+    chosen = _sellable_labels(layout, labels);
+    base = list(screen.counter_seats);
+    me = node_id(root);
+    act_as(scope.tenant.principal_root_id);
+    try {
+        screening.counter_add = [
+            l
+            for l in chosen
+            if l not in base
+        ];
+        screening.counter_free = [
+            l
+            for l in base
+            if l not in chosen
+        ];
+        screening.updated_at = now().isoformat();
+        flush_now();
+    } finally {
+        restore(me);
+    }
+    return _showtime_counter(tenant, screening_id);
+}
+
+def:protect screen_counter_seats(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _screen_counter(tenant, auditorium_id); });  # jac:ignore[W1037]
+}
+
+def:protect set_screen_counter_seats(
+    tenant: str, auditorium_id: str, labels: list[str]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "screen.counter_seats_set",
+        "screen",
+        auditorium_id,
+        lambda -> any { return answer(
+            lambda -> any { return _set_screen_counter(tenant, auditorium_id, labels); }
+        ); }  # jac:ignore[W1037]
+    );
+}
+
+def:protect showtime_counter_seats(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W1037]
+    return answer(lambda -> any { return _showtime_counter(tenant, screening_id); });  # jac:ignore[W1037]
+}
+
+def:protect set_showtime_counter_seats(
+    tenant: str, screening_id: str, labels: list[str]
+) -> dict[str, any] {  # jac:ignore[W1037]
+    return audited(
+        tenant,
+        "showtime.counter_seats_set",
+        "showtime",
+        screening_id,
+        lambda -> any { return answer(
+            lambda -> any { return _set_showtime_counter(
+                tenant, screening_id, labels
+            ); }
+        ); }  # jac:ignore[W1037]
     );
 }

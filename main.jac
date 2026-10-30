@@ -13,6 +13,7 @@ import from core.tenancy.tenant_api {
     set_doors_open,  # jac:ignore[W2037]
     box_office_rules,  # jac:ignore[W2037]
     set_box_office_rules,  # jac:ignore[W2037]
+    set_counter_release_hours,  # jac:ignore[W2037]
     start_shift,  # jac:ignore[W2037]
     end_shift  # jac:ignore[W2037]
 }
@@ -63,6 +64,10 @@ import from core.catalog.screening_api {
     publish_screening,  # jac:ignore[W2037]
     unpublish_screening,  # jac:ignore[W2037]
     list_seat_slots,  # jac:ignore[W2037]
+    screen_counter_seats,  # jac:ignore[W2037]
+    set_screen_counter_seats,  # jac:ignore[W2037]
+    showtime_counter_seats,  # jac:ignore[W2037]
+    set_showtime_counter_seats,  # jac:ignore[W2037]
     public_screenings
 }
 import from core.catalog.pricing_api {
@@ -120,7 +125,9 @@ import from core.booking.redeem_api {
 import from core.booking.counter_api {
     counter_showtimes,  # jac:ignore[W2037]
     sell_for_cash,  # jac:ignore[W2037]
-    sell_with_mpesa  # jac:ignore[W2037]
+    sell_with_mpesa,  # jac:ignore[W2037]
+    counter_seat_availability,  # jac:ignore[W2037]
+    counter_hold_seats  # jac:ignore[W2037]
 }
 # The owner's sales report: takings, attendance and the drill-down (P7.1).
 import from core.reporting.report_api { sales_report }  # jac:ignore[W2037]

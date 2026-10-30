@@ -40,7 +40,7 @@ import from .nav {
 }
 import from .PlainLayout { PlainLayout, AccountActions }
 import from .ScreensSection { ScreensSection }
-import from .SeatDesigner { SeatDesigner }
+import from .ScreenPage { ScreenPage }
 import from .BrandingSection { BrandingSection }
 import from .HomePageSection { HomePageSection }
 import from .ConnectSection { ConnectSection }
@@ -411,7 +411,7 @@ def:pub BackOffice -> JsxElement {
         />;
     } elif auditorium_id {
         # key: a different screen gets a fresh designer, never the last one's grid.
-        content = <SeatDesigner
+        content = <ScreenPage
             key={auditorium_id}
             slug={slug}
             auditorium_id={auditorium_id}
