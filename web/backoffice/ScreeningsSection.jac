@@ -105,6 +105,15 @@ def:pub clock_of(stamp: str) -> str {
     return f"{two(moment.getHours())}:{two(moment.getMinutes())}";
 }
 
+def:pub counter_release_words(grid: any) -> str {  # jac:ignore[W1037]
+    # When a showtime's counter seats go on sale online, or that they have.
+    at = clock_of(grid["released_at"]);
+    if grid["released"] {
+        return f"Released at {at}: unsold counter seats are on sale online. Tick seats to keep them for the counter until the show starts.";
+    }
+    return f"Unsold counter seats go on sale online at {at}.";
+}
+
 def:pub date_label(stamp: str) -> str {
     # "Fri 2 Oct", in the viewer's language.
     moment: any = new(Date, stamp);  # jac:ignore[W1037,W2001]
@@ -201,14 +210,29 @@ def start_key(s: dict[str, any]) -> str {  # jac:ignore[W1037]
     return s["starts_at"];
 }
 
-def StateBadge(state: str) -> JsxElement {
-    live = state in ON_STOREFRONT;
+def:pub timing_of(s: dict[str, any]) -> str {  # jac:ignore[W1037]
+    # "showing" from its start to its end, "ended" after, "" before: nothing moves a
+    # showtime's state on when it starts, so the board goes by the clock.
+    at = Date.now();  # jac:ignore[W2001]
+    if new(Date, s["ends_at"]).getTime() <= at {  # jac:ignore[W2001]
+        return "ended";
+    }
+    if new(Date, s["starts_at"]).getTime() <= at {  # jac:ignore[W2001]
+        return "showing";
+    }
+    return "";
+}
+
+def StateBadge(state: str, timing: str) -> JsxElement {
+    live = state in ON_STOREFRONT and timing != "ended";
     return
         <Badge
             variant={"default" if live else "secondary"}
             data-testid="screening-state"
         >
-            {state_label(state)}
+            {state_label(state)
+                if state == "cancelled" or not timing
+                else ("Showing now" if timing == "showing" else "Ended")}
         </Badge>;
 }
 
@@ -885,15 +909,21 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
         state: str = s["state"];
         problem = field_errors[f"problem-{sid}"] or "";
         move_error = field_errors[f"move-time-{sid}"] or "";
-        live = state in ON_STOREFRONT;
-        open_state = state in NOT_PUBLISHED;
+        # Once it has started, nothing is left to change.
+        timing = timing_of(s);
+        live = state in ON_STOREFRONT and not timing;
+        open_state = state in NOT_PUBLISHED and not timing;
         poster = pictures[s["movie_id"]] if s["movie_id"] in pictures else "";
         return
             <li
                 key={sid}
                 data-testid="screening"
                 className={"flex flex-col gap-3 rounded-lg border bg-card p-3"
-                    + (" opacity-60" if state == "cancelled" else "")}
+                    + (
+                        " opacity-60"
+                            if state == "cancelled" or timing == "ended"
+                            else ""
+                    )}
             >
                 <div className="flex gap-3">
                     <span
@@ -913,7 +943,7 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                             <span className="truncate font-medium">
                                 {s["movie_title"] or "Movie"}
                             </span>
-                            <StateBadge state={state}/>
+                            <StateBadge state={state} timing={timing}/>
                         </div>
                         <span className="text-sm tabular-nums text-muted-foreground">
                             {f"{s.get('format', '2D')} · {clock_of(s['starts_at'])} – {clock_of(
@@ -1002,7 +1032,11 @@ def:pub ScreeningsSection(slug: str) -> JsxElement {
                             </DialogDescription>
                         </DialogHeader>
                         {counter_for == sid
-                            and <ShowtimeCounterSeats slug={slug} screening_id={sid}/>}
+                            and <ShowtimeCounterSeats
+                                slug={slug}
+                                screening_id={sid}
+                                release_words={counter_release_words}
+                            />}
                         <div className="flex justify-end">
                             <DialogClose asChild={True}>
                                 <Button variant="outline" className="min-h-11 px-4">

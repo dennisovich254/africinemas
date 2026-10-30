@@ -47,7 +47,8 @@ def:pub CounterSeatsEditor(
     load: any,  # jac:ignore[W1037] async () -> the grid
     save: any,  # jac:ignore[W1037] async (labels) -> the grid
     note: str,
-    testid: str
+    testid: str,
+    release_words: any = None  # jac:ignore[W1037] (grid) -> when the seats go on sale online
 ) -> JsxElement {
     [grid, set_grid] = useState(None);
     [picked, set_picked] = useState([]);
@@ -139,6 +140,13 @@ def:pub CounterSeatsEditor(
     return
         <section className="flex flex-col gap-3" data-testid={testid}>
             <p className="text-sm text-muted-foreground">{note}</p>
+            {release_words
+                and <p
+                    className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+                    data-testid="counter-release"
+                >
+                    {release_words(found)}
+                </p>}
             <p className="text-sm font-medium" data-testid="counter-seats-count">
                 {f"{len(mine)} {'seat'
                     if len(mine) == 1
@@ -158,7 +166,11 @@ def:pub CounterSeatsEditor(
         </section>;
 }
 
-def:pub ShowtimeCounterSeats(slug: str, screening_id: str) -> JsxElement {
+def:pub ShowtimeCounterSeats(
+    slug: str,
+    screening_id: str,
+    release_words: any = None  # jac:ignore[W1037]
+) -> JsxElement {
     # One showtime's counter seats: the screen's, changed for this showtime only.
     async def load -> any {  # jac:ignore[W1037]
         return await showtime_counter_seats(slug, screening_id);  # jac:ignore[W2037]
@@ -172,5 +184,6 @@ def:pub ShowtimeCounterSeats(slug: str, screening_id: str) -> JsxElement {
             save={save}
             note="For this showtime only. They start as the screen's counter seats; a premiere can keep more for the counter, or a quiet show fewer."
             testid="showtime-counter-editor"
+            release_words={release_words}
         />;
 }

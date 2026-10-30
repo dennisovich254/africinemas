@@ -35,14 +35,9 @@ import from core.catalog.storefront {
 }
 import from core.homepage.page { default_page }
 import from core.booking.availability { effective_state, public_state, state_text }
-import from core.catalog.venues {
-    find_screening,
-    find_movie,
-    slots_of,
-    find_auditorium
-}
+import from core.catalog.venues { find_screening, find_movie, slots_of }
 import from core.catalog.poster { read_media, media_key, fit_poster }
-import from core.booking.counter_seats { counter_labels, kept_for_counter }
+import from core.booking.counter_seats { kept_for_counter }
 
 # How many of a movie's next showtimes the home page lists.
 glob NEXT_SHOWTIMES: int = 6,
@@ -490,9 +485,6 @@ def seat_availability(
         return NOT_FOUND;
     }
     at = now();
-    counter = counter_labels(
-        find_auditorium(cinema, screening.auditorium_id), screening
-    );
     kept = kept_for_counter(cinema, screening, at);
     seats: list[dict[str, any]] = [];  # jac:ignore[W1037]
     available = 0;
@@ -517,7 +509,7 @@ def seat_availability(
                 "zone": x.zone,
                 "state": visible,
                 "text": text,
-                "counter": at_counter and x.label in counter,
+                "counter": at_counter and x.label in kept,
                 "counter_only": counter_only
             }
         );

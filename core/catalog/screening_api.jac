@@ -71,7 +71,7 @@ import from core.catalog.screening_rules {
 }
 import from core.audit.log { audited }
 import from core.catalog.formats { normalize_format }
-import from core.booking.counter_seats { counter_labels, released_at }
+import from core.booking.counter_seats { counter_labels, released_at, is_released }
 
 glob READ: str = "showtimes.read",
      CREATE: str = "showtimes.create",
@@ -684,12 +684,20 @@ def _showtime_counter(tenant: str, screening_id: str) -> dict[str, any] {  # jac
     if screen is None or layout is None {
         raise NotFound();
     }
+    # Once released, the seats kept are only those kept after the release time.
+    released = is_released(scope.tenant, screening, now());
     return {
         "ok": True,
         "screen": screen.name,
         "from_screen": list(screen.counter_seats),
         "released_at": released_at(scope.tenant, screening).isoformat(),
-        ** _counter_grid(layout, counter_labels(screen, screening))
+        "released": released,
+        ** _counter_grid(
+            layout,
+            list(screening.counter_late)
+                if released
+                else counter_labels(screen, screening)
+        )
     };
 }
 
@@ -697,7 +705,8 @@ def _set_showtime_counter(
     tenant: str, screening_id: str, labels: list[str]
 ) -> dict[str, any] {  # jac:ignore[W1037]
     # This showtime's counter seats are `labels`: kept as what it adds to the screen's,
-    # and what it frees of them, so a later change to the screen still applies.
+    # and what it frees of them, so a later change to the screen still applies. After
+    # the release time they are the seats kept until the start (counter_late).
     scope = on_shift(tenant);
     screening = _screening(scope, screening_id, UPDATE);
     screen = find_auditorium(scope.tenant, screening.auditorium_id);
@@ -707,25 +716,35 @@ def _set_showtime_counter(
     }
     chosen = _sellable_labels(layout, labels);
     base = list(screen.counter_seats);
+    late = is_released(scope.tenant, screening, now());
     me = node_id(root);
     act_as(scope.tenant.principal_root_id);
     try {
-        screening.counter_add = [
-            l
-            for l in chosen
-            if l not in base
-        ];
-        screening.counter_free = [
-            l
-            for l in base
-            if l not in chosen
-        ];
+        if late {
+            screening.counter_late = chosen;
+        } else {
+            _set_counter_changes(screening, chosen, base);
+        }
         screening.updated_at = now().isoformat();
         flush_now();
     } finally {
         restore(me);
     }
     return _showtime_counter(tenant, screening_id);
+}
+
+def _set_counter_changes(screening: Screening, chosen: list[str], base: list[str]) {
+    # `chosen` as what the showtime adds to the screen's counter seats, and frees.
+    screening.counter_add = [
+        l
+        for l in chosen
+        if l not in base
+    ];
+    screening.counter_free = [
+        l
+        for l in base
+        if l not in chosen
+    ];
 }
 
 def:protect screen_counter_seats(tenant: str, auditorium_id: str) -> dict[str, any] {  # jac:ignore[W1037]
