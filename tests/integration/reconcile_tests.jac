@@ -434,6 +434,17 @@ test "a count ends the shift, can be corrected once, has a limit, and is missed 
         }
         assert app.call("cinemaadmin", "set_box_office_rules", change)["shift_hours"]
             == 6;
+        # Settings saves the counter release next; it keeps the rules just saved.
+        assert app.call(
+            "cinemaadmin", "set_counter_release_hours", {** rules, "hours": 3}
+        )["ok"];
+        assert app.call("agent", "box_office_rules", rules)
+            == {
+                "ok": True,
+                "shift_hours": 6,
+                "cash_count_max_cents": 2000000,
+                "counter_release_hours": 3
+            };
         assert "cinema.box_office_rules_changed" in _actions(app);
         # The five-seat screen: a second showtime for more sales.
         more = add_screening(app, "owner", nova, "Rafiki", 24 * 3);
