@@ -159,6 +159,7 @@ it. Our retention schedule, reviewed every 12 months:
 | Order and payment records (for the cinema) | As the cinema instructs, and at least 5 years | Tax law |
 | Technical request records | 90 days | Debugging and security |
 | Email confirmation codes | Until used or expired | — |
+| Backups (encrypted copies of all of the above) | **35 days**, then deleted; so data deleted from AfriCinemas is gone from every backup within 35 days | To recover after a failure or an attack |
 
 ## 8. Your rights
 
