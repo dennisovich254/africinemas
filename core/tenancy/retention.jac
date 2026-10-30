@@ -22,6 +22,7 @@ import from core.tenancy.registry { SLUG_NAMESPACE }
 import from core.tenancy.open_cinema { tenant_by_id }
 import from core.tenancy.verification { record_of, remove_files }
 import from core.support.requests { drop_old_screenshots }
+import from core.platform.jobs { ran }
 
 glob ID_DAYS: int = 90,
      DOCS_DAYS: int = 365,
@@ -72,6 +73,7 @@ def retention_due(at: datetime) -> dict[str, int] {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=RETENTION_SECONDS)
 def delete_due_files {
+    ran("delete_due_files", RETENTION_SECONDS);
     # Runs as Jac's system identity on every server copy.
     found = retention_due(now());
     if any([n > 0 for n in found.values()]) {

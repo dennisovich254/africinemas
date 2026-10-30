@@ -61,6 +61,7 @@ import from core.billing.statements {
     GRACE_DAYS,
     EARLY_ENV
 }
+import from core.platform.jobs { ran }
 
 glob READ: str = "financial_reports.read",
      DISPUTE_MAX: int = 1000,
@@ -593,6 +594,7 @@ def:protect platform_reinstate_cinema(slug: str) -> dict[str, any] {  # jac:igno
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=BILLING_SECONDS)
 def issue_statements {
+    ran("issue_statements", BILLING_SECONDS);
     # Runs as Jac's system identity on every server copy; each month is claimed, and
     # each reminder too.
     cinemas = all_cinemas();

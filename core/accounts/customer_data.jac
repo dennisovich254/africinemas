@@ -50,6 +50,7 @@ import from core.notify.offer_consent { consent_of, record_consent }
 import from core.oauth.state { connections_of, end_connection }
 import from core.oauth.accounts { delete_chat_account }
 import from core.platform.cinemas_api { all_cinemas }
+import from core.platform.jobs { ran }
 
 glob DELETE_AFTER_DAYS: int = 7,
      DELETE_SECONDS: int = int(os.environ.get("AFRICINEMAS_DELETE_SECONDS", "3600")),
@@ -310,6 +311,7 @@ def:protect cancel_account_deletion(slug: str) -> dict[str, any] {  # jac:ignore
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=DELETE_SECONDS)
 def delete_due_accounts {
+    ran("delete_due_accounts", DELETE_SECONDS);
     # Runs as Jac's system identity on every server copy; each account is deleted once.
     done = delete_due(now());
     if done {

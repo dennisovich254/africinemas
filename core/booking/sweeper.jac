@@ -32,6 +32,7 @@ import from core.catalog.venues { find_screening, slots_of }
 import from core.booking.models { SeatHold }
 import from core.booking.availability { SeatState }
 import from core.booking.hold_api { OPEN_HOLDS, VISITOR_HOLDS, free_seats }
+import from core.platform.jobs { ran }
 
 # How often it runs; tests shorten it (AFRICINEMAS_SWEEP_SECONDS).
 glob SWEEP_SECONDS: int = int(os.environ.get("AFRICINEMAS_SWEEP_SECONDS", "60")),
@@ -119,6 +120,7 @@ def sweep -> dict[str, int] {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=SWEEP_SECONDS)
 def sweep_holds {
+    ran("sweep_holds", SWEEP_SECONDS);
     # Runs as Jac's system identity on every server copy.
     sweep();
 }

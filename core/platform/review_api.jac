@@ -38,6 +38,7 @@ import from core.platform.cinemas_api { all_cinemas, owners_of }
 import from core.notify.mailer { OutgoingMail, send, from_address }
 import from core.tenancy.verification_notice { notify_owners }
 import from core.site { main_address }
+import from core.platform.jobs { ran }
 
 glob REVIEW: str = "platform.review",
      DECISION_MAIL: str = "verification-decision-mail",
@@ -256,6 +257,7 @@ def send_decisions_due -> int {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=MAIL_SECONDS)
 def send_decision_mail {
+    ran("send_decision_mail", MAIL_SECONDS);
     # Runs as Jac's system identity on every server copy; SENDING keeps one per email.
     send_decisions_due();
 }

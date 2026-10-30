@@ -50,6 +50,7 @@ import from core.payments.payment_api {
     provider_of
 }
 import from core.payments.settlement { settle, tenant_by_id, order_of }
+import from core.platform.jobs { ran }
 
 glob RESOLVE_SECONDS: int = int(
          os.environ.get("AFRICINEMAS_RESOLVE_SECONDS", "30")
@@ -270,6 +271,7 @@ def resolve -> dict[str, int] {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=RESOLVE_SECONDS)
 def resolve_payments {
+    ran("resolve_payments", RESOLVE_SECONDS);
     # Runs as Jac's system identity on every server copy; every step is repeatable.
     resolve();
 }

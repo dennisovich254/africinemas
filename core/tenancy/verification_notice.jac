@@ -20,6 +20,7 @@ import from core.tenancy.membership { records_of }
 import from core.tenancy.principal { node_id, act_as, restore, fresh_node_id }
 import from core.notify.mailer { OutgoingMail, send, from_address }
 import from core.site { main_address }
+import from core.platform.jobs { ran }
 
 glob ONCE: str = "verification-notice-sent",
      ONCE_S: int = 3600,
@@ -118,6 +119,7 @@ def send_notices_due -> int {
 
 @schedule(trigger=ScheduleTrigger.STATIC, interval=MAIL_SECONDS)
 def send_notices {
+    ran("send_notices", MAIL_SECONDS);
     # Runs as Jac's system identity on every server copy; SENDING keeps one per email.
     send_notices_due();
 }
