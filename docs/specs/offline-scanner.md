@@ -1,346 +1,549 @@
 # Specification: the offline scanner (plan 17.2b)
 
-Status: **agreed** (owner, 2026-10-31: decisions O1–O5 as suggested). Needed **before the pilot** (owner, 2026-10-31). Closes failure modes 1.7, 1.9 and 1.10 (`docs/failure-modes.md`).
+**Version 2, 2026-10-31.** Agreed decisions O1–O5 (owner, 2026-10-31). Needed **before the pilot**. Closes failure modes 1.7, 1.9 and 1.10 (`docs/failure-modes.md`).
+
+**Changes from version 1:** an outside review (2026-10-31), checked against the code, found the gaps were in the moves between online and offline. Version 2 adds:
+- a scan id on **online** scans too;
+- crash-safe rules on the device and the server;
+- an offline start-up path that needs no server, with our own manifest;
+- an **offline grant** separate from the sign-in;
+- a real **sync protocol**;
+- receipts that can admit a group;
+- a **scan journal** separate from ticket state;
+- a field-by-field data inventory, versions, and guarantees that say when they hold.
+
+It also corrects four details: showtime states, the order of checks, the Android version, and two over-strong claims.
+
+**How to read it:** rules marked **MUST** are the ones the pilot depends on. Each has an id (R1, R2…), and §20 tests every one.
 
 ## 1. Why
 
-Today every scan asks the server whether the ticket is real, for this showtime, and unused (`core/booking/redeem_api.jac`). If AfriCinemas is down, or the cinema's own internet is, the scanner says nothing useful. Staff then either let everyone in or no one, and copied tickets get in.
+Today every scan asks the server whether the ticket is real, for this showtime, and unused (`core/booking/redeem_api.jac`). If AfriCinemas is down, or the cinema's own internet is, the scanner can't answer. The door list (17.2) is the paper fallback, but it's out of date the moment it's made, and many tickets are bought on the day. The offline scanner keeps checking tickets against a copy kept on the device, which stays up to date while the device can reach us.
 
-The door list (17.2) is the fallback on paper. But a list is out of date from the moment it's made, and many tickets are bought on the day itself. At a full premiere, ticking 400 names by hand is slow and error-prone.
+## 2. Goals, and when they hold
 
-The offline scanner keeps checking tickets when it can't reach us, against a copy of the showtime's tickets kept on the device and updated every few seconds while it can.
+1. **Same answers where it can know.** Offline, the scanner gives the online answers for every ticket in its copy (§9.4). It can't know about sales, refunds, scans on other devices or revoked access it hasn't synced; the screen shows how old its copy is.
+2. **Fresh while active.** While the scanner is open, authorized and syncing successfully, the device MUST apply committed changes within **60 seconds**, and MUST show when it last *applied* a sync (R1). A phone that suspends the page can't be held to this, so the age is always on screen.
+3. **No admission lost once committed.** Every admission committed on the device MUST stay pending until the server acknowledges it durably (R2). Recovery needs the device's storage to survive and an authorized way to upload; a lost or wiped device loses what it hadn't uploaded.
+4. **Problems found afterwards.** Double entries, admissions of refunded tickets, and people let in anyway are found after reconnecting and shown to managers (§11.4).
+5. **Little on the device.** No customer details, and nothing that can make a ticket (§16).
+6. **The phones cinemas have.** Android 10+ with current Chrome first; iPhones with iOS 16.4+, installed to the home screen (O4).
 
-## 2. Goals and non-goals
-
-**Goals**
-1. Door staff keep scanning QR codes and typed references during an outage, with the same answers as online: let in, already used (when, and on which device), wrong showtime, too early, showtime over, not a valid ticket.
-2. The copy on the device is never more than **one minute** old while the device is online, so an outage loses at most the last minute's bookings.
-3. Nothing scanned offline is lost: every offline scan reaches the server when the device is back online, and the server's records end up as if the scans happened online.
-4. Problems an offline door can't prevent are **found and shown afterwards**: the same ticket let in on two devices, a ticket refunded in the meantime, people let in who weren't on the list.
-5. Nothing on the device reveals customers' details, or lets someone who steals the device make tickets.
-6. Works on the phones cinemas have: Android phones with Chrome first.
-
-**Not in scope** (later, if needed)
-- Selling at the box office offline (failure modes 1.11; paper sales are 17.2, part 4).
-- Devices talking to each other over the cinema's local network.
-- A native app from an app store (18.1).
-- Changing how tickets are signed: not needed (decision D2).
+**Not in scope** (later, if needed):
+- selling at the box office offline (17.2, part 4: paper sales);
+- devices talking to each other;
+- a native app (18.1);
+- snack pickup codes offline (O3: after the pilot);
+- changing how tickets are signed.
 
 ## 3. When it's used
 
 | Situation | What happens |
 |---|---|
-| Everything works | Scans go to the server as today. In the background, the device keeps its copy of the tickets up to date. |
-| AfriCinemas is down | The device notices within seconds, says "Offline", and checks scans against its copy. The scans upload when we're back. |
-| The cinema's internet is down, or the door has no signal | The same as above. |
-| The connection comes and goes | The device switches between online and offline on its own. A scan is never lost or counted twice. |
-| The device is off, broken or out of battery | Another device takes over: sign in, open the scanner, and it downloads the copy (if online). If none can, the door list (17.2). |
-| Doors open while we're already down | Works only if the device downloaded the showtime before the outage. Staff open the scanner when they arrive, before doors open (§9.1, "Ready for offline"). |
+| Everything works | Scans go to the server as today, each with a scan id. The device keeps its copy up to date. |
+| AfriCinemas or the cinema's internet is down | The device notices a **connection** failure (§9.2), switches to offline, checks scans against its copy, and uploads them later. |
+| The server answers, but refuses access (signed out, no shift, access removed) | **Not offline.** Offline admissions stop or are limited (§6.4); staff sign in again or use the door list. |
+| The scanner is closed, then opened with no connection | It starts from the device alone (§13) and keeps working within its offline grant. |
+| The device is lost, broken or flat | Another device takes over if it's ready (§14.1); otherwise the door list. A manager revokes the lost device. |
 
 ## 4. How it works
 
 ```text
-          online                                        offline
-┌──────────────────────────────┐            ┌──────────────────────────────────┐
-│ scan ─► server redeems ─► ✓  │            │ scan ─► the copy on the device   │
-│   (and the device's copy     │            │        ─► ✓ / ✗, recorded on     │
-│    marks it used)            │            │           the device, queued     │
-│                              │            │                                  │
-│ every ~30 s: the device asks │  ─────────►│ every ~15 s: try to reach the    │
-│ for changes since its last   │  ◄─────────│ server; when it answers, upload  │
-│ copy (new tickets, refunds,  │            │ the queue, then fetch changes    │
-│ scans on other devices)      │            │                                  │
-└──────────────────────────────┘            └──────────────────────────────────┘
+ /door/ (the installed scanner app)                   server
+ ┌──────────────────────────────────────┐            ┌─────────────────────────────┐
+ │ IndexedDB: grant · pack · admissions │──grant────►│ offline grant (§6)          │
+ │            · journal (queue)         │◄─pack──────│ door pack + changes (§7)    │
+ │ scan ─► online? redeem(scan_id) ─────┼───────────►│ redeem (scan_id, §9.1)      │
+ │      └► offline: decide locally,     │            │                             │
+ │         commit, then show (§9.4)     │──upload───►│ journal, reconcile (§11)    │
+ └──────────────────────────────────────┘            └─────────────────────────────┘
 ```
 
-The server stays the authority. When the device is online, the server decides, exactly as now. The device decides only while it is offline, and the server records its decisions afterwards.
+The server stays the authority. Online, it decides, as now. Offline, the device decides, and the server records and reconciles those decisions later.
 
 ## 5. Decisions
 
-**D1. An installable web app (PWA) with our own service worker, not a native app.** The scanner page is installed to the phone's home screen, a service worker keeps the scanner's code on the device so it opens with no connection, and the tickets are kept in the browser's IndexedDB.
-- Cinemas need nothing from an app store, and the scanner stays the same code as today's `ScannerSection.jac`.
-- **Jac's own PWA support isn't enough** (checked in Jac 0.38.3's source, 2026-10-31; JI-063). A `[client.pwa]` table gives the manifest, icons and install banner, so the app installs, but its service worker can't open the app offline:
-  1. it's registered at `/static/sw.js`, so it controls only pages under `/static/`, never `/app/...`;
-  2. it precaches `/static/client.<hash>.js`, while the page loads `/static/client.js?hash=…`, and it skips `dist/assets/` (the QR scanner's worker);
-  3. it keeps nothing fetched later (only `/api/`, which Jac's endpoints don't use);
-  4. it can keep serving an old app after a deploy.
-- **So:** we keep Jac's manifest and icons (or write our own manifest), and serve **our own service worker** from a custom route at the site's root (`/scanner-sw.js`, scope `/app/`). It:
-  - keeps the scanner page's HTML, network first;
-  - keeps the client bundle, styles, fonts and the QR worker, cache first, keyed by the bundle's hash, which is also in the cache's name, so a deploy replaces them;
-  - never caches `/function/` or `/walker/` answers: the tickets live in IndexedDB.
-- *iOS:* Safari may delete a website's storage after seven days without a visit unless the app is installed to the home screen. Installed, it keeps it. Both Android and iPhones are supported in the pilot (O4), installed; Android is recommended.
+**D1. An installable web app with our own service worker and manifest; Jac's `[client.pwa]` stays off.** Checked in Jac 0.38.3's source (JI-063): Jac's PWA worker is registered at `/static/sw.js`, so it controls only `/static/`. It precaches addresses the page doesn't load, keeps nothing fetched later, and, when it activates, **deletes every cache with another name**, which would include ours. So we don't turn it on. Instead the scanner is a small app of its own at **`/door/`**:
+- **The manifest:** `/door/manifest.webmanifest`, with `id` and `start_url` `/door/` and `scope` `/door/`.
+- **The service worker:** `/door/sw.js`, scope `/door/`.
+- **The page:** the scanner page at `/door/<cinema>`.
 
-**D2. Offline checks use the copy's list of tickets; no change to ticket signing.** A ticket's reference is 16 random characters, 80 random bits (ADR-0020), so nobody can guess one. A code is valid offline if its reference is in the device's copy for this venue's showtimes.
-- QR codes are signed with the server's secret key (HMAC-SHA256, `TKT1`), which must never be on a device, so the device doesn't check the signature. It doesn't need to: a forged QR with a made-up reference isn't in the copy, and a copied real QR is caught as already used (on the same device) or afterwards (on another, D4).
-- The device reads the reference out of `TKT1.<reference>.<signature>` (or a typed reference) and looks it up.
+All three are served by custom routes. It's installed to the home screen from the back office's scanner page, and it reuses the scanner's existing components.
 
-**D3. The device keeps hashes of references, not the references.** If the device held the references, someone with a stolen phone could type them in at a door, or print them. So the copy holds `SHA-256("door1|" + pack_salt + "|" + reference)` for each ticket, with a random `pack_salt` per copy. The device hashes the scanned reference the same way and looks that up.
-- A stolen device then reveals only seats and ticket types, and hashes that can't be turned back into references (80 random bits).
+**D2. Offline checks use the copy's list of tickets.** A reference is 16 random characters, 80 random bits (ADR-0020), and can't be guessed. Offline, the device reads the reference from `TKT1.<reference>.<signature>`, or a typed reference, and looks it up. **It does not check the QR's signature:** that needs the server's secret, which never leaves the server. A forged code with a made-up reference isn't in the copy. A copied real code is caught as used on the same device, or afterwards (D4).
 
-**D4. Each device keeps its own list of what it let in; two devices offline at once can let the same ticket in twice.** Devices don't talk to each other (not in scope), so when two doors of one screen are both offline, a copied ticket could get in at each. Afterwards the server finds it (§8.3), records a **double entry**, and shows it to the cinema's managers.
-- To keep it rare, the scanner tells staff "Use one device per showtime while offline" when a second device is checking the same showtime.
-- Accepted for the pilot (O1).
+**D3. The device keeps hashes of references.** See §7.2 for the exact rule. A stolen device then can't give up references in bulk. It doesn't make browser storage tamper-proof, and an unlocked stolen device can still be used to scan within its grant (§6).
 
-**D5. Offline scans count as the staff member's.** A scan offline is recorded as the signed-in member's, with the device's id, when it was scanned (the device's clock, corrected by its measured offset from the server's, §6.4), and "offline". The audit log records it as `ticket.scanned` with detail `offline` when it uploads.
+**D4. Each device knows only its own admissions while offline** (O1, accepted). Two offline devices on one showtime can admit a copied ticket twice. The server finds it afterwards (§11.3). The scanner warns when another device was **last seen** on the same showtime (§14.2); during an outage it can't know whether that device is still there.
 
-**D6. Online stays exactly as today.** An online scan calls `redeem_ticket` as now. The copy is only a fallback and never changes an online answer.
+**D5. Every scan has an id, online and offline.** The device makes and stores a `scan_id` **before** sending any redemption (R3). The online endpoint and the upload share one record per id (§9.1, §11). That way a scan whose online answer was lost is recognized, not counted twice.
 
-## 6. The copy of the tickets ("door pack")
+**D6. A scan journal, separate from ticket state.** What staff did at the door (scans, refusals, admissions, let-ins) is a journal of events. Redeeming a ticket is a separate result of reconciling them. Reports keep the two apart (§12).
 
-### 6.1 What's in it
+## 6. The offline grant
 
-One pack per device, covering the showtimes it may check: every showtime at the member's venues **with tickets.scan** whose door opens within the next **6 hours**, or is open now. That's from `doors_open_minutes` (45 unless changed) before the start until the end, as `door_is_open` decides today.
+### 6.1 What it is
+
+The server issues a grant when the scanner syncs online, and records it. It's what lets a device make admissions offline:
+
+| Field | Meaning |
+|---|---|
+| `grant_id` | Random id, recorded on the server |
+| `tenant_id`, `member_id`, `device_id` | Whose and where |
+| `venue_ids` | Venues where the member may scan (`tickets.scan`), at issue time |
+| `issued_at`, `expires_at` | Valid until the **earlier** of the member's shift ending and the end of the last showtime in the pack + 1 hour, and never more than 14 hours |
+| `policy` | `door-policy/1` (§17) |
+
+### 6.2 Rules
+
+- **R4:** The device MUST make no offline admission without an unexpired grant (by its corrected clock, §7.6), for a showtime at one of the grant's venues.
+- **Renewal:** the grant is renewed on every successful sync. A device whose grant ends within 30 minutes says "Go online to keep scanning offline", for example near the end of a shift.
+- **Expired offline:** the device refuses new admissions offline and says "Offline scanning has ended for this device: use the door list or go online." Pending uploads are kept (R2).
+
+### 6.3 Revocation
+
+A manager can revoke a device or a member's grants (Staff page). Revocation also happens when the member's role or membership is removed, or the cinema turns offline scanning off. **A revoked grant can't reach a disconnected device;** the device learns of it on its next contact and then deletes its pack. Admissions uploaded under a revoked grant:
+- if their event time is **before** the revocation, they're processed normally;
+- if it's **after**, they're kept as evidence for review (**Admitted after revocation**, §11.3). They never redeem a ticket automatically, and they're never discarded.
+
+### 6.4 Connection failure vs refusal
+
+- **R5:** The device MUST treat only these as a lost connection: a network error, a timeout, and HTTP 502, 503 or 504. An authorization answer MUST NOT switch it to offline.
+
+| Server answer | Device does |
+|---|---|
+| Network error, timeout, 502/503/504 | Offline (§9.2) |
+| 401: signed out or token expired, while the server is reachable | Asks for sign-in. It may continue under a valid grant for **15 minutes** while staff sign in, and says so |
+| 403, `no_shift`, `forbidden`, grant revoked | Stops offline admissions at once, deletes the grant, and keeps pending uploads |
+| A business refusal (already used, wrong showtime…) | Shows it; it's an answer, not an outage |
+
+## 7. The door pack and its sync
+
+### 7.1 Contents
+
+One pack per device and grant: the showtimes at the grant's venues whose doors open within the next **6 hours** (O5), or are open now.
 
 ```json
 {
-  "pack_id": "uuid",
-  "made_at": "2026-11-01T16:01:10+00:00",
-  "cursor": "opaque, for asking what changed since",
-  "pack_salt": "32 random bytes, base64",
-  "expires_at": "the last showtime's end + 2 hours",
-  "member_id": "...", "device_id": "...",
+  "pack_version": "door-pack/1",
+  "pack_id": "uuid", "grant_id": "...", "tenant_id": "...",
+  "server_time": "2026-11-01T16:01:10.123+00:00",
+  "salt": "base64url of 32 random bytes, no padding",
+  "cursor": "opaque",
   "cinema": {"name": "Anga Cinemas", "timezone": "Africa/Nairobi", "doors_open_minutes": 45},
-  "showtimes": [
-    {"screening_id": "...", "movie_title": "Rafiki", "starts_at": "...", "ends_at": "...",
-     "screen": "Screen 2", "venue": "Diamond Plaza", "state": "on_sale"}
-  ],
-  "tickets": [
-    {"h": "hash of the reference (D3)", "screening_id": "...", "seat": "F7",
-     "ticket_name": "Adult", "format": "3D", "glasses": true,
-     "status": "issued | used | voided | refunded",
-     "used_at": "", "used_where": "Scanner 2 · Mary"}
-  ]
+  "showtimes": [{"screening_id": "...", "movie_title": "Rafiki", "starts_at": "...",
+                 "ends_at": "...", "screen": "Screen 2", "venue_id": "...",
+                 "venue": "Diamond Plaza", "state": "published", "version": 12}],
+  "tickets": [{"tid": "ticket node id", "h": "hash (§7.2)", "screening_id": "...",
+               "seat": "F7", "ticket_name": "Adult", "format": "3D", "glasses": true,
+               "status": "issued", "used_at": "", "used_where": "Main door",
+               "version": 3}]
 }
 ```
 
-**Not in it:** references, the booker's name, email or phone, prices, or M-Pesa codes.
+**Notes:**
+- **`tid`** is the ticket's opaque id. It isn't a credential: redemption needs the reference. Local admissions are keyed by `tid`, so they survive a pack being replaced with a new salt (R8).
+- **`status`:** `issued`, `used`, `voided` or `refunded`. A showtime's `state` is its stored value: `published`, `sales_closed`, `cancelled` and so on.
+- **`used_where`:** the **device's name** only, never a staff name or email (§16).
+- **Not in it:** references, the booker's details, prices, M-Pesa codes.
 
-**Size:** about 150 bytes a ticket, so a full 500-seat screen is about 75 KB, and a day at a busy multiplex a few hundred KB.
+### 7.2 Hashing
 
-### 6.2 Getting it, and keeping it up to date
+`h = lowercase hex SHA-256 of UTF-8("door1|" + salt + "|" + R)`, where:
+- `R` is the reference upper-cased, with dashes and spaces removed: 16 characters from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`;
+- `salt` is the pack's salt as base64url without padding.
 
-- **First download:** when the scanner opens (online), and whenever the set of showtimes in the window changes.
-- **Changes:** every **30 seconds** while online, the device asks for changes since its cursor (`door_pack_changes`):
-  - new tickets;
-  - tickets voided, refunded or moved to another showtime;
-  - tickets scanned on other devices;
-  - showtimes cancelled or moved.
-  The answer is small; usually empty.
-- **Freshness:** the device records when it last heard from the server. The screen always says how old the copy is ("Tickets as of 19:02").
-- **Expiry:** a pack is deleted when it expires, when the member signs out, or after 24 hours unused. It's never used for a showtime that has ended.
+A device MUST reject a reference that doesn't normalize to 16 such characters as `invalid_code` (R6).
 
-### 6.3 Where it's kept
+**Test vector** (both implementations MUST match it):
 
-- **IndexedDB on the device,** in its own database: tickets indexed by hash; showtimes; the queue of scans to upload (§8); and a log of decisions shown (for the device's own "already used here" answers).
-- **If the browser refuses storage** (private mode, or the device is full), the scanner says "This device can't keep tickets for offline use" and still works online.
+```text
+salt   = AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8   (bytes 0..31)
+R      = 7K2M9QXR4HJNP3WD                              (from "7K2M-9QXR-4HJN-P3WD")
+h      = 4e73291af7471910ef674eb1656b2a4d644badae5e333a879ddefdd028cfd08c
+```
 
-### 6.4 The device's clock
+### 7.3 The sync protocol
 
-The door window and "already used at" depend on the time. The server sends its time with every pack and change, and the device keeps the difference (`offset = server_time - device_time`). Offline, it uses its own clock plus that offset. If the offset is over 5 minutes, the scanner warns: "This device's clock is wrong; fix it in Settings".
+**Snapshot.** `door_pack` returns the whole pack and a cursor. The cursor is signed by the server and bound to the tenant, pack, grant and venues. The device MUST reject a cursor answer for another pack (R7).
 
-## 7. Scanning
+**Changes.** Every ticket and showtime has a `version` that rises on every change, and a `changed_at` server timestamp. `door_pack_changes(cursor)` returns what changed since the cursor's time **minus 5 minutes of overlap**, in pages of 1,000 with a continuation, plus a new cursor.
+- **Overlap:** it catches transactions that committed late.
+- **Applying:** the device applies a record only if its `version` is higher than what it holds. Applying twice changes nothing.
+- **Removals:** an entry with `removed: true` means the ticket or showtime has left the pack (moved to another showtime, or showtime out of the window).
+- **Changed settings:** cinema settings that change decisions (`doors_open_minutes`, the timezone) come with every change answer.
 
-### 7.1 Online or offline?
+**Full resync** happens when the cursor is more than **30 minutes** old, when the server answers `resync`, when the grant's venues change, or every **2 hours**. The device builds the new pack beside the old one, then switches in one transaction.
 
-- **Online:** the last request to the server answered within **4 seconds**.
-- **Offline:** a request failed, or took longer than 4 seconds. The device switches at once and says so.
-- **Back online:** a background check (`/healthz`, then the change request) succeeds. The device uploads its queue (§8) before it says "Online" again.
-- A scan that started online and got no answer within 4 seconds is decided offline. Its upload carries the same scan id, so if the server did receive it, it isn't counted twice (§8.2).
+**Applying is atomic.** R8: The device MUST apply a page of changes **and** advance its cursor in one IndexedDB transaction, and MUST keep its own pending admissions separate from server state. An incoming `issued` never makes a ticket the device admitted, but hasn't had acknowledged, usable again.
 
-### 7.2 What the device answers, offline
+### 7.4 The salt
 
-Checked in this order, with today's online wording wherever it exists (`redeem_api.jac`):
+Each full pack has a new salt. The old pack's hashes are dropped when the new pack is switched in. Pending admissions stay, keyed by `tid`. The reference waiting in the journal is held as typed (§8.2), not hashed, so it doesn't depend on the salt.
 
-| # | Check | Answer | Shown as |
-|---|---|---|---|
-| 1 | The code isn't a ticket QR (`TKT1.`) or a typed reference | `invalid_code` | ✗ "Not an AfriCinemas ticket" |
-| 2 | It's a snack pickup code (`SNK1.`) | `snack_code` | ✗ "This is a snack pickup code…" (as online) |
-| 3 | The hash isn't in the pack | `not_on_list` (new) | ✗ "Not on this device's list (tickets as of 19:02)". Then a **Let in anyway** option (§7.4) |
-| 4 | It's for another showtime in the pack | `wrong_showtime` | ✗ "This ticket is for Rafiki at 21:00" |
-| 5 | The showtime is cancelled or unpublished | `showtime_closed` | ✗ |
-| 6 | Too early, or after the end (corrected clock, §6.4) | `too_early` / `showtime_over` | ✗ |
-| 7 | Voided or refunded | `ticket_voided` / `ticket_refunded` | ✗ |
-| 8 | Used: scanned online before the copy was made, or on another device | `already_redeemed` | ✗ "Already used at 19:12 on Scanner 2 · Mary" |
-| 9 | Already let in on this device, offline | `already_redeemed` | ✗ "Already used at 19:14, on this device" |
-| 10 | Otherwise | let in | ✓ seat, type, 3D and glasses, as online; recorded and queued |
+### 7.5 Freshness on screen
 
-### 7.3 Showing it
+"Tickets as of 19:02" is the server time of the last **applied** sync, never just the last successful health check (R1).
 
-- **The result screen:** the same big ✓ or ✗ as today, plus a banner while offline: "Offline: checking against tickets as of 19:02. Scans upload when we're back."
-- **Sound and vibration:** a distinct tone and buzz for ✓ and for ✗, so staff needn't read the screen in the queue.
-- **The counter:** "212 in · 340 sold" for the chosen showtime, counting online and offline scans on this device, and others' scans known to the pack.
+### 7.6 The clock
 
-### 7.4 "Let in anyway"
+Each sync measures the round trip: `offset = server_time - (sent + received) / 2`, with uncertainty `round trip / 2`.
+- **Offline,** the device uses its own clock plus the last offset, and records the uncertainty with every event.
+- **Moved clock:** if the device's clock jumps (detected against `performance.now()` between events, or after a restart), it marks its time **unverified** until the next sync, and says so.
+- **Wrong clock:** over 5 minutes off, the scanner says "This device's clock is wrong".
+- **On the server,** every uploaded event keeps both the device's estimate (and its uncertainty) and the server's receipt time. An event whose order is uncertain is flagged, not trusted.
 
-For someone not on the list (check 3) who shows a ticket email or M-Pesa message, the same rule as the door list (failure modes 1.3):
-- the staff member checks the message is to this cinema, for the right amount, and sent before the showtime;
-- they record the M-Pesa code (required) and the seat, and the person is let in;
-- it's queued as an **exception**, not as a ticket scan;
-- the device refuses an M-Pesa code it has already recorded: "This M-Pesa code was already used at 19:20".
+## 8. On the device
 
-Anyone who can scan may let someone in anyway (O2); every one is listed as a Door exception.
+### 8.1 Stores (IndexedDB database `africinemas-door`, schema version 1)
 
-### 7.5 Snack pickup codes
-
-The snack counter (`concessions.collect`) can use the same mechanism for `SNK1` codes. It's the same pack design with the snack lines, and the same queue. **After the pilot** (O3): a missed snack hand-over is fixed afterwards, with no money lost.
-
-## 8. Uploading offline scans
-
-### 8.1 The queue
-
-Every offline decision is written to the device's queue **before** the answer is shown, so a crash or flat battery loses nothing. Each entry:
-- **its id:** a UUID, made once;
-- **the code:** the reference, held on the device only until it uploads, then deleted;
-- **the showtime;**
-- **when it was scanned:** the corrected time;
-- **the member and the device;**
-- **the decision:** let in, refused with its code, or let in anyway with the M-Pesa code and seat.
-
-### 8.2 Sending it
-
-When back online, the device sends the queue in batches of 100 to `upload_door_scans`, oldest first, until it's empty. The server:
-1. checks the member could scan at that venue then (`tickets.scan`), and that the scan time is believable: inside the showtime's door window, and not in the future;
-2. treats each entry by its id: an id already received is answered with its first result, so a retried upload changes nothing;
-3. for **let in**, redeems the ticket through the same claim (`USED`) as online, with `used_at` set to the scan time, `used_by` the member, and `offline: true`;
-4. records the outcome per entry: `recorded`, or an **exception** (§8.3);
-5. writes the audit log: one `ticket.scanned` per ticket, detail `offline`.
-
-The device deletes an entry, and its reference, only when the server has answered for it. A failed batch is retried with backoff.
-
-### 8.3 What the server can find afterwards
-
-| Found | Means | Recorded as |
+| Store | Holds | Deleted when |
 |---|---|---|
-| The ticket was already used on another device | Two doors let the same ticket in (D4) | **Double entry**: both scans, devices, members and times |
-| The ticket was refunded or voided before the scan | The pack was stale | **Let in after refund** |
-| The ticket was used online before the offline scan | The pack was stale, or a copy of the QR | **Double entry** |
-| Let in anyway: the M-Pesa code matches a payment for this showtime | Paid during the outage, now confirmed | **Matched** to its booking; the ticket is marked used. Settled, not an exception |
-| Let in anyway: no payment matches within 48 hours | Possibly a fake message | **Unmatched entry** |
+| `device` | `device_id`, the device's name | Never (until storage is cleared) |
+| `grant` | The current grant | Expired, revoked, or the member signs out |
+| `pack` | Showtimes, tickets (by `h` and `tid`), cursor, salt, settings | Replaced, expired, revoked, sign-out |
+| `admissions` | Local admissions by `tid`: when, scan id | Acknowledged by the server **and** the showtime has ended |
+| `journal` | Every event to upload (§8.2) | Durably acknowledged by the server (R2) |
 
-### 8.4 Where they show
+### 8.2 The journal entry
 
-- **Back office,** in a new **Door exceptions** list, for owners, general managers and box office managers: each with its showtime, seat, who scanned it and the outcome. The list is open until someone marks each one "Seen", with an optional note.
+Fields:
+- `scan_id`: a UUID, made once;
+- `seq`: the device's own order;
+- the member, device and grant ids;
+- the showtime;
+- `reference`: as typed or read. It's a ticket credential, so it's kept only until acknowledged;
+- the device's estimated time and its uncertainty;
+- the pack's id and the data's age;
+- the decision: admit, refuse with its code, or let in anyway (§10);
+- `outcome`, from the server: empty until acknowledged.
+
+### 8.3 Atomic decisions
+
+R9: For each offline scan, the device MUST, **in one IndexedDB `readwrite` transaction** over `pack`, `admissions` and `journal`:
+1. look the ticket up;
+2. check `admissions` for it;
+3. decide;
+4. if admitting, write the admission;
+5. write the journal entry.
+
+It MUST show ✓ only after the transaction completes. If the transaction fails, it shows "Not saved: scan again".
+
+Two tabs or windows on one device are covered: IndexedDB transactions on the same stores don't overlap. The scanner also keeps one active tab (a `BroadcastChannel` lock), and a second tab says "The scanner is open in another window".
+
+### 8.4 Storage
+
+On first use the scanner calls `navigator.storage.persist()` and `navigator.storage.estimate()`.
+- **Not persisted:** readiness says so ("This browser may clear offline data: install the app").
+- **Under 20 MB free:** readiness fails.
+
+Browsers may still evict storage, and WebKit documents policies, not guarantees. So the readiness check (§14.1) re-verifies the store every time the scanner opens.
+
+## 9. Scanning
+
+### 9.1 Online
+
+`redeem_ticket(tenant, screening_id, code, scan_id, device_id)`. The server records the scan in the journal under `scan_id`, bound to tenant, member, device, showtime and reference. R10:
+- **A repeated `scan_id` with the same identity** MUST return the original result, without redeeming again.
+- **A `scan_id` reused for a different identity** MUST be refused (`scan_id_conflict`).
+- The redemption claim (`USED`) MUST carry the `scan_id`, so a retry after a crash between claiming and saving finds **its own** claim and completes the save (§11.2), instead of reporting "already used".
+
+The device writes the journal entry **before** sending (R3). A response that arrives late is matched to its entry by `scan_id`, and MUST NOT overwrite a later scan's result on screen.
+
+Old clients without `scan_id` keep working as today, until the version cut-off (§17).
+
+### 9.2 Online or offline
+
+- **Offline:** a request fails as in R5, or takes over **4 seconds**. The device switches at once.
+- **Back online:** a background check succeeds (`/healthz`, then an authorized sync). The device uploads its journal (§11), applies changes, then says "Online".
+- **A timed-out online scan** is decided offline under the same `scan_id` and uploaded. If the server did redeem it, reconciliation returns the original result: **one redemption, no double entry**.
+
+### 9.3 Live but not able to admit
+
+Inside the grant but with a 401 (§6.4), the device continues for 15 minutes with a banner. On 403, `no_shift` or revoked, it stops admitting.
+
+### 9.4 Offline decisions
+
+Checked in this order, matching the online code (`_reference` in `redeem_api.jac`):
+
+| # | Check | Code | Shown |
+|---|---|---|---|
+| 1 | It's a snack pickup code (`SNK1.`) | `snack_code` | ✗ "This is a snack pickup code. It's collected at the snack counter." |
+| 2 | Not a `TKT1.` code, nor a typed reference that normalizes (R6) | `invalid_code` | ✗ "This isn't a ticket code from this cinema." |
+| 3 | No unexpired grant for this showtime's venue (R4) | `offline_not_allowed` | ✗ "Offline scanning has ended for this device" |
+| 4 | The hash isn't in the pack | `not_on_list` | ✗ "Not on this device's list (tickets as of 19:02)", then **Let in anyway** (§10) |
+| 5 | In the pack, for another showtime | `wrong_showtime` | ✗ "This ticket is for Rafiki at 21:00". Only for showtimes in the pack: a ticket for one outside the window reads as `not_on_list` |
+| 6 | Showtime cancelled or unpublished | `showtime_closed` | ✗ |
+| 7 | Before doors open or after the end, by corrected time | `too_early` / `showtime_over` | ✗ |
+| 8 | `voided` / `refunded` in the pack | `ticket_voided` / `ticket_refunded` | ✗ |
+| 9 | `used` in the pack | `already_redeemed` | ✗ "Already used at 19:12 at Main door" |
+| 10 | Admitted on this device and not yet acknowledged | `already_redeemed` | ✗ "Already used at 19:14, on this device" |
+| 11 | Otherwise | admit | ✓ seat, type, 3D, glasses |
+
+Each answer is shown **in words** as well as colour, sound and vibration. Sound and vibration are extras, never the only signal (WCAG 2.2). Results are announced to screen readers (`role="status"`).
+
+## 10. Let in anyway
+
+For a person not on the device's list (check 4) who shows a ticket email or M-Pesa message. Anyone who can scan may do it (O2).
+
+- **Recorded:** the M-Pesa code (required), the number of people let in on it (default 1), and the seat or seats.
+- **One code can cover a group.** A booking's single M-Pesa payment can pay several seats. If the code was already recorded on this device, the scanner asks "This code already let 2 people in at 19:20. Is this person in the same booking?" before recording more. It doesn't refuse.
+- **Only M-Pesa.** Cash bought on paper during the outage is part 4's paper sales, not this.
+- **Same journal:** let-ins go into the journal as their own kind of event, and are reconciled centrally (§11.3).
+
+## 11. Uploading and reconciling
+
+### 11.1 Uploading
+
+`upload_door_scans(tenant, device_id, protocol, entries)` sends batches of up to 100, oldest first. Each entry gets its own answer:
+- **`recorded`**, or **`exception`** with a kind: final;
+- **`retry`**: try again later;
+- **`rejected`** with a reason: final, kept for review, for example a revoked grant (§6.3).
+
+**R2:** The device MUST delete a journal entry, and its reference, only after a **final** answer for that entry. A batch with both final and `retry` answers deletes only the final ones. A lost response means everything is sent again, which is safe under R10.
+
+### 11.2 On the server
+
+Each entry is processed in steps that recover if the server dies part-way. R11:
+1. **Claim** `door-scan:<scan_id>` with a fingerprint of the entry's identity. Seeing its own claim again means "processing or done"; a different fingerprint means `scan_id_conflict`.
+2. **Write** the journal record (`DoorScan`) in the graph transaction, with the state `received`.
+3. **For an admission,** redeem through the `USED` claim, carrying the `scan_id`:
+   - if the claim is ours, from an earlier attempt, complete the ticket's save;
+   - if it's someone else's, it's a conflict (§11.3).
+4. **Set the record's outcome** and state `done` in the same transaction as the ticket's save.
+5. **Answer** with the outcome only after step 4 has committed.
+
+A claim (step 1) with no record (step 2) means an attempt died before writing. The next attempt simply continues. Claims commit outside the graph transaction (`core/claims.jac`), which is why each step must be safe to repeat.
+
+### 11.3 Outcomes
+
+| Found | Recorded as |
+|---|---|
+| An admission matching a ticket that is valid at the event time | **Redeemed** (offline). Attendance counts it once |
+| The ticket was already redeemed by another scan (online, or another device) | **Double entry**: both events, devices and times. Attendance still counts the ticket once |
+| The ticket was refunded or voided before the event time | **Admitted after refund**. Money untouched; managers decide |
+| An admission under a revoked grant, after revocation | **Admitted after revocation**: kept, not redeemed |
+| Let in anyway: the code matches a successful payment at this cinema, for this showtime | Allocated against that booking's **seats**. Up to the booking's seat count, its tickets are **redeemed**; beyond it, **Over-admitted** |
+| Let in anyway: the payment completed the booking late (still pending when it succeeded, so tickets were issued) | As above |
+| Let in anyway: the payment went to a **refund task** (an order already released, or a snack add-on after the start) | **Let in, refund pending**: the manager chooses to keep the payment as admission (closing the refund task with a note) or to refund |
+| Let in anyway: no matching payment **48 hours after the upload was received** | **Unmatched let-in** |
+| Refused at the door | Kept in the journal; never an admission |
+
+Matching uses the verified payment record: same cinema, the M-Pesa receipt (claimed once, `RECEIPTS`), the order's showtime, its amount, and its refund state. A device's word is never enough.
+
+### 11.4 Where managers see them
+
+- **Back office:** a **Door exceptions** list for owners, general managers and box office managers. Each exception has its showtime, the events, the devices, the times (estimated and received) and the outcome. It stays open until someone marks it handled, with a note (audited).
 - **Overview:** "3 door exceptions to look at".
 - **Email:** the venue's general managers get one email per showtime that ended with exceptions.
-- **Reports:** attendance counts offline scans; a double entry counts once.
 
-## 9. The scanner's screens
+## 12. The journal, tickets, attendance and audit
 
-### 9.1 Ready for offline
+- **The journal (`DoorScan`)** is append-only. Each record has:
+  - the client's decision, and the server's outcome;
+  - the estimated event time with its uncertainty, and the receipt time;
+  - the pack id and its data age;
+  - the member, the device and the grant.
+- **Tickets** change only through reconciliation (§11.2), and keep `used_at` (the event time), `used_by`, and new `used_offline` and `used_scan_id` fields.
+- **Attendance** keeps counting tickets that are `used`, once each. Reports add, per showtime:
+  - admissions let in anyway (matched or unmatched);
+  - double entries;
+  - admissions after refund.
+  Refused attempts are never admissions. Financial figures are untouched.
+- **The audit log:**
+  - one `ticket.scanned` per ticket redeemed, detail `offline`;
+  - `door_scan.exception` per exception;
+  - `door_grant.issued` (the first each day per device) and `door_grant.revoked`;
+  - `door_exception.handled`.
 
-On opening the scanner, before doors open, a status line:
-- **ready:** "Ready for offline: 3 showtimes, 1,104 tickets, as of 18:58";
-- **not ready:** "Not ready for offline: open the scanner while online", with the reason (no storage, never downloaded, signed out).
+## 13. Starting up with no connection
 
-The overview (staff home) shows the same status for the device in use.
+R12: The installed scanner MUST start and scan with no connection, after one successful online visit, without calling `my_access` or any other endpoint. It MUST use the grant and pack in IndexedDB.
 
-### 9.2 Banners
+- **The page, outside the back office:** `/door/<cinema>` is a page of its own, outside the back office's `AuthGuard` and without `BackOffice.load`. It reads the grant and pack first, then tries the network. With no grant, it says "Open the scanner online once to get it ready".
+- **What the service worker keeps** (`/door/sw.js`, cache `door-shell-<bundle hash>`):
+  - the `/door/` page shell, **network first**;
+  - the client bundle, styles, fonts and the QR worker, **cache first**, kept by the exact addresses the page loads (the bundle's hash is in its address and in the cache's name).
+  It never caches `/function/` or `/walker/` answers.
+- **Updates:** a new worker installs beside the old one and is **activated only when the journal is empty**, or at the next cold start. The old shell's cache is deleted only after the new one is complete.
+- **Database changes:** IndexedDB migrations run forward-only in the upgrade transaction. A failed migration leaves the old version in place, and the scanner says "Update failed: keep scanning, and tell your manager".
+- **Signed out:** an expired token doesn't end offline scanning within the grant (§6). Uploads wait for the same member's sign-in.
+
+## 14. Screens
+
+### 14.1 Ready for offline
+
+Shown on opening, and on the back office's Overview for the device in use. **Ready** needs all of:
+1. the page is controlled by the scanner's service worker, with the shell cached;
+2. a complete pack, applied within the last 5 minutes;
+3. an unexpired grant;
+4. a successful test write and read in IndexedDB;
+5. persistent storage (or a warning that it isn't).
+
+Shown as "Ready for offline: 3 showtimes, 1,104 tickets, as of 18:58", or "Not ready: <what's missing>".
+
+### 14.2 Banners
 
 | State | Banner |
 |---|---|
-| Online, ready | "Online · tickets as of 19:02" (small) |
-| Offline | "Offline: checking against tickets as of 19:02. Scans upload when we're back." (amber) |
-| Offline, copy older than 30 minutes | Adds: "Check people not on the list against their M-Pesa message." |
+| Online | "Online · tickets as of 19:02" |
+| Offline | "Offline: checking against tickets as of 19:02. Scans upload when we're back." |
+| Offline over 30 minutes | Adds: "Check people not on the list against their M-Pesa message." |
+| Signed out, still reachable | "Sign in again within 15 minutes to keep scanning" |
+| Grant ending soon / ended | §6.2 wording |
 | Uploading | "Back online: uploading 37 scans…" |
 | Uploaded with exceptions | "Uploaded. 2 door exceptions for your manager." |
-| Clock off | "This device's clock is wrong by 12 minutes. Fix it in Settings." |
-| Second device on this showtime | "Another device is checking this showtime. While offline, use one device per showtime." |
+| Clock wrong or unverified | §7.6 wording |
+| Another device seen | "Main door was checking this showtime at 19:01. While offline, use one device per showtime." |
 
-All banners are announced to screen readers (`role="status"`), and every state is shown in words as well as colour.
+### 14.3 The device's name
 
-### 9.3 The device's name
+The device is named on first use ("Main door"). The name appears in `used_where` and Door exceptions. Clearing the browser's storage makes it a new device.
 
-The first time a device opens the scanner, it makes a random `device_id`, keeps it in its own storage, and asks for a short name ("Main door", "Scanner 2"). The name is sent with the pack request and every upload, and used in "already used at 19:12 on Main door · Mary" and in Door exceptions. Clearing the browser's storage makes it a new device.
+### 14.4 Signing out
 
-### 9.4 Signing in and out
+With entries still in the journal, signing out asks first. If the member signs out anyway, the journal is kept, and only the **same member's** next sign-in uploads it. Pack and grant are deleted.
 
-- **Sign-in tokens last one day.** If the token expires while offline, the scanner keeps working on its pack until the pack expires, and asks for a sign-in only when it's back online, to upload. The queue stays on the device until then.
-- **Signing out** with scans still queued asks first: "37 scans haven't uploaded yet. Stay signed in until they do?" Signing out anyway keeps the queue, which the next sign-in by the **same member** uploads. A different member can't upload another's queue.
+## 15. Server changes
 
-## 10. Server changes
-
-| Endpoint (all `def:protect`, tenant scope) | Does |
+| Endpoint (`def:protect`, tenant scope) | Does |
 |---|---|
-| `door_pack(tenant, device_id)` | The pack (§6.1) for the caller's scan venues. Audited as `door_pack.downloaded` the first time per device per day. |
-| `door_pack_changes(tenant, device_id, cursor)` | What changed since `cursor`, and a new cursor. |
-| `upload_door_scans(tenant, device_id, scans)` | Records offline scans and let-ins (§8.2); answers each one. |
-| `door_exceptions(tenant, venue_id, open_only)` | The Door exceptions list. |
-| `mark_door_exception_seen(tenant, exception_id, note)` | Audited. |
+| `door_grant(tenant, device_id, device_name)` | Issues or renews the grant (§6). Refused without a shift and `tickets.scan`, or with offline scanning off |
+| `door_pack(tenant, device_id, grant_id)` | The snapshot (§7.1) |
+| `door_pack_changes(tenant, device_id, cursor)` | Changes (§7.3), or `resync` |
+| `redeem_ticket(…, scan_id, device_id)` | Today's endpoint, with the two new arguments (§9.1) |
+| `upload_door_scans(tenant, device_id, protocol, entries)` | §11 |
+| `door_exceptions(tenant, venue_id, open_only)` / `handle_door_exception(tenant, id, note, action)` | §11.4 |
+| `revoke_door_device(tenant, device_id)` | §6.3 |
 
-**New on the server:**
-- **The change cursor:** a per-cinema sequence number, stamped on each ticket and showtime when it changes. The ticket's `status`, `used_at` and `used_by`, and the showtime's state and times, are what the pack needs.
-- **A `DoorScan` record per uploaded entry,** kept 90 days. Ids are claimed (`door-scan` namespace), so an id is processed once whichever server copy gets it.
-- **A `DoorException` record,** kept with the showtime's records.
-- **`Ticket.used_offline`** and `used_device`.
-- **The isolation registry, audit actions and labels** for each new endpoint (`tests/isolation/registry.jac`, `report_view.jac`).
-- **A scheduled job** that turns "let in anyway" entries with no matching payment after 48 hours into **Unmatched entry** exceptions. It checks in as a job (16.2).
+**New records:**
+- `DoorGrant`, `DoorDevice`, `DoorScan` (the journal) and `DoorException`;
+- `version` and `changed_at` on `Ticket` and `Screening`;
+- `used_offline` and `used_scan_id` on `Ticket`;
+- the per-cinema setting **Offline scanning**: off by default, on for the pilot cinemas.
 
-## 11. Security and privacy
+**Also:**
+- each endpoint in the isolation registry, with audit actions and labels;
+- a scheduled job for the 48-hour unmatched let-ins, which checks in (16.2).
 
-- **On the device:** hashed references, seats, ticket types and showtimes only (D3). No names, emails, phone numbers, M-Pesa codes of bookings, or prices. Scanned references wait in the queue only until they upload.
-- **A stolen device:** gives seats and hashes for at most the rest of the day. It can't make tickets: references can't be recovered from hashes. Signing the member out from the Staff page ends its uploads.
-- **Malicious staff:** a member could mark tickets "used" offline that were never scanned. Uploads are attributed to them and audited, and the server rejects scan times outside the door window or in the future.
-- **Replayed or altered uploads:** an upload needs the member's sign-in and their scan permission at that venue. An id is processed once, and a scan for a ticket of another cinema answers "unknown", as online.
-- **Data protection:** no new personal data. The privacy policy's "what we keep on your device" (cookie notice, 15.0) gets the scanner's storage: "for staff only: today's tickets, without customer details". `tests/unit` gets the storage key in its every-key-is-listed check.
-- **Permissions:** the same as scanning today (`tickets.scan` at the venue). Anyone who can scan may let someone in anyway (O2).
+## 16. Data inventory
 
-## 12. Requirements on devices
+| Data | Where | Purpose | Kept | Who reads it | Deleted |
+|---|---|---|---|---|---|
+| Hashed references, seats, ticket types, showtimes | Device (`pack`) | Offline checks | Until replaced or expired, ≤ grant | The device | Replaced, expired, revoked, sign-out |
+| References waiting to upload | Device (`journal`) | Uploading admissions | Until acknowledged | The device | On a final answer (R2) |
+| Device name, device id | Device and server | Showing where a ticket was used; revoking | Server: while the cinema is active | Cinema staff with `tickets.scan`; managers | Device: storage cleared. Server: with the cinema |
+| Grant | Device and server | Authorizing offline admissions | Server: 90 days | Managers (who scanned offline) | 90 days |
+| Journal: events, member, device, times, M-Pesa codes of let-ins | Server | Reconciling; exceptions; audit | 1 year (as audit records) | Owners, general and box office managers | After 1 year |
+| Door exceptions | Server | Managers' follow-up | 1 year | As above | After 1 year |
 
-- **Android 9 or later** with a current Chrome, or an **iPhone with iOS 16.4 or later**, installed to the home screen (D1).
-- **A camera** for QR codes. Typing a reference works without one.
-- **50 MB of free storage;** a few MB are used.
-- **The scanner installed to the home screen,** and opened online once before doors open each day.
-- Cinemas are told this in the pilot's training (17.8).
+**What changes elsewhere:**
+- **This is new personal data:** staff activity and devices, and the M-Pesa codes of people let in anyway. The privacy policy's staff section and the cookie notice's device storage (`africinemas-door`, for staff only) are updated in the same PR as the endpoints. The test that every browser storage key is listed covers the new database.
+- **Staff names on the device:** the pack names devices, never staff. Today's `staff_name()` can return an email; it's not used in the pack.
+- **Salted hashes** protect against bulk disclosure of references. They don't stop an unlocked stolen device from scanning within its grant; revoking it does (§6.3).
 
-## 13. Building it
+## 17. Versions and compatibility
+
+| Thing | Version | Unknown version |
+|---|---|---|
+| Pack | `door-pack/1` | The device refuses the pack and says "Update the scanner" (the service worker's update path) |
+| Upload protocol | `door-upload/1` | The server answers `retry` with `update_required`. Nothing is lost |
+| IndexedDB schema | `1` | §13 migrations |
+| Decision policy | `door-policy/1` | Carried in the grant |
+
+- **Old clients:** the server accepts the current and the previous protocol versions.
+- **All timestamps:** ISO 8601 with offset, milliseconds.
+- **Limits:** references are 16 characters; device names up to 40 characters; a batch up to 100 entries.
+
+## 18. Devices
+
+- **Android 10 or later** with current Chrome (current Chrome needs Android 10+), installed to the home screen. Recommended.
+- **iPhone, iOS 16.4 or later,** installed to the home screen (O4).
+- **Camera** for QR codes; typing a reference works without one.
+- **20 MB free** (§8.4).
+- **Before doors open each day,** open the scanner online once and see **Ready for offline**.
+
+## 19. Building it
 
 | # | Part | Size |
 |---|---|---|
-| S1 | **Trial, with our own service worker** (D1; Jac's can't open the app offline, JI-063): a custom route serving `/scanner-sw.js` at the site's root, the manifest, and the scanner page reopened in airplane mode after one online visit, on Android Chrome and an iPhone, installed. Also: IndexedDB, the camera when installed, and a deploy replacing the cached app. One to two days. | S |
-| 1 | Server: the pack, changes and cursor (§6, §10) | M |
-| 2 | Device: storage, sync loop, online/offline switching, clock offset | M |
-| 3 | Device: offline decisions (§7.2), queue (§8.1), sounds, banners, Ready for offline | M |
-| 4 | Server: upload, ids processed once, exceptions (§8.2, §8.3) | M |
-| 5 | Back office: Door exceptions, overview line, email | S |
-| 6 | Let in anyway, and matching M-Pesa codes (§7.4, §8.3) | S |
-| 7 | Tests (§14), runbook, training notes | M |
+| S1 | **Trial:** the `/door/` routes, manifest and service worker (D1, §13). On Android Chrome and an iPhone, installed: **force-close → airplane mode → launch from the home screen → scan a test ticket from IndexedDB**, also with an expired sign-in token. Also: storage persistence, the camera when installed, and a deploy replacing the shell while an entry is in the journal. Custom routes serving JavaScript with the right content type are part of the trial. | S (1–2 days) |
+| 1 | Server: grants, pack, change sync with versions (§6, §7) | M |
+| 2 | Server: `scan_id` on online redemption, the journal, recoverable steps, uploads (§9.1, §11.2) | M |
+| 3 | Device: stores, atomic decisions, sync loop, connection rules, clock (§7, §8, §9) | L |
+| 4 | Device: screens, readiness, banners, signing out (§14) | M |
+| 5 | Reconciliation outcomes, Door exceptions, let in anyway and matching (§10, §11.3, §11.4) | M |
+| 6 | Data inventory changes: privacy policy, cookie notice, retention jobs (§16) | S |
+| 7 | Tests (§20), runbook, training notes | M |
 
-**Order:** S1, then 1 to 4 (the core), then 5 and 6. Each part is a separate PR, behind a per-cinema setting **Offline scanning** (on for the pilot cinemas), so a problem can be switched off without a deploy.
+Each part is a PR behind the per-cinema **Offline scanning** setting, so it can be switched off without a deploy. A switch-off can't reach devices already offline; their grants expire on their own (§6.1).
 
-## 14. Testing
+## 20. Testing
 
-- **Unit:** the hashing (the device's and the server's agree, so the same reference gives the same hash); the decision table §7.2, case by case; the clock offset; reading `TKT1` and typed references.
-- **Integration:**
-  - the pack holds the right showtimes and tickets for the member's venues, and no personal details;
-  - changes after a refund, a scan elsewhere, and a cancelled showtime;
-  - an upload recorded once when sent twice, and concurrently from two server copies;
-  - each exception in §8.3;
-  - permissions and tenant isolation (the registry).
-- **End to end** (Playwright, `context.set_offline(True)`):
-  - online, scan; go offline, scan three (one let in, one already used, one not on the list, let in anyway);
-  - come back online: the uploads are recorded, and the exceptions show;
-  - two browser contexts offline let the same ticket in: one double entry;
-  - the app reloads with no connection (S1);
-  - at phone size and desktop size.
-- **On real phones,** before the pilot: an Android phone and an iPhone, in airplane mode, at a rehearsal with 200 printed tickets. Measure time per scan, battery use over 3 hours, and upload after reconnecting. Recorded in the runbook.
-- **Load:** a pack of 2,000 tickets builds within 1 second on the server and loads on a low-end Android phone within 2 seconds. An upload of 500 scans finishes within 10 seconds.
+**Unit:**
+- hashing against the test vector, in the server and the device code;
+- normalizing references (R6);
+- each row of §9.4;
+- the clock offset and its uncertainty;
+- connection-failure classification (R5).
 
-## 15. Done when
+**Integration (server):**
+- the pack's contents and its lack of personal data;
+- changes after a sale, refund, scan elsewhere, cancellation, and a `doors_open_minutes` change;
+- removals, pagination, `resync`, and a cursor for another pack (R7);
+- R10 and R11, including a crash injected after each step (the existing fault points, `AFRICINEMAS_FAULTS`);
+- every outcome in §11.3;
+- grants: shift ended, role removed, member disabled, device revoked, offline scanning off;
+- the isolation registry and audit actions.
 
-1. With the server stopped, an installed scanner that was online up to the stop lets in valid tickets and refuses used, wrong-showtime and fake ones, with the same words as online.
-2. A ticket bought one minute before the outage is on the device.
-3. After reconnecting, every offline scan appears once in the showtime's attendance and the audit log, attributed to the right member and time.
-4. A ticket let in on two offline devices appears as one double entry; a let-in whose M-Pesa code matches a payment is matched; one that doesn't becomes an exception after 48 hours.
-5. The device holds no customer details and no references beyond those waiting to upload (checked by reading its IndexedDB in the e2e test).
-6. The runbook "Scanning when we're offline" is followed by someone who didn't write it, on a real phone.
-7. `docs/failure-modes.md` rows 1.7, 1.9 and 1.10 are ✅.
+**End to end** (Playwright, `context.set_offline(True)`; a service worker in a real Chromium):
+- scan online; lose the response; reconcile: **one redemption, no double entry**;
+- offline: admit, already used, not on the list, let in anyway (two people on one code);
+- two tabs scanning the same ticket at once: one admission;
+- a stale change arriving after a local admission: the ticket stays used;
+- a pack replaced while admissions are pending;
+- cold launch with no connection and an expired token (R12);
+- 401, 403 and `no_shift` don't switch to offline (R5);
+- an upload whose answer is lost; a batch with final and retryable answers (R2);
+- a deploy while the journal has entries;
+- full storage, or storage cleared;
+- a late payment with a refund task, matched to a let-in;
+- two offline contexts admitting the same ticket: one double entry;
+- reading IndexedDB to confirm no references beyond the journal's, and no customer details.
 
-## 16. Decisions (owner, 2026-10-31: all as suggested)
+**Rehearsal on real phones** (an Android phone and an iPhone, 200 printed tickets, 3 hours). Pass if:
 
-| # | Question | Decided |
+| Measure | Target |
+|---|---|
+| Offline scan to answer, 95th percentile | ≤ 300 ms |
+| Age of applied sync while active and online, 95th percentile | ≤ 60 s |
+| Cold launch offline from the home screen | 10 out of 10 |
+| Uploading 500 queued scans after reconnecting | ≤ 30 s |
+| Battery over 3 hours of scanning | ≤ 20% |
+| Admissions lost | 0 |
+
+**Load:** a pack of 2,000 tickets is built on the server within 1 s and opened on a low-end Android phone within 2 s.
+
+## 21. Done when
+
+1. **Every rule R1–R12 has a passing test** (§20).
+2. **With the server stopped,** an installed scanner, cold-launched offline, admits valid tickets in its pack, and refuses used, wrong-showtime and invalid ones with the online wording.
+3. **After reconnecting,** each admission is redeemed once, a lost online answer causes no double entry, and each §11.3 case shows correctly in Door exceptions and reports.
+4. **The rehearsal targets are met,** and the runbook "Scanning when we're offline" is followed by someone who didn't write it.
+5. **`docs/failure-modes.md` rows 1.7, 1.9 and 1.10 are ✅.**
+
+## 22. Decisions
+
+| # | Question | Decided (owner, 2026-10-31) |
 |---|---|---|
-| O1 | Two devices offline on one showtime can let a copied ticket in twice, found afterwards (D4). | Accepted for the pilot, with the "one device per showtime" warning |
-| O2 | Who may "let in anyway" someone not on the list? | Any staff member who can scan; every one is a Door exception |
-| O3 | Snack pickup codes offline in this phase? | No: after the pilot |
-| O4 | iPhones in the pilot, or Android only? | Both, installed to the home screen; Android recommended |
-| O5 | How far ahead does a device keep showtimes? | Doors opening within 6 hours |
+| O1 | Two offline devices on one showtime can admit a copied ticket twice, found afterwards | Accepted for the pilot, with the "last seen" warning |
+| O2 | Who may let someone in anyway? | Anyone who can scan; every one reconciled and shown |
+| O3 | Snack pickup codes offline now? | After the pilot |
+| O4 | iPhones in the pilot? | Both, installed; Android recommended |
+| O5 | How far ahead a device keeps showtimes | Doors opening within 6 hours |
+
+Defaults in this version, which the owner can change before part 1:
+- the grant lasts to the shift's end and at most 14 hours (§6.1);
+- 15 minutes of scanning after a sign-in expires while reachable (§6.4);
+- let-ins are matched within 48 hours of upload (§11.3);
+- journal and exceptions are kept 1 year (§16).
