@@ -1066,6 +1066,27 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "",
              "probe": {"tenant": "{tenant}"}
          },
+         # The door list (P17.2).
+         "door_lists": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "day": "2026-01-01"}
+         },
+         "door_list": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
+         "door_list_pdf": {
+             "scope": "tenant",
+             "audit": "door_list.downloaded",
+             "probe": {"tenant": "{tenant}", "screening_id": "x"}
+         },
+         "day_door_lists_pdf": {
+             "scope": "tenant",
+             "audit": "door_list.downloaded",
+             "probe": {"tenant": "{tenant}", "day": "2026-01-01"}
+         },
          "counter_showtimes": {
              "scope": "tenant",
              "audit": "",
