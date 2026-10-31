@@ -30,7 +30,7 @@ Whatever the cause (section 2), these are the effects. Most of the fixes here wo
 | 1.7 | **The scanner can't check tickets:** every scan asks the server, so staff can't tell a real ticket from a copy. | ❌ | The **door list** (17.2): every paid ticket of the showtime, printable, ticked on paper, with tickets ticked marked as used in one go afterwards. | 17.2 | Pilot |
 | 1.8 | **The door list wasn't downloaded before the outage.** | ❌ | Email each cinema the next day's door lists every afternoon, so nobody has to remember. | 17.2 (to add) | Pilot |
 | 1.9 | **The cinema's own internet is down** (not us). | ❌ | The door list (1.7) works for this too. | 17.2 | Pilot |
-| 1.10 | **A scanner that works offline:** the door list is slow for a full premiere. | ❌ | The scanner downloads the showtime's tickets before doors open, checks codes on the device and sends the scans when it's back online. Needs tickets signed with a public-key signature the scanner can check (today's are signed with our secret key). | Later | Scale |
+| 1.10 | **A scanner that works offline:** the door list is slow for a full premiere. | ❌ | The scanner keeps a copy of the venue's tickets on the device, up to date every 30 seconds, checks codes against it when offline, and uploads the scans when it's back; spec in `docs/specs/offline-scanner.md` (no change to ticket signing: offline checks use the copy's hashed references). | 17.2b | Pilot (owner, 2026-10-31) |
 
 ### The cinema's staff
 
