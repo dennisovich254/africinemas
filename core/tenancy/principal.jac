@@ -15,6 +15,7 @@ Rules (ADR-0003):
 """
 
 import os;
+import logging;
 import secrets;
 import from uuid { UUID, uuid4 }
 import from jaclang { JacRuntime as Jac }
@@ -28,6 +29,15 @@ glob PRINCIPAL_PREFIX: str = "svc-tenant-";
 # committed was started again with a fresh key. Jac reads this on every request.
 with entry {
     os.environ.setdefault("JAC_DB_RO_UNITS", "0");
+}
+
+# Jac 0.38.3 logs every scheduled job's successful run at INFO: about 8 lines every 5
+# seconds. The job check-ins (core/platform/jobs.jac) already record each run, so only
+# failures and warnings are logged; AFRICINEMAS_SCHEDULER_LOG=info brings them back.
+with entry {
+    if os.environ.get("AFRICINEMAS_SCHEDULER_LOG", "").strip().lower() != "info" {
+        logging.getLogger("jaclang.server.task_scheduler").setLevel(logging.WARNING);
+    }
 }
 
 obj Principal {
