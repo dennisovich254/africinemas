@@ -1,6 +1,6 @@
 # Specification: the offline scanner (plan 17.2b)
 
-Status: **draft for the owner's review**, 2026-10-31. Needed **before the pilot** (owner, 2026-10-31). Closes failure modes 1.7, 1.9 and 1.10 (`docs/failure-modes.md`).
+Status: **agreed** (owner, 2026-10-31: decisions O1–O5 as suggested). Needed **before the pilot** (owner, 2026-10-31). Closes failure modes 1.7, 1.9 and 1.10 (`docs/failure-modes.md`).
 
 ## 1. Why
 
@@ -57,10 +57,18 @@ The server stays the authority. When the device is online, the server decides, e
 
 ## 5. Decisions
 
-**D1. An installable web app (PWA), not a native app.** Jac builds a web app into a PWA with a `[client.pwa]` table in `jac.toml`, which adds a manifest and a service worker. The scanner page is installed to the phone's home screen. The service worker keeps the scanner's code on the device, so it opens with no connection, and the tickets are kept in the browser's IndexedDB.
+**D1. An installable web app (PWA) with our own service worker, not a native app.** The scanner page is installed to the phone's home screen, a service worker keeps the scanner's code on the device so it opens with no connection, and the tickets are kept in the browser's IndexedDB.
 - Cinemas need nothing from an app store, and the scanner stays the same code as today's `ScannerSection.jac`.
-- *Risk:* what Jac's service worker caches isn't documented. Trial **S1** (§13) settles it first. If it can't keep the scanner working without a connection, the fallback is a small hand-written service worker for the scanner's own pages only.
-- *iOS:* Safari may delete a website's storage after seven days without a visit unless the app is installed to the home screen. Installed, it keeps it. Android with Chrome is the target for the pilot; iPhones are supported when installed.
+- **Jac's own PWA support isn't enough** (checked in Jac 0.38.3's source, 2026-10-31; JI-063). A `[client.pwa]` table gives the manifest, icons and install banner, so the app installs, but its service worker can't open the app offline:
+  1. it's registered at `/static/sw.js`, so it controls only pages under `/static/`, never `/app/...`;
+  2. it precaches `/static/client.<hash>.js`, while the page loads `/static/client.js?hash=…`, and it skips `dist/assets/` (the QR scanner's worker);
+  3. it keeps nothing fetched later (only `/api/`, which Jac's endpoints don't use);
+  4. it can keep serving an old app after a deploy.
+- **So:** we keep Jac's manifest and icons (or write our own manifest), and serve **our own service worker** from a custom route at the site's root (`/scanner-sw.js`, scope `/app/`). It:
+  - keeps the scanner page's HTML, network first;
+  - keeps the client bundle, styles, fonts and the QR worker, cache first, keyed by the bundle's hash, which is also in the cache's name, so a deploy replaces them;
+  - never caches `/function/` or `/walker/` answers: the tickets live in IndexedDB.
+- *iOS:* Safari may delete a website's storage after seven days without a visit unless the app is installed to the home screen. Installed, it keeps it. Both Android and iPhones are supported in the pilot (O4), installed; Android is recommended.
 
 **D2. Offline checks use the copy's list of tickets; no change to ticket signing.** A ticket's reference is 16 random characters, 80 random bits (ADR-0020), so nobody can guess one. A code is valid offline if its reference is in the device's copy for this venue's showtimes.
 - QR codes are signed with the server's secret key (HMAC-SHA256, `TKT1`), which must never be on a device, so the device doesn't check the signature. It doesn't need to: a forged QR with a made-up reference isn't in the copy, and a copied real QR is caught as already used (on the same device) or afterwards (on another, D4).
@@ -71,7 +79,7 @@ The server stays the authority. When the device is online, the server decides, e
 
 **D4. Each device keeps its own list of what it let in; two devices offline at once can let the same ticket in twice.** Devices don't talk to each other (not in scope), so when two doors of one screen are both offline, a copied ticket could get in at each. Afterwards the server finds it (§8.3), records a **double entry**, and shows it to the cinema's managers.
 - To keep it rare, the scanner tells staff "Use one device per showtime while offline" when a second device is checking the same showtime.
-- *Owner decision O1:* is that acceptable for the pilot?
+- Accepted for the pilot (O1).
 
 **D5. Offline scans count as the staff member's.** A scan offline is recorded as the signed-in member's, with the device's id, when it was scanned (the device's clock, corrected by its measured offset from the server's, §6.4), and "offline". The audit log records it as `ticket.scanned` with detail `offline` when it uploads.
 
@@ -170,11 +178,11 @@ For someone not on the list (check 3) who shows a ticket email or M-Pesa message
 - it's queued as an **exception**, not as a ticket scan;
 - the device refuses an M-Pesa code it has already recorded: "This M-Pesa code was already used at 19:20".
 
-*Owner decision O2:* who may let someone in anyway? Any usher, or only a box office manager or general manager on shift?
+Anyone who can scan may let someone in anyway (O2); every one is listed as a Door exception.
 
 ### 7.5 Snack pickup codes
 
-The snack counter (`concessions.collect`) can use the same mechanism for `SNK1` codes. It's the same pack design with the snack lines, and the same queue. *Owner decision O3:* in this phase, or after the pilot? I suggest after: a missed snack hand-over is fixed afterwards with no money lost.
+The snack counter (`concessions.collect`) can use the same mechanism for `SNK1` codes. It's the same pack design with the snack lines, and the same queue. **After the pilot** (O3): a missed snack hand-over is fixed afterwards, with no money lost.
 
 ## 8. Uploading offline scans
 
@@ -274,7 +282,7 @@ The first time a device opens the scanner, it makes a random `device_id`, keeps 
 - **Malicious staff:** a member could mark tickets "used" offline that were never scanned. Uploads are attributed to them and audited, and the server rejects scan times outside the door window or in the future.
 - **Replayed or altered uploads:** an upload needs the member's sign-in and their scan permission at that venue. An id is processed once, and a scan for a ticket of another cinema answers "unknown", as online.
 - **Data protection:** no new personal data. The privacy policy's "what we keep on your device" (cookie notice, 15.0) gets the scanner's storage: "for staff only: today's tickets, without customer details". `tests/unit` gets the storage key in its every-key-is-listed check.
-- **Permissions:** the same as scanning today (`tickets.scan` at the venue). Let in anyway follows O2.
+- **Permissions:** the same as scanning today (`tickets.scan` at the venue). Anyone who can scan may let someone in anyway (O2).
 
 ## 12. Requirements on devices
 
@@ -288,7 +296,7 @@ The first time a device opens the scanner, it makes a random `device_id`, keeps 
 
 | # | Part | Size |
 |---|---|---|
-| S1 | **Trial:** turn on `[client.pwa]`. Check that the built app installs, that the scanner opens with no connection after one online visit, that IndexedDB works, that the camera works installed, and that the service worker never serves a stale app after a deploy (`docs/jac-issues`, the stale-cache memory). One day. If it fails, hand-write a service worker for `/app/<slug>/scanner` only. | S |
+| S1 | **Trial, with our own service worker** (D1; Jac's can't open the app offline, JI-063): a custom route serving `/scanner-sw.js` at the site's root, the manifest, and the scanner page reopened in airplane mode after one online visit, on Android Chrome and an iPhone, installed. Also: IndexedDB, the camera when installed, and a deploy replacing the cached app. One to two days. | S |
 | 1 | Server: the pack, changes and cursor (§6, §10) | M |
 | 2 | Device: storage, sync loop, online/offline switching, clock offset | M |
 | 3 | Device: offline decisions (§7.2), queue (§8.1), sounds, banners, Ready for offline | M |
@@ -327,12 +335,12 @@ The first time a device opens the scanner, it makes a random `device_id`, keeps 
 6. The runbook "Scanning when we're offline" is followed by someone who didn't write it, on a real phone.
 7. `docs/failure-modes.md` rows 1.7, 1.9 and 1.10 are ✅.
 
-## 16. Decisions for the owner
+## 16. Decisions (owner, 2026-10-31: all as suggested)
 
-| # | Question | Suggested |
+| # | Question | Decided |
 |---|---|---|
-| O1 | Two devices offline on one showtime can let a copied ticket in twice, found afterwards (D4). Acceptable for the pilot? | Yes, with the "one device per showtime" warning |
-| O2 | Who may "let in anyway" someone not on the list? | Any staff member who can scan; all are listed as exceptions |
-| O3 | Snack pickup codes offline in this phase? | After the pilot |
-| O4 | iPhones supported in the pilot, or Android only? | Both, installed to the home screen; Android recommended |
+| O1 | Two devices offline on one showtime can let a copied ticket in twice, found afterwards (D4). | Accepted for the pilot, with the "one device per showtime" warning |
+| O2 | Who may "let in anyway" someone not on the list? | Any staff member who can scan; every one is a Door exception |
+| O3 | Snack pickup codes offline in this phase? | No: after the pilot |
+| O4 | iPhones in the pilot, or Android only? | Both, installed to the home screen; Android recommended |
 | O5 | How far ahead does a device keep showtimes? | Doors opening within 6 hours |
