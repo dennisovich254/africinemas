@@ -121,6 +121,13 @@ import from core.booking.redeem_api {
     redeem_ticket,  # jac:ignore[W2037]
     door_showtimes  # jac:ignore[W2037]
 }
+# The door list, for when the scanner can't reach us (P17.2).
+import from core.booking.door_list {
+    door_lists,  # jac:ignore[W2037]
+    door_list,  # jac:ignore[W2037]
+    door_list_pdf,  # jac:ignore[W2037]
+    day_door_lists_pdf  # jac:ignore[W2037]
+}
 # Selling at the box office: cash or M-Pesa at the counter (P6.5).
 import from core.booking.counter_api {
     counter_showtimes,  # jac:ignore[W2037]
