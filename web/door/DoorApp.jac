@@ -198,7 +198,8 @@ def:pub DoorApp -> JsxElement {
     [controlled, set_controlled] = useState(
         bool(win.navigator.serviceWorker and win.navigator.serviceWorker.controller)
     );
-    [kept, set_kept] = useState({"state": "", "detail": ""});
+    [kept, set_kept] = useState("");
+    [kept_detail, set_kept_detail] = useState("");
     [persisted, set_persisted] = useState("");
     [db_ok, set_db_ok] = useState("");
     [vector_ok, set_vector_ok] = useState("");
@@ -211,21 +212,16 @@ def:pub DoorApp -> JsxElement {
         try {
             got: any = await _keep_shell();  # jac:ignore[W1037]
             if got["ok"] {
-                set_kept(
-                    {
-                        "state": "yes",
-                        "detail": f"Version {got['version'][:8]}, {got['count']} files"
-                    }
-                );
+                set_kept("yes");
+                set_kept_detail(f"Version {got['version'][:8]}, {got['count']} files");
             } else {
-                set_kept({"state": "no", "detail": got["error"] or "Not kept"});
+                set_kept("no");
+                set_kept_detail(got["error"] or "Not kept");
             }
         } except Exception as e {
-            set_kept(
-                {
-                    "state": "no",
-                    "detail": "The app's files couldn't be kept (offline on first visit?)"
-                }
+            set_kept("no");
+            set_kept_detail(
+                "The app's files couldn't be kept (offline on first visit?)"
             );
             console.warn("door shell failed", e);
         }
@@ -341,14 +337,12 @@ def:pub DoorApp -> JsxElement {
                     <ul className="text-sm">
                         <Check
                             label="The app's files are kept on this device"
-                            state={kept["state"]}
-                            detail={kept["detail"]}
+                            state={kept}
+                            detail={kept_detail}
                         />
                         <Check
                             label="This page opened from the scanner's worker"
-                            state={"yes"
-                                if controlled
-                                else ("no" if kept["state"] else "")}
+                            state={"yes" if controlled else ("no" if kept else "")}
                             detail={""
                                 if controlled
                                 else "Close and reopen the scanner once."}
@@ -379,15 +373,18 @@ def:pub DoorApp -> JsxElement {
                             Keep a test ticket on this device
                         </Button>}
                     {has_test
-                        and <p className="text-sm text-muted-foreground">
+                        and <p
+                            className="text-sm text-muted-foreground"
+                            data-testid="door-test-kept"
+                        >
                             Test ticket kept: 7K2M-9QXR-4HJN-P3WD (seat F7).
                         </p>}
                     <form
                         className="flex gap-2"
-                        onSubmit={lambda (e: any) {
+                        onSubmit={lambda (e: any) {  # jac:ignore[W1037]
                             e.preventDefault();
                             check(code);
-                        }}  # jac:ignore[W1037]
+                        }}
                     >
                         <label htmlFor="door-code" className="sr-only">
                             Ticket reference

@@ -69,7 +69,8 @@ test "after one visit online, the scanner opens and checks a code offline" {
         assert lines.nth(3).get_attribute("data-state") == "yes";
         assert lines.nth(4).get_attribute("data-state") == "yes";
         page.click('[data-testid="door-prepare"]');
-        page.wait_for_selector('[data-testid="door-check-code"]');
+        # Offline only once the ticket is saved on the device.
+        page.wait_for_selector('[data-testid="door-test-kept"]');
 
         context.set_offline(True);
         page.reload();
