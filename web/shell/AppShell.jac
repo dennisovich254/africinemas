@@ -33,7 +33,6 @@ import from "@hugeicons/core-free-icons" {
     HelpCircleIcon,
     CustomerSupportIcon,
     UserCircleIcon,
-    CheckListIcon,
     ShieldUserIcon,
     LegalDocument01Icon,
     Invoice01Icon,
