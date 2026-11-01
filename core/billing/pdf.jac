@@ -22,7 +22,9 @@ obj PdfLine {
         cols: list[tuple[str, float]] = [],
         nums: list[tuple[str, float]] = [],
         # Extra space above the line, in points.
-        gap: int = 0;
+        gap: int = 0,
+        # Start a new page with this line (P17.2: one showtime's door list per page).
+        new_page: bool = False;
 }
 
 def _clean(text: str) -> str {
@@ -47,7 +49,7 @@ def _pages(lines: list[PdfLine]) -> list[str] {
     y = float(HEIGHT - MARGIN);
     for line in lines {
         step = line.size * 1.5 + line.gap;
-        if y - step < BOTTOM and now {
+        if (line.new_page or y - step < BOTTOM) and now {
             pages.append(now);
             now = "";
             y = float(HEIGHT - MARGIN);

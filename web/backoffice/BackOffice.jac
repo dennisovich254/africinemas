@@ -48,6 +48,7 @@ import from .MoviesSection { MoviesSection }
 import from .VenuesSection { VenuesSection }
 import from .ScreeningsSection { ScreeningsSection }
 import from .ScannerSection { ScannerSection }
+import from .DoorListsSection { DoorListsSection }
 import from .SetupGuide { SetupGuide }
 import from .BoxOfficeSection { BoxOfficeSection }
 import from .PricesSection { PricesSection }
@@ -440,6 +441,8 @@ def:pub BackOffice -> JsxElement {
             shift_open={shift_open}
             permissions={permissions}
         />;
+    } elif section == "door-lists" {
+        content = <DoorListsSection slug={slug} shift_open={shift_open}/>;
     } elif section == "snack-counter" {
         content = <SnackCounterSection slug={slug} shift_open={shift_open}/>;
     } elif section == "snacks" and item == "import" {

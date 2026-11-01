@@ -185,6 +185,7 @@ test "an owner signs up, creates a cinema and lands on its back-office" {
                     "Box office",
                     "Snacks & glasses",
                     "Scanner",
+                    "Door lists",
                     "Snack counter",
                     "Staff",
                     "Audit log",
@@ -357,7 +358,7 @@ test "signed-out visitors are sent to sign in" {
     }
 }
 
-test "an usher sees only the overview, the scanner and their profile" {
+test "an usher sees only the overview, the scanner, door lists and their profile" {
     owner = owner_with_cinema();
     usher = add_staff(owner, "usher", add_venue(owner));
     (pw, browser) = shared_browser();
@@ -368,7 +369,7 @@ test "an usher sees only the overview, the scanner and their profile" {
             page.click(f'[data-testid="cinema-list"] a[href="/app/{owner["slug"]}"]');
             page.wait_for_selector(TITLE);
             assert _nav_labels(page, project)
-                == ["Overview", "Scanner", "Your profile"] , project;
+                == ["Overview", "Scanner", "Door lists", "Your profile"] , project;
             page.goto(f"{BASE_URL}/app/{owner['slug']}/staff");
             page.wait_for_selector('[data-testid="no-access"]');
             page.context.close();

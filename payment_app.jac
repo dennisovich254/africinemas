@@ -59,6 +59,12 @@ import from core.booking.redeem_api {
     redeem_ticket,  # jac:ignore[W2037]
     door_showtimes  # jac:ignore[W2037]
 }
+import from core.booking.door_list {
+    door_lists,  # jac:ignore[W2037]
+    door_list,  # jac:ignore[W2037]
+    door_list_pdf,  # jac:ignore[W2037]
+    day_door_lists_pdf  # jac:ignore[W2037]
+}
 import from core.booking.ticket_delivery {
     tickets_by_link,  # jac:ignore[W2037]
     resend_tickets,  # jac:ignore[W2037]

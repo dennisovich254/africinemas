@@ -9,7 +9,8 @@ scanner and not the screenings setup.
 
 glob SUFFIX: str = ".africinemas.co.ke",
      SLUG_CHARS: str = "abcdefghijklmnopqrstuvwxyz0123456789",
-     # (key, label, permission). The empty key is the overview, which everyone sees.
+     # (key, label, permission). The empty key is the overview, which everyone sees;
+     # "a|b" is either permission.
      SECTIONS: list[tuple[str, str, str]] = [
          ("", "Overview", ""),
          # The dashboard (P7.3): owners, managers, finance and auditors.
@@ -27,6 +28,9 @@ glob SUFFIX: str = ".africinemas.co.ke",
          # The snack catalog (P12): managers build it; the box office reads it here.
          ("snacks", "Snacks & glasses", "concessions.read"),
          ("scanner", "Scanner", "tickets.scan"),
+         # Every paid ticket, for when the scanner can't reach us (P17.2): who scans or
+         # sells.
+         ("door-lists", "Door lists", "tickets.scan|bookings.create"),
          # Handing over snacks bought with tickets, by their pickup code (P12.9).
          ("snack-counter", "Snack counter", "concessions.collect"),
          ("staff", "Staff", "employees.read"),
@@ -73,7 +77,7 @@ def:pub nav_for(slug: str, permissions: list[str]) -> list[dict[str, str]] {
     return [
         {"label": label, "to": section_path(slug, key), "key": key}
         for (key, label, needs) in SECTIONS
-        if not needs or needs in permissions
+        if not needs or any([n in permissions for n in needs.split("|")])
     ];
 }
 
