@@ -46,6 +46,7 @@ import from .auth.token_slots { install_token_slots }
 import from .theme.ThemeProvider { ThemeProvider }
 import from .preview { install_preview, previewing }
 import from .site { known_site, load_site, current_site, storefront_address }
+import from .door.DoorApp { DoorApp }
 
 # The back office and each cinema's storefront keep their own sign-in (improvements #25),
 # set up when this module loads, before any page asks the server anything.
@@ -245,6 +246,17 @@ def MainSite(own_addresses: bool) -> JsxElement {
 }
 
 def:pub AppRoot -> JsxElement {
+    # The installed scanner (/door/..., plan 17.2b) stands alone: no site lookup, so it
+    # opens with no connection. Everything else is one of the three sites.
+    win: any = window;  # jac:ignore[W1037,W2001]
+    path: str = win.location.pathname;
+    if path == "/door" or path.startswith("/door/") {
+        return <DoorApp/>;
+    }
+    return <SiteRoot/>;
+}
+
+def SiteRoot -> JsxElement {
     [ready, set_ready] = useState(known_site());
     async def ask {
         if not ready {
