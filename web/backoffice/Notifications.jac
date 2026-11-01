@@ -9,7 +9,7 @@ goes to its section and marks it read; Mark all as read clears them.
 import from react { useState, useEffect }
 import from "@jac/runtime" { useNavigate }
 import from "@hugeicons/react" { HugeiconsIcon }
-import from "@hugeicons/core-free-icons" { Notification03Icon }
+import from "@hugeicons/core-free-icons" { Notification01Icon }
 import from ...components.ui.button { Button }
 import from ...components.ui.popover { Popover, PopoverTrigger, PopoverContent }
 import from core.notify.notices {
@@ -98,14 +98,14 @@ def:pub NotificationsBell(
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="relative size-11 rounded-full"
+                    className="relative size-11 rounded-full bg-card ring-1 ring-foreground/10 hover:bg-muted"
                     data-testid="notifications-bell"
                     aria-label={f"Notifications, {unread} unread"
                         if unread
                         else "Notifications"}
                 >
                     <HugeiconsIcon
-                        icon={Notification03Icon}
+                        icon={Notification01Icon}
                         strokeWidth={2}
                         aria-hidden="true"
                     />
@@ -113,7 +113,7 @@ def:pub NotificationsBell(
                         and <span
                             aria-hidden="true"
                             data-testid="notifications-count"
-                            className="absolute top-1 right-1 flex min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground tabular-nums"
+                            className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums ring-2 ring-background"
                         >
                             {str(unread) if unread < 100 else "99+"}
                         </span>}
