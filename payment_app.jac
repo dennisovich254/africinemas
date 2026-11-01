@@ -59,6 +59,10 @@ import from core.booking.redeem_api {
     redeem_ticket,  # jac:ignore[W2037]
     door_showtimes  # jac:ignore[W2037]
 }
+import from core.notify.notices {
+    my_notices,  # jac:ignore[W2037]
+    read_notices  # jac:ignore[W2037]
+}
 import from core.booking.door_list {
     door_lists,  # jac:ignore[W2037]
     door_list,  # jac:ignore[W2037]

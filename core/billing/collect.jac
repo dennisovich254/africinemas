@@ -26,6 +26,7 @@ import os;
 import re;
 import json;
 import html;
+import from core.notify.notices { post_notice }
 import from datetime { date, datetime, timedelta }
 import from http { HTTPMethod }
 import from core.clock { now }
@@ -425,6 +426,9 @@ def queue_mail(cinema: Tenant, subject: str, lead: str) {
     body = f'<p>{html.escape(lead)}</p><p><a href="{html.escape(
         office
     )}">Open the Billing page</a></p>';
+    post_notice(
+        cinema, "billing_reminder", "billing", "financial_reports.read", subject, lead
+    );
     for address in owners_of(cinema) {
         claim(
             MAIL_QUEUE,

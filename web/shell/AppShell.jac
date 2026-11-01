@@ -219,7 +219,8 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
     actions: any = None,  # jac:ignore[W1037]
     account: any = None,  # jac:ignore[W1037]
     title_hidden: bool = False,
-    verified: str = ""
+    verified: str = "",
+    toolbar: any = None  # jac:ignore[W1037] top right of every page: the notifications bell
 ) -> JsxElement {
     # title_hidden: the page shows its own heading (the back office's home, P7.4); the
     # title stays the page's h1 for screen readers.
@@ -306,6 +307,7 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
                         </SheetContent>
                     </Sheet>
                     <Brand name={brand} home={home} logo={logo} verified={verified}/>
+                    {toolbar and <div className="ml-auto">{toolbar}</div>}
                 </header>
                 <main
                     id="content"
@@ -313,6 +315,10 @@ def:pub AppShell(  # jac:ignore[W3030] the shell: title, nav, brand, logo, home 
                     className="flex-1 px-4 py-6 lg:px-8 lg:py-8"
                 >
                     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+                        {toolbar
+                            and <div className="-mb-4 hidden justify-end lg:flex">
+                                {toolbar}
+                            </div>}
                         <h1
                             className={"sr-only"
                                 if title_hidden

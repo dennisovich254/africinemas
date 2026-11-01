@@ -34,6 +34,8 @@ import uuid;
 import from datetime { datetime, date, timedelta }
 import from zoneinfo { ZoneInfo }
 import from core.clock { now }
+import from core.billing.billing_text { kes, day_label, month_label }
+import from core.notify.notices { post_notice }
 import from core.claims { claim, holder, take_claim, release, make_permanent }
 import from core.money { BP_PER_WHOLE, div_half_up }
 import from core.tenancy.models { Tenant }
@@ -427,6 +429,18 @@ def issue_due(
         }
         if got is not None {
             made.append(got.number);
+            # Who reads the reports hears of it in the back office (owner, 2026-11-01).
+            post_notice(
+                cinema,
+                "statement",
+                "billing",
+                "financial_reports.read",
+                f"Your {month_label(got.month)} statement and invoice {got.number}",
+                f"{kes(int(got.figures.get('due_cents', 0)))} due by {day_label(
+                    got.due_on
+                )}.",
+                f"statement|{got.number}"
+            );
         }
     }
     return made;

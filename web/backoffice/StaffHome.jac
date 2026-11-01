@@ -532,7 +532,11 @@ def RecentActivity(activity: list[dict[str, str]], slug: str, tz: str) -> JsxEle
 }
 
 def:pub StaffHome(
-    slug: str, shift_open: bool, permissions: list[str], roles: list[str]
+    slug: str,
+    shift_open: bool,
+    permissions: list[str],
+    roles: list[str],
+    bell: any = None  # jac:ignore[W1037] the notifications bell, beside View storefront
 ) -> JsxElement {
     # roles: how the member's roles read ("Owner", "Usher (Westgate)").
     [home, set_home] = useState(None);
@@ -614,6 +618,7 @@ def:pub StaffHome(
                 />
                 <span className="sr-only">(opens in a new tab)</span>
             </StorefrontLink>
+            {bell}
         </div>
     </div>;
 

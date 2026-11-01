@@ -27,6 +27,7 @@ stays listed, resolved.
 import os;
 import from datetime { datetime, timedelta }
 import from core.clock { now }
+import from core.notify.notices { post_notice }
 import from core.claims { claim, release }
 import from core.catalog.answers { Refused }
 import from core.tenancy.models { Tenant }
@@ -178,6 +179,14 @@ def keep(  # jac:ignore[W3030] the exception: whose, what, why, about what, the 
         return e;
     }
     _as_cinema(cinema, made);
+    post_notice(
+        cinema,
+        "reconciliation",
+        "reconciliation",
+        "financial_reports.read",
+        LABELS.get(kind, "Something doesn't add up"),
+        detail
+    );
     return True;
 }
 
