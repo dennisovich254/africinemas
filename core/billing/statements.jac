@@ -34,6 +34,8 @@ import uuid;
 import from datetime { datetime, date, timedelta }
 import from zoneinfo { ZoneInfo }
 import from core.clock { now }
+import from core.billing.billing_text { kes, day_label, month_label }
+import from core.notify.notices { post_notice }
 import from core.claims { claim, holder, take_claim, release, make_permanent }
 import from core.money { BP_PER_WHOLE, div_half_up }
 import from core.tenancy.models { Tenant }
@@ -413,6 +415,22 @@ def issue_for(
     return made;
 }
 
+# Statements issued this recently get a notice if they have none (issue_due).
+glob ANNOUNCE_DAYS: int = 30;
+
+def announce(cinema: Tenant, s: Statement) {
+    # Who reads the reports hears of a statement in the back office (owner, 2026-11-01).
+    post_notice(
+        cinema,
+        "statement",
+        "billing",
+        "financial_reports.read",
+        f"Your {month_label(s.month)} statement and invoice {s.number}",
+        f"{kes(int(s.figures.get('due_cents', 0)))} due by {day_label(s.due_on)}.",
+        f"statement|{s.number}"
+    );
+}
+
 def issue_due(
     cinemas: list[Tenant], at: datetime, month_in_progress: bool = False
 ) -> list[str] {
@@ -427,6 +445,18 @@ def issue_due(
         }
         if got is not None {
             made.append(got.number);
+        }
+        # Every recent statement has its notice: a new one now, and those issued
+        # before notices existed (owner, 2026-11-01). Once each, by its number.
+        try {
+            for s in statements_of(cinema) {
+                if s.issued_on
+                    >= (at.date() - timedelta(days=ANNOUNCE_DAYS)).isoformat() {
+                    announce(cinema, s);
+                }
+            }
+        } except Exception as e {
+            print(f"billing: {cinema.slug}'s notices failed: {e}");
         }
     }
     return made;

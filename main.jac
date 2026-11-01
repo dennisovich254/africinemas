@@ -17,6 +17,11 @@ import from core.tenancy.tenant_api {
     start_shift,  # jac:ignore[W2037]
     end_shift  # jac:ignore[W2037]
 }
+# The bell and the sidebar's badges (owner, 2026-11-01).
+import from core.notify.notices {
+    my_notices,  # jac:ignore[W2037]
+    read_notices  # jac:ignore[W2037]
+}
 import from core.tenancy.staff_api {
     invite_staff,  # jac:ignore[W2037]
     accept_invite,  # jac:ignore[W2037]

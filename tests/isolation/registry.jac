@@ -438,6 +438,22 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
          "legal_document": {"scope": "public", "audit": "", "probe": {"name": "terms"}},
          "check_slug": {"scope": "caller", "audit": "", "probe": {"slug": "free-name"}},
          "my_access": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
+         # The bell and the sidebar's badges (owner, 2026-11-01): the caller's own notices.
+         "my_notices": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {"tenant": "{tenant}"}
+         },
+         "read_notices": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "ids": [],
+                 "section": "",
+                 "everything": True
+             }
+         },
          # The cinema's public information (P14.3a): its staff who change settings.
          "site_info": {"scope": "tenant", "audit": "", "probe": {"tenant": "{tenant}"}},
          "save_site_info": {

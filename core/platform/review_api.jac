@@ -18,6 +18,7 @@ request.
 import os;
 import json;
 import html;
+import from core.notify.notices { post_notice }
 import from email.utils { formataddr }
 import from core.claims { claim, release, claims_in }
 import from core.catalog.answers { Refused, answer }
@@ -41,6 +42,12 @@ import from core.site { main_address }
 import from core.platform.jobs { ran }
 
 glob REVIEW: str = "platform.review",
+     # The owner's notice of a decision (owner, 2026-11-01).
+     DECISION_TITLES: dict[str, str] = {
+         "approve": "Your cinema is verified",
+         "changes": "AfriCinemas asked for changes to your verification",
+         "reject": "Your verification was rejected"
+     },
      DECISION_MAIL: str = "verification-decision-mail",
      SENDING: str = "verification-decision-sending",
      SENDING_S: int = 120,
@@ -159,6 +166,14 @@ def _decide(
     cinema = _find(slug);
     decide(cinema, decision, reasons, reviewer);
     said = record_of(cinema)["reasons"];
+    post_notice(
+        cinema,
+        "verification",
+        "verification",
+        "tenant.verification",
+        DECISION_TITLES.get(decision, "AfriCinemas reviewed your cinema"),
+        " ".join(said)
+    );
     for address in owners_of(cinema) {
         claim(
             DECISION_MAIL,

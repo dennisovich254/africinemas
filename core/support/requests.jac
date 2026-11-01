@@ -17,6 +17,7 @@ so.
 """
 
 import from core.clock { now }
+import from core.notify.notices { post_notice }
 import from core.catalog.answers { Refused, answer }
 import from core.authz.context { scoped }
 import from core.tenancy.models { Tenant }
@@ -560,6 +561,14 @@ def _answer(
     clean = _text(text, bool(image_base64));
     image = _screenshot(cinema, image_type, image_base64);
     _add(cinema, request, AFRICINEMAS, me.email, clean, WAITING, image);
+    post_notice(
+        cinema,
+        "support_reply",
+        "help",
+        "support.request",
+        "AfriCinemas replied to your help request",
+        CATEGORIES.get(request.category, request.category)
+    );
     # One email to each owner, sent by the mail job, never inside the request.
     for address in owner_emails(cinema) {
         claim(REPLY_MAIL, fresh_node_id(), f"{node_id(cinema)}|{request_id}|{address}");

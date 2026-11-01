@@ -70,6 +70,7 @@ import from .PoliciesSection { PoliciesSection }
 import from .DocumentsSection { DocumentsSection }
 import from .VerificationSection { VerificationSection }
 import from ..support.live { use_waiting_for_cinema }
+import from .Notifications { use_notices, NotificationsBell }
 import from .SnackCounterSection { SnackCounterSection }
 import from .ProfileSection { ProfileSection }
 import from .AgreementSection { AgreementSection, AgreementNotice }
@@ -341,6 +342,17 @@ def:pub BackOffice -> JsxElement {
     answered = use_waiting_for_cinema(slug, may_ask);
     # Reconciliation's count: what's open, for those who resolve it (P15.6).
     unresolved = use_open_exceptions(slug, "financial_reports.read" in held);
+    # Notices (owner, 2026-11-01): the bell, and Billing's and Verification's counts.
+    [notices, mark_notices] = use_notices(slug, access is not None);
+    unread_in: dict[str, int] = notices["sections"];
+
+    def read_section {
+        # Opening a section reads its notices.
+        if section and unread_in.get(section, 0) > 0 {
+            mark_notices([], section, False);
+        }
+    }
+    useEffect(read_section, [section, unread_in.get(section, 0)]);
 
     if missing or failed {
         return
@@ -377,9 +389,16 @@ def:pub BackOffice -> JsxElement {
             </ThemeProvider>;
     }
     me: dict[str, any] = access;  # jac:ignore[W1037]
+    bell = <NotificationsBell slug={slug} notices={notices} mark={mark_notices}/>;
     permissions: list[str] = me["permissions"];
     nav = nav_for(slug, permissions);
-    counts: dict[str, int] = {"help": answered, "reconciliation": unresolved};
+    # Help and Reconciliation count what's waiting; Billing and Verification, what's new.
+    counts: dict[str, int] = {
+        "help": answered,
+        "reconciliation": unresolved,
+        "billing": unread_in.get("billing", 0),
+        "verification": unread_in.get("verification", 0)
+    };
     nav = [
         {** item, "count": str(counts[item["key"]])}
             if counts.get(item["key"], 0)
@@ -406,6 +425,7 @@ def:pub BackOffice -> JsxElement {
     } elif section == "" {
         content = <StaffHome
             slug={slug}
+            bell={bell}
             shift_open={shift_open}
             permissions={permissions}
             roles={[role_label(k) for k in role_keys(me["assignments"])]}
@@ -506,6 +526,7 @@ def:pub BackOffice -> JsxElement {
                 home={section_path(slug, "")}
                 account={<AccountActions slugs={[slug]} switch_to="/app"/>}
                 title_hidden={section == "" and allowed}
+                toolbar={bell if section != "" or not allowed else None}
             >
                 {section != ""
                     and <p className="-mt-3 text-sm text-muted-foreground">
