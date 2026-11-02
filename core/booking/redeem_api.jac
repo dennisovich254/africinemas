@@ -226,6 +226,8 @@ def _redeem(tenant: str, screening_id: str, code: str) -> dict[str, any] {  # ja
         ticket.status = "used";
         ticket.used_at = stamp;
         ticket.used_by = member;
+        ticket.version += 1;
+        ticket.changed_at = stamp;
         commit_now();
     } except Exception as e {
         release(USED, node_id(ticket), mine);

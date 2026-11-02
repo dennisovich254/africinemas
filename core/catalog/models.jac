@@ -100,7 +100,10 @@ node Screening {
         counter_add: list[str] = [],
         counter_free: list[str] = [],
         # Seats kept for the counter after the release time: kept until the start.
-        counter_late: list[str] = [];
+        counter_late: list[str] = [],
+        # For the offline scanner's sync (docs/specs/offline-scanner.md §7.3): rises on
+        # every change, when updated_at is set.
+        version: int = 1;
 }
 
 node SeatSlot {

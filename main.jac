@@ -11,6 +11,7 @@ import from core.tenancy.tenant_api {
     storefront_preview,  # jac:ignore[W2037]
     rename_cinema,  # jac:ignore[W2037]
     set_doors_open,  # jac:ignore[W2037]
+    set_offline_scanning,  # jac:ignore[W2037]
     box_office_rules,  # jac:ignore[W2037]
     set_box_office_rules,  # jac:ignore[W2037]
     set_counter_release_hours,  # jac:ignore[W2037]
@@ -134,6 +135,15 @@ import from core.booking.door_list {
     door_list,  # jac:ignore[W2037]
     door_list_pdf,  # jac:ignore[W2037]
     day_door_lists_pdf  # jac:ignore[W2037]
+}
+# The offline scanner's grants and door copy (17.2b, docs/specs/offline-scanner.md).
+import from core.door.grants {
+    door_grant,  # jac:ignore[W2037]
+    revoke_door_device  # jac:ignore[W2037]
+}
+import from core.door.pack {
+    door_pack,  # jac:ignore[W2037]
+    door_pack_changes  # jac:ignore[W2037]
 }
 # Selling at the box office: cash or M-Pesa at the counter (P6.5).
 import from core.booking.counter_api {

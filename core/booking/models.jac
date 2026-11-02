@@ -91,5 +91,9 @@ node Ticket {
         status: str = "issued",
         issued_at: str = "",
         used_at: str = "",
-        used_by: str = "";
+        used_by: str = "",
+        # For the offline scanner's sync (docs/specs/offline-scanner.md §7.3): rises,
+        # with changed_at, on every change a door copy shows.
+        version: int = 1,
+        changed_at: str = "";
 }

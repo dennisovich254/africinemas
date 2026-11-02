@@ -24,7 +24,8 @@ import from core.tenancy.tenant_api {
     storefront_preview,
     box_office_rules,
     set_box_office_rules,
-    set_counter_release_hours
+    set_counter_release_hours,
+    set_offline_scanning
 }  # jac:ignore[W2037]
 import from core.tenancy.staff_api {
     invite_staff,  # jac:ignore[W2037]
@@ -68,6 +69,14 @@ import from core.booking.door_list {
     door_list,  # jac:ignore[W2037]
     door_list_pdf,  # jac:ignore[W2037]
     day_door_lists_pdf  # jac:ignore[W2037]
+}
+import from core.door.grants {
+    door_grant,  # jac:ignore[W2037]
+    revoke_door_device  # jac:ignore[W2037]
+}
+import from core.door.pack {
+    door_pack,  # jac:ignore[W2037]
+    door_pack_changes  # jac:ignore[W2037]
 }
 import from core.booking.ticket_delivery {
     tickets_by_link,  # jac:ignore[W2037]
