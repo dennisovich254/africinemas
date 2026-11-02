@@ -252,6 +252,7 @@ def _set_format(tenant: str, screening_id: str, format: str) -> dict[str, any] {
     try {
         screening.format = cleaned;
         screening.updated_at = now().isoformat();
+        screening.version += 1;
         flush_now();
     } finally {
         restore(me);
@@ -306,6 +307,7 @@ def _reschedule_screening(
             screening.starts_at = start.isoformat();
             screening.ends_at = end.isoformat();
             screening.updated_at = now().isoformat();
+            screening.version += 1;
             screen.schedule_rev += 1;  # makes concurrent schedulings clash (see models)
             flush_now();
         } finally {
@@ -338,6 +340,7 @@ def _move_to(
     try {
         screening.state = target.value;
         screening.updated_at = now().isoformat();
+        screening.version += 1;
         flush_now();
     } finally {
         restore(me);
@@ -435,6 +438,7 @@ def _publish(tenant: str, screening_id: str) -> dict[str, any] {  # jac:ignore[W
         _make_slots(scope, screening);
         screening.state = ScreeningState.PUBLISHED.value;
         screening.updated_at = now().isoformat();
+        screening.version += 1;
         flush_now();
     } finally {
         restore(me);
@@ -726,6 +730,7 @@ def _set_showtime_counter(
             _set_counter_changes(screening, chosen, base);
         }
         screening.updated_at = now().isoformat();
+        screening.version += 1;
         flush_now();
     } finally {
         restore(me);

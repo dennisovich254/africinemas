@@ -66,6 +66,9 @@ node Tenant {
         suspended_by: str = "",
         # Minutes before a showtime's start that its tickets can be scanned.
         doors_open_minutes: int = DOORS_OPEN_DEFAULT,
+        # Whether staff phones may admit people with no connection (plan 17.2b,
+        # docs/specs/offline-scanner.md): off until the cinema turns it on.
+        offline_scanning: bool = False,
         # The box office's rules (P15.6b): how long a shift lasts, and the most one
         # cash count may be.
         shift_hours: int = SHIFT_HOURS_DEFAULT,

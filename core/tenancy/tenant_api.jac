@@ -126,6 +126,23 @@ def _do_set_doors_open(tenant: str, minutes: int) -> dict[str, any] {  # jac:ign
     return {"ok": True, "doors_open_minutes": minutes};
 }
 
+def _do_set_offline_scanning(tenant: str, on: bool) -> dict[str, any] {  # jac:ignore[W1037]
+    try {
+        scope = scoped(tenant, "tenant.settings.update");
+    } except NotFound {
+        return NOT_FOUND;
+    } except NoShift {
+        return NO_SHIFT;
+    } except Forbidden {
+        return FORBIDDEN;
+    }
+    if not isinstance(on, bool) {
+        return refused("invalid_setting", "Turn offline scanning on or off.");
+    }
+    scope.tenant.offline_scanning = on;
+    return {"ok": True, "offline_scanning": on};
+}
+
 def _rules_of(cinema: any) -> dict[str, any] {  # jac:ignore[W1037]
     return {
         "ok": True,
@@ -234,6 +251,19 @@ def:protect rename_cinema(tenant: str, name: str) -> dict[str, any] {  # jac:ign
         "cinema",
         tenant,
         lambda -> any { return _do_rename_cinema(tenant, name); }  # jac:ignore[W1037]
+    );
+}
+
+def:protect set_offline_scanning(tenant: str, on: bool) -> dict[str, any] {  # jac:ignore[W1037]
+    # Whether staff phones may admit people with no connection (17.2b,
+    # docs/specs/offline-scanner.md). Turning it off stops new grants; devices already
+    # offline keep theirs until it expires.
+    return audited(
+        tenant,
+        "cinema.offline_scanning_changed",
+        "cinema",
+        tenant,
+        lambda -> any { return _do_set_offline_scanning(tenant, on); }  # jac:ignore[W1037]
     );
 }
 

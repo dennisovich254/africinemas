@@ -139,7 +139,8 @@ def confirm_order(cinema: Tenant, order: Order, takings: Takings, also: any = No
                 glasses_bought=str(line["seat_label"]) in order.glasses_seats,
                 reference=code[2],
                 qr=code[3],
-                issued_at=stamp
+                issued_at=stamp,
+                changed_at=stamp
             );
             assign_id(ticket, code[0]);
             order ++> ticket;

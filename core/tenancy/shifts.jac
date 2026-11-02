@@ -11,7 +11,7 @@ When it started is kept beside it (SHIFT_STARTS), for "count your last shift fir
 
 import os;
 import from core.clock { now }
-import from core.claims { claim, holder, renew, release }
+import from core.claims { claim, holder, renew, release, expires_in }
 
 glob SHIFT_CLAIMS: str = "staff-shift",
      SHIFT_STARTS: str = "staff-shift-start",
@@ -50,6 +50,14 @@ def shift_started_at(tenant_id: str, member_id: str) -> str {
         return "";
     }
     return holder(SHIFT_STARTS, _key(tenant_id, member_id)) or "";
+}
+
+def shift_left_s(tenant_id: str, member_id: str) -> float {
+    # Seconds until the member's open shift lapses; 0 when none is open.
+    if not shift_is_open(tenant_id, member_id) {
+        return 0.0;
+    }
+    return expires_in(SHIFT_CLAIMS, _key(tenant_id, member_id)) or 0.0;
 }
 
 def shift_is_open(tenant_id: str, member_id: str) -> bool {

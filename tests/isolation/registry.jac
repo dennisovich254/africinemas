@@ -551,6 +551,12 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "cinema.doors_changed",
              "probe": {"tenant": "{tenant}", "minutes": 30}
          },
+         # Whether staff phones may admit people offline (17.2b).
+         "set_offline_scanning": {
+             "scope": "tenant",
+             "audit": "cinema.offline_scanning_changed",
+             "probe": {"tenant": "{tenant}", "on": False}
+         },
          "box_office_rules": {
              "scope": "tenant",
              "audit": "",
@@ -1102,6 +1108,40 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "scope": "tenant",
              "audit": "door_list.downloaded",
              "probe": {"tenant": "{tenant}", "day": "2026-01-01"}
+         },
+         # The offline scanner (17.2b). door_grant audits door_grant.issued itself, the
+         # first grant each day per device; a refused one records nothing.
+         "door_grant": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "device_id": "probe-device-1",
+                 "device_name": "Probe"
+             }
+         },
+         "door_pack": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "device_id": "probe-device-1",
+                 "grant_id": "x"
+             }
+         },
+         "door_pack_changes": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "device_id": "probe-device-1",
+                 "cursor": "x"
+             }
+         },
+         "revoke_door_device": {
+             "scope": "tenant",
+             "audit": "door_grant.revoked",
+             "probe": {"tenant": "{tenant}", "device_id": "probe-device-1"}
          },
          "counter_showtimes": {
              "scope": "tenant",

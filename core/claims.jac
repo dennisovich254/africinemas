@@ -75,6 +75,19 @@ def holder(namespace: str, key: str) -> str | None {
     return _store().kv_get(_key(namespace, key));
 }
 
+def expires_in(namespace: str, key: str) -> float | None {
+    # Seconds until a live claim with a time-to-live lapses; None when there's no live
+    # claim, or it's permanent.
+    found = _store().rows(
+        """
+        SELECT EXTRACT(EPOCH FROM expires_at - now()) FROM kv_state
+        WHERE key = :k AND expires_at IS NOT NULL AND expires_at > now()
+        """,
+        {"k": _key(namespace, key)}
+    );
+    return float(found[0][0]) if found else None;
+}
+
 def make_permanent(namespace: str, key: str, owner: str) -> bool {
     # Turns `owner`'s live provisional claim into a permanent one.
     return bool(
