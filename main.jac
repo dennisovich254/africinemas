@@ -18,6 +18,8 @@ import from core.tenancy.tenant_api {
     start_shift,  # jac:ignore[W2037]
     end_shift  # jac:ignore[W2037]
 }
+# The installed scanner's service worker and manifest (plan 17.2b).
+import from core.door.shell { door_service_worker, door_manifest }
 # The bell and the sidebar's badges (owner, 2026-11-01).
 import from core.notify.notices {
     my_notices,  # jac:ignore[W2037]
