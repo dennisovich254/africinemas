@@ -1143,6 +1143,17 @@ glob REGISTRY: dict[str, dict[str, any]] = {  # jac:ignore[W1037]
              "audit": "door_grant.revoked",
              "probe": {"tenant": "{tenant}", "device_id": "probe-device-1"}
          },
+         # Audits ticket.scanned itself, per ticket an upload redeems.
+         "upload_door_scans": {
+             "scope": "tenant",
+             "audit": "",
+             "probe": {
+                 "tenant": "{tenant}",
+                 "device_id": "probe-device-1",
+                 "protocol": "door-upload/1",
+                 "entries": []
+             }
+         },
          "counter_showtimes": {
              "scope": "tenant",
              "audit": "",

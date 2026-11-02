@@ -264,7 +264,7 @@ Inside the grant but with a 401 (§6.4), the device continues for 15 minutes wit
 
 ### 9.4 Offline decisions
 
-Checked in this order, matching the online code (`_reference` in `redeem_api.jac`):
+Checked in this order, matching the online code (`reference_of` in `redeem_api.jac`):
 
 | # | Check | Code | Shown |
 |---|---|---|---|

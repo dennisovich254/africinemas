@@ -95,5 +95,8 @@ node Ticket {
         # For the offline scanner's sync (docs/specs/offline-scanner.md §7.3): rises,
         # with changed_at, on every change a door copy shows.
         version: int = 1,
-        changed_at: str = "";
+        changed_at: str = "",
+        # Redeemed by an offline scan, uploaded later (§12); the scan that redeemed it.
+        used_offline: bool = False,
+        used_scan_id: str = "";
 }

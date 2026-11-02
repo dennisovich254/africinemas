@@ -145,6 +145,7 @@ import from core.door.pack {
     door_pack,  # jac:ignore[W2037]
     door_pack_changes  # jac:ignore[W2037]
 }
+import from core.door.uploads { upload_door_scans }  # jac:ignore[W2037]
 # Selling at the box office: cash or M-Pesa at the counter (P6.5).
 import from core.booking.counter_api {
     counter_showtimes,  # jac:ignore[W2037]
