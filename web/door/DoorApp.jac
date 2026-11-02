@@ -107,7 +107,8 @@ def _head_links {
     }
     for (rel, href) in [
         ("manifest", "/door/manifest.webmanifest"),
-        ("apple-touch-icon", "/static/door/icon-192.png")
+        ("apple-touch-icon", "/static/assets/door/icon-192.png"),
+        ("icon", "/static/assets/door/icon-192.png")
     ] {
         link: any = doc.createElement("link");  # jac:ignore[W1037,W6001]
         link.rel = rel;

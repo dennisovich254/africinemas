@@ -44,6 +44,11 @@ test "the worker and manifest are served as themselves" {
         assert manifest.headers["content-type"].startswith("application/manifest+json");
         body = manifest.json();
         assert body["start_url"] == "/door/" and body["scope"] == "/door/" , body;
+        # Chrome offers to install only if the manifest's icons load.
+        for icon in body["icons"] {
+            got = page.request.get(BASE_URL + icon["src"]);
+            assert got.status == 200 , (icon["src"], got.status);
+        }
     } finally {
         close_contexts(browser);
     }

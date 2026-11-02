@@ -131,17 +131,17 @@ self.addEventListener('fetch', (event) => {
          "theme_color": "#111118",
          "icons": [
              {
-                 "src": "/static/door/icon-192.png",
+                 "src": "/static/assets/door/icon-192.png",
                  "sizes": "192x192",
                  "type": "image/png"
              },
              {
-                 "src": "/static/door/icon-512.png",
+                 "src": "/static/assets/door/icon-512.png",
                  "sizes": "512x512",
                  "type": "image/png"
              },
              {
-                 "src": "/static/door/icon-512.png",
+                 "src": "/static/assets/door/icon-512.png",
                  "sizes": "512x512",
                  "type": "image/png",
                  "purpose": "maskable"
