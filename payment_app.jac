@@ -78,6 +78,7 @@ import from core.door.pack {
     door_pack,  # jac:ignore[W2037]
     door_pack_changes  # jac:ignore[W2037]
 }
+import from core.door.uploads { upload_door_scans }  # jac:ignore[W2037]
 import from core.booking.ticket_delivery {
     tickets_by_link,  # jac:ignore[W2037]
     resend_tickets,  # jac:ignore[W2037]
